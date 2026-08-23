@@ -1,0 +1,166 @@
+/* Símbolo do Solis — os 5 estados.
+ *
+ * ARQUITETURA (SOLIS_SIGNATURE.md, Camada 3): a marca aprovada é raster
+ * achatado, não SVG em camadas. Não dá pra recortar o glow de dentro da arte.
+ * Então o glow é uma camada CSS INDEPENDENTE, atrás da imagem. A arte aprovada
+ * nunca é modificada — só a camada de trás pulsa.
+ *
+ * Aqui a arte entra como MÁSCARA CSS de solis-symbol-mono-transparent.png (o
+ * único asset com canal alpha real). Isso dá duas coisas de graça: transparência
+ * de verdade sobre qualquer fundo, e a possibilidade de tingir o símbolo com os
+ * tokens do ciclo do dia sem gerar uma imagem por fase.
+ *
+ * PERFORMANCE.md: todo loop aqui é compositor-only (transform/opacity).
+ * Nenhum `filter` animado, nenhuma `box-shadow` animada.
+ */
+
+.solis-symbol {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--symbol-size, var(--solis-symbol-md));
+  aspect-ratio: 1672 / 940; /* proporção nativa do asset — não distorcer */
+  isolation: isolate;
+}
+
+/* A arte. Fica na frente do glow. */
+.solis-symbol__art {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  background-color: var(--solis-day-color-a, var(--solis-solar));
+  -webkit-mask-image: url("/brand/solis-symbol-mono-transparent.png");
+  mask-image: url("/brand/solis-symbol-mono-transparent.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+/* A camada de glow, atrás da arte. É só ela que anima. */
+.solis-symbol__glow {
+  position: absolute;
+  inset: -40%;
+  z-index: 0;
+  border-radius: 50%;
+  /* `closest-side` importa: sem ele o gradiente usa o canto mais distante como
+   * raio e ainda está visível ao chegar na borda da caixa, o que deixa um corte
+   * duro em vez de um glow. Com closest-side o desvanecimento fecha dentro da
+   * própria caixa. */
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in srgb, var(--solis-day-color-a, var(--solis-solar)) 55%, transparent) 0%,
+    color-mix(in srgb, var(--solis-day-color-a, var(--solis-solar)) 22%, transparent) 45%,
+    transparent 100%
+  );
+  will-change: transform, opacity;
+  /* Valor de repouso — cada estado sobrescreve abaixo. */
+  opacity: 0.4;
+}
+
+/* ---------- estados ---------- */
+/* Trocar de estado é trocar de classe. Nunca setInterval/rAF em JS mexendo em
+ * posição ou opacidade frame a frame — isso pagaria reconciliação do React a
+ * cada tick (PERFORMANCE.md seção 4). */
+
+/* idle — respiração lenta. Fica ativo o tempo todo, então é o loop que mais
+ * importa ser barato. */
+.solis-symbol[data-state="idle"] .solis-symbol__glow {
+  animation: solis-breathe var(--solis-dur-idle) var(--solis-easing) infinite;
+}
+@keyframes solis-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+/* listening — NÃO é um loop decorativo. A opacidade e a escala vêm da amplitude
+ * real do microfone, via --solis-audio-level (0..1), escrita pelo useAudioLevel.
+ * Faixa limitada de propósito: opacity 0.4–0.9 e scale 0.95–1.15. Nunca vai a 0
+ * nem a um extremo — o Solis continua calmo mesmo reagindo. */
+.solis-symbol[data-state="listening"] .solis-symbol__glow {
+  opacity: calc(0.4 + var(--solis-audio-level, 0) * 0.5);
+  transform: scale(calc(0.95 + var(--solis-audio-level, 0) * 0.2));
+  /* Transição curta só pra tirar a serrilha entre amostras. A suavização de
+   * verdade (média móvel) acontece no hook, não aqui. */
+  transition: opacity 90ms linear, transform 90ms linear;
+}
+
+/* thinking — rotação sutil do arco + pulso do núcleo. rotate é transform. */
+.solis-symbol[data-state="thinking"] .solis-symbol__glow {
+  animation: solis-thinking var(--solis-dur-thinking) linear infinite;
+}
+@keyframes solis-thinking {
+  0% {
+    opacity: 0.45;
+    transform: rotate(0deg) scale(0.96);
+  }
+  50% {
+    opacity: 0.75;
+    transform: rotate(180deg) scale(1.04);
+  }
+  100% {
+    opacity: 0.45;
+    transform: rotate(360deg) scale(0.96);
+  }
+}
+
+/* responding — pulso luminoso mais forte. */
+.solis-symbol[data-state="responding"] .solis-symbol__glow {
+  animation: solis-responding var(--solis-dur-responding) var(--solis-easing) infinite;
+}
+@keyframes solis-responding {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.12);
+  }
+}
+
+/* executing — brilho intenso CONSTANTE, sem loop (motion.state.executing
+ * tem durationMs: 0). Nada de animação aqui de propósito.
+ *
+ * ⚠️ LACUNA CONHECIDA: não existe asset aprovado pro estado "Executando" que
+ * respeite a regra "sem raios de sol" (DS 3.1) — a única imagem gerada nessa
+ * intensidade tem raios, o que contraria a marca. Aqui o estado é resolvido só
+ * com intensidade de glow sobre a arte aprovada, sem trocar de asset. Se a
+ * decisão for ter arte própria pra esse estado, ela ainda precisa ser gerada. */
+.solis-symbol[data-state="executing"] .solis-symbol__glow {
+  opacity: 0.95;
+  transform: scale(1.12);
+}
+
+/* ---------- movimento reduzido ----------
+ * A informação nunca some, só a movimentação. Em listening o glow vira
+ * indicador estático de nível: a opacidade continua respondendo ao áudio,
+ * a escala trava. */
+@media (prefers-reduced-motion: reduce) {
+  .solis-symbol__glow {
+    animation: none !important;
+  }
+  .solis-symbol[data-state="listening"] .solis-symbol__glow {
+    transform: none;
+    transition: opacity 120ms linear;
+  }
+}
+
+:root[data-reduced-motion="true"] .solis-symbol__glow {
+  animation: none !important;
+}
+:root[data-reduced-motion="true"] .solis-symbol[data-state="listening"] .solis-symbol__glow {
+  transform: none;
+  transition: opacity 120ms linear;
+}
