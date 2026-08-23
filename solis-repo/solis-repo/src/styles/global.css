@@ -1,0 +1,24 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base do app. Cores e tipografia saem dos tokens — nenhum valor solto. */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--solis-night);
+    color: var(--solis-warm-white);
+    font-family: var(--solis-font-body);
+    font-size: var(--solis-body-size);
+    /* O horizonte é a única coisa que se move no fundo; a janela em si não rola. */
+    overflow: hidden;
+  }
+}
