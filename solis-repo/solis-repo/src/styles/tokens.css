@@ -1,0 +1,148 @@
+/* Solis — tokens em CSS.
+ * FONTE ÚNICA DE VERDADE: docs/solis-tokens.json.
+ * Nenhum valor aqui pode existir sem estar naquele arquivo. Se precisar de um
+ * valor novo, ele entra primeiro no JSON e só depois é traduzido pra cá.
+ *
+ * Decisão de projeto (Matheus, confirmada): o JSON manda na COR (a paleta é
+ * validada em contraste WCAG e fica como está). As imagens de referência mandam
+ * em layout, espaçamento, hierarquia e posição. As telas de referência foram
+ * geradas e têm variação de hex por compressão/gradiente — não são amostradas
+ * como fonte de paleta.
+ */
+
+:root {
+  /* ---- color (solis-tokens.json → color) ---- */
+  --solis-solar: #FFB74D;
+  --solis-amber: #F08A24;
+  --solis-light: #FFE3A6;
+  --solis-night: #071019;
+  --solis-deep: #0D1722;
+  --solis-warm-white: #F5F0E7;
+  --solis-muted: #A1A7B3;
+  --solis-success: #8FBF6D;
+  --solis-error: #E4674A;
+
+  /* ---- radius ---- */
+  --solis-radius-sm: 8px;
+  --solis-radius-md: 12px;
+  --solis-radius-lg: 16px;
+  --solis-radius-pill: 999px;
+
+  /* ---- spacing ---- */
+  --solis-space-xs: 4px;
+  --solis-space-sm: 8px;
+  --solis-space-md: 12px;
+  --solis-space-lg: 16px;
+  --solis-space-xl: 24px;
+  --solis-space-2xl: 32px;
+  --solis-space-3xl: 48px;
+  --solis-space-4xl: 64px;
+
+  /* ---- elevation ----
+   * Fundo escuro demais pra box-shadow tradicional: elevação = superfície +
+   * borda translúcida em Solar. Glow é funcional (elemento ativo), nunca
+   * hierarquia estática. */
+  --solis-elevation-0-bg: var(--solis-night);
+  --solis-elevation-1-bg: var(--solis-deep);
+  --solis-elevation-1-border: 1px solid rgba(255, 183, 77, 0.08);
+  --solis-elevation-2-bg: var(--solis-deep);
+  --solis-elevation-2-border: 1px solid rgba(255, 183, 77, 0.16);
+
+  /* ---- typography ----
+   * PROVISÓRIO: a fonte final não foi escolhida (DS v0.1 seção 8 — Inter, Sora,
+   * Manrope, Poppins). system-ui é a fonte ATIVA por decisão de performance
+   * (PERFORMANCE.md seção 2: zero dependência de rede). Trocar depois = self-host
+   * de .woff2 no bundle do Tauri, nunca CDN. */
+  --solis-font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --solis-font-display: var(--solis-font-body);
+  --solis-wordmark-tracking: 4px;
+
+  --solis-title1-size: 32px;
+  --solis-title1-weight: 600;
+  --solis-title2-size: 20px;
+  --solis-title2-weight: 500;
+  --solis-body-size: 16px;
+  --solis-body-weight: 400;
+  --solis-caption-size: 12px;
+  --solis-caption-weight: 400;
+
+  /* ---- icon / symbol ---- */
+  --solis-icon-stroke: 2px;
+  --solis-icon-stroke-small: 1.5px;
+  --solis-icon-stroke-strong: 2.5px;
+  --solis-icon-xs: 16px;
+  --solis-icon-sm: 20px;
+  --solis-icon-md: 24px;
+  --solis-symbol-sm: 32px;
+  --solis-symbol-md: 48px;
+  --solis-symbol-lg: 64px;
+  --solis-symbol-xl: 128px;
+
+  /* ---- motion ----
+   * PROVISÓRIO: as durações vieram do protótipo visual e nunca foram validadas
+   * em produto real rodando junto com STT/visão/LLM. Revalidar antes de travar. */
+  --solis-easing: cubic-bezier(0.45, 0, 0.2, 1);
+  --solis-dur-idle: 4500ms;
+  --solis-dur-listening: 1600ms;
+  --solis-dur-thinking: 3000ms;
+  --solis-dur-responding: 1100ms;
+  /* 'executing' é brilho intenso constante, sem loop (durationMs: 0). */
+
+  /* PROVISÓRIO: sequência de loading núcleo → expansão → fechamento, sem timing oficial. */
+  --solis-dur-loading-core: 400ms;
+  --solis-dur-loading-expand: 600ms;
+  --solis-dur-loading-close: 400ms;
+
+  /* Horizonte (Camada 1): ciclo muito mais lento que o símbolo, quase subliminar.
+   * SOLIS_SIGNATURE.md: se alguém aponta quando o ciclo "bate", está rápido demais. */
+  --solis-dur-horizon: 90s;
+
+  /* ---- assinatura: variáveis dirigidas em runtime ----
+   * --solis-audio-level: 0..1, escrito pelo useAudioLevel (Web Audio API).
+   * --solis-day-*: escrito pelo useDayCycle a partir da hora real. */
+  --solis-audio-level: 0;
+  --solis-day-sun-position: 0.05;
+  --solis-day-glow-intensity: 0.05;
+  --solis-day-color-a: var(--solis-night);
+  --solis-day-color-b: var(--solis-deep);
+}
+
+/* ---- modo claro (colorLight, marcado NOVO no JSON) ----
+ * A tela 06-configuracoes.png tem "Tema: Escuro" como dropdown, então o modo
+ * claro existe como opção de produto. Cores existentes (solar/amber/muted)
+ * reprovam contraste como texto sobre fundo claro — por isso os 3 tokens novos.
+ * Elevação em modo claro usa box-shadow real e sutil: a regra do PERFORMANCE.md
+ * é contra sombra ANIMADA em loop, não contra sombra estática. */
+:root[data-theme="light"] {
+  --solis-canvas: var(--solis-warm-white);
+  --solis-paper: #FFFFFF;
+  --solis-graphite: #5C6470;
+  --solis-amber-deep: #9A5510;
+  --solis-text-primary: var(--solis-night);
+  --solis-elevation-1-bg: var(--solis-paper);
+  --solis-elevation-1-border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* ---- movimento reduzido ----
+ * motion.reducedMotion: todas as durações vão para ~0ms. O glow reativo ao áudio
+ * NÃO desliga — vira indicador estático de nível (a informação continua, só a
+ * movimentação para). Ver SOLIS_SIGNATURE.md, Camada 3. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --solis-dur-idle: 0.01ms;
+    --solis-dur-listening: 0.01ms;
+    --solis-dur-thinking: 0.01ms;
+    --solis-dur-responding: 0.01ms;
+    --solis-dur-horizon: 0.01ms;
+  }
+}
+
+/* Mesma coisa, mas via preferência explícita do usuário nas Configurações
+ * (o app não depende só do prefers-reduced-motion do SO). */
+:root[data-reduced-motion="true"] {
+  --solis-dur-idle: 0.01ms;
+  --solis-dur-listening: 0.01ms;
+  --solis-dur-thinking: 0.01ms;
+  --solis-dur-responding: 0.01ms;
+  --solis-dur-horizon: 0.01ms;
+}
