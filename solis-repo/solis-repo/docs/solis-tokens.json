@@ -1,0 +1,147 @@
+{
+  "$schema": "solis-design-tokens-v0.1",
+  "color": {
+    "solar": "#FFB74D",
+    "amber": "#F08A24",
+    "light": "#FFE3A6",
+    "night": "#071019",
+    "deep": "#0D1722",
+    "warmWhite": "#F5F0E7",
+    "muted": "#A1A7B3",
+    "success": "#8FBF6D",
+    "error": "#E4674A"
+  },
+  "colorLight": {
+    "_status": "NOVO — paleta de modo claro. Reverte a decisão anterior de 'um modo só' no Figma; a coleção Solis/Color precisa ganhar um modo Light se isso voltar pro Figma.",
+    "_comment": "Cores existentes (solar/amber/muted) falham contraste como texto sobre fundo claro — não são reaproveitáveis diretas, exigiram 3 tokens novos.",
+    "paper": { "hex": "#FFFFFF", "role": "superfície de card, mais clara que o canvas" },
+    "graphite": { "hex": "#5C6470", "role": "texto secundário", "contrastOnCanvas": "5.27:1" },
+    "amberDeep": { "hex": "#9A5510", "role": "texto/ícone de destaque", "contrastOnCanvas": "5.02:1" },
+    "canvas": { "ref": "color.warmWhite", "role": "fundo do app — reaproveita token existente, sem cor nova" },
+    "textPrimary": { "ref": "color.night", "contrastOnCanvas": "16.9:1" },
+    "elevation": { "_rule": "modo claro usa box-shadow real (sutil), não borda translúcida — a regra anti-sombra do PERFORMANCE.md é só contra filter/shadow ANIMADO em loop, não contra sombra estática." }
+  },
+  "radius": {
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "pill": "999px"
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "xl": "24px",
+    "2xl": "32px",
+    "3xl": "48px",
+    "4xl": "64px"
+  },
+  "elevation": {
+    "_comment": "Fundo é escuro demais para box-shadow tradicional. Elevação = superfície + borda translúcida em Solar, não sombra.",
+    "0": { "background": "color.night", "border": "none" },
+    "1": { "background": "color.deep", "border": "1px solid rgba(255,183,77,0.08)" },
+    "2": { "background": "color.deep", "border": "1px solid rgba(255,183,77,0.16)" },
+    "glow": { "extends": "2", "note": "Somar glow funcional (ver motion.glow) apenas em elemento ativo, nunca como hierarquia estática." }
+  },
+  "typography": {
+    "_status": "PROVISÓRIO — fonte final não escolhida (DS v0.1, seção 8). Candidatas: Inter, Sora, Manrope, Poppins. Validar na interface real antes de travar.",
+    "fontFamilyDisplay": "Inter",
+    "fontFamilyBody": "Inter",
+    "wordmarkLetterSpacing": "4px",
+    "scale": {
+      "title1": { "size": "32px", "weight": 600 },
+      "title2": { "size": "20px", "weight": 500 },
+      "body": { "size": "16px", "weight": 400 },
+      "caption": { "size": "12px", "weight": 400 }
+    }
+  },
+  "icon": {
+    "strokeBase": "2px",
+    "strokeSmall": "1.5px",
+    "strokeStrong": "2.5px",
+    "cap": "round",
+    "join": "round",
+    "grid": "24x24",
+    "safeArea": "20x20",
+    "size": {
+      "xs": "16px",
+      "sm": "20px",
+      "md": "24px"
+    }
+  },
+  "symbol": {
+    "_comment": "Compartilha a escala 'icon.size' na base (16/20/24) e estende para tamanhos de marca.",
+    "size": {
+      "sm": "32px",
+      "md": "48px",
+      "lg": "64px",
+      "xl": "128px"
+    }
+  },
+  "motion": {
+    "easing": "cubic-bezier(0.45, 0, 0.2, 1)",
+    "_status": "Durações abaixo são PROVISÓRIAS — usadas no protótipo visual, ainda não validadas em produto real (DS v0.1 não define ms).",
+    "state": {
+      "idle": { "durationMs": 4500, "description": "Respiração lenta do glow, ease-in-out, loop infinito" },
+      "listening": { "durationMs": 1600, "description": "Pulso rápido + ondas subindo" },
+      "thinking": { "durationMs": 3000, "description": "Rotação sutil do arco + pulso do núcleo" },
+      "responding": { "durationMs": 1100, "description": "Pulso luminoso mais forte" },
+      "executing": { "durationMs": 0, "description": "Brilho intenso constante, sem loop" }
+    },
+    "loading": {
+      "_status": "PROVISÓRIO — sequência núcleo → expansão → fechamento → repetição (DS seção 14), sem timing oficial.",
+      "coreMs": 400,
+      "expandMs": 600,
+      "closeMs": 400
+    },
+    "reducedMotion": {
+      "rule": "Todas as durações acima devem ir para ~0ms quando prefers-reduced-motion estiver ativo ou o usuário desativar 'Movimento reduzido' nas configurações."
+    }
+  },
+  "signature": {
+    "_comment": "Ver SOLIS_SIGNATURE.md para o racional completo. Três camadas independentes: horizonte persistente, ciclo do dia, glow reativo ao áudio.",
+    "horizonPersistent": {
+      "heightPx": "2-4px",
+      "placement": "base de toda tela, renderizado uma vez no shell do app, nunca remontado ao trocar de view"
+    },
+    "dayCycle": {
+      "_rule": "Nunca criar hex novo aqui — cada fase é opacidade/mistura dos tokens de color já existentes.",
+      "phases": [
+        { "name": "madrugada", "hours": "00-05", "colors": ["night", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 },
+        { "name": "amanhecer", "hours": "05-08", "colors": ["amber", "night"], "sunArcPosition": 0.35, "glowIntensity": 0.4 },
+        { "name": "dia", "hours": "08-17", "colors": ["solar", "light"], "sunArcPosition": 1.0, "glowIntensity": 1.0 },
+        { "name": "entardecer", "hours": "17-20", "colors": ["amber", "deep"], "sunArcPosition": 0.35, "glowIntensity": 0.4 },
+        { "name": "noite", "hours": "20-24", "colors": ["muted", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 }
+      ]
+    },
+    "audioReactive": {
+      "_rule": "Fonte do dado é o frontend via Web Audio API (AnalyserNode), NUNCA o pipeline do Whisper — evita latência.",
+      "activeOnlyDuringState": "listening",
+      "smoothingFactor": 0.3,
+      "noiseFloor": 0.05,
+      "outputRange": { "opacity": [0.4, 0.9], "scale": [0.95, 1.15] },
+      "reducedMotionBehavior": "vira indicador estático de nível, sem animação de escala"
+    }
+  },
+  "states": {
+    "order": ["idle", "listening", "thinking", "responding", "executing"],
+    "labelsPtBr": {
+      "idle": "Repouso",
+      "listening": "Escutando",
+      "thinking": "Pensando",
+      "responding": "Respondendo",
+      "executing": "Executando"
+    }
+  },
+  "navigation": {
+    "items": ["Conversa", "Memória", "Modelos locais", "Ferramentas", "Tarefas", "Agenda", "Conhecimento", "Configurações"],
+    "_itemsNote": "Lista unificada — as telas geradas no GPT tinham inconsistência entre si (item faltando/ordem diferente). Esta é a lista oficial única. NOTA: 'Foco' saiu da lista e 4 itens novos entraram (Modelos locais, Tarefas, Agenda, Conhecimento) — confirmar se essa expansão de escopo é intencional.",
+    "style": {
+      "options": ["sidebar", "iconbar"],
+      "configurable": true,
+      "persistence": "local (config do usuário, não é estado de sessão)",
+      "defaultOnFirstInstall": "NÃO DEFINIDO — decisão de produto em aberto, não travar sem decidir"
+    }
+  }
+}
