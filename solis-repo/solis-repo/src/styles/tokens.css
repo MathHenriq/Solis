@@ -38,6 +38,10 @@
    * É o escurecimento que torna o texto branco legal. Trocar a receita pelo
    * token puro quebra acessibilidade — não "simplificar" isso.
    *
+   * ⚠️ TETO: 70% é o MÁXIMO de amber que ainda passa AA. Com 72% cai para
+   * 4,35:1 e reprova. A folga é de ~2 pontos percentuais — "esquentar" o balão
+   * depois quebra acessibilidade sem aviso. `npm run contraste` verifica.
+   *
    * É o único lugar do sistema onde o texto é branco puro, e não warmWhite. */
   --solis-bubble-user: color-mix(in srgb, var(--solis-amber) 70%, var(--solis-night));
   --solis-bubble-user-text: #ffffff;

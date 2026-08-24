@@ -17,7 +17,9 @@
         "computed": "#AA6521",
         "measuredInReference": "#A46514 (02-conversa-thread.png)",
         "text": "#FFFFFF",
-        "_contrast": "Branco sobre #AA6521 = 4,57:1 → AA. Medido, não assumido, como manda a seção 1 do Tokens Complementares. Para comparação: branco sobre color.amber puro = 2,51:1 e sobre color.solar puro = 1,73:1 — os dois REPROVAM. É justamente o escurecimento que torna o texto branco legal, então a receita não pode ser 'simplificada' para o token puro sem quebrar acessibilidade.",
+        "_contrast": "Branco sobre #AA6521 = 4,5725:1 → AA. Reconferido por quatro caminhos independentes, por estar perto do corte: fórmula própria (4,57), coloraide (4,5723), pacote npm wcag-contrast (4,5725) e cálculo em precisão decimal de 40 dígitos (4,572531). Para comparação: branco sobre color.amber puro = 2,51:1 e sobre color.solar puro = 1,73:1 — os dois REPROVAM. É justamente o escurecimento que torna o texto branco legal, então a receita não pode ser 'simplificada' para o token puro sem quebrar acessibilidade.",
+        "_roundingSafety": "O color-mix é resolvido pelo navegador, e o Tauri usa WebKit no macOS/Linux e WebView2 no Windows — motores que podem arredondar diferente. Testadas as 27 combinações de ±1 em cada canal: todas passam AA, pior caso #AB6622 = 4,51:1. Arredondamento de motor não quebra este token.",
+        "_ceiling": "TETO DA RECEITA: 70% é o máximo de amber que ainda passa AA. 72% já dá 4,35:1 e REPROVA. A folga é de ~2 pontos percentuais, então 'esquentar' o balão depois quebra acessibilidade em silêncio. Verificado por `npm run contraste`.",
         "_textNote": "Este é o único lugar do sistema onde o texto é branco puro e não color.warmWhite: warmWhite sobre a mistura cai para 4,03:1, abaixo de AA."
       }
     }

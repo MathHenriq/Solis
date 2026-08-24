@@ -9,10 +9,22 @@ Fórmula: contraste = (L1 + 0,05) / (L2 + 0,05), onde L é a luminância relativ
 
 | Par | Contraste | Nível |
 |---|---|---|
-| Warm White `#F5F0E7` sobre Night `#071019` | 19,0:1 | AAA |
-| Muted `#A1A7B3` sobre Deep `#0D1722` | 7,5:1 | AAA |
-| Muted `#A1A7B3` sobre Night `#071019` | 7,9:1 | AAA |
-| Night `#071019` (texto) sobre Solar `#FFB74D` (botão primary) | 11,1:1 | AAA |
+| Warm White `#F5F0E7` sobre Night `#071019` | 16,86:1 | AAA |
+| Muted `#A1A7B3` sobre Deep `#0D1722` | 7,48:1 | AAA |
+| Muted `#A1A7B3` sobre Night `#071019` | 7,92:1 | AAA |
+| Night `#071019` (texto) sobre Solar `#FFB74D` (botão primary) | 11,06:1 | AAA |
+| Success `#8FBF6D` sobre Night `#071019` | 8,97:1 | AAA |
+| Error `#E4674A` sobre Night `#071019` | 5,78:1 | AA |
+| Branco `#FFFFFF` sobre `color.bubble.user` `#AA6521` | 4,57:1 | AA |
+
+> **Correção (verificada).** A primeira linha dizia 19,0:1. O valor real é
+> **16,86:1**, conferido por três caminhos independentes (coloraide, o pacote
+> npm wcag-contrast e cálculo em precisão decimal). Continua AAA com folga, ou
+> seja, nenhuma decisão muda — mas o número estava errado. Os demais pares da
+> tabela original foram conferidos e batem.
+>
+> Todos estes pares agora são verificados automaticamente por `npm run
+> contraste`, que falha se algum deixar de cumprir o nível dele.
 
 **Conclusão:** a paleta atual já é acessível nos pares principais. Não é preciso ajustar Solar, Muted ou Warm White. Isso precisa ser reverificado sempre que uma nova combinação de cor+fundo for proposta — não assumir, medir.
 
