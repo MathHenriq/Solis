@@ -29,7 +29,16 @@
   z-index: 1;
   width: 100%;
   height: 100%;
-  background-color: var(--solis-day-color-a, var(--solis-solar));
+  /* Cor de MARCA, fixa — não o token do ciclo do dia.
+   *
+   * Antes isto lia --solis-day-color-a, e o resultado é que na fase "noite"
+   * (cujas cores são muted + deep) o símbolo do Solis ficava cinza: a marca
+   * parecia desligada, não noturna.
+   *
+   * O SOLIS_SIGNATURE.md define a Camada 2 como "a cor do horizonte e a
+   * posição do sol no arco" — o horizonte, não a marca. O ciclo do dia
+   * continua valendo por inteiro na Camada 1; aqui ele não entra. */
+  background-color: var(--solis-solar);
   -webkit-mask-image: url("/brand/solis-symbol-mono-transparent.png");
   mask-image: url("/brand/solis-symbol-mono-transparent.png");
   -webkit-mask-size: contain;
@@ -52,8 +61,8 @@
    * própria caixa. */
   background: radial-gradient(
     circle closest-side,
-    color-mix(in srgb, var(--solis-day-color-a, var(--solis-solar)) 55%, transparent) 0%,
-    color-mix(in srgb, var(--solis-day-color-a, var(--solis-solar)) 22%, transparent) 45%,
+    color-mix(in srgb, var(--solis-solar) 55%, transparent) 0%,
+    color-mix(in srgb, var(--solis-solar) 22%, transparent) 45%,
     transparent 100%
   );
   will-change: transform, opacity;
