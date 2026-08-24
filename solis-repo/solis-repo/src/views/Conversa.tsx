@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ArrowUp,
-  CheckCheck,
   Bell,
   CalendarDays,
   Globe,
@@ -273,16 +272,12 @@ export default function Conversa() {
                         ))}
                       </ul>
                     ))}
-                  <span className="conversa__time">
-                    {m.hora}
-                    {/* A referência mostra marcas de entrega no balão do
-                        usuário. Fica igual à imagem, mas vale confirmar o
-                        sentido disso num assistente local: não há entrega em
-                        rede pra confirmar. */}
-                    {m.autor === "usuario" && (
-                      <CheckCheck size={14} strokeWidth={2} aria-hidden />
-                    )}
-                  </span>
+                  {/* Sem marcas de entrega, apesar de a referência mostrar
+                      "✓✓" no balão do usuário. Divergência deliberada, decidida
+                      pelo Matheus: num assistente local não existe entrega em
+                      rede pra confirmar, então o indicador afirmaria um estado
+                      que não existe. */}
+                  <span className="conversa__time">{m.hora}</span>
                 </div>
               </div>
             ))}
