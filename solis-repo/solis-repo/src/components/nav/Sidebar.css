@@ -1,0 +1,149 @@
+/* Sidebar — medida em 05-memoria.png (8 itens, espaçamento mais regular) e
+ * conferida em 02-conversa-thread.png.
+ *
+ * Medições cruas (px de mockup → CSS pelo fator 0.9635):
+ *   largura ............ 277 / 282  →  267.0 / 271.6   → 268
+ *   pitch dos itens .... 70          →  67.5            → 68  (64 + 4 de gap)
+ *   altura do item ..... 68          →  65.5            → 64
+ * Onde a medição caiu entre dois valores, foi encaixada na escala de spacing
+ * (múltiplos de 4) em vez de virar número solto — as referências são imagens
+ * geradas e não têm grade perfeitamente consistente entre si.
+ */
+
+.sidebar {
+  width: 268px;
+  flex-shrink: 0;
+  background: var(--solis-deep);
+  border-right: 1px solid rgba(255, 183, 77, 0.08); /* elevation.1 */
+  display: flex;
+  flex-direction: column;
+  /* Medido em 02: centro da marca a ~62 do topo, centro do 1º item a ~165. */
+  padding: var(--solis-space-3xl) 0 var(--solis-space-xl);
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-md);
+  padding: 0 var(--solis-space-xl) var(--solis-space-3xl);
+}
+
+.sidebar__wordmark {
+  font-size: var(--solis-title2-size);
+  font-weight: var(--solis-title2-weight);
+  letter-spacing: var(--solis-wordmark-tracking);
+  color: var(--solis-warm-white);
+}
+
+.sidebar__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--solis-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--solis-space-xs); /* 4px — completa o pitch de 68 com o item de 64 */
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-md);
+  height: 64px;
+  padding: 0 var(--solis-space-lg);
+  border-radius: var(--solis-radius-md);
+  color: var(--solis-muted);
+  text-decoration: none;
+  position: relative;
+  /* Só cor: nada de transição de layout num item de navegação. */
+  transition: color 140ms var(--solis-easing),
+    background-color 140ms var(--solis-easing);
+}
+
+.sidebar__link:hover {
+  color: var(--solis-warm-white);
+  background: rgba(255, 183, 77, 0.04);
+}
+
+/* Item ativo: fundo levemente quente + barra âmbar na divisória.
+ * A referência mostra #0A121B de fundo — aqui isso é obtido por uma camada de
+ * Solar em opacidade baixa sobre Deep, e não por um hex novo. */
+.sidebar__link[aria-current="page"] {
+  color: var(--solis-solar);
+  background: rgba(255, 183, 77, 0.06);
+}
+
+/* A barra fica na divisória da sidebar, não colada no item — foi onde a
+ * medição a encontrou em 05 (x=298, com a divisória em 297..301). */
+.sidebar__link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  right: calc(var(--solis-space-lg) * -1);
+  top: 50%;
+  translate: 0 -50%;
+  width: 2px;
+  height: 40px;
+  border-radius: var(--solis-radius-pill);
+  background: var(--solis-solar);
+}
+
+.sidebar__label {
+  font-size: var(--solis-body-size);
+}
+
+/* Empurra o card do usuário pro rodapé. */
+.sidebar__spacer {
+  flex: 1;
+}
+
+/* Card do usuário — medido em 02: 88px de altura, inset de 16px. */
+.sidebar__user {
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-md);
+  height: 88px;
+  margin: 0 var(--solis-space-md);
+  padding: 0 var(--solis-space-md);
+  border-radius: var(--solis-radius-md);
+  background: var(--solis-deep);
+  border: 1px solid rgba(255, 183, 77, 0.08);
+}
+
+.sidebar__avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--solis-radius-pill);
+  display: grid;
+  place-items: center;
+  background: rgba(255, 183, 77, 0.16);
+  color: var(--solis-solar);
+  font-size: var(--solis-caption-size);
+  font-weight: 600;
+}
+
+.sidebar__user-info {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.sidebar__user-name {
+  font-size: var(--solis-body-size);
+  color: var(--solis-warm-white);
+}
+
+.sidebar__user-mail {
+  font-size: var(--solis-caption-size);
+  color: var(--solis-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__user-chevron {
+  margin-left: auto;
+  color: var(--solis-muted);
+  flex-shrink: 0;
+}

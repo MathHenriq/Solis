@@ -2,42 +2,82 @@
  *
  * Montado UMA vez no shell do app e nunca remontado ao trocar de tela. Isso
  * sempre foi regra, e passou a importar ainda mais agora que a Camada 1 é uma
- * cena grande e não uma linha de 2-4px: recarregar isso a cada navegação seria
- * um custo real de performance.
+ * cena grande e não uma linha de 2-4px.
  *
- * ⚠️ PROVISÓRIO — ARTE NÃO É A DEFINITIVA.
- * As telas de referência mostram um horizonte que é uma cena raster rica: limbo
- * de planeta com textura de superfície, bloom atmosférico e flare do sol. Esse
- * asset NÃO existe em referencias/brand/ — lá só há o símbolo da marca
- * (solis-symbol-wide.png), que é outra coisa: arco + domo do sol + anel de halo,
- * sem textura de superfície. O horizonte das telas está achatado dentro do
- * mockup, não dá pra recortar limpo (a UI passa por cima dele).
+ * ⚠️ PROVISÓRIO — A ARTE NÃO É A DEFINITIVA.
+ * As telas de referência mostram um horizonte que é uma cena raster rica:
+ * limbo de planeta com textura de superfície, bloom atmosférico e flare. Esse
+ * asset NÃO existe em referencias/brand/ — lá só há o símbolo da marca, que é
+ * outra coisa. E no mockup ele está achatado sob a UI, sem recorte limpo.
  *
- * O que está aqui é uma construção em CSS a partir dos tokens: leve, sem raster
- * no bundle, e com o ciclo do dia funcionando por troca de token em vez de
- * "gerar 5 imagens" (que SOLIS_SIGNATURE.md deixou em aberto como pendência).
- * Ela NÃO é pixel-idêntica à referência e não deve ser tratada como final.
- *
- * TROCA PELO ASSET APROVADO: quando o Matheus gerar o WebP do horizonte, basta
- * definir --solis-horizon-image na raiz. A estrutura de camadas, o z-index, o
- * ciclo do dia e a animação de 90s continuam iguais — é uma linha, não refactor.
+ * O que está aqui é uma construção em CSS a partir dos tokens: leve, sem
+ * raster no bundle, e com o ciclo do dia funcionando por troca de token em vez
+ * de "gerar 5 imagens". Não é pixel-idêntica e não deve ser tratada como final.
+ * Trocar pelo asset aprovado é definir --solis-horizon-image: uma linha.
  *
  * ⛔ SEM RAIOS — E ISSO É DIVERGÊNCIA DELIBERADA DA REFERÊNCIA.
- * A imagem 01-conversa-inicio.png tem um flare com raios de sol no horizonte.
- * Decisão do Matheus: a regra "sem raios de sol" (DS 3.1) vale para QUALQUER
- * elemento solar do sistema, não só para o símbolo principal. Então o brilho
- * aqui é bloom radial, nunca raios — e a referência NÃO deve ser reproduzida
- * neste ponto específico. Único lugar do horizonte onde divergir da imagem é o
+ * A imagem 01-conversa-inicio.png tem um flare com raios de sol. Decisão do
+ * Matheus: "sem raios de sol" (DS 3.1) vale para QUALQUER elemento solar do
+ * sistema, não só para o símbolo principal. O brilho aqui é bloom radial,
+ * nunca raios. É o único ponto do horizonte onde divergir da imagem é o
  * comportamento correto; em todo o resto ela continua mandando.
  */
 
 .horizon {
   position: fixed;
-  inset: auto 0 0 0;
-  height: 38%;
+  inset: 0;
   overflow: hidden;
   pointer-events: none; /* nunca compete com texto ou interação */
   z-index: 0;
+
+  /* Geometria medida nas referências, contada do rodapé da janela pra cima.
+   *
+   * PADRÃO (02, 03, 05, 06): a linha fica quase colada no rodapé e o arco é
+   * quase reto — centro em ~920 CSS numa janela de 936, bordas em ~927. Sobe
+   * só ~8px de ponta a ponta.
+   *
+   * A curvatura sai da geometria da elipse: com semi-eixos a (metade da
+   * largura) e b (metade da altura), numa janela de 1440 de largura,
+   *     subida = b × (1 − raiz(1 − (720/a)²))
+   * Por isso largura e altura do arco andam juntas — mexer numa sem a outra
+   * muda a curvatura, não só o tamanho. */
+  --horizon-line-bottom: 16px;
+  --horizon-curve-w: 320%;
+  --horizon-curve-h: 320px; /* subida ≈ 8px */
+  --horizon-bloom-w: 34%;
+  --horizon-bloom-h: 130px;
+  --horizon-sun: 18px;
+  --horizon-streak-w: 88%;
+  --horizon-streak-h: 3px;
+}
+
+/* HERÓI — a Conversa, nos dois estados.
+ *
+ * Medido nas duas referências da Conversa:
+ *   01 (vazio) : linha no centro a 733 CSS, bordas a 862 → sobe 129px
+ *   02 (thread): linha no centro a 763 CSS, bordas a 925 → sobe 162px
+ * Já 03, 05 e 06 sobem só 6 a 10px. Ou seja: o horizonte grande não é do
+ * estado vazio, é da TELA de Conversa — nas telas utilitárias ele é discreto.
+ * Valores abaixo são a média das duas medições da Conversa.
+ *
+ * É a mesma Camada 1 de sempre, só noutra escala — não é um segundo elemento,
+ * não remonta ao trocar de estado, e o ciclo do dia continua valendo igual. */
+.horizon[data-variant="hero"] {
+  --horizon-line-bottom: 186px;
+  /* Largura e altura andam juntas: a MESMA queda sai de infinitos pares (w, h),
+   * mas o formato muda — elipse estreita despenca perto das bordas, elipse
+   * larga abre o arco. Aferido na referência 02: ápice em y≈756 e, a 630px do
+   * centro, a linha está em y≈810 — queda de ~58px, e ~76px na borda da janela.
+   *   w 320% → a = 2304 → queda(720) = 0,0501 × b → b = 1517 → h ≈ 3030 */
+  --horizon-curve-w: 320%;
+  --horizon-curve-h: 3030px; /* queda ≈ 76px na borda */
+  /* O sol é compacto: quem espalha o brilho na horizontal é o rastro, não o
+   * bloom. Bloom largo demais vira mancha clara no rodapé. */
+  --horizon-bloom-w: 26%;
+  --horizon-bloom-h: 220px;
+  --horizon-sun: 46px;
+  --horizon-streak-w: 82%;
+  --horizon-streak-h: 4px;
 }
 
 /* Camada da arte. É ela que respira — nunca o container. */
@@ -65,8 +105,7 @@
   }
 }
 
-/* Quando o asset aprovado existir, esta camada assume e a construção em CSS
- * abaixo fica inerte (fica atrás, coberta). */
+/* Quando o asset aprovado existir, esta camada assume. */
 .horizon__art--image {
   background-image: var(--solis-horizon-image, none);
   background-size: cover;
@@ -76,22 +115,13 @@
 
 /* --- construção provisória em CSS, a partir dos tokens --- */
 
-/* Posição da linha do horizonte, medida do topo do container. Fica numa
- * variável só porque a curva e o bloom precisam concordar exatamente: o sol
- * nasce SOBRE a linha, não flutuando acima dela. */
-.horizon__art {
-  --horizon-line: 30%;
-}
-
-/* O limbo curvo: a MASSA escura abaixo da linha. Um elemento muito mais largo
- * que a janela, com raio grande — só o topo da curva aparece dentro do
- * container, o que dá a curvatura suave de horizonte planetário. */
+/* O limbo curvo: a MASSA escura abaixo da linha. O topo da elipse é a linha. */
 .horizon__curve {
   position: absolute;
   left: 50%;
-  top: var(--horizon-line);
-  width: 320%;
-  height: 300%;
+  bottom: calc(var(--horizon-line-bottom) - var(--horizon-curve-h));
+  width: var(--horizon-curve-w);
+  height: var(--horizon-curve-h);
   translate: -50% 0;
   border-radius: 50%;
   background: var(--solis-night);
@@ -99,17 +129,17 @@
 
 /* A LINHA do horizonte é um elemento separado, com a mesma geometria da massa.
  *
- * Por que separado e com borda nos QUATRO lados, e não um `border-top` na massa:
- * com `border-radius: 50%`, uma borda em um lado só não vira uma linha fina —
- * o navegador pinta a curva daquele lado como uma cunha, que aqui cobria o
+ * Por que separado e com borda nos QUATRO lados, e não um `border-top` na
+ * massa: com `border-radius: 50%`, uma borda em um lado só não vira linha fina
+ * — o navegador pinta a curva daquele lado como uma cunha, que aqui cobria o
  * rodapé inteiro de âmbar sólido. Borda completa numa elipse desenha um
  * contorno fino; o resto do contorno cai fora do container e é recortado. */
 .horizon__line {
   position: absolute;
   left: 50%;
-  top: var(--horizon-line);
-  width: 320%;
-  height: 300%;
+  bottom: calc(var(--horizon-line-bottom) - var(--horizon-curve-h));
+  width: var(--horizon-curve-w);
+  height: var(--horizon-curve-h);
   translate: -50% 0;
   border-radius: 50%;
   background: transparent;
@@ -127,38 +157,40 @@
     0 0 42px 0 color-mix(in srgb, var(--solis-day-color-a) 18%, transparent);
 }
 
-/* O bloom do sol, centrado exatamente na linha. Achatado de propósito: nas
- * referências o brilho se espalha muito mais na horizontal que na vertical.
- * A altura acompanha sunArcPosition — 0 = base do arco (sol quase invisível),
- * 1 = topo do arco. */
+/* O bloom do sol, centrado na linha. Achatado de propósito: nas referências o
+ * brilho se espalha muito mais na horizontal que na vertical. A altura
+ * acompanha sunArcPosition — 0 = base do arco, 1 = topo. */
 .horizon__bloom {
   position: absolute;
   left: 50%;
-  top: var(--horizon-line);
-  width: 42%;
-  height: 30%;
-  translate: -50% calc(-50% - var(--solis-day-sun-position) * 4%);
+  bottom: calc(var(--horizon-line-bottom) - var(--horizon-bloom-h) / 2);
+  width: var(--horizon-bloom-w);
+  height: var(--horizon-bloom-h);
+  translate: -50% calc(var(--solis-day-sun-position) * -4%);
   border-radius: 50%;
   opacity: calc(var(--solis-day-glow-intensity) * 0.7 + 0.25);
+  /* O núcleo claro é um PONTO, não um disco: na referência o branco ocupa uma
+   * fração pequena e o âmbar se espalha a partir dele. Parar o branco cedo é o
+   * que separa "sol nascendo" de "mancha clara no rodapé". */
   background: radial-gradient(
-    ellipse at center,
-    color-mix(in srgb, var(--solis-light) 95%, transparent) 0%,
-    color-mix(in srgb, var(--solis-day-color-a) 70%, transparent) 14%,
-    color-mix(in srgb, var(--solis-day-color-a) 22%, transparent) 34%,
-    transparent 68%
+    ellipse closest-side,
+    color-mix(in srgb, var(--solis-light) 92%, transparent) 0%,
+    color-mix(in srgb, var(--solis-day-color-a) 78%, transparent) 7%,
+    color-mix(in srgb, var(--solis-day-color-a) 30%, transparent) 24%,
+    color-mix(in srgb, var(--solis-day-color-a) 10%, transparent) 52%,
+    transparent 100%
   );
 }
 
-/* O rastro horizontal do brilho ao longo da linha: fino, largo e curto na
- * vertical. É o que faz a linha "acender" perto do sol em vez de ter brilho
- * uniforme de ponta a ponta. */
+/* O rastro horizontal ao longo da linha: é o que faz a linha "acender" perto
+ * do sol em vez de ter brilho uniforme de ponta a ponta. */
 .horizon__streak {
   position: absolute;
   left: 50%;
-  top: var(--horizon-line);
-  width: 92%;
-  height: 3%;
-  translate: -50% -50%;
+  bottom: calc(var(--horizon-line-bottom) - var(--horizon-streak-h) / 2);
+  width: var(--horizon-streak-w);
+  height: var(--horizon-streak-h);
+  translate: -50% 0;
   border-radius: 50%;
   opacity: calc(var(--solis-day-glow-intensity) * 0.8 + 0.2);
   background: linear-gradient(
@@ -167,6 +199,30 @@
     color-mix(in srgb, var(--solis-day-color-a) 45%, transparent) 28%,
     color-mix(in srgb, var(--solis-light) 90%, transparent) 50%,
     color-mix(in srgb, var(--solis-day-color-a) 45%, transparent) 72%,
+    transparent 100%
+  );
+}
+
+/* O SOL. Elemento próprio, e não só o miolo do gradiente do bloom: a
+ * referência tem três coisas distintas — um disco intenso e pequeno, um halo
+ * grande e macio em volta, e o rastro ao longo da linha. Tentar tirar as três
+ * de um gradiente só foi o que deixou o sol sem leitura, virando mancha clara.
+ *
+ * Sem raios: o disco é redondo e o brilho é radial. Ver a nota no topo. */
+.horizon__sun {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--horizon-line-bottom) - var(--horizon-sun) / 2);
+  width: var(--horizon-sun);
+  height: var(--horizon-sun);
+  translate: -50% calc(var(--solis-day-sun-position) * -8%);
+  border-radius: 50%;
+  opacity: calc(var(--solis-day-glow-intensity) * 0.75 + 0.25);
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in srgb, var(--solis-light) 98%, transparent) 0%,
+    color-mix(in srgb, var(--solis-light) 90%, transparent) 42%,
+    color-mix(in srgb, var(--solis-day-color-a) 70%, transparent) 72%,
     transparent 100%
   );
 }

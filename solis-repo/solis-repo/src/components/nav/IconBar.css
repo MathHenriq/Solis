@@ -1,0 +1,76 @@
+/* Barra de ícones ("hotbar") — flutuante, só ícones.
+ *
+ * Medida em 01-conversa-inicio.png (px de mockup → CSS pelo fator 0.9639):
+ *   altura da barra .......... 97  → 93.5  → 92
+ *   distância do rodapé ...... 32  → 30.8  → 32
+ *   largura (7 itens) ........ 755 → 727.7 → ~104 por item
+ *   item ativo ............... 69×74 → 66.5×71.3 → 64×64 + respiro
+ *
+ * A referência mostra 7 ícones; a lista oficial tem 8, então a barra fica
+ * proporcionalmente mais larga. É a inconsistência já documentada em
+ * `_itemsNote` — daqui se aproveita o layout da barra, nunca a lista.
+ */
+
+.iconbar {
+  position: absolute;
+  bottom: var(--solis-space-2xl);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-sm);
+  height: 92px;
+  padding: 0 var(--solis-space-lg);
+  border-radius: var(--solis-radius-lg);
+  background: var(--solis-deep);
+  border: 1px solid rgba(255, 183, 77, 0.16); /* elevation.2 */
+}
+
+.iconbar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-sm);
+}
+
+.iconbar__link {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--solis-radius-md);
+  color: var(--solis-muted);
+  text-decoration: none;
+  position: relative;
+  transition: color 140ms var(--solis-easing),
+    background-color 140ms var(--solis-easing);
+}
+
+.iconbar__link:hover {
+  color: var(--solis-warm-white);
+  background: rgba(255, 183, 77, 0.04);
+}
+
+/* Ativo: quadrado arredondado com Solar em opacidade baixa sobre Deep — a
+ * referência mostra #4E3215, que é isso, não um hex novo. */
+.iconbar__link[aria-current="page"] {
+  color: var(--solis-solar);
+  background: rgba(255, 183, 77, 0.28);
+}
+
+/* O traço âmbar abaixo do item ativo, como na referência. */
+.iconbar__link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  translate: -50% 0;
+  width: 24px;
+  height: 3px;
+  border-radius: var(--solis-radius-pill);
+  background: var(--solis-solar);
+}

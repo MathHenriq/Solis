@@ -5,6 +5,7 @@ import { Sidebar } from "../nav/Sidebar";
 import { IconBar } from "../nav/IconBar";
 import { useDayCycle } from "../../hooks/useDayCycle";
 import { useNavStyle } from "../../lib/nav-style";
+import "./AppShell.css";
 
 /* Shell do app.
  *
@@ -28,7 +29,7 @@ export function AppShell() {
 
       {navStyle === "sidebar" ? <Sidebar /> : <IconBar />}
 
-      <main style={{ position: "relative", zIndex: 1, overflow: "auto" }}>
+      <main className="solis-shell__main">
         {/* Cada view é lazy: nenhuma tela entra no bundle inicial além da que
             abre primeiro (PERFORMANCE.md seção 5). */}
         <Suspense fallback={null}>

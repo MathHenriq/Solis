@@ -1,23 +1,26 @@
 import { NavLink } from "react-router-dom";
 import { NAV_ITEMS } from "../../lib/nav-items";
+import "./IconBar.css";
 
 /* Barra de ícones ("hotbar") — flutuante, só ícones.
  *
- * ⚠️ ESTRUTURAL, SEM ESTILO FIEL AINDA. Mesma observação da Sidebar: o que
- * importa na Fase 0 é que as duas navegações consomem NAV_ITEMS, a mesma lista,
- * na mesma ordem. O visual sai na Fase 1, medido contra 01-conversa-inicio.png.
- *
- * Nota: a hotbar da referência 01 mostra 7 ícones, não 8. É a inconsistência
- * documentada em navigation._itemsNote e já resolvida: a lista oficial é a de
- * 8 itens. Da tela 01 se aproveita o layout da barra, nunca a lista.
+ * Medida em 01-conversa-inicio.png. Consome a MESMA NAV_ITEMS da Sidebar: a
+ * lista não é redeclarada aqui, que foi a duplicação responsável pela
+ * divergência entre as telas geradas.
  */
 export function IconBar() {
   return (
-    <nav aria-label="Navegação principal" data-nav="iconbar">
-      <ul>
+    <nav className="iconbar" aria-label="Navegação principal">
+      <ul className="iconbar__list">
         {NAV_ITEMS.map(({ id, label, path, Icon }) => (
           <li key={id}>
-            <NavLink to={path} end={path === "/"} title={label} aria-label={label}>
+            <NavLink
+              to={path}
+              end={path === "/"}
+              className="iconbar__link"
+              title={label}
+              aria-label={label}
+            >
               <Icon size={24} strokeWidth={2} aria-hidden />
             </NavLink>
           </li>

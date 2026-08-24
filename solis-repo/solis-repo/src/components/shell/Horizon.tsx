@@ -12,13 +12,14 @@ import "./Horizon.css";
  */
 export function Horizon() {
   return (
-    <div className="horizon" aria-hidden="true">
+    <div className="horizon" data-variant="default" aria-hidden="true">
       <div className="horizon__art horizon__art--image" />
       <div className="horizon__art">
         <div className="horizon__curve" />
         <div className="horizon__line" />
         <div className="horizon__streak" />
         <div className="horizon__bloom" />
+        <div className="horizon__sun" />
       </div>
     </div>
   );

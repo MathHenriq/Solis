@@ -1,0 +1,24 @@
+/* Layout do shell. Medidas tiradas das referências 02/03/05/06 e convertidas
+ * pelo fator 0.9635 (janela do mockup ~1495px → 1440 CSS px). */
+
+.solis-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  height: 100%;
+  position: relative;
+}
+
+/* Com a barra de ícones não há coluna de navegação: ela flutua sobre o
+ * conteúdo, como em 01-conversa-inicio.png. */
+:root[data-nav-style="iconbar"] .solis-shell {
+  grid-template-columns: 1fr;
+}
+
+.solis-shell__main {
+  position: relative;
+  z-index: 1;
+  min-width: 0; /* deixa o conteúdo encolher em vez de estourar a grid */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
