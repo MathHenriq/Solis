@@ -14,6 +14,7 @@ import {
 import { SolisSymbol, type SolisState } from "../components/SolisSymbol/SolisSymbol";
 import { useAudioLevel } from "../hooks/useAudioLevel";
 import { useHorizonVariant } from "../hooks/useHorizonVariant";
+import { useHourTick } from "../hooks/useDayCycle";
 import "./Conversa.css";
 
 /* Tela de Conversa.
@@ -76,13 +77,19 @@ const SUGESTOES = [
   { id: "agenda", label: "Abrir agenda", Icon: CalendarDays },
 ];
 
-/* A referência 01 abre com "Olá, Matheus." — fixo, sem hora.
+/* A saudação varia com o horário, lendo a MESMA hora do ciclo do dia
+ * (useHourTick) em vez de chamar `new Date()` por conta própria — assim a
+ * saudação e a paleta nunca discordam sobre que horas são.
  *
- * O ERROR_STATES.md cita o protótipo abrindo com "Bom dia, Matheus.", o que
- * sugeriria saudação por horário. A imagem é mais nova e a Regra 1 diz que ela
- * manda, então fica "Olá". PENDENTE: se a saudação deve variar com a hora
- * (o que combinaria com o ciclo do dia), é decisão de produto — não invento. */
-const SAUDACAO = "Olá, Matheus.";
+ * As faixas aqui são as da convenção pt-BR e NÃO coincidem com as fases do
+ * ciclo do dia, de propósito: as fases descrevem luz (a fase "dia" vai das 8
+ * às 17 e atravessa o meio-dia), a saudação descreve trato social. Por isso a
+ * função lê a hora, e não o nome da fase. */
+function saudacao(hora: number): string {
+  if (hora >= 5 && hora < 12) return "Bom dia";
+  if (hora >= 12 && hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
 
 export default function Conversa() {
   /* Sem backend ainda, a conversa começa vazia — que é o estado de referência
@@ -97,6 +104,7 @@ export default function Conversa() {
   const [escutando, setEscutando] = useState(false);
 
   const audio = useAudioLevel(escutando);
+  const hora = useHourTick();
 
   /* O horizonte grande é da TELA de Conversa, não do estado vazio: as duas
      referências dela (01 e 02) mostram o arco subindo 129 e 162px, enquanto
@@ -216,7 +224,7 @@ export default function Conversa() {
               <span className="conversa__brand-wordmark">SOLIS</span>
             </div>
 
-            <h1 className="conversa__greeting">{SAUDACAO}</h1>
+            <h1 className="conversa__greeting">{saudacao(hora)}, Matheus.</h1>
             <p className="conversa__sub">Como posso te ajudar hoje?</p>
 
             {composer}

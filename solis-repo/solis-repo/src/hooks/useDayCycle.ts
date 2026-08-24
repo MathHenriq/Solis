@@ -60,6 +60,34 @@ export function msUntilNextHour(now: Date): number {
 }
 
 /**
+ * Relógio compartilhado: devolve a hora local e se atualiza na virada de cada
+ * hora. É a única fonte de hora do app — quem precisa reagir ao horário (o
+ * ciclo do dia, a saudação da Conversa) lê daqui em vez de chamar `new Date()`
+ * por conta própria, senão duas partes da interface podem discordar sobre que
+ * horas são no minuto da virada.
+ */
+export function useHourTick(): number {
+  const [hour, setHour] = useState(() => new Date().getHours());
+
+  useEffect(() => {
+    let timer = 0;
+
+    const tick = () => {
+      const now = new Date();
+      setHour(now.getHours());
+      // Reagenda pra virada da próxima hora, e não num intervalo fixo:
+      // um app aberto o dia todo não precisa acordar 1440 vezes.
+      timer = window.setTimeout(tick, msUntilNextHour(now) + 1000);
+    };
+
+    tick();
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return hour;
+}
+
+/**
  * Aplica a fase atual como variáveis CSS no <html> e devolve a fase.
  *
  * As variáveis são lidas pelo Horizonte (Camada 1). A troca é discreta na
@@ -69,24 +97,7 @@ export function msUntilNextHour(now: Date): number {
  * vale decidir uma transição suave — é decisão de produto, não de código.
  */
 export function useDayCycle(): DayPhase {
-  const [phase, setPhase] = useState<DayPhase>(() =>
-    phaseForHour(new Date().getHours()),
-  );
-
-  useEffect(() => {
-    let timer = 0;
-
-    const update = () => {
-      const now = new Date();
-      setPhase(phaseForHour(now.getHours()));
-      // Reagenda pra virada da próxima hora, e não num intervalo fixo:
-      // um app aberto o dia todo não precisa acordar 1440 vezes.
-      timer = window.setTimeout(update, msUntilNextHour(now) + 1000);
-    };
-
-    update();
-    return () => window.clearTimeout(timer);
-  }, []);
+  const phase = phaseForHour(useHourTick());
 
   useEffect(() => {
     const root = document.documentElement.style;
