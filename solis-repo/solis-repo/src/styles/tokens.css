@@ -46,6 +46,12 @@
   --solis-bubble-user: color-mix(in srgb, var(--solis-amber) 70%, var(--solis-night));
   --solis-bubble-user-text: #ffffff;
 
+  /* ---- layout ----
+   * A largura da sidebar mora aqui porque mais de um componente precisa dela:
+   * a própria Sidebar e o Horizonte, que se alinha à área de conteúdo. Se
+   * ficasse duplicada, as duas divergiriam na primeira vez que alguém mexesse. */
+  --solis-sidebar-w: 268px;
+
   /* ---- radius ---- */
   --solis-radius-sm: 8px;
   --solis-radius-md: 12px;

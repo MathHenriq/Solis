@@ -41,13 +41,6 @@
    *     subida = b × (1 − raiz(1 − (720/a)²))
    * Por isso largura e altura do arco andam juntas — mexer numa sem a outra
    * muda a curvatura, não só o tamanho. */
-  /* O horizonte nasce centrado na JANELA, mas o conteúdo das telas é centrado
-   * na ÁREA DE CONTEÚDO, que a sidebar desloca 268px para a direita. Sem
-   * corrigir, o sol fica 134px à esquerda de tudo o que está na tela — visível
-   * a olho nu e errado. A referência 01 não tem sidebar, então essa
-   * divergência não aparecia em nenhuma comparação feita contra ela. */
-  --horizon-center: 0px;
-
   --horizon-line-bottom: 16px;
   --horizon-curve-w: 320%;
   --horizon-curve-h: 320px; /* subida ≈ 8px */
@@ -71,10 +64,25 @@
  *
  * É a mesma Camada 1 de sempre, só noutra escala — não é um segundo elemento,
  * não remonta ao trocar de estado, e o ciclo do dia continua valendo igual. */
-/* Metade da largura da sidebar (268 / 2). Se a sidebar mudar de largura, este
- * valor acompanha — por isso sai do mesmo número, e não de um 134 solto. */
+/* O horizonte começa DEPOIS da sidebar.
+ *
+ * Alinhar o horizonte à área de conteúdo é o que mantém o sol na mesma
+ * vertical da saudação e do campo de texto. A tentativa anterior deslocava
+ * cada camada em meia sidebar, e resolvia só metade do problema: funcionava
+ * nas camadas construídas em CSS, mas não na camada da IMAGEM, que se
+ * posiciona por `background-position` e continuava centrada na janela — o sol
+ * ficava 148px à esquerda de tudo.
+ *
+ * Insetar o container resolve os dois casos de uma vez, porque tanto o
+ * `left: 50%` das camadas quanto o `background-position: center` da imagem
+ * passam a se medir contra a área de conteúdo. De quebra, o navegador deixa
+ * de compor a imagem atrás da sidebar, que é opaca e a cobriria de qualquer
+ * jeito.
+ *
+ * Na barra de ícones não há coluna, então o horizonte ocupa a janela toda —
+ * que é exatamente o que a referência 01 mostra. */
 :root[data-nav-style="sidebar"] .horizon {
-  --horizon-center: calc(268px / 2);
+  left: var(--solis-sidebar-w);
 }
 
 /* ASSET APROVADO ATIVO na variante herói (a tela de Conversa).
@@ -146,7 +154,7 @@
 /* O limbo curvo: a MASSA escura abaixo da linha. O topo da elipse é a linha. */
 .horizon__curve {
   position: absolute;
-  left: calc(50% + var(--horizon-center));
+  left: 50%;
   bottom: calc(var(--horizon-line-bottom) - var(--horizon-curve-h));
   width: var(--horizon-curve-w);
   height: var(--horizon-curve-h);
@@ -164,7 +172,7 @@
  * contorno fino; o resto do contorno cai fora do container e é recortado. */
 .horizon__line {
   position: absolute;
-  left: calc(50% + var(--horizon-center));
+  left: 50%;
   bottom: calc(var(--horizon-line-bottom) - var(--horizon-curve-h));
   width: var(--horizon-curve-w);
   height: var(--horizon-curve-h);
@@ -190,7 +198,7 @@
  * acompanha sunArcPosition — 0 = base do arco, 1 = topo. */
 .horizon__bloom {
   position: absolute;
-  left: calc(50% + var(--horizon-center));
+  left: 50%;
   bottom: calc(var(--horizon-line-bottom) - var(--horizon-bloom-h) / 2);
   width: var(--horizon-bloom-w);
   height: var(--horizon-bloom-h);
@@ -214,7 +222,7 @@
  * do sol em vez de ter brilho uniforme de ponta a ponta. */
 .horizon__streak {
   position: absolute;
-  left: calc(50% + var(--horizon-center));
+  left: 50%;
   bottom: calc(var(--horizon-line-bottom) - var(--horizon-streak-h) / 2);
   width: var(--horizon-streak-w);
   height: var(--horizon-streak-h);
@@ -239,7 +247,7 @@
  * Sem raios: o disco é redondo e o brilho é radial. Ver a nota no topo. */
 .horizon__sun {
   position: absolute;
-  left: calc(50% + var(--horizon-center));
+  left: 50%;
   bottom: calc(var(--horizon-line-bottom) - var(--horizon-sun) / 2);
   width: var(--horizon-sun);
   height: var(--horizon-sun);
@@ -263,7 +271,7 @@
  * a intenção é ser sentida, não vista. */
 .horizon__atmosphere {
   position: absolute;
-  left: calc(50% + var(--horizon-center));
+  left: 50%;
   bottom: calc(var(--horizon-line-bottom) - var(--horizon-atmo-h) / 2);
   width: var(--horizon-atmo-w);
   height: var(--horizon-atmo-h);

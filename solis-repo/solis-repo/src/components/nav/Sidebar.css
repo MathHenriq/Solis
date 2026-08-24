@@ -11,7 +11,7 @@
  */
 
 .sidebar {
-  width: 268px;
+  width: var(--solis-sidebar-w);
   flex-shrink: 0;
   background: var(--solis-deep);
   border-right: 1px solid rgba(255, 183, 77, 0.08); /* elevation.1 */
