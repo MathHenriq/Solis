@@ -34,7 +34,8 @@ Onde a fidelidade exigir recurso melhor (asset maior, biblioteca específica), u
 ## Fluxo de trabalho obrigatório
 
 1. **Nunca construir várias telas de uma vez.** Uma tela por vez, validada contra a imagem de referência, antes de passar pra próxima. Gerar tudo junto causa inconsistência (já aconteceu com as telas do GPT).
-2. **Ordem das telas:** Conversa primeiro (mais importante e com mais referência), depois Memória, Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento, Configurações.
+2. **Ordem das telas:** Conversa → Memória → Modelos locais → Configurações → Ferramentas → Tarefas → Agenda → Conhecimento.
+   Conversa vem primeiro por ser a mais importante e a com mais referência. Configurações foi puxada pra frente (decisão do Matheus): ela tem imagem de referência e as quatro últimas não têm. Fazendo primeiro todas as que têm referência, o padrão visual já está medido e extraído quando chegarmos nas que não têm — aí "seguir o padrão das existentes" vira medição, não estimativa.
 3. **Antes de escrever código numa tela nova:** abrir a imagem de referência correspondente, extrair as cores por pixel e medir espaçamentos. Só então codar.
 4. **Navegação:** lista única de itens (`nav-items`, fonte única), consumida tanto pela Sidebar quanto pela barra de ícones (as duas são configuráveis pelo usuário). Nunca hardcodar a lista em dois lugares.
 5. **Animação:** só `transform` e `opacity` em loop. Nunca `filter`/`box-shadow` animado. Ver `docs/PERFORMANCE.md`.

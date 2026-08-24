@@ -21,6 +21,14 @@
  * TROCA PELO ASSET APROVADO: quando o Matheus gerar o WebP do horizonte, basta
  * definir --solis-horizon-image na raiz. A estrutura de camadas, o z-index, o
  * ciclo do dia e a animação de 90s continuam iguais — é uma linha, não refactor.
+ *
+ * ⛔ SEM RAIOS — E ISSO É DIVERGÊNCIA DELIBERADA DA REFERÊNCIA.
+ * A imagem 01-conversa-inicio.png tem um flare com raios de sol no horizonte.
+ * Decisão do Matheus: a regra "sem raios de sol" (DS 3.1) vale para QUALQUER
+ * elemento solar do sistema, não só para o símbolo principal. Então o brilho
+ * aqui é bloom radial, nunca raios — e a referência NÃO deve ser reproduzida
+ * neste ponto específico. Único lugar do horizonte onde divergir da imagem é o
+ * comportamento correto; em todo o resto ela continua mandando.
  */
 
 .horizon {

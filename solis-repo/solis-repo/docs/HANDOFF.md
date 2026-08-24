@@ -64,7 +64,11 @@ brand/
 
 **Consequência técnica real, não cosmética:** a Camada 3 do `SOLIS_SIGNATURE.md` (glow reativo ao áudio) não pode mais recortar/animar uma parte interna da arte, porque a arte é um PNG achatado. A solução aplicada no protótipo: uma camada CSS separada (`.symbol-glow`, gradiente radial com blur) fica **atrás** da imagem e reage a `--audio-level`; a arte aprovada nunca é tocada. Ver implementação em `solis-prototype.html`.
 
-**Lacuna ainda aberta:** não existe um asset aprovado pro estado "Executando" (intensidade máxima) que respeite a regra "sem raios de sol" (DS seção 3.1) — a única imagem gerada nesse nível de intensidade tem raios, o que contraria a marca. O protótipo está reaproveitando `solis-state-rings-strong.png` como placeholder até isso ser gerado.
+**Lacuna ainda aberta:** não existe um asset aprovado pro estado "Executando" (intensidade máxima) que respeite a regra "sem raios de sol" — a única imagem gerada nesse nível de intensidade tem raios, o que contraria a marca.
+
+**Regra ampliada (decisão do Matheus):** "sem raios de sol" deixou de valer só para o símbolo principal e passou a valer para **qualquer elemento solar do sistema** — símbolo, horizonte, glow de estado, ícone. Duas consequências já registradas no código:
+- O horizonte da tela `01-conversa-inicio.png` tem flare com raios e **não é reproduzido** nesse ponto. É a única divergência deliberada da referência no horizonte.
+- O estado "Executando" é resolvido só com intensidade de glow sobre a arte aprovada, sem trocar de asset — ver `SolisSymbol.css`. Se for ter arte própria, ela ainda precisa ser gerada, e sem raios.
 
 **Atenção de implementação:** só `solis-symbol-mono-transparent.png` (e sua variante `-alt`) têm canal alpha real. Os demais (`square`, `wide`, os 3 de `states/`) têm fundo preto sólido embutido — funcionam bem sobre `color.bg.canvas` (Night) por coincidência de cor, mas vão mostrar uma borda quadrada sobre qualquer outro fundo (ex: cards `color.bg.surface`/Deep). Não usar esses arquivos livremente sobre fundos variados sem antes pedir versão com transparência real.
 

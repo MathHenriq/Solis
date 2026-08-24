@@ -50,9 +50,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
 /** Estilos de navegação. O usuário escolhe em Configurações → Aparência. */
 export type NavStyle = "sidebar" | "iconbar";
 
-/* navigation.style.defaultOnFirstInstall está explicitamente "NÃO DEFINIDO" no
- * solis-tokens.json — decisão de produto em aberto. Não travar sem decidir.
- * "sidebar" é usado aqui só como ponto de partida para o app rodar, e é a
- * navegação que aparece em 4 das 5 telas de referência com navegação visível.
- * PENDENTE: confirmar com o Matheus qual vem selecionada na primeira instalação. */
-export const NAV_STYLE_FALLBACK: NavStyle = "sidebar";
+/* navigation.style.defaultOnFirstInstall — DECIDIDO: sidebar.
+ * Não é mais fallback provisório; é o padrão de primeira instalação. */
+export const NAV_STYLE_DEFAULT: NavStyle = "sidebar";

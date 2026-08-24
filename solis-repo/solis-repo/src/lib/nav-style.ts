@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { NAV_STYLE_FALLBACK, type NavStyle } from "./nav-items";
+import { NAV_STYLE_DEFAULT, type NavStyle } from "./nav-items";
 
 /* Persistência da escolha de navegação (Sidebar ou Barra de ícones).
  *
@@ -16,9 +16,9 @@ const KEY = "solis.nav-style";
 function read(): NavStyle {
   try {
     const v = localStorage.getItem(KEY);
-    return v === "sidebar" || v === "iconbar" ? v : NAV_STYLE_FALLBACK;
+    return v === "sidebar" || v === "iconbar" ? v : NAV_STYLE_DEFAULT;
   } catch {
-    return NAV_STYLE_FALLBACK;
+    return NAV_STYLE_DEFAULT;
   }
 }
 

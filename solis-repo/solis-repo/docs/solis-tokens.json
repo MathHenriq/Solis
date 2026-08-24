@@ -72,6 +72,7 @@
   },
   "symbol": {
     "_comment": "Compartilha a escala 'icon.size' na base (16/20/24) e estende para tamanhos de marca.",
+    "_ruleNoRays": "SEM RAIOS DE SOL em NENHUM elemento solar do sistema — símbolo, horizonte, glow de estado, ícone, qualquer um. Decisão do Matheus: a regra 3.1 do DS deixou de valer só para o símbolo principal e passou a valer para o sistema inteiro. Consequência prática: a imagem 01-conversa-inicio.png tem flare com raios no horizonte e NÃO deve ser reproduzida nesse ponto; e o asset do estado 'Executando' segue sem versão aprovada por ter raios.",
     "size": {
       "sm": "32px",
       "md": "48px",
@@ -136,12 +137,13 @@
   },
   "navigation": {
     "items": ["Conversa", "Memória", "Modelos locais", "Ferramentas", "Tarefas", "Agenda", "Conhecimento", "Configurações"],
-    "_itemsNote": "Lista unificada — as telas geradas no GPT tinham inconsistência entre si (item faltando/ordem diferente). Esta é a lista oficial única. NOTA: 'Foco' saiu da lista e 4 itens novos entraram (Modelos locais, Tarefas, Agenda, Conhecimento) — confirmar se essa expansão de escopo é intencional.",
+    "_itemsNote": "Lista unificada e OFICIAL, confirmada pelo Matheus. As telas geradas no GPT divergiam entre si (01 e 02 mostram 7 itens, sem 'Modelos locais'; a 02 ainda troca a ordem). Dessas telas se aproveita layout e visual, nunca a navegação. A expansão de escopo (saiu 'Foco', entraram Modelos locais, Tarefas, Agenda, Conhecimento) está confirmada como intencional.",
     "style": {
       "options": ["sidebar", "iconbar"],
       "configurable": true,
       "persistence": "local (config do usuário, não é estado de sessão)",
-      "defaultOnFirstInstall": "NÃO DEFINIDO — decisão de produto em aberto, não travar sem decidir"
+      "defaultOnFirstInstall": "sidebar",
+      "_defaultNote": "DECIDIDO (Matheus): sidebar vem selecionada na primeira instalação. Era a única pendência de produto em aberto na navegação."
     }
   }
 }
