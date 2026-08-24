@@ -12,6 +12,16 @@
     height: 100%;
   }
 
+  /* Botões do Solis são componentes próprios, não o botão do navegador. */
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+  }
+
   body {
     margin: 0;
     background: var(--solis-night);

@@ -12,6 +12,10 @@ import { chromium } from "playwright";
 
 const rota = process.argv[2] ?? "/";
 const saida = process.argv[3] ?? "captura.png";
+/* Terceiro argumento opcional: "sidebar" ou "iconbar". As duas navegações são
+ * configuráveis e cada uma tem a sua referência (02 usa sidebar, 01 usa a
+ * barra de ícones), então as duas precisam poder ser capturadas. */
+const nav = process.argv[4];
 
 /* Medido das referências: a janela desenhada nos mockups tem ~1495x970 px de
  * mockup, e a largura-alvo do app é 1440 CSS px — fator ~0.9635. É esse fator
@@ -27,6 +31,16 @@ const navegador = await chromium.launch({
 const pagina = await navegador.newPage({
   viewport: { width: LARGURA, height: ALTURA },
 });
+
+if (nav) {
+  await pagina.addInitScript((v) => {
+    try {
+      localStorage.setItem("solis.nav-style", v);
+    } catch {
+      /* sem storage a captura ainda funciona, só cai no padrão */
+    }
+  }, nav);
+}
 
 const problemas = [];
 pagina.on("pageerror", (e) => problemas.push(String(e)));

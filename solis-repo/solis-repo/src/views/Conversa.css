@@ -1,0 +1,400 @@
+/* Tela de Conversa.
+ *
+ * Referências: 01-conversa-inicio.png (estado vazio) e 02-conversa-thread.png
+ * (com histórico). Todas as medidas abaixo saíram de medição em pixel nas
+ * imagens, convertidas pelo fator de escala do mockup (~0.9635 em 02,
+ * ~0.9639 em 01) para a janela-alvo de 1440px.
+ *
+ * Onde a medição caiu entre dois valores da escala de spacing, foi encaixada no
+ * múltiplo de 4 mais próximo em vez de virar número solto: as referências são
+ * imagens geradas e não têm grade perfeitamente consistente nem entre si.
+ * As medições cruas ficam anotadas em cada bloco.
+ */
+
+.conversa {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---------- header (só no estado com histórico) ----------
+ * Medido em 02: divisória em y=126, topo da janela em y=27 → 99 mockup → 95.4 */
+.conversa__header {
+  height: 96px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-md);
+  padding: 0 var(--solis-space-2xl);
+  border-bottom: 1px solid rgba(255, 183, 77, 0.08);
+}
+
+.conversa__header-name {
+  font-size: var(--solis-title2-size);
+  font-weight: var(--solis-title2-weight);
+  color: var(--solis-warm-white);
+}
+
+.conversa__status {
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-sm);
+  color: var(--solis-muted);
+  font-size: var(--solis-body-size);
+}
+
+.conversa__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--solis-radius-pill);
+  background: var(--solis-solar);
+  flex-shrink: 0;
+}
+
+/* Estado de repouso não é "apagado": continua presente, só mais discreto. */
+.conversa__status[data-state="idle"] .conversa__status-dot {
+  background: var(--solis-muted);
+}
+
+.conversa__header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-lg);
+}
+
+/* ---------- área rolável ---------- */
+.conversa__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ---------- estado vazio (01) ----------
+ * Offsets medidos do topo da janela: marca ~87, título ~252, subtítulo ~304,
+ * input ~367, chips ~502. */
+.conversa__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--solis-space-4xl) var(--solis-space-2xl) 0;
+}
+
+.conversa__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-lg);
+}
+
+.conversa__brand-wordmark {
+  font-size: 32px;
+  font-weight: var(--solis-title2-weight);
+  letter-spacing: var(--solis-wordmark-tracking);
+  color: var(--solis-warm-white);
+}
+
+/* Ritmo vertical medido em 01, do topo da janela: marca ~87, título ~252,
+ * subtítulo ~302, composer ~367, chips ~502. */
+.conversa__greeting {
+  margin: 118px 0 0;
+  font-size: var(--solis-title1-size);
+  font-weight: var(--solis-title1-weight);
+  color: var(--solis-warm-white);
+  text-align: center;
+}
+
+.conversa__sub {
+  margin: var(--solis-space-lg) 0 0;
+  font-size: var(--solis-title2-size);
+  font-weight: 400;
+  color: var(--solis-muted);
+  text-align: center;
+}
+
+/* ---------- chips de sugestão (01) ----------
+ * Medido: altura 51 mockup → 49 CSS → 48. */
+.conversa__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--solis-space-lg);
+  margin-top: var(--solis-space-3xl);
+}
+
+.conversa__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--solis-space-md);
+  height: 48px;
+  padding: 0 var(--solis-space-xl);
+  border-radius: var(--solis-radius-pill);
+  background: var(--solis-deep);
+  border: 1px solid rgba(255, 183, 77, 0.08); /* elevation.1 */
+  color: var(--solis-muted);
+  font: inherit;
+  font-size: var(--solis-body-size);
+  cursor: pointer;
+  transition: color 140ms var(--solis-easing),
+    border-color 140ms var(--solis-easing);
+}
+
+.conversa__chip:hover {
+  color: var(--solis-warm-white);
+  border-color: rgba(255, 183, 77, 0.16); /* elevation.2 */
+}
+
+/* ---------- mensagens (02) ----------
+ * Balão do Solis: x 463..864 → 386 de largura. Balão do usuário: 908..1467
+ * → 538. Avatar 44 com 16 de gap. Raio medido no canto: 12 (Solis) e ~13.5
+ * (usuário) → radius.md nos dois. */
+.conversa__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--solis-space-xl);
+  padding: var(--solis-space-2xl) 0;
+  /* Medido em 02: a linha da mensagem vai de 365 a 1393 CSS → 1028 de largura.
+   * As margens da referência são assimétricas (93 à esquerda, 47 à direita),
+   * o que é imprecisão do mockup e não uma grade — aqui a coluna é centrada. */
+  max-width: 1028px;
+  margin: 0 auto;
+}
+
+.conversa__row {
+  display: flex;
+  gap: var(--solis-space-lg);
+  align-items: flex-start;
+}
+
+.conversa__row--user {
+  justify-content: flex-end;
+}
+
+.conversa__avatar {
+  flex-shrink: 0;
+  margin-top: var(--solis-space-sm);
+}
+
+.conversa__bubble {
+  border-radius: var(--solis-radius-md);
+  padding: var(--solis-space-lg) var(--solis-space-xl);
+  font-size: var(--solis-body-size);
+  line-height: 1.5;
+  position: relative;
+}
+
+.conversa__bubble--solis {
+  max-width: 600px;
+  background: var(--solis-deep);
+  border: 1px solid rgba(255, 183, 77, 0.08); /* elevation.1 */
+  color: var(--solis-warm-white);
+}
+
+/* Balão do usuário.
+ *
+ * A referência mostra #A46514 com texto branco. Esse hex não existe nos tokens,
+ * e a decisão de projeto é que o JSON manda na cor. Em vez de inventar uma
+ * entrada nova na paleta, a cor é composta a partir de dois tokens que já
+ * existem — a mesma técnica que o ciclo do dia usa ("cada fase é opacidade/
+ * mistura dos tokens que já existem"):
+ *
+ *   amber 70% + night 30% = #AA6521   (referência medida: #A46514)
+ *
+ * Contraste verificado, e não assumido — o documento de tokens manda remedir
+ * toda combinação nova de cor+fundo:
+ *   branco  sobre #AA6521 = 4,57:1 → AA  ✅  (é o que a referência usa)
+ *   branco  sobre amber puro = 2,51:1 → REPROVA
+ *   branco  sobre solar puro = 1,73:1 → REPROVA
+ * Ou seja: é justamente o escurecimento que torna o texto branco legal. Usar
+ * amber ou solar puro aqui quebraria acessibilidade. */
+.conversa__bubble--user {
+  max-width: 620px;
+  background: color-mix(in srgb, var(--solis-amber) 70%, var(--solis-night));
+  color: #ffffff;
+}
+
+.conversa__bubble p {
+  margin: 0;
+}
+
+/* O preflight do Tailwind zera list-style; a referência mostra bullets na
+ * lista simples e numeração na ordenada, então os marcadores voltam aqui. */
+.conversa__bubble ul,
+.conversa__bubble ol {
+  margin: var(--solis-space-md) 0 0;
+  padding-left: var(--solis-space-xl);
+  display: grid;
+  gap: var(--solis-space-sm);
+}
+
+.conversa__bubble ul {
+  list-style: disc outside;
+}
+
+.conversa__bubble ol {
+  list-style: decimal outside;
+}
+
+.conversa__bubble li::marker {
+  color: var(--solis-muted);
+}
+
+/* Na referência a hora fica na MESMA linha do texto, encostada à direita —
+ * não numa linha própria abaixo. No balão do usuário isso é resolvido com
+ * baseline; no do Solis, que pode ter lista, ela cai logo abaixo do último
+ * item, alinhada à direita. */
+.conversa__time {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--solis-space-xs);
+  margin-top: var(--solis-space-sm);
+  font-size: var(--solis-caption-size);
+  color: var(--solis-muted);
+  white-space: nowrap;
+}
+
+.conversa__bubble--solis .conversa__time {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Balão do usuário: texto e hora dividem a mesma linha de base. */
+.conversa__bubble--user {
+  display: flex;
+  align-items: baseline;
+  gap: var(--solis-space-lg);
+}
+
+.conversa__bubble--user p {
+  flex: 1;
+}
+
+.conversa__bubble--user .conversa__time {
+  margin-top: 0;
+}
+
+.conversa__bubble--user .conversa__time {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ---------- composer ----------
+ * Medido em 02: 893 mockup de largura (→860) e 81 de altura (→78) → 80.
+ * Em 01 o mesmo componente aparece com 776 (→748) porque não há sidebar.
+ * As duas larguras são mantidas: cada referência manda no seu próprio estado.
+ * Raio ~42 com altura 80 = pill. Botão de enviar 45 mockup → 44. */
+.conversa__composer {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 0 var(--solis-space-2xl) var(--solis-space-2xl);
+}
+
+.conversa__composer-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--solis-space-lg);
+  height: 80px;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 18px 0 var(--solis-space-xl);
+  border-radius: var(--solis-radius-pill);
+  background: var(--solis-deep);
+  border: 1px solid rgba(255, 183, 77, 0.16); /* elevation.2 */
+}
+
+.conversa__composer--empty {
+  margin-top: var(--solis-space-2xl);
+  padding-bottom: 0;
+}
+
+.conversa__composer--empty .conversa__composer-inner {
+  max-width: 760px;
+}
+
+.conversa__input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--solis-warm-white);
+  font: inherit;
+  font-size: var(--solis-body-size);
+}
+
+.conversa__input::placeholder {
+  color: var(--solis-muted);
+}
+
+.conversa__icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  border-radius: var(--solis-radius-pill);
+  color: var(--solis-muted);
+  cursor: pointer;
+  transition: color 140ms var(--solis-easing);
+}
+
+.conversa__icon-btn:hover {
+  color: var(--solis-warm-white);
+}
+
+/* Microfone com o glow reativo: quando está escutando, o botão acompanha o
+ * nível de áudio — mesma fonte de dado do símbolo, mesma faixa limitada. */
+.conversa__icon-btn[data-listening="true"] {
+  color: var(--solis-solar);
+  opacity: calc(0.6 + var(--solis-audio-level, 0) * 0.4);
+}
+
+.conversa__send {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--solis-radius-pill);
+  background: var(--solis-solar);
+  color: var(--solis-night); /* 11,06:1 sobre Solar — AAA */
+  cursor: pointer;
+  transition: opacity 140ms var(--solis-easing);
+}
+
+/* A referência mostra o botão de enviar sempre em Solar cheio, inclusive com
+ * o campo vazio — ele é a afirmação visual do composer. Sem rascunho ele só
+ * não faz nada; não é apagado. */
+.conversa__send:disabled {
+  cursor: default;
+}
+
+/* ---------- microfone negado (ERROR_STATES.md item 1) ----------
+ * Nunca mostra o símbolo "quebrado": as Camadas 1 e 2 seguem funcionando e o
+ * símbolo fica em idle normal. Só a Camada 3 é que não ativa. O campo de texto
+ * continua 100% disponível — a ausência de voz não trava a conversa. */
+.conversa__mic-aviso {
+  max-width: 860px;
+  margin: 0 auto var(--solis-space-lg);
+  padding: var(--solis-space-lg) var(--solis-space-xl);
+  border-radius: var(--solis-radius-md);
+  background: var(--solis-deep);
+  border: 1px solid rgba(255, 183, 77, 0.16);
+}
+
+.conversa__mic-aviso strong {
+  display: block;
+  font-size: var(--solis-body-size);
+  font-weight: 500;
+  color: var(--solis-warm-white);
+}
+
+.conversa__mic-aviso p {
+  margin: var(--solis-space-xs) 0 0;
+  font-size: var(--solis-body-size);
+  color: var(--solis-muted);
+}
