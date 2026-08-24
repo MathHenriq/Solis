@@ -14,7 +14,16 @@ Cada camada só sabe da que está embaixo dela. A camada de interação não pre
 
 ## Camada 1 — Horizonte persistente (revisado)
 
-**Mudança de escopo confirmada:** deixou de ser uma faixa fina de 2-4px (especificação original) e virou a cena de nascer do sol em tamanho grande, ocupando a parte inferior de toda tela — validado visualmente nas telas geradas e aprovado como direção definitiva. Documentando a versão atual, não a antiga.
+**Mudança de escopo confirmada:** deixou de ser uma faixa fina de 2-4px (especificação original) e virou a cena de nascer do sol em tamanho grande — validado visualmente nas telas geradas e aprovado como direção definitiva. Documentando a versão atual, não a antiga.
+
+**Duas escalas, confirmadas por medição.** A redação anterior dizia "ocupando a parte inferior de toda tela", mas a medição das 6 referências mostra duas escalas bem distintas do mesmo horizonte:
+
+| Escala | Telas | Linha (do rodapé) | Subida borda→centro |
+|---|---|---|---|
+| **Herói** | Conversa (01, 02) | ~186px | ~145px (01: 129, 02: 162) |
+| **Ambiente** | 03, 05, 06 | ~16px | ~8px (03: 10, 05: 6) |
+
+Não são dois elementos: é a mesma Camada 1, montada uma vez, com a geometria trocada por variável CSS. Trocar de escala não remonta nada, e o ciclo do dia continua valendo igual nas duas. A escala herói é da **tela** de Conversa, não do estado vazio — a 02 já tem histórico e mesmo assim usa a grande.
 
 - Continua **renderizado uma vez no shell do app**, nunca remontado ao trocar de tela — isso não mudou, e importa ainda mais agora porque é um asset de imagem grande, não uma linha de CSS. Recarregar isso a cada navegação seria um problema de performance real.
 - Fica atrás do conteúdo de cada tela (z-index abaixo), nunca compete com texto ou interação.
