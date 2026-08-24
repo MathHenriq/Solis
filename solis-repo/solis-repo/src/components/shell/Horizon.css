@@ -77,7 +77,20 @@
   --horizon-center: calc(268px / 2);
 }
 
+/* ASSET APROVADO ATIVO na variante herói (a tela de Conversa).
+ *
+ * Chegou o raster que faltava desde a Fase 0: limbo com textura de superfície,
+ * atmosfera densa e sol na linha — as três coisas que a construção em CSS não
+ * alcançava. Gerado e aprovado pelo Matheus, sem raios, dentro da paleta.
+ *
+ * Com a imagem ativa, as camadas construídas em CSS são desligadas: se ficassem,
+ * desenhariam um segundo horizonte por cima do da arte.
+ *
+ * A variante ambiente (telas utilitárias) CONTINUA em CSS de propósito. Lá o
+ * horizonte é só um fio no rodapé, a construção já bate com a referência 05, e
+ * não vale carregar um segundo raster para isso. */
 .horizon[data-variant="hero"] {
+  --solis-horizon-image: url("/brand/horizon/solis-horizon.webp");
   --horizon-line-bottom: 186px;
   /* Largura e altura andam juntas: a MESMA queda sai de infinitos pares (w, h),
    * mas o formato muda — elipse estreita despenca perto das bordas, elipse
@@ -120,7 +133,7 @@
   }
 }
 
-/* Quando o asset aprovado existir, esta camada assume. */
+/* A camada do asset aprovado. Ver a nota de ativação mais abaixo. */
 .horizon__art--image {
   background-image: var(--solis-horizon-image, none);
   background-size: cover;
@@ -282,4 +295,9 @@
     color-mix(in srgb, var(--solis-day-color-a) 14%, transparent) 0%,
     transparent 100%
   );
+}
+
+/* Com o asset ativo, some com a construção em CSS — senão são dois horizontes. */
+.horizon[data-variant="hero"] .horizon__art:not(.horizon__art--image) {
+  display: none;
 }
