@@ -22,6 +22,26 @@
   --solis-success: #8FBF6D;
   --solis-error: #E4674A;
 
+  /* ---- cores de balão de conversa ----
+   * Não são hex novos da paleta: são composição de tokens que já existem — a
+   * mesma técnica do ciclo do dia ("cada fase é opacidade/mistura dos tokens
+   * que já existem").
+   *
+   *   amber 70% + night 30% = #AA6521
+   *   (referência 02-conversa-thread.png mede #A46514 — praticamente o mesmo)
+   *
+   * Contraste medido, não assumido (Tokens Complementares, seção 1):
+   *   branco    sobre #AA6521 = 4,57:1 → AA  ✅
+   *   warmWhite sobre #AA6521 = 4,03:1 → reprova
+   *   branco    sobre amber puro = 2,51:1 → reprova
+   *   branco    sobre solar puro = 1,73:1 → reprova
+   * É o escurecimento que torna o texto branco legal. Trocar a receita pelo
+   * token puro quebra acessibilidade — não "simplificar" isso.
+   *
+   * É o único lugar do sistema onde o texto é branco puro, e não warmWhite. */
+  --solis-bubble-user: color-mix(in srgb, var(--solis-amber) 70%, var(--solis-night));
+  --solis-bubble-user-text: #ffffff;
+
   /* ---- radius ---- */
   --solis-radius-sm: 8px;
   --solis-radius-md: 12px;

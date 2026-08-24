@@ -9,7 +9,18 @@
     "warmWhite": "#F5F0E7",
     "muted": "#A1A7B3",
     "success": "#8FBF6D",
-    "error": "#E4674A"
+    "error": "#E4674A",
+    "bubble": {
+      "_comment": "Cores de balão de conversa. Não são hex novos da paleta: são composições de tokens que já existem, a mesma técnica que o ciclo do dia usa ('cada fase é opacidade/mistura dos tokens que já existem').",
+      "user": {
+        "recipe": "color.amber 70% + color.night 30%",
+        "computed": "#AA6521",
+        "measuredInReference": "#A46514 (02-conversa-thread.png)",
+        "text": "#FFFFFF",
+        "_contrast": "Branco sobre #AA6521 = 4,57:1 → AA. Medido, não assumido, como manda a seção 1 do Tokens Complementares. Para comparação: branco sobre color.amber puro = 2,51:1 e sobre color.solar puro = 1,73:1 — os dois REPROVAM. É justamente o escurecimento que torna o texto branco legal, então a receita não pode ser 'simplificada' para o token puro sem quebrar acessibilidade.",
+        "_textNote": "Este é o único lugar do sistema onde o texto é branco puro e não color.warmWhite: warmWhite sobre a mistura cai para 4,03:1, abaixo de AA."
+      }
+    }
   },
   "colorLight": {
     "_status": "NOVO — paleta de modo claro. Reverte a decisão anterior de 'um modo só' no Figma; a coleção Solis/Color precisa ganhar um modo Light se isso voltar pro Figma.",
@@ -103,8 +114,23 @@
   "signature": {
     "_comment": "Ver SOLIS_SIGNATURE.md para o racional completo. Três camadas independentes: horizonte persistente, ciclo do dia, glow reativo ao áudio.",
     "horizonPersistent": {
-      "heightPx": "2-4px",
-      "placement": "base de toda tela, renderizado uma vez no shell do app, nunca remontado ao trocar de view"
+      "_status": "ATUALIZADO — o valor anterior (heightPx 2-4px) era a especificação original, que o SOLIS_SIGNATURE.md já havia substituído pela cena de nascer do sol em tamanho grande. Ficava aqui desatualizado.",
+      "placement": "base de toda tela, renderizado uma vez no shell do app, nunca remontado ao trocar de view",
+      "variants": {
+        "_comment": "Duas escalas do MESMO horizonte — não são dois elementos, e trocar de escala não remonta nada. Confirmado por medição nas 6 referências.",
+        "hero": {
+          "usedIn": "tela de Conversa (01 e 02)",
+          "lineFromWindowBottom": "186px",
+          "riseFromEdgeToCenter": "~145px",
+          "_measured": "01 sobe 129px (linha no centro a 733 CSS), 02 sobe 162px (centro a 763)"
+        },
+        "ambiente": {
+          "usedIn": "demais telas (03, 05, 06)",
+          "lineFromWindowBottom": "16px",
+          "riseFromEdgeToCenter": "~8px",
+          "_measured": "03 sobe 10px, 05 sobe 6px — linha praticamente colada no rodapé"
+        }
+      }
     },
     "dayCycle": {
       "_rule": "Nunca criar hex novo aqui — cada fase é opacidade/mistura dos tokens de color já existentes.",

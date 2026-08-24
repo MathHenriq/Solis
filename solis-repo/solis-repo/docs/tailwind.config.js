@@ -27,6 +27,10 @@ export default {
         muted: "#A1A7B3",
         success: "#8FBF6D",
         error: "#E4674A",
+        // Composição de tokens, não hex novo. A receita e o cálculo de
+        // contraste vivem em solis-tokens.json → color.bubble.user; aqui só
+        // se aponta pra variável, pra não duplicar o valor em dois lugares.
+        "bubble-user": "var(--solis-bubble-user)",
       },
       borderRadius: {
         sm: "8px",

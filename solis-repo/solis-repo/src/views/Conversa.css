@@ -191,27 +191,13 @@
   color: var(--solis-warm-white);
 }
 
-/* Balão do usuário.
- *
- * A referência mostra #A46514 com texto branco. Esse hex não existe nos tokens,
- * e a decisão de projeto é que o JSON manda na cor. Em vez de inventar uma
- * entrada nova na paleta, a cor é composta a partir de dois tokens que já
- * existem — a mesma técnica que o ciclo do dia usa ("cada fase é opacidade/
- * mistura dos tokens que já existem"):
- *
- *   amber 70% + night 30% = #AA6521   (referência medida: #A46514)
- *
- * Contraste verificado, e não assumido — o documento de tokens manda remedir
- * toda combinação nova de cor+fundo:
- *   branco  sobre #AA6521 = 4,57:1 → AA  ✅  (é o que a referência usa)
- *   branco  sobre amber puro = 2,51:1 → REPROVA
- *   branco  sobre solar puro = 1,73:1 → REPROVA
- * Ou seja: é justamente o escurecimento que torna o texto branco legal. Usar
- * amber ou solar puro aqui quebraria acessibilidade. */
+/* Balão do usuário. A cor e o texto vêm do token nomeado
+ * color.bubble.user (solis-tokens.json), onde ficam a receita e o cálculo de
+ * contraste. Nada de hex solto aqui. */
 .conversa__bubble--user {
   max-width: 620px;
-  background: color-mix(in srgb, var(--solis-amber) 70%, var(--solis-night));
-  color: #ffffff;
+  background: var(--solis-bubble-user);
+  color: var(--solis-bubble-user-text);
 }
 
 .conversa__bubble p {
