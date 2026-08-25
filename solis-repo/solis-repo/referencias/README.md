@@ -55,10 +55,32 @@ sidebar). Arco com pontas finas, curva mais graciosa. Aprovado em 24×24px real 
 **Nenhum destes tem canal alpha** — são RGB sobre branco `#FEFEFE`. Não recortar à mão pra
 usar sobre fundo colorido: o vetor em `design/solis-symbol.svg` é o asset de uso.
 
-### symbol/, logo/, states/, app-icon/ — geração anterior
+Derivados do vetor, com alpha real, pros usos que não aceitam SVG:
+`solis-symbol-mono-claro.png` (tinta `#F5F0E7`, pra fundo escuro) e
+`solis-symbol-mono-escuro.png` (tinta `#071019`, pra fundo claro), ambos 2048px.
 
-Desenhados sobre o símbolo **antigo**. Ficam como histórico até serem regerados a partir do
-refinado; não usar em tela nova. Só `symbol/*-mono-transparent*` têm transparência real.
+### app-icon/ e favicon/ — derivados do vetor
 
-Pendência herdada: não há asset aprovado para o estado "Executando" sem raios de sol
-(ver `docs/HANDOFF.md`).
+Gerados por `design/gerar-assets.py` a partir de `design/solis-symbol.svg`. Nenhum é
+ampliação de outro PNG.
+
+- `app-icon/` — `solis-app-icon.png` (1024), `icon-{16..1024}.png` e `solis.ico`
+  (7 tamanhos embutidos, payload PNG por entrada).
+- `favicon/` — `favicon.svg`, `favicon.ico` (16/32/48) e PNGs de 16/32/180.
+
+Fundo `#07080D` (`themes.dark.canvas`, pra bater com o tema padrão do app) e tinta
+`#F5F0E7` (`color.warmWhite`, a tinta medida na aplicação aprovada em
+`symbol-refinado/sobre-fundo-escuro.png`). O símbolo ocupa 76% do quadrado nos tamanhos
+grandes e cresce até 92% em 16–24px — ajuste óptico deliberado, porque a legibilidade foi
+validada a partir de 24px **do símbolo**, e 76% de um canvas de 16px deixaria só 12px de
+marca.
+
+**Diferença de caráter em relação ao ícone anterior:** o antigo era um render com glow e
+bloom; este é traço chapado, que é o que o vetor sustenta e o que a folha de aplicações
+aprovada mostra. É também o que o mantém legível em 16px.
+
+### logo/, states/ — geração anterior
+
+Desenhados sobre o símbolo **antigo**, ainda não regerados. Ver `brand/_legado/README.md`
+pro motivo de cada um. Pendência herdada: não há asset aprovado para o estado "Executando"
+sem raios de sol (ver `docs/HANDOFF.md`).
