@@ -31,12 +31,27 @@ path = potrace.Bitmap(np.array(big) >= 128).trace(
     turdsize=4*UP, alphamax=1.0, opticurve=True, opttolerance=TOL)
 
 pts = lambda p: (p.x/UP, p.y/UP)
+
+def flatten(p0, p1, p2, p3, n=32):
+    """Pontos SOBRE a curva. O bbox tem que sair daqui, nao dos pontos de
+    controle: control point de bezier fica fora da curva, e usar ele infla o
+    viewBox com margem morta assimetrica."""
+    out = []
+    for i in range(1, n+1):
+        t = i/n; u = 1-t
+        out.append((u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0],
+                    u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1]))
+    return out
+
 todos = []
 for c in path:
-    todos.append(pts(c.start_point))
+    cur = pts(c.start_point); todos.append(cur)
     for seg in c:
-        todos += [pts(seg.c), pts(seg.end_point)] if seg.is_corner else \
-                 [pts(seg.c1), pts(seg.c2), pts(seg.end_point)]
+        if seg.is_corner:
+            todos += [pts(seg.c), pts(seg.end_point)]
+        else:
+            todos += flatten(cur, pts(seg.c1), pts(seg.c2), pts(seg.end_point))
+        cur = todos[-1]
 ox = min(p[0] for p in todos); oy = min(p[1] for p in todos)
 Wb = max(p[0] for p in todos) - ox; Hb = max(p[1] for p in todos) - oy
 P = lambda p: ((p.x/UP - ox), (p.y/UP - oy))
