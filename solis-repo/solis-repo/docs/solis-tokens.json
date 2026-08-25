@@ -11,15 +11,53 @@
     "success": "#8FBF6D",
     "error": "#E4674A"
   },
-  "colorLight": {
-    "_status": "NOVO — paleta de modo claro. Reverte a decisão anterior de 'um modo só' no Figma; a coleção Solis/Color precisa ganhar um modo Light se isso voltar pro Figma.",
-    "_comment": "Cores existentes (solar/amber/muted) falham contraste como texto sobre fundo claro — não são reaproveitáveis diretas, exigiram 3 tokens novos.",
-    "paper": { "hex": "#FFFFFF", "role": "superfície de card, mais clara que o canvas" },
-    "graphite": { "hex": "#5C6470", "role": "texto secundário", "contrastOnCanvas": "5.27:1" },
-    "amberDeep": { "hex": "#9A5510", "role": "texto/ícone de destaque", "contrastOnCanvas": "5.02:1" },
-    "canvas": { "ref": "color.warmWhite", "role": "fundo do app — reaproveita token existente, sem cor nova" },
-    "textPrimary": { "ref": "color.night", "contrastOnCanvas": "16.9:1" },
-    "elevation": { "_rule": "modo claro usa box-shadow real (sutil), não borda translúcida — a regra anti-sombra do PERFORMANCE.md é só contra filter/shadow ANIMADO em loop, não contra sombra estática." }
+  "themes": {
+    "_status": "MEDIDO — valores amostrados por pixel nas 3 referências da Fase 2. Método e números completos em docs/MEDICOES_FASE2.md.",
+    "_substitui": "O bloco 'colorLight' (modo claro binário). Ele presumia canvas de cor chapada (warmWhite) e trazia contrastes calculados contra ela; nos temas 'espacial' e 'claro' o canvas é foto, então aqueles números não valiam mais.",
+    "_estrutura": "3 temas nomeados sobre 2 cenas. 'espacial' e 'claro' compartilham a MESMA foto (correlação 0,98 na faixa do horizonte) e diferem só na tinta — é uma cena, dois conjuntos de cor, não dois assets.",
+    "_pendente": "O pedido original falava em 4 temas e só 3 chegaram como referência. Nome do quarto (se existir) e tema padrão de primeira instalação: em aberto, não travar sem decidir.",
+    "_regraDeConsumo": "Componente nunca lê hex daqui. Lê custom property semântica (--canvas, --divider, --text-primary, --text-secondary, --text-placeholder, --accent); o tema só troca o valor delas.",
+    "espacial": {
+      "scene": "sunrise",
+      "canvas": "#FAE7D0",
+      "divider": "#DAC1A8",
+      "textPrimary": "#4A0A09",
+      "textSecondary": "#894D43",
+      "textPlaceholder": "#90554B",
+      "accent": "#DA7B22",
+      "_nota": "O vinho é #4A0A09 (interior do traço). #6B1420 era estimativa não amostrada e foi descartado."
+    },
+    "claro": {
+      "scene": "sunrise",
+      "canvas": "#FCF7F2",
+      "divider": "#E5DDD5",
+      "textPrimary": "#27231C",
+      "textSecondary": "#888480",
+      "textPlaceholder": "#64615E",
+      "accent": "#E18A21"
+    },
+    "dark": {
+      "scene": "none",
+      "canvas": "#07080D",
+      "divider": "#181A1C",
+      "textPrimary": "#F1E4D4",
+      "textSecondary": "#746A5F",
+      "textPlaceholder": "#8F8172",
+      "accent": "#F0BA46",
+      "_nota": "Sem foto: o horizonte aqui é glow sintético. Bom pro bundle e coerente com a Camada 1 do SOLIS_SIGNATURE.md."
+    },
+    "_acentoNaoEhUnico": "PROVISÓRIO — o acento varia por tema, então não existe um 'solar' único servindo os três. Isso colide com o controle 'Cor de destaque' que aparece em referencias/telas/06-configuracoes.png como se fosse independente do tema. Pendência de produto.",
+    "_sidebarNaoEhSuperficie": "Nos 3 temas o fundo da sidebar é o mesmo do canvas (diferença dentro do ruído do render). O que separa é a divisória de 1px. Não criar bg.surface pra ela.",
+    "_contrastePendente": "Contraste sobre foto é faixa, não número. textPrimary passa com folga nos 3. textSecondary #894D43 sobre a região clara da foto precisa ser medido com a imagem-fonte em resolução real (pendência 0a) antes de fechar."
+  },
+  "scenes": {
+    "_status": "PENDENTE 0a — o arquivo da cena não está no repositório. Os backgrounds existentes (telas/07, telas/08) são outra imagem: correlação 0,49 e 0,32 contra o que as telas da Fase 2 usam.",
+    "sunrise": {
+      "usedBy": ["espacial", "claro"],
+      "asset": "PENDENTE — subir em ≥2560px de largura, entregar em WebP (ver SOLIS_SIGNATURE.md, pendência de formato)",
+      "_nota": "Um asset só pros dois temas. O que muda entre eles é a tinta do texto, não a imagem."
+    },
+    "none": { "usedBy": ["dark"], "asset": null }
   },
   "radius": {
     "sm": "8px",
@@ -46,10 +84,12 @@
   },
   "typography": {
     "_status": "PROVISÓRIO — fonte final não escolhida (DS v0.1, seção 8). Candidatas: Inter, Sora, Manrope, Poppins. Validar na interface real antes de travar.",
-    "fontFamilyDisplay": "Inter",
+    "_displayStatus": "PROVISÓRIO — as 3 telas da Fase 2 usam uma SERIFADA na saudação e sans em todo o resto. O contraste é intencional e fica restrito à saudação; a serifada específica ainda não foi escolhida e vai exigir self-host no bundle do Tauri (o HANDOFF trava 'sem dependência de rede').",
+    "fontFamilyDisplay": "serif",
     "fontFamilyBody": "Inter",
     "wordmarkLetterSpacing": "4px",
     "scale": {
+      "hero": { "size": "52px", "weight": 400, "family": "fontFamilyDisplay", "_medido": "Fase 2, normalizado pra janela de 1440px. Único lugar onde a serifada entra." },
       "title1": { "size": "32px", "weight": 600 },
       "title2": { "size": "20px", "weight": 500 },
       "body": { "size": "16px", "weight": 400 },
@@ -77,6 +117,28 @@
       "md": "48px",
       "lg": "64px",
       "xl": "128px"
+    }
+  },
+  "layout": {
+    "_status": "MEDIDO na Fase 2, normalizado pra janela de 1440px de largura. Ver docs/MEDICOES_FASE2.md.",
+    "sidebar": {
+      "width": "200px",
+      "widthPercent": 13.9,
+      "iconSize": "17px",
+      "itemPitch": "55px",
+      "labelSize": "14px",
+      "activeIndicator": { "width": "3px", "inset": "12px" },
+      "iconInset": "29px",
+      "labelInset": "69px",
+      "_anterior": "A referência anterior (telas/06-configuracoes.png) tinha 250px, ícone de 21px, passo de 62px e rótulo de ~16px."
+    },
+    "composer": {
+      "height": "79px",
+      "width": "~805px",
+      "radius": "13px",
+      "actionChipHeight": "55px",
+      "_nota": "Não ficou mais baixo que a versão anterior (81px) — ficou mais leve: borda âmbar virou neutra sutil e o botão circular âmbar de 48px virou seta fina. Decisão registrada.",
+      "_microfone": "As 3 telas da Fase 2 não mostram o microfone. Confirmado como omissão do gerador de imagem, não decisão: ele é reintroduzido. Whisper e a Camada 3 do SOLIS_SIGNATURE.md dependem dele."
     }
   },
   "motion": {
@@ -136,6 +198,7 @@
   },
   "navigation": {
     "items": ["Conversa", "Memória", "Modelos locais", "Ferramentas", "Tarefas", "Agenda", "Conhecimento", "Configurações"],
+    "_itemsNoteFase2": "As 3 telas da Fase 2 mostram 7 itens, sem 'Modelos locais'. Confirmado como omissão do gerador de imagem: a lista oficial continua sendo os 8 abaixo. Aquelas telas valem pro ESTILO da nav, não pra lista de itens.",
     "_itemsNote": "Lista unificada — as telas geradas no GPT tinham inconsistência entre si (item faltando/ordem diferente). Esta é a lista oficial única. NOTA: 'Foco' saiu da lista e 4 itens novos entraram (Modelos locais, Tarefas, Agenda, Conhecimento) — confirmar se essa expansão de escopo é intencional.",
     "style": {
       "options": ["sidebar", "iconbar"],
@@ -143,5 +206,18 @@
       "persistence": "local (config do usuário, não é estado de sessão)",
       "defaultOnFirstInstall": "NÃO DEFINIDO — decisão de produto em aberto, não travar sem decidir"
     }
+  },
+  "appearance": {
+    "theme": {
+      "options": ["espacial", "claro", "dark"],
+      "configurable": true,
+      "persistence": "local — mesmo mecanismo do navigation.style, mesmo registro de config",
+      "applyAs": "atributo data-theme no elemento raiz, lido ANTES do primeiro paint (senão o app pisca num tema e troca pro outro). Nunca distribuir cor por Context: a Camada 1 do SOLIS_SIGNATURE.md é montada uma vez no shell e não pode remontar na troca de tema.",
+      "defaultOnFirstInstall": "NÃO DEFINIDO — recomendação: 'dark' (não carrega asset fotográfico no primeiro paint)"
+    }
+  },
+  "platform": {
+    "target": "Windows",
+    "_nota": "As telas da Fase 2 usam os controles de janela do Windows (minimizar/maximizar/fechar). As referências anteriores usavam os do macOS. Afeta a configuração de decorations no Tauri."
   }
 }
