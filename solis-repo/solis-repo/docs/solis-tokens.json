@@ -15,7 +15,7 @@
     "_status": "MEDIDO — valores amostrados por pixel nas 3 referências da Fase 2. Método e números completos em docs/MEDICOES_FASE2.md.",
     "_substitui": "O bloco 'colorLight' (modo claro binário). Ele presumia canvas de cor chapada (warmWhite) e trazia contrastes calculados contra ela; nos temas 'espacial' e 'claro' o canvas é foto, então aqueles números não valiam mais.",
     "_estrutura": "3 temas nomeados sobre 2 cenas. 'espacial' e 'claro' compartilham a MESMA foto (correlação 0,98 na faixa do horizonte) e diferem só na tinta — é uma cena, dois conjuntos de cor, não dois assets.",
-    "_pendente": "O pedido original falava em 4 temas e só 3 chegaram como referência. Nome do quarto (se existir) e tema padrão de primeira instalação: em aberto, não travar sem decidir.",
+    "_fechado": "São 3 temas, não 4 — decidido. O quarto do pedido original era o 'bege+vinho', que convergiu com o 'espacial' na mesma cena fotográfica.",
     "_regraDeConsumo": "Componente nunca lê hex daqui. Lê custom property semântica (--canvas, --divider, --text-primary, --text-secondary, --text-placeholder, --accent); o tema só troca o valor delas.",
     "espacial": {
       "scene": "sunrise",
@@ -46,7 +46,7 @@
       "accent": "#F0BA46",
       "_nota": "Sem foto: o horizonte aqui é glow sintético. Bom pro bundle e coerente com a Camada 1 do SOLIS_SIGNATURE.md."
     },
-    "_acentoNaoEhUnico": "PROVISÓRIO — o acento varia por tema, então não existe um 'solar' único servindo os três. Isso colide com o controle 'Cor de destaque' que aparece em referencias/telas/06-configuracoes.png como se fosse independente do tema. Pendência de produto.",
+    "_acentoNaoEhUnico": "O acento varia por tema, então não existe um 'solar' único servindo os três. Consequência decidida: o controle 'Cor de destaque' SAI de Configurações → Aparência (ele aparece em referencias/telas/06-configuracoes.png, que é anterior a essa decisão). Escolher o tema já escolhe o acento.",
     "_sidebarNaoEhSuperficie": "Nos 3 temas o fundo da sidebar é o mesmo do canvas (diferença dentro do ruído do render). O que separa é a divisória de 1px. Não criar bg.surface pra ela.",
     "_contrastePendente": "Contraste sobre foto é faixa, não número. textPrimary passa com folga nos 3. textSecondary #894D43 sobre a região clara da foto precisa ser medido com a imagem-fonte em resolução real (pendência 0a) antes de fechar."
   },
@@ -55,7 +55,8 @@
     "sunrise": {
       "usedBy": ["espacial", "claro"],
       "asset": "PENDENTE — subir em ≥2560px de largura, entregar em WebP (ver SOLIS_SIGNATURE.md, pendência de formato)",
-      "_nota": "Um asset só pros dois temas. O que muda entre eles é a tinta do texto, não a imagem."
+      "_nota": "Um asset só pros dois temas. O que muda entre eles é a tinta do texto, não a imagem.",
+      "_desligavel": "A cena é uma CAMADA sobre o canvas sólido, não o fundo em si. Com 'Exibir imagem de fundo' desligado, a camada some e sobra themes.<tema>.canvas — a versão sólida da paleta do mesmo tema, que é exatamente a lógica que o tema dark já usa. Nenhuma cor nova precisa existir pra isso."
     },
     "none": { "usedBy": ["dark"], "asset": null }
   },
@@ -127,6 +128,7 @@
       "iconSize": "17px",
       "itemPitch": "55px",
       "labelSize": "14px",
+      "_labelSize": "14px é o medido. O pedido dizia 13px, mas era estimativa; vale a referência.",
       "activeIndicator": { "width": "3px", "inset": "12px" },
       "iconInset": "29px",
       "labelInset": "69px",
@@ -168,6 +170,8 @@
       "placement": "base de toda tela, renderizado uma vez no shell do app, nunca remontado ao trocar de view"
     },
     "dayCycle": {
+      "_appliesTo": ["dark"],
+      "_ruleFase2": "O ciclo do dia roda SÓ no tema dark. Nos temas com cena fotográfica a imagem já retrata um momento específico do dia — repintar isso dinamicamente brigaria com a foto em vez de somar. No dark, que não tem imagem fixa, o ciclo continua sendo o que dá vida ao horizonte.",
       "_rule": "Nunca criar hex novo aqui — cada fase é opacidade/mistura dos tokens de color já existentes.",
       "phases": [
         { "name": "madrugada", "hours": "00-05", "colors": ["night", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 },
@@ -213,7 +217,8 @@
       "configurable": true,
       "persistence": "local — mesmo mecanismo do navigation.style, mesmo registro de config",
       "applyAs": "atributo data-theme no elemento raiz, lido ANTES do primeiro paint (senão o app pisca num tema e troca pro outro). Nunca distribuir cor por Context: a Camada 1 do SOLIS_SIGNATURE.md é montada uma vez no shell e não pode remontar na troca de tema.",
-      "defaultOnFirstInstall": "NÃO DEFINIDO — recomendação: 'dark' (não carrega asset fotográfico no primeiro paint)"
+      "defaultOnFirstInstall": "dark",
+      "_defaultRationale": "Decidido. Não carrega asset fotográfico no primeiro paint e é o tema em que o ciclo do dia roda."
     }
   },
   "platform": {

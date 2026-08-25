@@ -1,0 +1,96 @@
+/* GERADO por design/gerar-tokens-css.py — nao editar a mao.
+ * Fonte de verdade: docs/solis-tokens.json. Mexeu no token, roda o script.
+ *
+ * O tema e trocado por [data-theme] no elemento raiz, nunca por Context de
+ * React distribuindo cor: a Camada 1 do SOLIS_SIGNATURE.md e montada uma vez
+ * no shell e nao pode remontar na troca de tema. Trocar um atributo so
+ * repinta; trocar o valor de um Context re-renderiza a arvore. */
+
+:root {
+  /* escala — independente de tema */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+  --space-4xl: 64px;
+  --icon-xs: 16px;
+  --icon-sm: 20px;
+  --icon-md: 24px;
+
+  /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */
+  --sidebar-width: 200px;
+  --sidebar-icon: 17px;
+  --sidebar-pitch: 55px;
+  --sidebar-label: 14px;
+  --sidebar-icon-inset: 29px;
+  --sidebar-label-inset: 69px;
+  --composer-height: 79px;
+  --composer-radius: 13px;
+  --chip-height: 55px;
+
+  /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) */
+  --font-body: Inter;
+  --font-display: serif;
+  --text-hero: 52px;
+  --weight-hero: 400;
+  --text-title1: 32px;
+  --weight-title1: 600;
+  --text-title2: 20px;
+  --weight-title2: 500;
+  --text-body: 16px;
+  --weight-body: 400;
+  --text-caption: 12px;
+  --weight-caption: 400;
+}
+
+/* Tema padrao na primeira instalacao: dark. O atributo tem que estar no HTML
+ * ANTES do primeiro paint — senao o app pisca num tema e troca pro outro. */
+
+[data-theme="espacial"] {
+  --canvas: #FAE7D0;
+  --divider: #DAC1A8;
+  --text-primary: #4A0A09;
+  --text-secondary: #894D43;
+  --text-placeholder: #90554B;
+  --accent: #DA7B22;
+  --scene: var(--scene-sunrise);
+}
+
+[data-theme="claro"] {
+  --canvas: #FCF7F2;
+  --divider: #E5DDD5;
+  --text-primary: #27231C;
+  --text-secondary: #888480;
+  --text-placeholder: #64615E;
+  --accent: #E18A21;
+  --scene: var(--scene-sunrise);
+}
+
+[data-theme="dark"] {
+  --canvas: #07080D;
+  --divider: #181A1C;
+  --text-primary: #F1E4D4;
+  --text-secondary: #746A5F;
+  --text-placeholder: #8F8172;
+  --accent: #F0BA46;
+  --scene: none;
+}
+
+/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem
+ * de fundo" desligado ela some e sobra a versao solida da paleta do mesmo
+ * tema. Nenhuma cor nova precisa existir pra isso. */
+[data-scene="off"] { --scene: none; }
+
+body { background: var(--canvas); color: var(--text-primary); font-family: var(--font-body); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* PERFORMANCE.md: todas as duracoes vao a ~0 */
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

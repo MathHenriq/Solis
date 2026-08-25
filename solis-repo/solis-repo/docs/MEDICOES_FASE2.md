@@ -163,18 +163,31 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 | 6 | Hexes novos conflitando com `solis-tokens.json` | Reescrever os tokens pelos valores medidos |
 | — | Controles de janela macOS → Windows | Plataforma alvo é **Windows** |
 
+## Decisões de produto (fechadas)
+
+| Questão | Decisão |
+|---|---|
+| Tema padrão na primeira instalação | `dark` |
+| Quantos temas | **3** — `espacial`, `claro`, `dark`. O quarto do pedido original era o "bege+vinho", que convergiu com o `espacial` |
+| "Cor de destaque" em Configurações | **Sai.** O acento é por tema; escolher o tema já escolhe o acento |
+| "Exibir imagem de fundo" desligado | Versão sólida da paleta do mesmo tema, sem a foto — mesma lógica que o `dark` já usa. A cena é uma camada sobre `--canvas`, então basta remover a camada; nenhuma cor nova precisa existir |
+| Ciclo do dia (Camada 2) | Roda **só no tema `dark`**, o único sem imagem fixa. Nos temas fotográficos a imagem já retrata um momento específico do dia |
+| Rótulo da nav | 14px (o medido), não 13px |
+
 ## Ainda em aberto
 
-1. **Tema padrão na primeira instalação.** Recomendação: `dark` — não carrega asset
-   fotográfico no primeiro paint e é o que as 6 telas originais já mostravam.
-2. **Quantos temas afinal.** O pedido falava em 4; chegaram 3 referências e o README do
-   pacote descreve 3 fundos, mas espacial e claro compartilham o mesmo (correlação 0,98),
-   o que fecha em 2 fundos e 3 temas. Falta nome e referência do quarto, se ele existe.
-3. **"Cor de destaque"** sobrevive como controle separado, dado que o acento já varia por
-   tema?
-4. **"Exibir imagem de fundo"** desligado em `espacial`/`claro` cai pra quê?
-5. **Ciclo do dia (Camada 2 do SIGNATURE)** ainda roda com temas fixos? Um tema `claro`
-   que escurece sozinho às 21h é contraditório.
-6. O card Aparência de `telas/06-configuracoes.png` não tem nem o seletor de tema com 4
-   opções nem o seletor Sidebar/Ícones — vai ganhar dois controles novos e não há
-   referência visual pra ele.
+1. **Pendência 0a** — a cena fotográfica em resolução real. Sem ela não fecha o contraste
+   do texto secundário `#894D43` sobre a região clara da foto.
+2. **A fonte serifada da saudação** — nenhuma foi escolhida, e a escolha exige self-host
+   no bundle do Tauri (o `HANDOFF.md` trava "sem dependência de rede").
+3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
+   decisão de fonte acima: o wordmark tem 40px de altura de tinta na folha do símbolo
+   refinado e 100px no lockup antigo, e traçar letra nessa resolução entrega tipografia
+   pior que a original. O caminho certo é compor o wordmark como texto quando a fonte
+   estiver fechada.
+4. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
+   vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
+   atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.
+5. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
+   Sidebar/Ícones, e perder "Cor de destaque". A referência atual
+   (`telas/06-configuracoes.png`) é anterior a tudo isso.
