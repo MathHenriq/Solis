@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Gera design/tokens.css a partir de docs/solis-tokens.json.
+Gera src/styles/tokens.css a partir de docs/solis-tokens.json.
 
 Existe pra fazer valer a regra do HANDOFF ("o Tailwind nao deve ter nenhum valor
 que nao venha do JSON"). Enquanto o CSS for gerado, nao ha como um hex entrar na
@@ -43,10 +43,12 @@ w('  --sidebar-label: %s;'      % sb['labelSize'])
 w('  --sidebar-icon-inset: %s;' % sb['iconInset'])
 w('  --sidebar-label-inset: %s;'% sb['labelInset'])
 w('  --composer-height: %s;'    % cp['height'])
+w('  --composer-width: %s;'     % cp['width'])
 w('  --composer-radius: %s;'    % cp['radius'])
 w('  --chip-height: %s;'        % cp['actionChipHeight'])
 w('')
 w('  /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) */')
+w('  --ease: %s;' % T['motion']['easing'])
 w('  --font-body: %s;' % T['typography']['fontFamilyBody'])
 w('  --font-display: %s;' % T['typography']['fontFamilyDisplay'])
 for k, v in T['typography']['scale'].items():
@@ -79,5 +81,5 @@ w('  /* PERFORMANCE.md: todas as duracoes vao a ~0 */')
 w('  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }')
 w('}')
 
-open('design/tokens.css', 'w').write('\n'.join(L) + '\n')
-print('design/tokens.css — %d temas (%s), padrao %s' % (len(TEMAS), ', '.join(TEMAS), PADRAO))
+open('src/styles/tokens.css', 'w').write('\n'.join(L) + '\n')
+print('src/styles/tokens.css — %d temas (%s), padrao %s' % (len(TEMAS), ', '.join(TEMAS), PADRAO))

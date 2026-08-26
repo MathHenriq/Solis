@@ -1,0 +1,18 @@
+/* tokens.css é GERADO de docs/solis-tokens.json — ver design/gerar-tokens-css.py.
+   Entra antes do Tailwind pra que as custom properties existam quando as
+   utilitárias que referenciam var() forem aplicadas. */
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+
+/* A troca de tema é uma transição de cor, não um corte seco. Só color e
+   background-color: PERFORMANCE.md proíbe filter/box-shadow animados, e isto
+   aqui é transição pontual, não loop. */
+body {
+  transition: background-color 200ms var(--ease),
+              color 200ms var(--ease);
+}

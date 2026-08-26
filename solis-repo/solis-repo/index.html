@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark" data-scene="on">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Solis</title>
+    <script>
+      /* Bootstrap de tema — TEM que rodar antes do primeiro paint, senão o app
+         pinta no tema padrão e troca pro escolhido, e a pessoa vê o pisca.
+         Por isso é inline e síncrono: não dá pra esperar o bundle nem um
+         useEffect.
+
+         As constantes abaixo estão duplicadas de src/theme/theme.ts, que este
+         script não pode importar. design/checar-regras.py falha se divergirem. */
+      (function () {
+        var CHAVE_TEMA = 'solis.appearance.theme';
+        var CHAVE_CENA = 'solis.appearance.scene';
+        var TEMA_PADRAO = 'dark';
+        var TEMAS = ['espacial', 'claro', 'dark'];
+        try {
+          var t = localStorage.getItem(CHAVE_TEMA);
+          document.documentElement.dataset.theme = TEMAS.indexOf(t) >= 0 ? t : TEMA_PADRAO;
+          document.documentElement.dataset.scene =
+            localStorage.getItem(CHAVE_CENA) === 'off' ? 'off' : 'on';
+        } catch (e) {
+          document.documentElement.dataset.theme = TEMA_PADRAO;
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

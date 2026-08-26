@@ -52,6 +52,9 @@ module.exports = {
       width: {
         sidebar: "var(--sidebar-width)",
       },
+      maxWidth: {
+        composer: "var(--composer-width)",
+      },
       height: {
         composer: "var(--composer-height)",
         chip: "var(--chip-height)",

@@ -136,7 +136,8 @@
     },
     "composer": {
       "height": "79px",
-      "width": "~805px",
+      "width": "805px",
+      "_width": "Medido 849-867px @1536 nas 3 telas; 805px é a normalização pra janela de 1440.",
       "radius": "13px",
       "actionChipHeight": "55px",
       "_nota": "Não ficou mais baixo que a versão anterior (81px) — ficou mais leve: borda âmbar virou neutra sutil e o botão circular âmbar de 48px virou seta fina. Decisão registrada.",
