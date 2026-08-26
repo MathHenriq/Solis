@@ -70,10 +70,43 @@ O resultado inverteu a expectativa. A foto **não** é o problema principal:
    de **texto grande** (≥24px normal ou ≥18,66px negrito), e o subtítulo medido tem ~20px
    normal — não se qualifica.
 
-Isso vem direto das cores da referência, então não mexi em nada (Regra 2). Mas é
-decisão de produto pendente: ou o secundário escurece ~15% em `claro` e clareia em `dark`,
-ou se aceita AA só para texto grande nesses dois temas. O DS anterior calculava contraste
-para tudo (`graphite` a 5,27:1), o que sugere que aceitar seria uma quebra de critério.
+### Derivação das cores secundárias
+
+Decisão do Matheus: **não aceitar "AA só para texto grande"** — isso baixaria um padrão
+que todos os outros tokens de texto do sistema já cumprem. As duas cores que reprovavam
+foram ajustadas até 4,5:1.
+
+**Método — derivar do medido, não substituir.** Cada cor é convertida para OKLCh e só o
+**L** (claridade perceptual) se move; croma e matiz ficam travados. É isso que separa
+"derivar" de "trocar por outra cor": o tom e a saturação perceptual continuam sendo os
+amostrados na referência. Implementado em `design/derivar-cor.py`.
+
+O alvo não é o canvas chapado, é o **pior pixel de fundo dos 70% superiores da janela** —
+a faixa onde texto secundário efetivamente cai. Mirar só no canvas deixaria margem zero
+sobre a foto e a cor oscilaria em torno de 4,5 conforme o gradiente.
+
+| tema | medido | final | contraste antes | contraste depois | ΔEOK | matiz |
+|---|---|---|---|---|---|---|
+| espacial | `#894D43` | *(mantido)* | 4,59:1 | 4,59:1 | — | — |
+| claro | `#888480` | **`#726E6A`** | 3,32:1 | **4,52:1** | 0,0750 | 67,7° → 67,7° |
+| dark | `#746A5F` | **`#82786D`** | 3,72:1 | **4,55:1** | 0,0482 | 70,0° → 70,1° |
+
+Contraste é o do **pior pixel de fundo**, não a mediana — as medianas ficam em 5,38:1,
+4,72:1 e 4,63:1. O matiz sobrevive intacto nos dois casos; o croma varia na terceira casa,
+que é só o arredondamento para hex de 8 bits.
+
+ΔEOK é a distância perceptual em OKLab. O limiar em que a maioria das pessoas percebe
+diferença lado a lado fica em torno de 0,02, então **os dois ajustes são perceptíveis** se
+você comparar as duas versões coladas uma na outra — não dava para chegar a 4,5:1 com um
+passo imperceptível partindo de 3,3:1. Isoladamente, cada cor lê como o mesmo tom.
+
+Duas notas de método:
+
+- A amostragem exclui os 80px do topo. A faixa que eu usava pegava os botões de janela no
+  canto superior direito, e aqueles pixels claros apareciam como "pior fundo" — davam
+  1,00:1 falso em todos os três temas.
+- `espacial` não mudou: os 5,34:1 de mediana que ele já tinha se sustentam em 4,59:1 mesmo
+  no pior pixel dos 70% superiores.
 
 ## Sidebar
 
@@ -199,10 +232,10 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 
 ## Ainda em aberto
 
-1. **Contraste do secundário** — `claro` (3,46:1) e `dark` (3,77:1) reprovam em AA para
-   texto normal já no canvas chapado. Medição feita no screenshot e marcada como
-   PROVISÓRIO; reconferir com a foto-fonte (pendência 0a), que só pode piorar o fundo
-   claro. Decisão de produto: ajustar as duas cores ou aceitar AA só para texto grande.
+1. **Reconferir o contraste com a foto-fonte** (pendência 0a). As duas secundárias já
+   foram derivadas até 4,5:1 no pior pixel, mas a medição saiu do screenshot; a imagem em
+   resolução real pode ter faixa dinâmica maior nas altas luzes e exigir mais um passo de
+   L no tema `claro`.
 2. **A fonte serifada da saudação** — nenhuma foi escolhida, e a escolha exige self-host
    no bundle do Tauri (o `HANDOFF.md` trava "sem dependência de rede").
 3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da

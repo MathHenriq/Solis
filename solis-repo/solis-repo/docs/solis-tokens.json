@@ -32,7 +32,8 @@
       "canvas": "#FCF7F2",
       "divider": "#E5DDD5",
       "textPrimary": "#27231C",
-      "textSecondary": "#888480",
+      "textSecondary": "#726E6A",
+      "_textSecondary": "Derivado de #888480 (medido) escurecendo só o L em OKLCh — croma e matiz travados. O medido dava 3,49:1, abaixo de AA para texto normal. Alvo aplicado ao PIOR fundo dos 70% superiores da janela (não só ao canvas chapado), pra sobrar margem sobre a foto: 4,52:1 no pior pixel de fundo, 4,72:1 de mediana. dEOK 0,0750; matiz preservado (67,7°). Ver docs/MEDICOES_FASE2.md.",
       "textPlaceholder": "#64615E",
       "accent": "#E18A21"
     },
@@ -41,7 +42,8 @@
       "canvas": "#07080D",
       "divider": "#181A1C",
       "textPrimary": "#F1E4D4",
-      "textSecondary": "#746A5F",
+      "textSecondary": "#82786D",
+      "_textSecondary": "Derivado de #746A5F (medido) clareando só o L em OKLCh — croma e matiz travados. O medido dava 3,78:1. Alvo aplicado ao PIOR fundo dos 70% superiores da janela: 4,55:1 no pior pixel de fundo, 4,63:1 de mediana. dEOK 0,0482; matiz preservado (70,0°). Ver docs/MEDICOES_FASE2.md.",
       "textPlaceholder": "#8F8172",
       "accent": "#F0BA46",
       "_nota": "Sem foto: o horizonte aqui é glow sintético. Bom pro bundle e coerente com a Camada 1 do SOLIS_SIGNATURE.md."
