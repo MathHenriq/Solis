@@ -16,3 +16,14 @@ body {
   transition: background-color 200ms var(--ease),
               color 200ms var(--ease);
 }
+
+/* Camada 1 — horizonte. Ver src/components/Horizonte.tsx.
+   Só o tema dark tem o glow sintético; espacial e claro esperam a cena
+   fotográfica (pendência 0a) e por ora ficam no canvas sólido. */
+.cena-dark { display: none; }
+
+[data-theme='dark'][data-scene='on'] .cena-dark {
+  display: block;
+  /* halo difuso em volta do arco, centrado no vértice medido (52%, 92%) */
+  background: radial-gradient(56% 17% at 52% 92%, rgba(255, 183, 77, 0.22) 0%, rgba(255, 183, 77, 0) 74%);
+}

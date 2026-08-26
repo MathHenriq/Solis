@@ -9,23 +9,28 @@
  *  Confirmado com o Matheus como omissão do gerador de imagem, não decisão de
  *  produto — a lista oficial são os 8 abaixo.
  *
- *  Ícone ainda não entra aqui de propósito: o glifo de cada item se resolve
- *  contra a referência quando a Sidebar for construída (Regra 1), não de
- *  memória agora. */
+ *  O `icone` de cada item foi resolvido contra a ampliação do glifo
+ *  correspondente na referência — ver src/components/icons.tsx e a comparação
+ *  em design/icones-validacao.png. "Modelos locais" saiu de
+ *  referencias/telas/06-configuracoes.png, porque é o único item que não
+ *  aparece nas 3 telas da Fase 2. */
+
+import type { NomeIcone } from './components/icons';
 
 export type ItemNav = {
   readonly id: string;
   readonly rotulo: string;
   readonly rota: string;
+  readonly icone: NomeIcone;
 };
 
 export const ITENS_NAV: readonly ItemNav[] = [
-  { id: 'conversa',      rotulo: 'Conversa',      rota: '/' },
-  { id: 'memoria',       rotulo: 'Memória',       rota: '/memoria' },
-  { id: 'modelos',       rotulo: 'Modelos locais', rota: '/modelos' },
-  { id: 'ferramentas',   rotulo: 'Ferramentas',   rota: '/ferramentas' },
-  { id: 'tarefas',       rotulo: 'Tarefas',       rota: '/tarefas' },
-  { id: 'agenda',        rotulo: 'Agenda',        rota: '/agenda' },
-  { id: 'conhecimento',  rotulo: 'Conhecimento',  rota: '/conhecimento' },
-  { id: 'configuracoes', rotulo: 'Configurações', rota: '/configuracoes' },
+  { id: 'conversa',      rotulo: 'Conversa',      rota: '/', icone: 'conversa' },
+  { id: 'memoria',       rotulo: 'Memória',       rota: '/memoria', icone: 'memoria' },
+  { id: 'modelos',       rotulo: 'Modelos locais', rota: '/modelos', icone: 'modelos' },
+  { id: 'ferramentas',   rotulo: 'Ferramentas',   rota: '/ferramentas', icone: 'ferramentas' },
+  { id: 'tarefas',       rotulo: 'Tarefas',       rota: '/tarefas', icone: 'tarefas' },
+  { id: 'agenda',        rotulo: 'Agenda',        rota: '/agenda', icone: 'agenda' },
+  { id: 'conhecimento',  rotulo: 'Conhecimento',  rota: '/conhecimento', icone: 'conhecimento' },
+  { id: 'configuracoes', rotulo: 'Configurações', rota: '/configuracoes', icone: 'configuracoes' },
 ] as const;

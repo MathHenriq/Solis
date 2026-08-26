@@ -134,13 +134,26 @@ enxuto sem ficar apertado.
 | Altura (dark) | 77px | 73px |
 | Largura | 849–867px | **~805px** |
 | Raio do canto | ~14px | **~13px** (≈ `radius.md`) |
-| Chips de ação (altura) | 59px | **55px** |
+| Chips de ação (altura) | 59px | **58px** |
 
 **Nota importante:** a referência anterior tinha 81px @1440. O campo novo **não ficou
 mais baixo** — ficou 2px menor no mesmo enquadramento. O que mudou foi o peso: borda
 âmbar → borda neutra sutil, botão circular âmbar de 48px → seta fina, e a largura cresceu
 de 773 para ~805px. Decisão do Matheus: implementa os 79px da referência, a descrição
 verbal de "mais fino" se referia ao peso visual.
+
+### Horizonte do tema dark
+
+A linha de luz não é um borrão radial — é uma **curva nítida** com halo em volta.
+Amostrando o pico de brilho por coluna, ela é uma parábola de vértice **(750, 856)** que
+sai pelo rodapé em x≈129 e x≈1371, com núcleo `#FEE7AC`. Como quadrática de Bézier com as
+pontas no rodapé, o ponto de controle cai em (750, 782) — que é exatamente o path usado em
+`src/components/Horizonte.tsx`. Implementado assim, o arco bate com a referência dentro de
+1px em todas as colunas amostradas.
+
+A primeira tentativa foi uma elipse em CSS (`border-radius: 50%` + `border-top`), e ela
+saiu 230px alta demais: acertar apex e curvatura de uma elipse por porcentagem de caixa é
+chute. Medir a curva e escrever o path resolve de primeira.
 
 ## Tipografia
 

@@ -141,7 +141,8 @@
       "width": "805px",
       "_width": "Medido 849-867px @1536 nas 3 telas; 805px é a normalização pra janela de 1440.",
       "radius": "13px",
-      "actionChipHeight": "55px",
+      "actionChipHeight": "58px",
+      "_actionChipHeight": "58px é o que fecha contra a referência no render real; 55px vinha da detecção de borda, que come o antialiasing.",
       "_nota": "Não ficou mais baixo que a versão anterior (81px) — ficou mais leve: borda âmbar virou neutra sutil e o botão circular âmbar de 48px virou seta fina. Decisão registrada.",
       "_microfone": "As 3 telas da Fase 2 não mostram o microfone. Confirmado como omissão do gerador de imagem, não decisão: ele é reintroduzido. Whisper e a Camada 3 do SOLIS_SIGNATURE.md dependem dele."
     }
