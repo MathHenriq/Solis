@@ -41,7 +41,9 @@ def icone(px):
     x = (px - w) // 2
     y = round(px * CENTRO_V - marca.height / 2)
     canvas.alpha_composite(marca, (x, y))
-    return canvas.convert('RGB')
+    # RGBA, nao RGB: o Tauri recusa icone sem canal alpha na hora de gerar o
+    # contexto ("icon ... is not RGBA"). O fundo e opaco de qualquer jeito.
+    return canvas
 
 def escrever_ico(destino, imagens):
     """ICO com payload PNG por entrada (suportado desde o Windows Vista),
