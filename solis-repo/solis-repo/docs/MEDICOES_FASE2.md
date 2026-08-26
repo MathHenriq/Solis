@@ -43,14 +43,37 @@ Três coisas que caem daqui:
    corresponde à borda antialiasada do glifo, não ao traço. Decisão do Matheus: vale o
    medido.
 
-### Pendência de contraste
+### Contraste — PROVISÓRIO
 
-Os contrastes anotados no bloco `colorLight` antigo foram calculados contra canvas
-**chapado**. Nos temas `espacial` e `claro` o canvas é **foto**, então contraste não é um
-número, é uma faixa que varia por pixel. O texto primário passa com folga nos dois (é
-quase preto). O que precisa ser medido antes de fechar é o **secundário `#894D43` sobre a
-região clara da foto** — e isso só dá pra fazer com a imagem-fonte em resolução real
-(pendência 0a), não com o screenshot.
+> **Medido no screenshot de 1536×1024, não na imagem-fonte.** A foto em resolução real
+> (pendência 0a) pode ter faixa dinâmica maior nas altas luzes, o que só pioraria os
+> números do fundo claro. **Reconferir quando a imagem chegar.**
+
+Método: WCAG 2.x, amostrando só a margem direita de cada tela (220 mil px de fundo puro,
+sem UI por cima), com a razão calculada pixel a pixel contra a cor do token.
+
+| | primário | secundário | secundário: % do fundo abaixo de 4,5:1 |
+|---|---|---|---|
+| espacial | 12,78:1 | **5,34:1** (mediana) | 27,6% |
+| claro | 14,56:1 | **3,46:1** | 100% |
+| dark | 15,93:1 | **3,77:1** | 100% |
+
+O resultado inverteu a expectativa. A foto **não** é o problema principal:
+
+1. **`espacial` passa** onde o texto realmente cai. O secundário sustenta 5,4:1 até ~72%
+   da altura da janela e só então despenca (4,25:1 em 74%, 3,07:1 em 86%, 1,30:1 no
+   rodapé, onde o clarão do sol cruza a luminância do texto). Regra prática que sai daí:
+   **texto secundário não pode ir abaixo de ~70% da altura nos temas com foto** — o que a
+   referência já respeita, porque ali embaixo só existem o composer e os chips.
+2. **`claro` e `dark` reprovam em AA para texto normal (4,5:1) no canvas chapado**, antes
+   de qualquer foto: 3,46:1 e 3,77:1 em toda a área. Os 3:1 que eles superam são o limiar
+   de **texto grande** (≥24px normal ou ≥18,66px negrito), e o subtítulo medido tem ~20px
+   normal — não se qualifica.
+
+Isso vem direto das cores da referência, então não mexi em nada (Regra 2). Mas é
+decisão de produto pendente: ou o secundário escurece ~15% em `claro` e clareia em `dark`,
+ou se aceita AA só para texto grande nesses dois temas. O DS anterior calculava contraste
+para tudo (`graphite` a 5,27:1), o que sugere que aceitar seria uma quebra de critério.
 
 ## Sidebar
 
@@ -176,8 +199,10 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 
 ## Ainda em aberto
 
-1. **Pendência 0a** — a cena fotográfica em resolução real. Sem ela não fecha o contraste
-   do texto secundário `#894D43` sobre a região clara da foto.
+1. **Contraste do secundário** — `claro` (3,46:1) e `dark` (3,77:1) reprovam em AA para
+   texto normal já no canvas chapado. Medição feita no screenshot e marcada como
+   PROVISÓRIO; reconferir com a foto-fonte (pendência 0a), que só pode piorar o fundo
+   claro. Decisão de produto: ajustar as duas cores ou aceitar AA só para texto grande.
 2. **A fonte serifada da saudação** — nenhuma foi escolhida, e a escolha exige self-host
    no bundle do Tauri (o `HANDOFF.md` trava "sem dependência de rede").
 3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
