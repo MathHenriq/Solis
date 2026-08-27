@@ -87,8 +87,8 @@
   },
   "typography": {
     "_status": "PROVISÓRIO — fonte final não escolhida (DS v0.1, seção 8). Candidatas: Inter, Sora, Manrope, Poppins. Validar na interface real antes de travar.",
-    "_displayStatus": "PROVISÓRIO — as 3 telas da Fase 2 usam uma SERIFADA na saudação e sans em todo o resto. O contraste é intencional e fica restrito à saudação; a serifada específica ainda não foi escolhida e vai exigir self-host no bundle do Tauri (o HANDOFF trava 'sem dependência de rede').",
-    "fontFamilyDisplay": "serif",
+    "_displayStatus": "Playfair Display, self-hosted em public/fontes/ (peso 400, subsets latin e latin-ext). AGUARDANDO confirmação visual do Matheus contra a referência nova antes de virar oficial. Usada só na saudação — o contraste com a sans do resto da interface é intencional.",
+    "fontFamilyDisplay": "'Playfair Display'",
     "fontFamilyBody": "Inter",
     "wordmarkLetterSpacing": "4px",
     "scale": {
@@ -127,6 +127,8 @@
     "sidebar": {
       "width": "200px",
       "widthPercent": 13.9,
+      "logoWidth": "110px",
+      "_logoWidth": "AGUARDANDO confirmação. O Matheus mediu ~61x63px na referência nova do GPT, mas o símbolo oficial tem proporção 1,74:1 — 61 de largura dá 35 de altura, e 63 de altura dá 110 de largura. Como o pedido foi 'bem maior que o atual' (era 71), vale a leitura pela ALTURA. Se a medida era do bloco símbolo+wordmark, o valor certo é outro.",
       "iconSize": "18px",
       "_iconSize": "Os ícones da referência medem 17–18px normalizados; 17 era arredondamento pra baixo e deixava o glifo 1px menor que o da referência.",
       "itemPitch": "55px",

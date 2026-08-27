@@ -9,7 +9,9 @@ import type { SVGProps } from 'react';
  *
  *  O caminho é copiado de design/solis-symbol.svg, que é a fonte (gerada por
  *  design/vetorizar-simbolo.py a partir do raster aprovado). */
-export function SolisSimbolo({ largura = 71, ...resto }: SVGProps<SVGSVGElement> & { largura?: number }) {
+export function SolisSimbolo({ largura, ...resto }: SVGProps<SVGSVGElement> & { largura?: number }) {
+  // Sem largura fixa por padrão: quem chama passa a custom property por `style`,
+  // pra que o tamanho venha do token e não de um default escondido aqui.
   return (
     <svg
       width={largura}

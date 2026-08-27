@@ -173,6 +173,15 @@ colunas amostradas: **51px → 18px**, com casamento exato em x = 400, 550, 600,
 | Subtítulo | bbox 21–23px | **~20px** | sans |
 | Rótulo da nav | cap 11px | **~14px** | sans |
 
+**A serifada é Playfair Display**, self-hosted em `public/fontes/` (peso 400, subsets
+`latin` e `latin-ext` — o português cabe inteiro neles). Não entra por `<link>` pro Google:
+o `HANDOFF.md` trava "sem dependência de rede", e o Solis é local-first. Aguardando
+confirmação visual contra a referência nova antes de virar oficial.
+
+Trocar a genérica pela Playfair moveu o ritmo vertical: a métrica dela põe a tinta 3px mais
+alto na mesma caixa, e a caixa maior empurrou composer e chips. Compensado — todos os
+elementos voltaram a ±1px do medido.
+
 O contraste serifada/sans está confirmado como intencional e **restrito à saudação**:
 subtítulo, rótulos da nav, placeholder, chips de ação e o wordmark SOLIS são todos sans
 nas três telas. A serifada entra como um token só (`fontFamilyDisplay`) usado num lugar

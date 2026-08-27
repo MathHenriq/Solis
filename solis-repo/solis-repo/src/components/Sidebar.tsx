@@ -17,10 +17,14 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
       style={{ width: 'var(--sidebar-width)' }}
       aria-label="Navegação principal"
     >
-      {/* Logo — símbolo 71px de largura a 82px do topo, wordmark logo abaixo.
-          O símbolo herda a cor do texto porque o SVG usa currentColor. */}
+      {/* Logo — o símbolo herda a cor do texto porque o SVG usa currentColor.
+          A largura vem do token: a referência nova pede um logo bem maior que os
+          71px anteriores. Ver o comentário em solis-tokens.json → layout.sidebar. */}
       <div className="flex flex-col items-center" style={{ paddingTop: 87 }}>
-        <SolisSimbolo largura={71} className="text-text-primary opacity-90" style={{ marginLeft: -8 }} />
+        <SolisSimbolo
+          className="text-text-primary opacity-90"
+          style={{ width: 'var(--sidebar-logo)', height: 'auto', marginLeft: -8 }}
+        />
         <span
           className="text-text-primary"
           style={{ marginTop: 12, fontSize: 11, letterSpacing: '0.34em', paddingLeft: '0.34em' }}
@@ -29,8 +33,10 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
         </span>
       </div>
 
-      {/* Primeiro item a 231px do topo da janela; o logo ocupa até ~143. */}
-      <ul style={{ marginTop: 58 }}>
+      {/* O primeiro item da nav fica a 234px do topo da janela — medido, e não
+          muda porque o logo cresceu. Este espaçamento é o que sobra depois do bloco
+          do logo, então ele acompanha --sidebar-logo em vez de ser fixo. */}
+      <ul style={{ marginTop: 37 }}>
         {ITENS_NAV.map((item) => {
           const ehAtivo = item.id === ativo;
           return (

@@ -27,6 +27,7 @@
   /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */
   --sidebar-width: 200px;
   --sidebar-icon: 18px;
+  --sidebar-logo: 110px;
   --sidebar-pitch: 55px;
   --sidebar-label: 14px;
   --sidebar-icon-inset: 29px;
@@ -39,7 +40,7 @@
   /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) */
   --ease: cubic-bezier(0.45, 0, 0.2, 1);
   --font-body: Inter;
-  --font-display: serif;
+  --font-display: 'Playfair Display';
   --text-hero: 52px;
   --weight-hero: 400;
   --text-title1: 32px;

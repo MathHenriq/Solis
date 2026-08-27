@@ -20,8 +20,10 @@ const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
 export function Conversa() {
   return (
     <main className="relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
-      {/* 191px da divisória da sidebar, 284px do topo — medido. */}
-      <div style={{ paddingLeft: 191, paddingTop: 295 }}>
+      {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
+          tem métrica diferente da serifada genérica que estava antes: a mesma caixa
+          punha a tinta 3px mais alto. */}
+      <div style={{ paddingLeft: 191, paddingTop: 298 }}>
         <h1 className="font-display text-hero text-text-primary leading-none">Olá, Matheus.</h1>
 
         {/* subtítulo a 359px do topo */}
@@ -32,7 +34,7 @@ export function Conversa() {
         {/* composer a 422px do topo, 802×79, raio 13 */}
         <form
           className="flex items-center border border-divider rounded-composer"
-          style={{ marginTop: 49, width: 'var(--composer-width)', height: 'var(--composer-height)' }}
+          style={{ marginTop: 44, width: 'var(--composer-width)', height: 'var(--composer-height)' }}
           onSubmit={(e) => e.preventDefault()}
         >
           <input
@@ -50,7 +52,7 @@ export function Conversa() {
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}
-        <div className="flex" style={{ marginTop: 34, gap: 22 }}>
+        <div className="flex" style={{ marginTop: 32, gap: 22 }}>
           {ATALHOS.map((a) => (
             <button
               key={a.rotulo}

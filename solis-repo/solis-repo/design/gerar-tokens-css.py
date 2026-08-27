@@ -38,6 +38,7 @@ w('  /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */')
 sb, cp = T['layout']['sidebar'], T['layout']['composer']
 w('  --sidebar-width: %s;'      % sb['width'])
 w('  --sidebar-icon: %s;'       % sb['iconSize'])
+w('  --sidebar-logo: %s;'       % sb['logoWidth'])
 w('  --sidebar-pitch: %s;'      % sb['itemPitch'])
 w('  --sidebar-label: %s;'      % sb['labelSize'])
 w('  --sidebar-icon-inset: %s;' % sb['iconInset'])
