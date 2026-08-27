@@ -17,8 +17,11 @@
 import type { SVGProps } from 'react';
 
 const CAMINHOS = {
+  // Redesenhado contra o mapa de pixels da referência a 19px: corpo de 19x16
+  // (não 19x13 como estava), rabo de 3px de base descendo 4 abaixo do corpo e
+  // deslocado 2px à esquerda do centro. IoU contra a referência, no app: 0,27 -> 0,64.
   'conversa':
-    'M6.6 3h10.8A3.6 3.6 0 0 1 21 6.6v6.2a3.6 3.6 0 0 1-3.6 3.6h-4.1l-2.5 4.6-1-4.6H6.6A3.6 3.6 0 0 1 3 12.8V6.6A3.6 3.6 0 0 1 6.6 3z M7.7 8h8.6 M7.7 11.4h5',
+    'M4 1H20A2.4 2.4 0 0 1 22.4 3.4V16.8A2.4 2.4 0 0 1 20 19.2H10.7L8.2 23 7.8 19.2H4A2.4 2.4 0 0 1 1.6 16.8V3.4A2.4 2.4 0 0 1 4 1Z M6.6 8.4H16.2 M9 11.6H12.6',
   'memoria':
     'M12 11.2a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2z M4.8 20.4a7.2 7.2 0 0 1 14.4 0z',
   'modelos':
@@ -53,15 +56,19 @@ export type NomeIcone = keyof typeof CAMINHOS;
 
 type Props = Omit<SVGProps<SVGSVGElement>, 'name'> & {
   nome: NomeIcone;
-  /** Em px. O padrão 17 é o medido na sidebar da referência. */
-  tamanho?: number;
+  /** Número em px ou qualquer comprimento CSS — quem chama passa a custom
+   *  property do contexto (ex.: 'var(--sidebar-icon)') pra que o tamanho venha
+   *  do token e não de um default escondido aqui dentro. */
+  tamanho?: number | string;
 };
 
-export function Icone({ nome, tamanho = 17, ...resto }: Props) {
+export function Icone({ nome, tamanho = 'var(--icon-xs)', style, ...resto }: Props) {
+  // O tamanho vai por `style`, nunca pelos atributos width/height: atributo de
+  // SVG é XML e não aceita var() — passar a custom property por ali faz o
+  // navegador descartar o valor e o ícone estoura pra 100% do contêiner.
   return (
     <svg
-      width={tamanho}
-      height={tamanho}
+      style={{ width: tamanho, height: tamanho, ...style }}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

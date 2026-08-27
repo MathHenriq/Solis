@@ -25,5 +25,5 @@ body {
 [data-theme='dark'][data-scene='on'] .cena-dark {
   display: block;
   /* halo difuso em volta do arco, centrado no vértice medido (52%, 92%) */
-  background: radial-gradient(56% 17% at 52% 92%, rgba(255, 183, 77, 0.22) 0%, rgba(255, 183, 77, 0) 74%);
+  background: radial-gradient(14% 3.4% at 52% 92.05%, rgba(255, 220, 160, 0.34) 0%, rgba(255, 190, 96, 0) 100%);
 }

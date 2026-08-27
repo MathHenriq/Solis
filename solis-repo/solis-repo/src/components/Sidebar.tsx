@@ -51,7 +51,7 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
                   />
                 )}
                 <span className="absolute" style={{ left: 'var(--sidebar-icon-inset)' }}>
-                  <Icone nome={item.icone} />
+                  <Icone nome={item.icone} tamanho="var(--sidebar-icon)" />
                 </span>
                 <span style={{ paddingLeft: 'var(--sidebar-label-inset)', fontSize: 'var(--sidebar-label)' }}>
                   {item.rotulo}

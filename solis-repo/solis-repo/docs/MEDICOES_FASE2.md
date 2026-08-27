@@ -113,7 +113,7 @@ Duas notas de método:
 | | @1536 | **@1440** | pedido |
 |---|---|---|---|
 | Largura | 214px (13,93%) | **200px** | ~200px / 14% ✅ |
-| Ícone | 18–19px | **17px** | 16–18px ✅ |
+| Ícone | 18–19px | **18px** | 16–18px ✅ |
 | Passo entre itens | 59px | **55px** | "generoso" ✅ |
 | Rótulo (cap-height 11px) | ~15px | **~14px** | 13px — 1px acima |
 | Barra do item ativo | 3px, a 13px da borda | **3px, a 12px** | — |
@@ -154,6 +154,16 @@ pontas no rodapé, o ponto de controle cai em (750, 782) — que é exatamente o
 A primeira tentativa foi uma elipse em CSS (`border-radius: 50%` + `border-top`), e ela
 saiu 230px alta demais: acertar apex e curvatura de uma elipse por porcentagem de caixa é
 chute. Medir a curva e escrever o path resolve de primeira.
+
+**A luz não é uniforme ao longo do arco.** Medindo a faixa acima de 50% de brilho coluna a
+coluna, a referência vai de 44px no vértice a 25px 150px dali, 16px a 200, 7px a 300, e
+some antes das bordas. É um bloom de sol centrado no vértice, não uma faixa de espessura
+constante — e um traço único não reproduz isso, porque opacidade é degrau: ou a faixa
+inteira passa de 50% ou some. A solução são camadas empilhadas de larguras decrescentes
+(44/26/16/7px), cada uma com um gradiente longitudinal que apaga a uma distância própria,
+de modo que o que sobra acima do limiar afina com a distância. Erro absoluto somado nas 11
+colunas amostradas: **51px → 18px**, com casamento exato em x = 400, 550, 600, 750, 900 e
+1200.
 
 ## Tipografia
 

@@ -127,7 +127,8 @@
     "sidebar": {
       "width": "200px",
       "widthPercent": 13.9,
-      "iconSize": "17px",
+      "iconSize": "18px",
+      "_iconSize": "Os ícones da referência medem 17–18px normalizados; 17 era arredondamento pra baixo e deixava o glifo 1px menor que o da referência.",
       "itemPitch": "55px",
       "labelSize": "14px",
       "_labelSize": "14px é o medido. O pedido dizia 13px, mas era estimativa; vale a referência.",

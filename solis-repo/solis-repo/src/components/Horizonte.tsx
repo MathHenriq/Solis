@@ -37,9 +37,50 @@ export function Horizonte() {
             preserveAspectRatio="none"
             fill="none"
           >
-            <path d={ARCO} stroke="rgba(240,138,36,0.20)" strokeWidth={26} strokeLinecap="round" />
-            <path d={ARCO} stroke="rgba(255,183,77,0.42)" strokeWidth={10} strokeLinecap="round" />
-            <path d={ARCO} stroke="#FEE7AC" strokeWidth={2.4} strokeLinecap="round" />
+            {/* A luz não é uniforme ao longo do arco. Medindo a faixa acima de 50% de
+                brilho na referência, coluna a coluna, ela vai de 44px no vértice a 25px
+                150px dali, 16px a 200, 7px a 300 e some antes das bordas. Isso é um bloom
+                de sol centrado no vértice, não uma faixa de espessura constante.
+
+                Reproduzir isso com um traço só é impossível: opacidade é degrau, então
+                um traço largo ou está inteiro acima de 50% ou some. Daí as camadas
+                empilhadas — cada uma mais estreita e apagando mais longe, de modo que o
+                que sobra acima do limiar vai afinando com a distância. As janelas de cada
+                gradiente foram calculadas a partir das larguras medidas. */}
+            <defs>
+              {[
+                { id: 'a1', larg: 44, meia: 110, cor: '#FFD489', pico: 0.5 },
+                { id: 'a2', larg: 26, meia: 175, cor: '#FFCB72', pico: 0.5 },
+                { id: 'a3', larg: 16, meia: 230, cor: '#FFC260', pico: 0.5 },
+                { id: 'a4', larg: 7, meia: 320, cor: '#FFBB52', pico: 0.5 },
+              ].map((c) => (
+                <linearGradient key={c.id} id={`solis-${c.id}`} gradientUnits="userSpaceOnUse" x1="0" x2="1440">
+                  <stop offset={(750 - c.meia - 120) / 1440} stopColor={c.cor} stopOpacity="0" />
+                  <stop offset={(750 - c.meia) / 1440} stopColor={c.cor} stopOpacity={c.pico * 0.62} />
+                  <stop offset="0.521" stopColor={c.cor} stopOpacity={c.pico} />
+                  <stop offset={(750 + c.meia) / 1440} stopColor={c.cor} stopOpacity={c.pico * 0.62} />
+                  <stop offset={(750 + c.meia + 120) / 1440} stopColor={c.cor} stopOpacity="0" />
+                </linearGradient>
+              ))}
+              <linearGradient id="solis-halo" gradientUnits="userSpaceOnUse" x1="0" x2="1440">
+                <stop offset="0.05" stopColor="#F08A24" stopOpacity="0" />
+                <stop offset="0.521" stopColor="#F08A24" stopOpacity="0.20" />
+                <stop offset="0.95" stopColor="#F08A24" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="solis-nucleo" gradientUnits="userSpaceOnUse" x1="0" x2="1440">
+                <stop offset="0.174" stopColor="#FEE7AC" stopOpacity="0" />
+                <stop offset="0.257" stopColor="#FEE7AC" stopOpacity="0.6" />
+                <stop offset="0.521" stopColor="#FFF6DC" stopOpacity="1" />
+                <stop offset="0.785" stopColor="#FEE7AC" stopOpacity="0.6" />
+                <stop offset="0.868" stopColor="#FEE7AC" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={ARCO} stroke="url(#solis-halo)" strokeWidth={78} strokeLinecap="round" />
+            <path d={ARCO} stroke="url(#solis-a1)" strokeWidth={44} strokeLinecap="round" />
+            <path d={ARCO} stroke="url(#solis-a2)" strokeWidth={26} strokeLinecap="round" />
+            <path d={ARCO} stroke="url(#solis-a3)" strokeWidth={16} strokeLinecap="round" />
+            <path d={ARCO} stroke="url(#solis-a4)" strokeWidth={7} strokeLinecap="round" />
+            <path d={ARCO} stroke="url(#solis-nucleo)" strokeWidth={2.6} strokeLinecap="round" />
           </svg>
         </div>
       </div>
