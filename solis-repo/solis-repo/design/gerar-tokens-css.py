@@ -66,14 +66,15 @@ for nome in TEMAS:
     w('[data-theme="%s"] {' % nome)
     for chave, var in PAPEIS:
         w('  %s: %s;' % (var, t[chave]))
-    cena = t.get('scene')
-    w('  --scene: %s;' % ('none' if cena == 'none' else 'var(--scene-%s)' % cena))
+    cena = T['scenes'][t['scene']]
+    w('  --solis-horizon-image: url(\'%s\');' % cena['asset'])
+    w('  --solis-bg-position-y: %s;' % cena['positionY'])
     w('}')
 w('')
 w('/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem')
 w(' * de fundo" desligado ela some e sobra a versao solida da paleta do mesmo')
 w(' * tema. Nenhuma cor nova precisa existir pra isso. */')
-w('[data-scene="off"] { --scene: none; }')
+w('[data-scene="off"] { --solis-horizon-image: none; }')
 w('')
 w('body { background: var(--canvas); color: var(--text-primary); font-family: var(--font-body); }')
 w('')

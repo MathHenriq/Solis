@@ -42,12 +42,19 @@ body {
 }
 
 /* Camada 1 — horizonte. Ver src/components/Horizonte.tsx.
-   Só o tema dark tem o glow sintético; espacial e claro esperam a cena
-   fotográfica (pendência 0a) e por ora ficam no canvas sólido. */
-.cena-dark { display: none; }
 
-[data-theme='dark'][data-scene='on'] .cena-dark {
-  display: block;
-  /* halo difuso em volta do arco, centrado no vértice medido (52%, 92%) */
-  background: radial-gradient(14% 3.4% at 52% 92.05%, rgba(255, 220, 160, 0.34) 0%, rgba(255, 190, 96, 0) 100%);
+   A imagem e a ancoragem vertical vêm do tema (--solis-horizon-image e
+   --solis-bg-position-y, ambas geradas de solis-tokens.json). Os três temas
+   usam position-y diferentes porque as fotos fonte têm o horizonte em alturas
+   ligeiramente diferentes — exceção deliberada ao princípio de fonte única,
+   documentada em solis-tokens.json → scenes._excecao.
+
+   `background-size: cover` mantém a foto cobrindo a janela em qualquer
+   proporção; o position-y é o que decide qual faixa da imagem fica visível, e
+   por isso é ele que alinha o horizonte entre os temas. */
+.cena {
+  background-image: var(--solis-horizon-image, none);
+  background-position: 50% var(--solis-bg-position-y, 50%);
+  background-size: cover;
+  background-repeat: no-repeat;
 }

@@ -60,6 +60,9 @@ Frente aberta depois deste documento. O que ela muda aqui:
   chapado; os temas `espacial` e `claro` têm canvas fotográfico, o que invalidou também os
   contrastes anotados nele. Substituído por `themes`, com valores medidos por pixel.
 - **A seção "Símbolo oficial" abaixo está superada na parte técnica** (ver nota nela).
+- **Backgrounds: uma foto por tema.** Reverte a arquitetura de foto compartilhada entre
+  espacial e claro, e o dark deixa de ser arco sintético em CSS. Junto disso, o ciclo do
+  dia foi removido — ver `SOLIS_SIGNATURE.md` → Camada 2.
 - **Plataforma alvo: Windows.**
 - Números medidos, método e divergências resolvidas: `MEDICOES_FASE2.md`.
 
@@ -101,7 +104,7 @@ solis/
 │   │   ├── SolisSymbol/           → horizon + sun + glow como sub-componentes separados
 │   │   ├── buttons/ cards/ inputs/
 │   ├── views/                     → Início, Conversa, Memória, Foco, Ferramentas, Configurações (lazy loaded)
-│   ├── hooks/                     → useAudioLevel (Web Audio API), useDayCycle
+│   ├── hooks/                     → useAudioLevel (Web Audio API)
 │   └── styles/tokens.css
 ├── backend/                       → Python/FastAPI
 │   ├── stt/ (Whisper) tts/ (Piper) vision/ (OpenCV)

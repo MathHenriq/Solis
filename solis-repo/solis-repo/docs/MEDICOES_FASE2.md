@@ -142,28 +142,16 @@ mais baixo** — ficou 2px menor no mesmo enquadramento. O que mudou foi o peso:
 de 773 para ~805px. Decisão do Matheus: implementa os 79px da referência, a descrição
 verbal de "mais fino" se referia ao peso visual.
 
-### Horizonte do tema dark
+### Horizonte do tema dark — **SUPERADO**
 
-A linha de luz não é um borrão radial — é uma **curva nítida** com halo em volta.
-Amostrando o pico de brilho por coluna, ela é uma parábola de vértice **(750, 856)** que
-sai pelo rodapé em x≈129 e x≈1371, com núcleo `#FEE7AC`. Como quadrática de Bézier com as
-pontas no rodapé, o ponto de controle cai em (750, 782) — que é exatamente o path usado em
-`src/components/Horizonte.tsx`. Implementado assim, o arco bate com a referência dentro de
-1px em todas as colunas amostradas.
+O `dark` usava um arco de luz sintético em CSS/SVG, medido coluna a coluna contra a
+referência: parábola de vértice (750, 856), faixa acima de 50% de brilho indo de 44px no
+centro a 25px 150px dali, erro somado de 18px em 11 colunas. **Isso saiu** — o tema passou
+a usar `bg-dark.webp`, uma foto como os outros dois.
 
-A primeira tentativa foi uma elipse em CSS (`border-radius: 50%` + `border-top`), e ela
-saiu 230px alta demais: acertar apex e curvatura de uma elipse por porcentagem de caixa é
-chute. Medir a curva e escrever o path resolve de primeira.
-
-**A luz não é uniforme ao longo do arco.** Medindo a faixa acima de 50% de brilho coluna a
-coluna, a referência vai de 44px no vértice a 25px 150px dali, 16px a 200, 7px a 300, e
-some antes das bordas. É um bloom de sol centrado no vértice, não uma faixa de espessura
-constante — e um traço único não reproduz isso, porque opacidade é degrau: ou a faixa
-inteira passa de 50% ou some. A solução são camadas empilhadas de larguras decrescentes
-(44/26/16/7px), cada uma com um gradiente longitudinal que apaga a uma distância própria,
-de modo que o que sobra acima do limiar afina com a distância. Erro absoluto somado nas 11
-colunas amostradas: **51px → 18px**, com casamento exato em x = 400, 550, 600, 750, 900 e
-1200.
+Fica registrado porque a medição continua descrevendo fielmente o que a referência mostrava,
+e porque, se o arco sintético voltar algum dia como fallback para quando a foto não carrega,
+os números já estão levantados.
 
 ## Tipografia
 
@@ -190,23 +178,41 @@ porque o `HANDOFF.md` trava "sem dependência de rede".
 
 ## Fundos
 
-Correlação da faixa do horizonte entre as três telas (luminância normalizada):
+> **REVERTIDO.** Esta seção media a arquitetura anterior — uma foto compartilhada entre
+> `espacial` e `claro`, e o `dark` sem foto. A decisão atual é **uma foto por tema**:
+> `bg-espacial.webp`, `bg-claro.webp`, `bg-dark.webp`. A medição fica como registro, porque
+> foi ela que sustentou a decisão anterior.
 
-| par | correlação | leitura |
+Correlação da faixa do horizonte entre as três telas de referência da Fase 2:
+
+| par | correlação | leitura na época |
 |---|---|---|
 | espacial × claro | **0,98** | mesma foto, só re-gradeada |
 | espacial × dark | 0,55 | cenas diferentes |
-| claro × dark | 0,47 | cenas diferentes |
-| espacial × `telas/07 - Background.png` | 0,49 | **não é este arquivo** |
-| espacial × `telas/08-Background Novo.png` | 0,32 | **não é este arquivo** |
+| espacial × `telas/07 - Background.png` | 0,49 | não era aquele arquivo |
 
-Ou seja: a convergência espacial/claro se confirma numericamente — **um asset, duas
-tintas**. E a foto usada nas telas da Fase 2 **não está no repositório** como arquivo
-próprio; os dois backgrounds que existem são outra imagem. Pendência 0a: subir a cena
-em resolução real (≥2560px de largura), preferencialmente já em WebP.
+O 0,98 continua sendo um fato sobre **aquelas telas**. O que mudou foi a decisão de produto,
+que agora pede fotos distintas — as telas antigas não descrevem mais o alvo de fundo.
 
-O tema `dark` não usa foto — o horizonte dele é um arco de glow sintético, o que é bom
-pro bundle e coerente com a Camada 1 do `SOLIS_SIGNATURE.md`.
+### Alinhamento do horizonte entre as fotos novas
+
+As três imagens têm o horizonte em alturas diferentes dentro do próprio arquivo:
+
+| tema | horizonte na imagem | `positionY` de partida |
+|---|---|---|
+| Claro | ~68,5% | 47,5% |
+| Espacial | ~71,0% | 50% (baseline) |
+| Dark | ~71,9% | 50,9% |
+
+São ~3,4 pontos percentuais entre Claro e Dark. Compensado via CSS por tema em vez de
+regenerar os assets — **exceção deliberada** ao princípio de fonte única, registrada em
+`solis-tokens.json` → `scenes._excecao`. Se um quarto tema entrar, ou se o desalinhamento
+aparecer em outras proporções de janela além de 1440px, a correção certa é regenerar os três
+assets com o horizonte numa posição comum, não somar um quarto offset.
+
+Os valores de partida vieram das medidas passadas pelo Matheus. A calibração visual depende
+dos arquivos, que ainda não estão no repositório.
+
 
 ## Símbolo refinado
 
@@ -259,25 +265,30 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 | Quantos temas | **3** — `espacial`, `claro`, `dark`. O quarto do pedido original era o "bege+vinho", que convergiu com o `espacial` |
 | "Cor de destaque" em Configurações | **Sai.** O acento é por tema; escolher o tema já escolhe o acento |
 | "Exibir imagem de fundo" desligado | Versão sólida da paleta do mesmo tema, sem a foto — mesma lógica que o `dark` já usa. A cena é uma camada sobre `--canvas`, então basta remover a camada; nenhuma cor nova precisa existir |
-| Ciclo do dia (Camada 2) | Roda **só no tema `dark`**, o único sem imagem fixa. Nos temas fotográficos a imagem já retrata um momento específico do dia |
+| Ciclo do dia (Camada 2) | ~~Roda só no tema dark~~ → **REMOVIDO**. Cada tema passou a ter foto própria, e cada foto já retrata um momento do dia; recalcular cor por hora do relógio brigaria com essa narrativa |
+| Fundos | ~~Uma foto compartilhada entre espacial e claro, dark sem foto~~ → **uma foto por tema** |
 | Rótulo da nav | 14px (o medido), não 13px |
 
 ## Ainda em aberto
 
-1. **Reconferir o contraste com a foto-fonte** (pendência 0a). As duas secundárias já
+1. **Os três arquivos de fundo** — `bg-espacial.webp`, `bg-claro.webp` e `bg-dark.webp`
+   ainda não estão no repositório. A arquitetura já está pronta e aponta pra
+   `public/fundos/`; sem os arquivos a camada não pinta e cada tema cai no seu canvas
+   sólido. Também é o que trava a calibração visual dos `positionY`.
+2. **Reconferir o contraste com a foto-fonte** (pendência 0a). As duas secundárias já
    foram derivadas até 4,5:1 no pior pixel, mas a medição saiu do screenshot; a imagem em
    resolução real pode ter faixa dinâmica maior nas altas luzes e exigir mais um passo de
    L no tema `claro`.
-2. **A fonte serifada da saudação** — nenhuma foi escolhida, e a escolha exige self-host
-   no bundle do Tauri (o `HANDOFF.md` trava "sem dependência de rede").
-3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
+3. **Confirmar a Playfair Display** — já aplicada e self-hosted em `public/fontes/`,
+   aguardando só a conferência visual contra a referência nova antes de virar oficial.
+4. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
    decisão de fonte acima: o wordmark tem 40px de altura de tinta na folha do símbolo
    refinado e 100px no lockup antigo, e traçar letra nessa resolução entrega tipografia
    pior que a original. O caminho certo é compor o wordmark como texto quando a fonte
    estiver fechada.
-4. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
+5. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
    vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
    atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.
-5. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
+6. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
    Sidebar/Ícones, e perder "Cor de destaque". A referência atual
    (`telas/06-configuracoes.png`) é anterior a tudo isso.

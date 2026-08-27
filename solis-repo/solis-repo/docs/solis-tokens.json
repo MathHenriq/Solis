@@ -14,11 +14,11 @@
   "themes": {
     "_status": "MEDIDO — valores amostrados por pixel nas 3 referências da Fase 2. Método e números completos em docs/MEDICOES_FASE2.md.",
     "_substitui": "O bloco 'colorLight' (modo claro binário). Ele presumia canvas de cor chapada (warmWhite) e trazia contrastes calculados contra ela; nos temas 'espacial' e 'claro' o canvas é foto, então aqueles números não valiam mais.",
-    "_estrutura": "3 temas nomeados sobre 2 cenas. 'espacial' e 'claro' compartilham a MESMA foto (correlação 0,98 na faixa do horizonte) e diferem só na tinta — é uma cena, dois conjuntos de cor, não dois assets.",
-    "_fechado": "São 3 temas, não 4 — decidido. O quarto do pedido original era o 'bege+vinho', que convergiu com o 'espacial' na mesma cena fotográfica.",
+    "_estrutura": "3 temas, 3 cenas — uma foto por tema. REVERTE a arquitetura anterior, em que 'espacial' e 'claro' dividiam a mesma foto e o 'dark' não tinha foto nenhuma (era um arco sintético em CSS). Cada foto já retrata um momento do dia próprio: espacial = amanhecer dourado, claro = manhã pálida, dark = noite com fresta de luz.",
+    "_fechado": "São 3 temas, não 4 — decidido.",
     "_regraDeConsumo": "Componente nunca lê hex daqui. Lê custom property semântica (--canvas, --divider, --text-primary, --text-secondary, --text-placeholder, --accent); o tema só troca o valor delas.",
     "espacial": {
-      "scene": "sunrise",
+      "scene": "espacial",
       "canvas": "#FAE7D0",
       "divider": "#DAC1A8",
       "textPrimary": "#4A0A09",
@@ -28,7 +28,7 @@
       "_nota": "O vinho é #4A0A09 (interior do traço). #6B1420 era estimativa não amostrada e foi descartado."
     },
     "claro": {
-      "scene": "sunrise",
+      "scene": "claro",
       "canvas": "#FCF7F2",
       "divider": "#E5DDD5",
       "textPrimary": "#27231C",
@@ -38,7 +38,7 @@
       "accent": "#E18A21"
     },
     "dark": {
-      "scene": "none",
+      "scene": "dark",
       "canvas": "#07080D",
       "divider": "#181A1C",
       "textPrimary": "#F1E4D4",
@@ -53,14 +53,26 @@
     "_contrastePendente": "Contraste sobre foto é faixa, não número. textPrimary passa com folga nos 3. textSecondary #894D43 sobre a região clara da foto precisa ser medido com a imagem-fonte em resolução real (pendência 0a) antes de fechar."
   },
   "scenes": {
-    "_status": "PENDENTE 0a — o arquivo da cena não está no repositório. Os backgrounds existentes (telas/07, telas/08) são outra imagem: correlação 0,49 e 0,32 contra o que as telas da Fase 2 usam.",
-    "sunrise": {
-      "usedBy": ["espacial", "claro"],
-      "asset": "PENDENTE — subir em ≥2560px de largura, entregar em WebP (ver SOLIS_SIGNATURE.md, pendência de formato)",
-      "_nota": "Um asset só pros dois temas. O que muda entre eles é a tinta do texto, não a imagem.",
-      "_desligavel": "A cena é uma CAMADA sobre o canvas sólido, não o fundo em si. Com 'Exibir imagem de fundo' desligado, a camada some e sobra themes.<tema>.canvas — a versão sólida da paleta do mesmo tema, que é exatamente a lógica que o tema dark já usa. Nenhuma cor nova precisa existir pra isso."
+    "_status": "AGUARDANDO OS ARQUIVOS — os 3 .webp ainda não estão no repositório. Sem eles a camada não pinta e cada tema cai no seu canvas sólido, que é o mesmo caminho de 'Exibir imagem de fundo' desligado.",
+    "_positionY": "Os 3 temas usam background-position-y distintos porque as imagens fonte têm o horizonte em alturas ligeiramente diferentes (~3,4pp de variação entre Claro e Dark). Optou-se por compensar via CSS em vez de regenerar os assets. Se uma 4ª variação de tema for adicionada, ou se o desalinhamento for perceptível em outras proporções de janela além de 1440px, regenerar os 3 assets com horizonte fixado numa posição comum é a correção correta — não adicionar um 4º valor de offset.",
+    "_excecao": "Isto é uma exceção deliberada ao princípio de fonte única do projeto: 3 valores onde o padrão pediria 1. Registrada aqui, junto dos valores, pra que quem mexer depois saiba que foi escolha e não descuido.",
+    "_calibracao": "Os positionY abaixo são PONTO DE PARTIDA, não finais — calibrar visualmente em janela de 1440px comparando o horizonte entre os 3 temas ao trocar. Não dá pra fazer isso sem os arquivos.",
+    "espacial": {
+      "asset": "/fundos/bg-espacial.webp",
+      "horizonteNaImagem": "71,0%",
+      "positionY": "50%",
+      "_nota": "Baseline — os outros dois se ajustam em relação a este."
     },
-    "none": { "usedBy": ["dark"], "asset": null }
+    "claro": {
+      "asset": "/fundos/bg-claro.webp",
+      "horizonteNaImagem": "68,5%",
+      "positionY": "47.5%"
+    },
+    "dark": {
+      "asset": "/fundos/bg-dark.webp",
+      "horizonteNaImagem": "71,9%",
+      "positionY": "50.9%"
+    }
   },
   "radius": {
     "sm": "8px",
@@ -176,18 +188,7 @@
       "heightPx": "2-4px",
       "placement": "base de toda tela, renderizado uma vez no shell do app, nunca remontado ao trocar de view"
     },
-    "dayCycle": {
-      "_appliesTo": ["dark"],
-      "_ruleFase2": "O ciclo do dia roda SÓ no tema dark. Nos temas com cena fotográfica a imagem já retrata um momento específico do dia — repintar isso dinamicamente brigaria com a foto em vez de somar. No dark, que não tem imagem fixa, o ciclo continua sendo o que dá vida ao horizonte.",
-      "_rule": "Nunca criar hex novo aqui — cada fase é opacidade/mistura dos tokens de color já existentes.",
-      "phases": [
-        { "name": "madrugada", "hours": "00-05", "colors": ["night", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 },
-        { "name": "amanhecer", "hours": "05-08", "colors": ["amber", "night"], "sunArcPosition": 0.35, "glowIntensity": 0.4 },
-        { "name": "dia", "hours": "08-17", "colors": ["solar", "light"], "sunArcPosition": 1.0, "glowIntensity": 1.0 },
-        { "name": "entardecer", "hours": "17-20", "colors": ["amber", "deep"], "sunArcPosition": 0.35, "glowIntensity": 0.4 },
-        { "name": "noite", "hours": "20-24", "colors": ["muted", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 }
-      ]
-    },
+    "_dayCycleRemovido": "O ciclo do dia FOI REMOVIDO. Cada tema agora tem uma foto fixa que já representa um momento do dia; um cálculo de cor ambiente por hora do relógio entraria em conflito com essa narrativa — a interface diria 'é dia' com o fundo mostrando noite. Se dinamismo por hora real voltar, nasce como decisão nova com assets que suportem variação, não como retrofit disto.",
     "audioReactive": {
       "_rule": "Fonte do dado é o frontend via Web Audio API (AnalyserNode), NUNCA o pipeline do Whisper — evita latência.",
       "activeOnlyDuringState": "listening",

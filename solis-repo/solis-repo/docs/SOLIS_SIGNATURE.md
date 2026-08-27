@@ -4,11 +4,14 @@ Três elementos aprovados, combinados. Importante entender que são **camadas in
 
 ```
 Camada 3: Interação    (idle / listening / thinking / responding / executing)
-Camada 2: Ciclo do dia (paleta muda com a hora real)
-Camada 1: Horizonte    (sempre presente, em toda tela)
+Camada 1: Horizonte    (foto por tema, sempre presente, em toda tela)
 ```
 
-Cada camada só sabe da que está embaixo dela. A camada de interação não precisa saber que horas são; a camada de ciclo do dia não sabe se o usuário está falando. Isso é o que evita esse sistema virar uma bola de estado só, difícil de debugar.
+> **Atualização:** a Camada 2 (ciclo do dia) foi removida — ver a seção dela abaixo. A
+> numeração das outras duas fica como está, de propósito: renumerar quebraria toda
+> referência cruzada já escrita nos outros documentos.
+
+Cada camada só sabe da que está embaixo dela. A camada de interação não precisa saber que horas são. Isso é o que evita esse sistema virar uma bola de estado só, difícil de debugar.
 
 ---
 
@@ -43,24 +46,26 @@ Regra explícita do Matheus: "precisa ter movimento extremamente leve, mas preci
 
 A imagem de nascer do sol é um asset pesado (raster grande, com bloom/glow de imagem gerada). Duas coisas que ainda faltam decidir com o Claude Code amanhã, não hoje:
 - Formato de entrega (WebP comprimido é quase certo, pra não pesar no bundle do Tauri).
-- Se o ciclo do dia (antiga Camada 2, `signature.dayCycle` no `solis-tokens.json`) ainda faz sentido como troca de cor de um vetor, ou se agora precisa de **múltiplas versões da imagem** (uma por fase do dia) — isso muda o custo de manter de "editar um token" para "gerar 5 imagens e trocar entre elas", parecido com o que já vivemos com os estados do símbolo.
+- ~~Se o ciclo do dia ainda faz sentido~~ — **resolvido**: o ciclo do dia foi removido, e a resposta acabou sendo a segunda hipótese levantada aqui (uma imagem por variação), só que a variação virou o TEMA e não a hora do dia.
 
 
-## Camada 2 — Ciclo do dia
+## Camada 2 — Ciclo do dia — **REMOVIDA**
 
-A cor do horizonte e a posição do sol no arco mudam com a hora real do dispositivo. Não é decoração — é o "nascer do sol" do conceito de marca (seção 2 do DS) sendo levado a sério.
+Esta camada não existe mais. Cada tema passou a ter uma **foto fixa própria**, e cada foto
+já retrata um momento do dia (espacial = amanhecer dourado, claro = manhã pálida, dark =
+noite com fresta de luz). Recalcular cor ambiente pela hora do relógio brigaria com essa
+narrativa: a interface diria "é dia" com o fundo mostrando noite.
 
-| Fase | Horário | Paleta | Posição do sol no arco |
-|---|---|---|---|
-| Madrugada | 00h–05h | `night` + `deep`, glow quase nulo | Base do arco (quase invisível) |
-| Amanhecer | 05h–08h | `amber` entrando, ainda escuro atrás | Subindo |
-| Dia | 08h–17h | `solar` + `light`, brilho máximo | Topo do arco |
-| Entardecer | 17h–20h | `amber` dominante, tom mais quente | Descendo |
-| Noite | 20h–00h | `muted` + `deep`, glow mínimo | Base do arco |
+A pilha passa a ser duas camadas, não três:
 
-**Regra de token:** não criar hex novo pra isso. Cada fase é uma composição de opacidade/mistura dos tokens que já existem (`color.night`, `color.deep`, `color.amber`, `color.solar`, `color.light`, `color.muted`). Se alguma fase parecer "sem graça" com os tokens atuais, o problema é ajustar a opacidade, não inventar cor nova — isso já é regra herdada da seção 21 do DS ("nada existe apenas porque pode existir").
+```
+Camada 3: Interação    (idle / listening / thinking / responding / executing)
+Camada 1: Horizonte    (foto por tema, sempre presente, em toda tela)
+```
 
-**Efeito colateral bom:** a fase "madrugada/noite" naturalmente parece com o estado `idle`/repouso — reforça a metáfora em vez de competir com ela.
+Se dinamismo por hora real voltar, nasce como decisão nova, com assets que suportem a
+variação — não como retrofit desta camada. O bloco `signature.dayCycle` saiu do
+`solis-tokens.json` junto.
 
 ## Camada 3 — Glow reativo ao áudio (estado "escutando")
 
@@ -105,9 +110,8 @@ function tick() {
 
 ## Composição das camadas — exemplo
 
-Um usuário fala com o Solis às 21h:
+Um usuário fala com o Solis:
 - Camada 1: horizonte visível em todas as telas, sempre.
-- Camada 2: paleta em modo "noite" (tons `muted`/`deep`, sol baixo no arco).
 - Camada 3: enquanto ele fala, o glow do símbolo pulsa com a voz dele, sobre a paleta noturna da camada 2.
 
 Nenhuma camada foi "desligada" pra outra funcionar — elas somam.

@@ -14,9 +14,10 @@ Regra 1 e 2 no CLAUDE.md da raiz). Os números já extraídos delas estão em
 | `tema-claro-padrao.png` | **Mesma** cena fotográfica, texto em preto suave. Sidebar em 13,9% |
 | `tema-dark.png` | Fundo quase preto, sem foto, só o glow sutil de horizonte. Sidebar em 14,1% |
 
-Os temas "Espacial" e "Bege+vinho" do pedido original convergiram numa imagem só —
-correlação medida de 0,98 entre as duas telas na faixa do horizonte confirma que é a mesma
-foto, variando só a cor do texto/acento.
+**Atenção — estas 3 telas não descrevem mais o alvo dos fundos.** Elas mostram `espacial` e
+`claro` dividindo a mesma foto (correlação medida de 0,98) e o `dark` sem foto. A decisão
+atual é **uma foto por tema**: `bg-espacial.webp`, `bg-claro.webp`, `bg-dark.webp`. Para
+cor, medida e tipografia elas continuam valendo; para fundo, não.
 
 **Cuidado ao usar estas 3 telas:** elas valem pro *estilo* (cor, medida, tipografia). Elas
 **não** valem pra lista de itens da navegação (aparecem com 7, faltando "Modelos locais")
