@@ -42,23 +42,42 @@ FONTES = {
     'claro':    'upscalemedia-transformed (3).png',
     'dark':     'upscalemedia-transformed (1) (1).png',
 }
-HORIZONTE = {'espacial': 0.742, 'claro': 0.732, 'dark': 0.719}
+# Calibrado medindo a linha mais brilhante por coluna na faixa x 1210-1420 do
+# render (livre de UI), em 4 colunas. O desvio se mantem estavel entre colunas,
+# entao e offset real e nao ruido de deteccao.
+#   0,01 sobe o horizonte ~9,7px na janela de 930. AUMENTAR sobe.
+HORIZONTE = {
+    'espacial': 0.742,   # baseline
+    'claro':    0.732,   # medido 19,5px ABAIXO do espacial — ver nota no fim do arquivo
+    'dark':     0.752,   # era 0.719; +0.033 pra subir os 32px que estava abaixo
+}
 ALVO   = 0.740      # onde o horizonte fica no arquivo final, igual pros três
-ALTURA = 0.96       # fração da altura da fonte que sobrevive ao recorte
+# Fração da altura da fonte que sobrevive ao recorte. É por tema porque quanto
+# mais o horizonte precisa subir, mais margem o recorte consome: o limite é
+# ALTURA <= (1 - HORIZONTE) / (1 - ALVO). Com o dark em 0,752 o teto é 0,9538,
+# então 0,96 estourava o arquivo. Só o dark mudou; espacial e claro seguem em
+# 0,96 pra que os arquivos deles não sejam tocados.
+ALTURA = {'espacial': 0.96, 'claro': 0.96, 'dark': 0.95}
 ASPECTO = 1.6       # 16:10, comum aos três
 SAIDA = (2880, 1800)
 
-raiz = sys.argv[1] if len(sys.argv) > 1 else '../../'
+raiz = '../../'
+temas = list(FONTES)
+for arg in sys.argv[1:]:
+    if arg in FONTES: temas = [arg]          # regenerar so um tema
+    else: raiz = arg
 os.makedirs('public/fundos', exist_ok=True)
 
-for tema, arquivo in FONTES.items():
+for tema in temas:
+    arquivo = FONTES[tema]
     caminho = os.path.join(raiz, arquivo)
     if not os.path.exists(caminho):
         print('FALTA: %s — veja o cabeçalho deste arquivo' % caminho); continue
     im = Image.open(caminho).convert('RGB')
     W, H = im.size
-    h = round(ALTURA * H)
-    o = round(H * (HORIZONTE[tema] - ALVO * ALTURA))   # leva o horizonte pro ALVO
+    altura = ALTURA[tema]
+    h = round(altura * H)
+    o = round(H * (HORIZONTE[tema] - ALVO * altura))   # leva o horizonte pro ALVO
     w = round(ASPECTO * h)
     x = round((W - w) / 2)
     if not (0 <= o <= H - h and 0 <= x <= W - w):
@@ -67,3 +86,27 @@ for tema, arquivo in FONTES.items():
     im.crop((x, o, x + w, o + h)).resize(SAIDA, Image.LANCZOS).save(dest, 'WEBP', quality=88, method=6)
     print('%-9s %dx%d recortado em (%d,%d) -> %s (%.0f KB)'
           % (tema, w, h, x, o, dest, os.path.getsize(dest) / 1024))
+
+
+# NOTA — alinhamento entre os tres, medido em 2026-08-27
+#
+# Medindo a linha mais brilhante por coluna na faixa x 1210-1420 do render (a
+# unica larga o bastante e livre de composer e chips), com a animacao de 90s
+# congelada:
+#
+#            x1240  x1300  x1360  x1410   vs espacial
+#   espacial   701    711    723    733   baseline
+#   claro      719    730    743    754   +19,5px
+#   dark       731    743    755    767   +32,0px   -> corrigido para 0.752
+#
+# O `claro` continua ~19,5px abaixo do espacial. NAO foi mexido porque a
+# instrucao foi explicita em nao alterar espacial nem claro. Se for pra alinhar,
+# o valor e 0.752 - nao: claro passaria de 0.732 para 0.752 tambem? Nao — o
+# ajuste do claro seria 0.732 + 0.0201 = 0.752 por coincidencia aritmetica dos
+# desvios. Confirmar antes de aplicar.
+#
+# Protocolos que NAO funcionam aqui, ja testados: pico de brilho na coluna
+# central x=720 (no espacial acha o clarao do ceu, nao o horizonte, e a coluna
+# atravessa o composer), deteccao de crista, de gradiente e de textura, e
+# correlacao cruzada vertical. Cada um trava num traco fisico diferente porque
+# espacial e dark tem arco fino e nitido e o claro tem transicao difusa.

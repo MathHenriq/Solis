@@ -205,6 +205,29 @@ centrais) e conferido visualmente nas três:
 | Claro | 73,2% | **74,0%** |
 | Dark | 71,9% | **74,0%** |
 
+### Calibração do alinhamento
+
+Medido no render (1440×930, animação de 90s congelada) pela linha mais brilhante por coluna
+na faixa **x 1210–1420** — a única larga o bastante e livre de composer e chips. O desvio se
+mantém estável entre colunas, o que confirma offset real e não ruído de detecção.
+
+| tema | x1240 | x1300 | x1360 | x1410 | vs espacial |
+|---|---|---|---|---|---|
+| espacial | 701 | 711 | 723 | 733 | baseline |
+| claro | 719 | 730 | 743 | 754 | **+19,5px** |
+| dark (antes) | 731 | 743 | 755 | 767 | +32,0px |
+| dark (depois) | 699 | 710 | 722 | 733 | **−1,0px** |
+
+O `dark` foi de `HORIZONTE` 0,719 → **0,752**. O `claro` continua 19,5px abaixo do espacial e
+**não foi mexido** — decisão pendente.
+
+Protocolos que **não** funcionam nestas imagens, todos testados: pico de brilho na coluna
+central x=720 (no espacial acha o clarão do céu, não o horizonte, e a coluna atravessa o
+composer e os chips), detecção de crista, de gradiente, de textura, e correlação cruzada
+vertical. Cada um trava num traço físico diferente porque espacial e dark têm arco fino e
+nítido enquanto o claro tem transição difusa. Só a faixa livre de UI, com a linha mais
+brilhante por coluna, dá leitura estável nos três.
+
 **A compensação por CSS não era possível.** A ideia era um `background-position-y` por
 tema, mas com `background-size: cover` e imagem de aspecto 1,60 numa janela de 1,55 o
 `cover` escala pela altura: a imagem cobre os 930px exatos e a folga sobra só na
