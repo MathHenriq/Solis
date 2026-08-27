@@ -48,7 +48,7 @@ FONTES = {
 #   0,01 sobe o horizonte ~9,7px na janela de 930. AUMENTAR sobe.
 HORIZONTE = {
     'espacial': 0.742,   # baseline
-    'claro':    0.732,   # medido 19,5px ABAIXO do espacial — ver nota no fim do arquivo
+    'claro':    0.752,   # era 0.732; +0.020 pra subir os ~20px que estava abaixo
     'dark':     0.752,   # era 0.719; +0.033 pra subir os 32px que estava abaixo
 }
 ALVO   = 0.740      # onde o horizonte fica no arquivo final, igual pros três
@@ -57,7 +57,7 @@ ALVO   = 0.740      # onde o horizonte fica no arquivo final, igual pros três
 # ALTURA <= (1 - HORIZONTE) / (1 - ALVO). Com o dark em 0,752 o teto é 0,9538,
 # então 0,96 estourava o arquivo. Só o dark mudou; espacial e claro seguem em
 # 0,96 pra que os arquivos deles não sejam tocados.
-ALTURA = {'espacial': 0.96, 'claro': 0.96, 'dark': 0.95}
+ALTURA = {'espacial': 0.96, 'claro': 0.95, 'dark': 0.95}
 ASPECTO = 1.6       # 16:10, comum aos três
 SAIDA = (2880, 1800)
 

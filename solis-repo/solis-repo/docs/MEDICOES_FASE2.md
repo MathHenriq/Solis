@@ -211,15 +211,20 @@ Medido no render (1440×930, animação de 90s congelada) pela linha mais brilha
 na faixa **x 1210–1420** — a única larga o bastante e livre de composer e chips. O desvio se
 mantém estável entre colunas, o que confirma offset real e não ruído de detecção.
 
-| tema | x1240 | x1300 | x1360 | x1410 | vs espacial |
-|---|---|---|---|---|---|
-| espacial | 701 | 711 | 723 | 733 | baseline |
-| claro | 719 | 730 | 743 | 754 | **+19,5px** |
-| dark (antes) | 731 | 743 | 755 | 767 | +32,0px |
-| dark (depois) | 699 | 710 | 722 | 733 | **−1,0px** |
+Protocolo final: pico de brilho por coluna em **x 1210–1380**, de 5 em 5px, mediana. A faixa
+exclui x≥1381 porque ali entram os ícones de janela (minimizar/maximizar/fechar), que
+contaminam a leitura.
 
-O `dark` foi de `HORIZONTE` 0,719 → **0,752**. O `claro` continua 19,5px abaixo do espacial e
-**não foi mexido** — decisão pendente.
+| tema | `HORIZONTE` | mediana | min–max | vs espacial |
+|---|---|---|---|---|
+| espacial | 0,742 | **709,0** | 693–726 | baseline |
+| claro | 0,732 → **0,752** | **709,0** | 694–727 | **0,0px** |
+| dark | 0,719 → **0,752** | **709,0** | 694–726 | **0,0px** |
+
+Os três convergiram para a mesma mediana, e as faixas min–max quase coincidem — o que mostra
+que não é só o ponto medido que bateu, é a curva inteira do arco.
+
+Antes dos ajustes: claro +19,5px e dark +32,0px em relação ao espacial.
 
 Protocolos que **não** funcionam nestas imagens, todos testados: pico de brilho na coluna
 central x=720 (no espacial acha o clarão do céu, não o horizonte, e a coluna atravessa o
