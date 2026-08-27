@@ -194,25 +194,29 @@ Correlação da faixa do horizonte entre as três telas de referência da Fase 2
 O 0,98 continua sendo um fato sobre **aquelas telas**. O que mudou foi a decisão de produto,
 que agora pede fotos distintas — as telas antigas não descrevem mais o alvo de fundo.
 
-### Alinhamento do horizonte entre as fotos novas
+### Alinhamento do horizonte entre as fotos
 
-As três imagens têm o horizonte em alturas diferentes dentro do próprio arquivo:
+Medido por detecção de crista (brilho de cada linha contra a tendência local, nas colunas
+centrais) e conferido visualmente nas três:
 
-| tema | horizonte na imagem | `positionY` de partida |
+| tema | horizonte na fonte | no arquivo final |
 |---|---|---|
-| Claro | ~68,5% | 47,5% |
-| Espacial | ~71,0% | 50% (baseline) |
-| Dark | ~71,9% | 50,9% |
+| Espacial | 74,2% | **74,0%** |
+| Claro | 73,2% | **74,0%** |
+| Dark | 71,9% | **74,0%** |
 
-São ~3,4 pontos percentuais entre Claro e Dark. Compensado via CSS por tema em vez de
-regenerar os assets — **exceção deliberada** ao princípio de fonte única, registrada em
-`solis-tokens.json` → `scenes._excecao`. Se um quarto tema entrar, ou se o desalinhamento
-aparecer em outras proporções de janela além de 1440px, a correção certa é regenerar os três
-assets com o horizonte numa posição comum, não somar um quarto offset.
+**A compensação por CSS não era possível.** A ideia era um `background-position-y` por
+tema, mas com `background-size: cover` e imagem de aspecto 1,60 numa janela de 1,55 o
+`cover` escala pela altura: a imagem cobre os 930px exatos e a folga sobra só na
+horizontal. Sem folga vertical, `position-y` não tem efeito, e os três horizontes ficariam
+em 690, 681 e 669px — 21px de diferença, travados.
 
-Os valores de partida vieram das medidas passadas pelo Matheus. A calibração visual depende
-dos arquivos, que ainda não estão no repositório.
-
+A saída foi **reenquadrar os três assets** para um horizonte comum de 74,0%, que é
+exatamente o que a nota da decisão apontava como correção certa caso o desalinhamento
+aparecesse fora de 1440px. Ele aparece *em* 1440px. Cada foto perdeu 4% da altura e 4% da
+largura, com o deslocamento calculado a partir da medição; nada foi redesenhado nem
+esticado. Resultado: **um `positionY` só**, e a exceção ao princípio de fonte única deixa
+de existir.
 
 ## Símbolo refinado
 
@@ -271,24 +275,21 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 
 ## Ainda em aberto
 
-1. **Os três arquivos de fundo** — `bg-espacial.webp`, `bg-claro.webp` e `bg-dark.webp`
-   ainda não estão no repositório. A arquitetura já está pronta e aponta pra
-   `public/fundos/`; sem os arquivos a camada não pinta e cada tema cai no seu canvas
-   sólido. Também é o que trava a calibração visual dos `positionY`.
-2. **Reconferir o contraste com a foto-fonte** (pendência 0a). As duas secundárias já
+1. **Reconferir o contraste com a foto real** (era a pendência 0a, agora destravada — as
+   fotos estão no repositório). As duas secundárias já
    foram derivadas até 4,5:1 no pior pixel, mas a medição saiu do screenshot; a imagem em
    resolução real pode ter faixa dinâmica maior nas altas luzes e exigir mais um passo de
    L no tema `claro`.
-3. **Confirmar a Playfair Display** — já aplicada e self-hosted em `public/fontes/`,
+2. **Confirmar a Playfair Display** — já aplicada e self-hosted em `public/fontes/`,
    aguardando só a conferência visual contra a referência nova antes de virar oficial.
-4. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
+3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
    decisão de fonte acima: o wordmark tem 40px de altura de tinta na folha do símbolo
    refinado e 100px no lockup antigo, e traçar letra nessa resolução entrega tipografia
    pior que a original. O caminho certo é compor o wordmark como texto quando a fonte
    estiver fechada.
-5. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
+4. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
    vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
    atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.
-6. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
+5. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
    Sidebar/Ícones, e perder "Cor de destaque". A referência atual
    (`telas/06-configuracoes.png`) é anterior a tudo isso.

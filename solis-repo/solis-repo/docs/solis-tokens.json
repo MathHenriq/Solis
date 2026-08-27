@@ -53,26 +53,14 @@
     "_contrastePendente": "Contraste sobre foto é faixa, não número. textPrimary passa com folga nos 3. textSecondary #894D43 sobre a região clara da foto precisa ser medido com a imagem-fonte em resolução real (pendência 0a) antes de fechar."
   },
   "scenes": {
-    "_status": "AGUARDANDO OS ARQUIVOS — os 3 .webp ainda não estão no repositório. Sem eles a camada não pinta e cada tema cai no seu canvas sólido, que é o mesmo caminho de 'Exibir imagem de fundo' desligado.",
-    "_positionY": "Os 3 temas usam background-position-y distintos porque as imagens fonte têm o horizonte em alturas ligeiramente diferentes (~3,4pp de variação entre Claro e Dark). Optou-se por compensar via CSS em vez de regenerar os assets. Se uma 4ª variação de tema for adicionada, ou se o desalinhamento for perceptível em outras proporções de janela além de 1440px, regenerar os 3 assets com horizonte fixado numa posição comum é a correção correta — não adicionar um 4º valor de offset.",
-    "_excecao": "Isto é uma exceção deliberada ao princípio de fonte única do projeto: 3 valores onde o padrão pediria 1. Registrada aqui, junto dos valores, pra que quem mexer depois saiba que foi escolha e não descuido.",
-    "_calibracao": "Os positionY abaixo são PONTO DE PARTIDA, não finais — calibrar visualmente em janela de 1440px comparando o horizonte entre os 3 temas ao trocar. Não dá pra fazer isso sem os arquivos.",
-    "espacial": {
-      "asset": "/fundos/bg-espacial.webp",
-      "horizonteNaImagem": "71,0%",
-      "positionY": "50%",
-      "_nota": "Baseline — os outros dois se ajustam em relação a este."
-    },
-    "claro": {
-      "asset": "/fundos/bg-claro.webp",
-      "horizonteNaImagem": "68,5%",
-      "positionY": "47.5%"
-    },
-    "dark": {
-      "asset": "/fundos/bg-dark.webp",
-      "horizonteNaImagem": "71,9%",
-      "positionY": "50.9%"
-    }
+    "_comment": "Uma foto por tema. Os arquivos vivem em public/fundos/ e os nomes são fixos: src/styles/tokens.css é gerado daqui.",
+    "_horizonteComum": "Os 3 assets foram RECORTADOS para o horizonte cair em 74,0% da altura em todos, com o mesmo aspecto (16:10). Por isso existe um único positionY, e não um por tema.",
+    "_porQueNaoFoiOffsetPorTema": "A decisão original era compensar as alturas diferentes (74,2% / 73,2% / 71,9% nas fontes) com um background-position-y por tema. Isso NÃO FUNCIONA nesta geometria: com background-size:cover e imagem de aspecto 1,60 numa janela de 1,55, o cover escala pela ALTURA — a imagem cobre os 930px exatos e só sobra folga na horizontal. Sem folga vertical, position-y não move nada, e os 3 horizontes ficariam travados a 690/681/669px. A própria nota da decisão já apontava recortar os assets como a correção certa se o desalinhamento aparecesse fora de 1440px; aqui ele aparece EM 1440px, então foi esse o caminho.",
+    "_recorte": "Cada fonte perdeu 4% da altura e 4% da largura, com o deslocamento vertical calculado para levar o horizonte a 74,0%. Nada foi redesenhado nem esticado — é reenquadramento. Saída em 2880x1800, WebP q88.",
+    "positionY": "50%",
+    "espacial": { "asset": "/fundos/bg-espacial.webp", "horizonteNaFonte": "74,2%" },
+    "claro":    { "asset": "/fundos/bg-claro.webp",    "horizonteNaFonte": "73,2%" },
+    "dark":     { "asset": "/fundos/bg-dark.webp",     "horizonteNaFonte": "71,9%" }
   },
   "radius": {
     "sm": "8px",

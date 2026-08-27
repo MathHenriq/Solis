@@ -1,27 +1,30 @@
 # fundos/
 
-As três cenas de horizonte, **uma por tema**. É aqui que os arquivos entram:
+As três cenas de horizonte, **uma por tema**.
 
-| arquivo | tema | o que a cena mostra |
+| arquivo | tema | cena |
 |---|---|---|
 | `bg-espacial.webp` | Espacial | amanhecer dourado |
 | `bg-claro.webp` | Claro | manhã pálida |
 | `bg-dark.webp` | Dark | noite com fresta de luz |
 
-Os nomes são fixos — `src/styles/tokens.css` aponta pra eles, e esse arquivo é **gerado**
-de `docs/solis-tokens.json` → `scenes`. Trocar nome de arquivo significa mudar o JSON e
-rodar `npm run tokens`, nunca editar o CSS à mão.
+2880×1800, WebP q88, ~0,1–0,2 MB cada. Os nomes são fixos: `src/styles/tokens.css` é
+**gerado** de `docs/solis-tokens.json` → `scenes`, então trocar nome de arquivo significa
+mudar o JSON e rodar `npm run tokens` — nunca editar o CSS à mão.
 
-Enquanto os arquivos não estiverem aqui, a camada de horizonte simplesmente não pinta e
-cada tema cai no seu canvas sólido. Isso é o mesmo caminho de "Exibir imagem de fundo"
-desligado — um estado que o produto já tem, não uma tela quebrada.
+## Por que os arquivos foram recortados
 
-## Ancoragem vertical
+As fotos originais tinham o horizonte em alturas diferentes dentro do arquivo (74,2% /
+73,2% / 71,9%). A intenção era compensar isso com um `background-position-y` por tema, mas
+**essa compensação não funciona nesta geometria**: com `background-size: cover` e imagem de
+aspecto 1,60 numa janela de 1,55, o `cover` escala pela altura — a imagem cobre os 930px
+exatos e a folga sobra só na horizontal. Sem folga vertical, `position-y` não move nada, e
+os três horizontes ficariam travados em 690, 681 e 669px.
 
-Cada tema tem seu próprio `background-position-y`, porque as três fotos têm o horizonte em
-alturas diferentes dentro do arquivo (~3,4pp entre Claro e Dark). É uma exceção deliberada
-ao princípio de fonte única do projeto — o racional completo e o que fazer se um quarto
-tema aparecer estão em `docs/solis-tokens.json` → `scenes._excecao`.
+Então os três foram **reenquadrados** para o horizonte cair em 74,0% em todos, com o mesmo
+aspecto. Cada um perdeu 4% da altura e 4% da largura; nada foi redesenhado nem esticado. Com
+isso existe **um único `positionY`** em vez de três, e a exceção ao princípio de fonte única
+que a decisão original assumiria deixa de ser necessária.
 
-Os valores atuais são ponto de partida, calculados a partir das alturas medidas. **Faltou
-a calibração visual**, que depende dos arquivos.
+Se as fotos forem trocadas, o horizonte da nova precisa cair em 74,0% da altura — ou os três
+precisam ser reenquadrados juntos para uma nova altura comum.
