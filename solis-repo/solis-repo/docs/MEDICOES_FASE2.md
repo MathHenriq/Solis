@@ -461,7 +461,7 @@ lockup antigo) e a arte estourou a moldura: o símbolo novo é proporcionalmente
 que o antigo (0,571 contra 0,429), e o wordmark saiu 20% mais largo que a arte inteira do
 lockup antigo. O script hoje tem uma asserção que barra isso.
 
-## Logo da sidebar — o tamanho continua em aberto
+## Logo da sidebar — fechado em 71px
 
 Medições, todas normalizadas para uma janela de 1440px:
 
@@ -469,26 +469,51 @@ Medições, todas normalizadas para uma janela de 1440px:
 |---|---|---|
 | referência `espacial` | 71 × 43 | 71 × 63 |
 | referência `claro` | 71 × 44 | 71 × 63 |
-| referência `dark` | 50 × 33 | — |
 | leitura do Matheus | — | ~61 × 63 |
-| **app hoje** | **110 × 63** | **110 × 97** |
+| app antes | 110 × 63 | 110 × 97 |
+| **app agora** | **71 × 41** | **72 × 63** |
 
-A altura do bloco na referência (63px) bate exatamente com a leitura do Matheus. O que não
-bate é o app: `--sidebar-logo` vale 110px, e esse número saiu de tratar os 63px como altura
-do **símbolo**, quando na referência 63px é a altura do **bloco inteiro**. O símbolo sozinho
-mede 71px de largura por 43 de altura.
+A altura do bloco na referência (63px) bate exatamente com a leitura do Matheus. O 110px
+saiu de tratar esses 63px como altura do **símbolo**, quando são a altura do **bloco
+inteiro**. A hipótese já estava anotada em `solis-tokens.json` ("se a medida era do bloco
+símbolo+wordmark, o valor certo é outro") e a medição confirmou.
 
-Consequência: o bloco do app está ~1,5× maior que o da referência. Para bater, o
-`--sidebar-logo` seria **71px**, não 110px.
+O que estava mesmo pequeno era o **wordmark**, não o símbolo — ele saía com cap de 8px
+contra os 10,3px da referência. Corrigido junto com a troca de fonte.
 
-**Não mexi.** O 110 foi decisão registrada do Matheus depois de ele olhar o logo a 71px e
-dizer que estava pequeno demais. A medição acima é evidência de que a decisão pode ter
-saído de uma leitura ambígua da palavra "logo", mas quem desempata é ele.
+Bloco final: **72 × 63** contra os 71 × 63 da referência, 1px de diferença.
+
+### O bloco inteiro é proporcional ao token
+
+Nada dentro do bloco tem px solto. Tudo sai de `--sidebar-logo`:
+
+| | fração |
+|---|---|
+| altura do símbolo | 57,37% (aspecto do viewBox do SVG) |
+| folga símbolo → wordmark | 14,5% |
+| `font-size` do wordmark | 20% (dá cap de 14,5%) |
+| deslocamento óptico à esquerda | −7,27% |
+
+O respiro até o primeiro item da nav também é calculado daí
+(`calc(225px - 87px - var(--sidebar-logo) * 0.9187)`), para que redimensionar o logo não
+empurre a navegação. O primeiro item continua a 225px do topo, medido antes e não tocado
+aqui.
+
+Comparação visual: `design/logo-sidebar.png`.
+
+### Uma divergência que sobrou, e não é do logo
+
+O bloco do logo começa a 87px do topo no app e a 69px na referência, e o rótulo da nav
+ativa cai em y 247–256 no app contra 223–232 na referência. São ~20px de diferença no
+`paddingTop` da sidebar e ~24px na posição da nav — anteriores a esta mudança e fora do
+escopo dela. Não mexi: encostar aí move a nav inteira, que foi validada em outra passada.
 
 ## Ainda em aberto
 
-1. **O tamanho do bloco do logo na sidebar** — ver a seção "Logo da sidebar" abaixo. É a
-   única coisa do bloco que continua sem número fechado.
+1. **A posição vertical da sidebar** — o bloco do logo começa a 87px do topo no app e a
+   69px na referência; o rótulo da nav ativa cai em y 247–256 contra 223–232. São ~20px no
+   `paddingTop` e ~24px na nav. Anterior a tudo que foi feito aqui, e mexer move a nav
+   inteira, que foi validada em outra passada. Ver a seção "Logo da sidebar".
 2. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
    vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
    atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.

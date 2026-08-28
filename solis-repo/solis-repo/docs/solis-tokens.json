@@ -179,8 +179,8 @@
     "sidebar": {
       "width": "200px",
       "widthPercent": 13.9,
-      "logoWidth": "110px",
-      "_logoWidth": "AGUARDANDO confirmação. O Matheus mediu ~61x63px na referência nova do GPT, mas o símbolo oficial tem proporção 1,74:1 — 61 de largura dá 35 de altura, e 63 de altura dá 110 de largura. Como o pedido foi 'bem maior que o atual' (era 71), vale a leitura pela ALTURA. Se a medida era do bloco símbolo+wordmark, o valor certo é outro.",
+      "logoWidth": "71px",
+      "_logoWidth": "FECHADO em 71px — a largura do simbolo medida nas referencias espacial e claro (71x43 normalizado pra 1440). Era 110px, e esse numero saiu de tratar os '63px' da leitura do Matheus como altura do SIMBOLO; medindo depois, 63px e a altura do BLOCO inteiro (simbolo + folga + wordmark), e com o simbolo a 71px o bloco fecha justamente em 63. A hipotese ja estava anotada aqui ('se a medida era do bloco simbolo+wordmark, o valor certo e outro') e a medicao confirmou. O que estava mesmo pequeno era o wordmark, nao o simbolo: ele saia com cap de 8px contra os 10,3px da referencia.",
       "iconSize": "18px",
       "_iconSize": "Os ícones da referência medem 17–18px normalizados; 17 era arredondamento pra baixo e deixava o glifo 1px menor que o da referência.",
       "itemPitch": "55px",
@@ -192,7 +192,8 @@
       },
       "iconInset": "29px",
       "labelInset": "69px",
-      "_anterior": "A referência anterior (telas/06-configuracoes.png) tinha 250px, ícone de 21px, passo de 62px e rótulo de ~16px."
+      "_anterior": "A referência anterior (telas/06-configuracoes.png) tinha 250px, ícone de 21px, passo de 62px e rótulo de ~16px.",
+      "_blocoDoLogo": "O bloco todo sai de --sidebar-logo: altura do simbolo = 57,37% dela (aspecto do viewBox do SVG), folga = 14,5%, cap do wordmark = 14,5% (fontSize 20%). O respiro ate o primeiro item da nav e calculado a partir disso pra manter a nav a 225px do topo da janela — mexer no logo nao pode empurrar a navegacao."
     },
     "composer": {
       "height": "79px",

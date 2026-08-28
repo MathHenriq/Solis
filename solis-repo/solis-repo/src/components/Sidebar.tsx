@@ -18,12 +18,20 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
       aria-label="Navegação principal"
     >
       {/* Logo — o símbolo herda a cor do texto porque o SVG usa currentColor.
-          A largura vem do token: a referência nova pede um logo bem maior que os
-          71px anteriores. Ver o comentário em solis-tokens.json → layout.sidebar. */}
+          A largura vem do token, e todo o resto do bloco (folga e wordmark) é
+          proporcional a ela: mexer no token reescala o bloco inteiro sem tocar em
+          mais nada. Ver solis-tokens.json → layout.sidebar._blocoDoLogo. */}
       <div className="flex flex-col items-center" style={{ paddingTop: 87 }}>
         <SolisSimbolo
           className="text-text-primary opacity-90"
-          style={{ width: 'var(--sidebar-logo)', height: 'auto', marginLeft: -8 }}
+          style={{
+            width: 'var(--sidebar-logo)',
+            height: 'auto',
+            // Deslocamento óptico medido na referência: o símbolo não fica no
+            // centro geométrico da coluna, fica um pouco à esquerda. Proporcional
+            // à largura pra não virar um valor solto quando o logo mudar.
+            marginLeft: 'calc(var(--sidebar-logo) * -0.0727)',
+          }}
         />
         {/* Wordmark em DM Sans 500 — a fonte escolhida na folha de candidatas. O
             system-ui que estava aqui era substituto e saía pequeno: cap de 8px
@@ -48,10 +56,12 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
         </span>
       </div>
 
-      {/* O primeiro item da nav fica a 234px do topo da janela — medido, e não
-          muda porque o logo cresceu. Este espaçamento é o que sobra depois do bloco
-          do logo, então ele acompanha --sidebar-logo em vez de ser fixo. */}
-      <ul style={{ marginTop: 37 }}>
+      {/* O primeiro item da nav fica a 225px do topo da janela. Este respiro é o
+          que sobra depois do bloco do logo, então ele é CALCULADO a partir de
+          --sidebar-logo: 87 de padding + 57,37% (altura do símbolo) + 14,5%
+          (folga) + 20% (caixa do wordmark). Assim redimensionar o logo não
+          empurra a navegação. */}
+      <ul style={{ marginTop: 'calc(225px - 87px - var(--sidebar-logo) * 0.9187)' }}>
         {ITENS_NAV.map((item) => {
           const ehAtivo = item.id === ativo;
           return (
