@@ -10,3 +10,16 @@ português cabe inteiro neles. O peso 500 servido pelo Google é byte a byte id�
 (vem do mesmo variable font), então carregar os dois seria peso morto.
 
 Licença: SIL Open Font License 1.1 — https://openfontlicense.org
+
+---
+
+**DM Sans**, peso 500 — a sans do wordmark SOLIS. Escolhida na folha
+`design/wordmark-candidatas.png`, gerada por `design/comparar-wordmark.py`, que compara
+candidatas de licença aberta contra o wordmark de
+`referencias/brand/symbol-refinado/mono-wordmark.png`. **Não é a fonte original da folha** —
+é a mais próxima disponível em licença aberta, que é o que o `HANDOFF.md` permite.
+
+Só o subset `latin`. O wordmark tem quatro glifos distintos (S, O, L, I), todos em latim
+básico: `latin-ext` aqui seria peso morto. Também só o peso 500 — nenhum outro é usado.
+
+Licença: SIL Open Font License 1.1 — https://openfontlicense.org

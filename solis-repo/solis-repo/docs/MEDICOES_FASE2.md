@@ -173,8 +173,9 @@ elementos voltaram a ±1px do medido.
 O contraste serifada/sans está confirmado como intencional e **restrito à saudação**:
 subtítulo, rótulos da nav, placeholder, chips de ação e o wordmark SOLIS são todos sans
 nas três telas. A serifada entra como um token só (`fontFamilyDisplay`) usado num lugar
-só. O wordmark SOLIS **não** é Playfair — é uma sans geométrica leve com tracking largo, e
-qual sans é essa continua em aberto (é o que trava os lockups de `brand/logo/`).
+só. O wordmark SOLIS **não** é Playfair: é **DM Sans 500**, escolhida na folha de
+candidatas (`design/comparar-wordmark.py`), também self-hosted e também num token só
+(`fontFamilyWordmark`), usado num lugar só.
 
 ## Fundos
 
@@ -409,41 +410,85 @@ por outra cor" não aceita. `design/derivar-cor.py` ganhou `croma_no_gamut()`: q
 As secundárias de texto não mudaram: elas já estavam dentro do gamut, então o clamp nunca
 tinha entrado nelas.
 
+## Wordmark SOLIS — DM Sans 500
+
+Fechada. O wordmark da folha do símbolo refinado tem só 40px de altura de tinta: traçar
+letra nessa resolução entrega tipografia pior que a original, então ele é composto como
+**texto**, e por isso escala e continua editável. `design/comparar-wordmark.py` mede a
+referência e compara candidatas de licença aberta — a única coisa que o `HANDOFF.md`
+permite, porque a fonte é servida do próprio bundle.
+
+Em frações da altura de caixa alta:
+
+| | O (larg/alt) | S | L | haste |
+|---|---|---|---|---|
+| referência | 0,940 | 0,730 | 0,635 | 0,135 |
+| **DM Sans 500** | 0,940 | 0,685 | 0,580 | 0,135 |
+
+O `O` e a haste batem exatamente; o `S` e o `L` saem ~6% mais estreitos. A Lexend 400
+ganhava no erro numérico e perdia no olho — o `I` dela tem terminais alargados e o da
+referência é haste reta.
+
+**Não é a fonte original.** É a mais próxima em licença aberta. Se a original aparecer, o
+troco custa um token.
+
+**Dois trackings, de propósito.** A marca e a interface espaçam diferente:
+
+| | largura/cap | tracking na DM Sans 500 |
+|---|---|---|
+| lockup (folha da marca) | 7,250 | 0,652em |
+| sidebar (as 3 telas) | 6,545 | 0,524em |
+
+**Correção de tamanho junto.** O `system-ui` que estava na sidebar era substituto e saía
+pequeno: cap de 8px contra os 10,3px medidos na referência, e 30% mais estreito. O tamanho
+agora sai da proporção com o símbolo (cap = 14,5% da largura do símbolo, folga = 14,5%),
+que é a razão medida na referência — assim o bloco continua coerente com o símbolo em
+qualquer tamanho que ele venha a ter.
+
+### Lockups regerados
+
+`design/gerar-lockups.py` monta os dois a partir de `design/solis-symbol.svg` mais o
+wordmark como texto. Nada é ampliado de PNG. Os antigos foram para
+`referencias/brand/_legado/logo/`.
+
+| | proporção | de onde veio |
+|---|---|---|
+| vertical | cap 10,34% e folga 8,53% da largura do símbolo; wordmark com 74,94% da largura | medido em `mono-wordmark.png`, a apresentação aprovada da marca nova |
+| horizontal | cap 24,74% e folga 23,26% da largura do símbolo | medido no lockup antigo — é a única leitura que existe do arranjo lado a lado |
+
+A primeira tentativa escalou o horizontal pela **altura** do símbolo (a razão 57,6% do
+lockup antigo) e a arte estourou a moldura: o símbolo novo é proporcionalmente mais alto
+que o antigo (0,571 contra 0,429), e o wordmark saiu 20% mais largo que a arte inteira do
+lockup antigo. O script hoje tem uma asserção que barra isso.
+
+## Logo da sidebar — o tamanho continua em aberto
+
+Medições, todas normalizadas para uma janela de 1440px:
+
+| | símbolo | bloco (símbolo + wordmark) |
+|---|---|---|
+| referência `espacial` | 71 × 43 | 71 × 63 |
+| referência `claro` | 71 × 44 | 71 × 63 |
+| referência `dark` | 50 × 33 | — |
+| leitura do Matheus | — | ~61 × 63 |
+| **app hoje** | **110 × 63** | **110 × 97** |
+
+A altura do bloco na referência (63px) bate exatamente com a leitura do Matheus. O que não
+bate é o app: `--sidebar-logo` vale 110px, e esse número saiu de tratar os 63px como altura
+do **símbolo**, quando na referência 63px é a altura do **bloco inteiro**. O símbolo sozinho
+mede 71px de largura por 43 de altura.
+
+Consequência: o bloco do app está ~1,5× maior que o da referência. Para bater, o
+`--sidebar-logo` seria **71px**, não 110px.
+
+**Não mexi.** O 110 foi decisão registrada do Matheus depois de ele olhar o logo a 71px e
+dizer que estava pequeno demais. A medição acima é evidência de que a decisão pode ter
+saído de uma leitura ambígua da palavra "logo", mas quem desempata é ele.
+
 ## Ainda em aberto
 
-1. **A sans do wordmark SOLIS — folha de candidatas pronta, falta o Matheus escolher.**
-   É o que trava os lockups de `brand/logo/`, que continuam com o símbolo antigo. O
-   wordmark da folha do símbolo refinado tem só 40px de altura de tinta: traçar letra nessa
-   resolução entrega tipografia pior que a original, então o caminho é compor o wordmark
-   como texto de verdade — e para isso é preciso saber qual é a fonte. Não é a Playfair;
-   essa é só da saudação.
-
-   `design/comparar-wordmark.py` mede a referência e testa candidatas OFL (self-hostáveis,
-   como manda o `HANDOFF.md`). Referência, em frações da altura de caixa alta:
-
-   | | O (larg/alt) | S | L | haste |
-   |---|---|---|---|---|
-   | referência | 0,940 | 0,730 | 0,635 | 0,135 |
-   | Lexend 400 | 0,945 | 0,720 | 0,605 | 0,150 |
-   | Raleway 500 | 0,925 | 0,755 | 0,675 | 0,120 |
-   | DM Sans 500 | 0,940 | 0,685 | 0,580 | 0,135 |
-   | Figtree 500 | 0,960 | 0,710 | 0,585 | 0,130 |
-
-   Tracking da referência: ~0,62em — muito largo, e é ele que dá o ar da marca.
-
-   **O número não decide sozinho.** A Lexend 400 ganha no erro de forma e perde no olho: o
-   `I` dela tem terminais alargados e o da referência é haste reta — aparece na sobreposição
-   como duas barras azuis, uma em cima e outra embaixo do `I`. DM Sans 500 é a que sobrepõe
-   mais limpo no `O`, no `I` e na barra do `L`, e erra por pouco na largura do `S`.
-
-   Folhas: `design/wordmark-candidatas.png` (sobreposição letra a letra) e
-   `design/wordmark-lockups.png` (as 4 primeiras famílias montadas com o símbolo refinado).
-
-   **Incerteza:** a referência tem cap de 40px, então 1px de leitura vale 2,5%. Diferenças
-   menores que isso entre candidatas não significam nada — é por isso que a escolha é visual.
-
-   Enquanto isso a sidebar renderiza SOLIS em `system-ui` com tracking de 0,34em, que é
-   substituto, não a fonte final.
+1. **O tamanho do bloco do logo na sidebar** — ver a seção "Logo da sidebar" abaixo. É a
+   única coisa do bloco que continua sem número fechado.
 2. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
    vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
    atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.

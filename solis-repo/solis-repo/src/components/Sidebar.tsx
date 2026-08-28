@@ -25,9 +25,24 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
           className="text-text-primary opacity-90"
           style={{ width: 'var(--sidebar-logo)', height: 'auto', marginLeft: -8 }}
         />
+        {/* Wordmark em DM Sans 500 — a fonte escolhida na folha de candidatas. O
+            system-ui que estava aqui era substituto e saía pequeno: cap de 8px
+            contra os 10,3px medidos na referência, e 30% mais estreito.
+
+            O tamanho sai da PROPORÇÃO com o símbolo, não de um px absoluto: na
+            referência o cap do wordmark é 14,5% da largura do símbolo, e é isso
+            que mantém o bloco coerente com o símbolo no tamanho que o Matheus
+            escolheu. O paddingLeft compensa o letter-spacing, que o CSS aplica
+            também depois da última letra e descentraria o bloco. */}
         <span
-          className="text-text-primary"
-          style={{ marginTop: 12, fontSize: 11, letterSpacing: '0.34em', paddingLeft: '0.34em' }}
+          className="font-wordmark text-text-primary"
+          style={{
+            marginTop: 'calc(var(--sidebar-logo) * 0.145)',
+            fontSize: 'calc(var(--sidebar-logo) * 0.200)',
+            letterSpacing: 'var(--wordmark-tracking)',
+            paddingLeft: 'var(--wordmark-tracking)',
+            lineHeight: 1,
+          }}
         >
           SOLIS
         </span>

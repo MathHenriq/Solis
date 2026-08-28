@@ -86,6 +86,8 @@ w('  /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) 
 w('  --ease: %s;' % T['motion']['easing'])
 w('  --font-body: %s;' % T['typography']['fontFamilyBody'])
 w('  --font-display: %s;' % T['typography']['fontFamilyDisplay'])
+w('  --font-wordmark: %s;' % T['typography']['fontFamilyWordmark'])
+w('  --wordmark-tracking: %s;' % T['typography']['wordmarkTracking'])
 for k, v in T['typography']['scale'].items():
     w('  --text-%s: %s;' % (k, v['size']))
     w('  --weight-%s: %s;' % (k, v['weight']))

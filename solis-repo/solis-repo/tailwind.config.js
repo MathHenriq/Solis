@@ -77,6 +77,8 @@ module.exports = {
         // (@font-face em src/styles/index.css). Nunca por <link> pro Google: o
         // HANDOFF.md trava "sem dependência de rede".
         display: ["var(--font-display)", "Georgia", "serif"],
+        // DM Sans 500 — só no wordmark SOLIS. Ver typography._wordmarkStatus no JSON.
+        wordmark: ["var(--font-wordmark)", "system-ui", "sans-serif"],
       },
       transitionTimingFunction: {
         solis: "cubic-bezier(0.45, 0, 0.2, 1)",

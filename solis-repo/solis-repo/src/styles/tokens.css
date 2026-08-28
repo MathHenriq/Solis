@@ -51,6 +51,8 @@
   --ease: cubic-bezier(0.45, 0, 0.2, 1);
   --font-body: Inter;
   --font-display: 'Playfair Display';
+  --font-wordmark: 'DM Sans';
+  --wordmark-tracking: 0.524em;
   --text-hero: 52px;
   --weight-hero: 400;
   --text-title1: 32px;

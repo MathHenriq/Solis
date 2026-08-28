@@ -117,7 +117,7 @@
   },
   "typography": {
     "_status": "PROVISÓRIO — fonte final não escolhida (DS v0.1, seção 8). Candidatas: Inter, Sora, Manrope, Poppins. Validar na interface real antes de travar.",
-    "_displayStatus": "Playfair Display, self-hosted em public/fontes/ (peso 400, subsets latin e latin-ext). AGUARDANDO confirmação visual do Matheus contra a referência nova antes de virar oficial. Usada só na saudação — o contraste com a sans do resto da interface é intencional.",
+    "_displayStatus": "Playfair Display, self-hosted em public/fontes/ (peso 400, subsets latin e latin-ext). FECHADA com o Matheus. Usada so na saudacao — o contraste com a sans do resto da interface e intencional.",
     "fontFamilyDisplay": "'Playfair Display'",
     "fontFamilyBody": "Inter",
     "wordmarkLetterSpacing": "4px",
@@ -144,7 +144,12 @@
         "size": "12px",
         "weight": 400
       }
-    }
+    },
+    "_wordmarkStatus": "DM Sans peso 500, self-hosted em public/fontes/ (so o subset latin: o wordmark tem 4 glifos distintos, S O L I, todos em latim basico). Escolhida pelo Matheus na folha design/wordmark-candidatas.png, gerada por design/comparar-wordmark.py contra o wordmark de referencia em brand/symbol-refinado/mono-wordmark.png. Nao e a fonte original da folha — e a mais proxima em licenca aberta, que e o que o HANDOFF.md permite (self-hosted, sem dependencia de rede). Usada so no wordmark SOLIS.",
+    "fontFamilyWordmark": "'DM Sans'",
+    "_wordmarkMetrica": "Medido na referencia (as 3 telas da Fase 2, sidebar): caixa alta de 11px numa janela de 1536 e largura de tinta de 68-73px — largura/cap de 6,545 na mediana. O tracking de 0,524em e o que reproduz essa razao na DM Sans 500 (cap/em dela = 0,724). O tracking do LOCKUP e outro, 0,652em, porque a folha da marca usa razao 7,250 — marca e interface tem espacejamentos diferentes de proposito.",
+    "wordmarkTracking": "0.524em",
+    "wordmarkTrackingLockup": "0.652em"
   },
   "icon": {
     "strokeBase": "2px",
