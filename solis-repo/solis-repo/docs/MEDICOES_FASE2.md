@@ -301,10 +301,38 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 | Fundos | ~~Uma foto compartilhada entre espacial e claro, dark sem foto~~ → **uma foto por tema** |
 | Rótulo da nav | 14px (o medido), não 13px |
 
+## Contraste sobre as fotos reais — REPROVA
+
+Medido com a UI escondida (só a camada da cena), nas regiões onde texto secundário
+efetivamente cai: subtítulo, placeholder do composer, rótulos dos chips e bloco de perfil.
+
+| tema | secundário | pior caso | veredito |
+|---|---|---|---|
+| espacial | `#894D43` | **1,89:1** | reprova |
+| claro | `#726E6A` | **1,00:1** | reprova |
+| dark | `#82786D` | **1,28:1** | reprova |
+
+O primário sobrevive quase todo (hero entre 9,1:1 e 15,2:1), com uma exceção: os rótulos da
+nav no `espacial` caem a 3,14:1.
+
+**A causa não é a cor do texto.** A faixa de luminância do fundo dentro de um mesmo tema é
+de 13× a 21× (espacial 0,014–0,981; claro 0,028–1,000; dark 0,000–1,000). Nenhuma cor
+chapada sustenta 4,5:1 contra essa variação — uma cor que passa no claro reprova no escuro
+e vice-versa.
+
+**Véu de tela cheia também não resolve.** Calculando a opacidade mínima de um véu da cor do
+próprio canvas que devolveria 4,5:1: espacial 82%, claro 95%, dark 99%. Ou seja, apagaria a
+foto.
+
+As secundárias haviam sido derivadas contra as telas de referência, cujo fundo era quase
+chapado na área de conteúdo. A foto real não é — e é isso que quebrou o critério.
+
 ## Ainda em aberto
 
-1. **Reconferir o contraste com a foto real** (era a pendência 0a, agora destravada — as
-   fotos estão no repositório). As duas secundárias já
+1. **O contraste do texto sobre as fotos reprova** — ver a seção acima. Não é ajuste de
+   cor: a faixa de luminância do fundo é grande demais para qualquer cor chapada, e véu de
+   tela cheia precisaria de 82–99% de opacidade. É decisão de design, com três caminhos
+   possíveis levantados. As duas secundárias já
    foram derivadas até 4,5:1 no pior pixel, mas a medição saiu do screenshot; a imagem em
    resolução real pode ter faixa dinâmica maior nas altas luzes e exigir mais um passo de
    L no tema `claro`.
