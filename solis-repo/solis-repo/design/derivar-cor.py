@@ -16,9 +16,12 @@ import math
 def _s2l(c):
     c /= 255.0
     return c/12.92 if c <= 0.04045 else ((c+0.055)/1.055)**2.4
-def _l2s(c):
+def _l2s_bruto(c):
+    """Sem clamp — e o que permite saber se a cor caiu FORA do gamut sRGB."""
     v = 12.92*c if c <= 0.0031308 else 1.055*(c**(1/2.4)) - 0.055
-    return max(0.0, min(255.0, v*255.0))
+    return v*255.0
+def _l2s(c):
+    return max(0.0, min(255.0, _l2s_bruto(c)))
 
 def rgb_para_oklab(rgb):
     r, g, b = (_s2l(v) for v in rgb)
@@ -29,12 +32,13 @@ def rgb_para_oklab(rgb):
             1.9779984951*l - 2.4285922050*m + 0.4505937099*s,
             0.0259040371*l + 0.7827717662*m - 0.8086757660*s)
 
-def oklab_para_rgb(lab):
+def oklab_para_rgb(lab, clamp=True):
     L, a, bb = lab
     l = (L + 0.3963377774*a + 0.2158037573*bb) ** 3
     m = (L - 0.1055613458*a - 0.0638541728*bb) ** 3
     s = (L - 0.0894841775*a - 1.2914855480*bb) ** 3
-    return tuple(_l2s(v) for v in (
+    f = _l2s if clamp else _l2s_bruto
+    return tuple(f(v) for v in (
         +4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
         -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
         -0.0041960863*l - 0.7034186147*m + 1.7076147010*s))
@@ -42,8 +46,27 @@ def oklab_para_rgb(lab):
 def para_lch(rgb):
     L, a, b = rgb_para_oklab(rgb)
     return L, math.hypot(a, b), math.atan2(b, a)
-def de_lch(L, C, h):
-    return oklab_para_rgb((L, C*math.cos(h), C*math.sin(h)))
+def de_lch(L, C, h, clamp=True):
+    return oklab_para_rgb((L, C*math.cos(h), C*math.sin(h)), clamp)
+
+def no_gamut(L, C, h, tol=0.5):
+    return all(-tol <= v <= 255 + tol for v in de_lch(L, C, h, clamp=False))
+
+def croma_no_gamut(L, C, h):
+    """Maior croma <= C que ainda cabe no sRGB naquele L e naquele matiz.
+
+    Sem isto, um laranja escuro sai do gamut, o canal azul e cortado em 0 e o
+    CLAMP muda o matiz — no accent do espacial dava 6,3 graus de desvio, que e
+    justamente o que "derivar do medido, nao trocar por outra cor" nao aceita.
+    Ceder croma preserva o matiz; cortar canal nao."""
+    if no_gamut(L, C, h):
+        return C
+    lo, hi = 0.0, C
+    for _ in range(60):
+        meio = (lo + hi) / 2
+        if no_gamut(L, meio, h): lo = meio
+        else: hi = meio
+    return lo
 
 # ---------- WCAG ----------
 def lum(rgb):
@@ -64,7 +87,10 @@ def hexa(rgb): return '#%02X%02X%02X' % tuple(round(v) for v in rgb)
 def de_hexa(s): return tuple(int(s[i:i+2], 16) for i in (1, 3, 5))
 
 def derivar(medido, fundo, alvo=4.5, margem=0.02):
-    """Move so o L, no sentido que aumenta o contraste, ate cruzar o alvo."""
+    """Move so o L, no sentido que aumenta o contraste, ate cruzar o alvo.
+
+    O matiz e travado de verdade: quando o par (L, croma) sai do gamut sRGB, o
+    croma cede ate caber, em vez de deixar o clamp de canal torcer o matiz."""
     m = de_hexa(medido) if isinstance(medido, str) else medido
     f = de_hexa(fundo) if isinstance(fundo, str) else fundo
     L0, C, h = para_lch(m)
@@ -73,7 +99,7 @@ def derivar(medido, fundo, alvo=4.5, margem=0.02):
     melhor = None
     for _ in range(60):
         L = (lo+hi)/2
-        cand = de_lch(L, C, h)
+        cand = de_lch(L, croma_no_gamut(L, C, h), h)
         if contraste(cand, f) >= alvo + margem:
             melhor = (L, cand)
             if escurecer: lo = L
@@ -86,14 +112,24 @@ def derivar(medido, fundo, alvo=4.5, margem=0.02):
     final = de_hexa(hexa(melhor[1]))
     if contraste(final, f) < alvo:
         L = melhor[0] - 0.004 if escurecer else melhor[0] + 0.004
-        final = de_hexa(hexa(de_lch(L, C, h)))
+        final = de_hexa(hexa(de_lch(L, croma_no_gamut(L, C, h), h)))
     return final
 
 if __name__ == '__main__':
+    # ATENCAO: as secundarias de texto que estao nos tokens NAO sao estas. Elas
+    # foram derivadas contra o PIOR pixel de fundo da foto, nao contra o canvas
+    # chapado, porque na epoca a cena cobria a tela inteira — por isso ficaram
+    # mais escuras que o que sai aqui. Ver o _textSecondary de cada tema em
+    # solis-tokens.json. Ficam na lista so como referencia do metodo.
     casos = [
+        # secundarias de texto (contra o canvas chapado — ver aviso acima)
         ('claro',    '#888480', '#FCF7F2'),
         ('dark',     '#746A5F', '#07080D'),
         ('espacial', '#894D43', '#FAE7D0'),
+        # cor de destaque — pinta o rotulo da nav ativa, que e texto de 14px
+        ('espacial', '#DA7B22', '#FAE7D0'),
+        ('claro',    '#E18A21', '#FCF7F2'),
+        ('dark',     '#F0BA46', '#07080D'),
     ]
     print('%-9s %-9s %-9s %8s %8s %7s  %s' % (
         'tema', 'medido', 'final', 'antes', 'depois', 'dEOK', 'matiz/croma'))

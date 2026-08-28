@@ -163,8 +163,8 @@ os números já estão levantados.
 
 **A serifada é Playfair Display**, self-hosted em `public/fontes/` (peso 400, subsets
 `latin` e `latin-ext` — o português cabe inteiro neles). Não entra por `<link>` pro Google:
-o `HANDOFF.md` trava "sem dependência de rede", e o Solis é local-first. Aguardando
-confirmação visual contra a referência nova antes de virar oficial.
+o `HANDOFF.md` trava "sem dependência de rede", e o Solis é local-first. **Confirmada pelo
+Matheus — fechada.**
 
 Trocar a genérica pela Playfair moveu o ritmo vertical: a métrica dela põe a tinta 3px mais
 alto na mesma caixa, e a caixa maior empurrou composer e chips. Compensado — todos os
@@ -173,8 +173,8 @@ elementos voltaram a ±1px do medido.
 O contraste serifada/sans está confirmado como intencional e **restrito à saudação**:
 subtítulo, rótulos da nav, placeholder, chips de ação e o wordmark SOLIS são todos sans
 nas três telas. A serifada entra como um token só (`fontFamilyDisplay`) usado num lugar
-só. Qual serifada ainda não foi escolhida — e vai exigir self-host no bundle do Tauri,
-porque o `HANDOFF.md` trava "sem dependência de rede".
+só. O wordmark SOLIS **não** é Playfair — é uma sans geométrica leve com tracking largo, e
+qual sans é essa continua em aberto (é o que trava os lockups de `brand/logo/`).
 
 ## Fundos
 
@@ -380,47 +380,47 @@ Estável fora de 1440×930 (ápice, os 3 temas):
 
 Comparação visual antes/depois/referência: `design/fundo-ancorado.png`.
 
-### O que sobrou reprovando: a cor de destaque
+### Cor de destaque — derivada até 4,5:1
 
-Não tem relação com o fundo — é o par `--accent` × `--canvas`, chapado contra chapado, e já
-era assim antes desta mudança. Medido:
+Não tinha relação com o fundo: é o par `--accent` × `--canvas`, chapado contra chapado, e já
+era assim antes da mudança de fundo. O accent não pinta só ícone — ele pinta o rótulo da nav
+ativa, que é texto de 14px. Por isso o critério é 4,5:1 e não os 3:1 de componente gráfico.
 
-| tema | accent | sobre o canvas | onde aparece |
-|---|---|---|---|
-| espacial | `#DA7B22` | **2,55:1** | rótulo "Conversa" da nav ativa (14px), ícone de enviar, ícones dos chips |
-| claro | `#E18A21` | **2,51:1** | idem |
-| dark | `#F0BA46` | 11,26:1 | passa |
+| tema | medido na referência | derivado | antes | depois | ΔEOK |
+|---|---|---|---|---|---|
+| espacial | `#DA7B22` | **`#A25500`** | 2,55:1 | 4,54:1 | 0,1450 |
+| claro | `#E18A21` | **`#A56100`** | 2,51:1 | 4,58:1 | 0,1545 |
+| dark | `#F0BA46` | (mantido) | 11,26:1 | — | — |
 
-Derivando pelo mesmo método das secundárias (só o L em OKLCh, croma e matiz travados):
+ΔEOK de ~0,15 é grande — o limiar de percepção lado a lado fica em torno de 0,02. O laranja
+da marca escurece visivelmente nos dois temas claros. Aprovado pelo Matheus.
 
-| tema | para 4,5:1 (texto) | ΔEOK | para 3:1 (só componente gráfico) | ΔEOK |
-|---|---|---|---|---|
-| espacial | `#AA5000` | 0,1411 | `#CB6E06` | 0,0430 |
-| claro | `#AF5C00` | 0,1492 | `#D17B00` | 0,0477 |
+**Uma correção no método.** A primeira derivação saiu com o matiz torto: 57,4° → 51,1° no
+espacial. Causa: nesse L o laranja original não cabe no gamut sRGB, o canal azul ia pra
+negativo e o `clamp` em 0 torcia o matiz — exatamente o que "derivar do medido, não trocar
+por outra cor" não aceita. `design/derivar-cor.py` ganhou `croma_no_gamut()`: quando o par
+(L, croma) sai do gamut, o **croma** cede até caber e o matiz fica travado. Resultado:
 
-ΔEOK de 0,14 é grande — o limiar de percepção lado a lado fica em torno de 0,02. Chegar a
-4,5:1 escurece visivelmente o laranja da marca nos dois temas claros. **Não mexi:** é cor de
-marca amostrada da referência e a decisão é do Matheus, não minha.
+| tema | matiz | croma |
+|---|---|---|
+| espacial | 57,4° → 57,1° | 0,1506 → 0,1285 |
+| claro | 64,1° → 64,5° | 0,1507 → 0,1255 |
 
+As secundárias de texto não mudaram: elas já estavam dentro do gamut, então o clamp nunca
+tinha entrado nelas.
 
 ## Ainda em aberto
 
-1. **A cor de destaque reprova nos dois temas claros** — `#DA7B22` a 2,55:1 no `espacial` e
-   `#E18A21` a 2,51:1 no `claro`, contra o canvas chapado de cada um. Não tem relação com o
-   fundo, é anterior a ele, e atinge o rótulo da nav ativa (texto de 14px) além dos ícones.
-   Derivar até 4,5:1 pelo mesmo método das secundárias dá `#AA5000` e `#AF5C00`, com ΔEOK de
-   0,14 — escurecimento visível do laranja da marca. Números completos na seção "O que sobrou
-   reprovando". Não mexi: é cor de marca amostrada da referência, a decisão é do Matheus.
-2. **Confirmar a Playfair Display** — já aplicada e self-hosted em `public/fontes/`,
-   aguardando só a conferência visual contra a referência nova antes de virar oficial.
-3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da
-   decisão de fonte acima: o wordmark tem 40px de altura de tinta na folha do símbolo
-   refinado e 100px no lockup antigo, e traçar letra nessa resolução entrega tipografia
-   pior que a original. O caminho certo é compor o wordmark como texto quando a fonte
-   estiver fechada.
-4. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
+1. **A sans do wordmark SOLIS** — é o que trava os lockups de `brand/logo/`, que continuam
+   com o símbolo antigo. O wordmark tem só 40px de altura de tinta na folha do símbolo
+   refinado e 100px no lockup antigo: traçar letra nessa resolução entrega tipografia pior
+   que a original. O caminho certo é compor o wordmark como texto de verdade, e para isso
+   falta identificar (ou escolher) a sans geométrica leve da folha. Não é a Playfair — essa
+   é só da saudação. Enquanto isso a sidebar renderiza SOLIS em `system-ui` com tracking de
+   0,34em, que é substituto, não a fonte final.
+2. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
    vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
    atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.
-5. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
+3. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
    Sidebar/Ícones, e perder "Cor de destaque". A referência atual
    (`telas/06-configuracoes.png`) é anterior a tudo isso.

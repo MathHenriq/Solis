@@ -73,8 +73,9 @@ module.exports = {
         // Inter fica listada só para quando/se for self-hosted — CSS não baixa fonte
         // por nome sozinho, então isso aqui não gera tráfego de rede.
         sans: ["system-ui", "-apple-system", "sans-serif"],
-        // PROVISÓRIO: a serifada específica não foi escolhida. Quando for, vai
-        // exigir self-host no bundle do Tauri, pelo mesmo motivo acima.
+        // Playfair Display — fechada com o Matheus, self-hosted em public/fontes/
+        // (@font-face em src/styles/index.css). Nunca por <link> pro Google: o
+        // HANDOFF.md trava "sem dependência de rede".
         display: ["var(--font-display)", "Georgia", "serif"],
       },
       transitionTimingFunction: {

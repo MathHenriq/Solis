@@ -24,8 +24,9 @@
       "textPrimary": "#4A0A09",
       "textSecondary": "#894D43",
       "textPlaceholder": "#90554B",
-      "accent": "#DA7B22",
-      "_nota": "O vinho é #4A0A09 (interior do traço). #6B1420 era estimativa não amostrada e foi descartado."
+      "accent": "#A25500",
+      "_nota": "O vinho é #4A0A09 (interior do traço). #6B1420 era estimativa não amostrada e foi descartado.",
+      "_accent": "Derivado de #DA7B22 (medido na referencia) escurecendo so o L em OKLCh, matiz travado. O medido dava 2.55:1 sobre o canvas — e o accent nao pinta so icone: ele pinta o rotulo da nav ativa, que e texto de 14px, entao o criterio e 4,5:1 e nao 3:1. Agora 4.54:1. dEOK 0.1450 — mudanca grande e visivel, aprovada pelo Matheus. Matiz 57.4° -> 57.1°; o croma cedeu de 0.1506 pra 0.1285 porque nesse L o laranja original nao cabe no gamut sRGB — ceder croma preserva o matiz, cortar canal nao. Ver docs/MEDICOES_FASE2.md."
     },
     "claro": {
       "scene": "claro",
@@ -33,9 +34,10 @@
       "divider": "#E5DDD5",
       "textPrimary": "#27231C",
       "textSecondary": "#726E6A",
-      "_textSecondary": "Derivado de #888480 (medido) escurecendo só o L em OKLCh — croma e matiz travados. O medido dava 3,49:1, abaixo de AA para texto normal. Alvo aplicado ao PIOR fundo dos 70% superiores da janela (não só ao canvas chapado), pra sobrar margem sobre a foto: 4,52:1 no pior pixel de fundo, 4,72:1 de mediana. dEOK 0,0750; matiz preservado (67,7°). Ver docs/MEDICOES_FASE2.md.",
+      "_textSecondary": "Derivado de #888480 (medido) escurecendo só o L em OKLCh — croma e matiz travados. O medido dava 3,49:1, abaixo de AA para texto normal. Alvo aplicado ao PIOR fundo dos 70% superiores da janela (não só ao canvas chapado), pra sobrar margem sobre a foto: 4,52:1 no pior pixel de fundo, 4,72:1 de mediana. dEOK 0,0750; matiz preservado (67,7°). O alvo contra o pior pixel da foto ficou conservador demais depois que a cena passou a ocupar so a faixa de baixo — hoje o texto cai sempre em canvas chapado. Mantido assim mesmo: passa com folga e o valor ja estava aprovado. Ver docs/MEDICOES_FASE2.md.",
       "textPlaceholder": "#64615E",
-      "accent": "#E18A21"
+      "accent": "#A56100",
+      "_accent": "Derivado de #E18A21 (medido na referencia) escurecendo so o L em OKLCh, matiz travado. O medido dava 2.51:1 sobre o canvas — e o accent nao pinta so icone: ele pinta o rotulo da nav ativa, que e texto de 14px, entao o criterio e 4,5:1 e nao 3:1. Agora 4.58:1. dEOK 0.1545 — mudanca grande e visivel, aprovada pelo Matheus. Matiz 64.1° -> 64.5°; o croma cedeu de 0.1507 pra 0.1255 porque nesse L o laranja original nao cabe no gamut sRGB — ceder croma preserva o matiz, cortar canal nao. Ver docs/MEDICOES_FASE2.md."
     },
     "dark": {
       "scene": "dark",
@@ -43,10 +45,10 @@
       "divider": "#181A1C",
       "textPrimary": "#F1E4D4",
       "textSecondary": "#82786D",
-      "_textSecondary": "Derivado de #746A5F (medido) clareando só o L em OKLCh — croma e matiz travados. O medido dava 3,78:1. Alvo aplicado ao PIOR fundo dos 70% superiores da janela: 4,55:1 no pior pixel de fundo, 4,63:1 de mediana. dEOK 0,0482; matiz preservado (70,0°). Ver docs/MEDICOES_FASE2.md.",
+      "_textSecondary": "Derivado de #746A5F (medido) clareando só o L em OKLCh — croma e matiz travados. O medido dava 3,78:1. Alvo aplicado ao PIOR fundo dos 70% superiores da janela: 4,55:1 no pior pixel de fundo, 4,63:1 de mediana. dEOK 0,0482; matiz preservado (70,0°). O alvo contra o pior pixel da foto ficou conservador demais depois que a cena passou a ocupar so a faixa de baixo — hoje o texto cai sempre em canvas chapado. Mantido assim mesmo: passa com folga e o valor ja estava aprovado. Ver docs/MEDICOES_FASE2.md.",
       "textPlaceholder": "#8F8172",
       "accent": "#F0BA46",
-      "_nota": "Sem foto: o horizonte aqui é glow sintético. Bom pro bundle e coerente com a Camada 1 do SOLIS_SIGNATURE.md."
+      "_nota": "Foto propria (bg-dark.webp). A nota anterior dizia 'sem foto, arco sintetico em CSS' — isso valeu ate a reversao de arquitetura de fundos, em que cada tema ganhou a sua foto."
     },
     "_acentoNaoEhUnico": "O acento varia por tema, então não existe um 'solar' único servindo os três. Consequência decidida: o controle 'Cor de destaque' SAI de Configurações → Aparência (ele aparece em referencias/telas/06-configuracoes.png, que é anterior a essa decisão). Escolher o tema já escolhe o acento.",
     "_sidebarNaoEhSuperficie": "Nos 3 temas o fundo da sidebar é o mesmo do canvas (diferença dentro do ruído do render). O que separa é a divisória de 1px. Não criar bg.surface pra ela.",
