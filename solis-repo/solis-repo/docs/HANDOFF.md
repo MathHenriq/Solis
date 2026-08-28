@@ -49,7 +49,33 @@ Isso evita o erro mais comum nesse tipo de handoff: o agente "preencher lacunas"
 - Timing da sequência de loading (núcleo → expansão → fechamento).
 - Textos de `ERROR_STATES.md` — o tom está definido, a redação exata pode mudar com uso real.
 
+## Fase 2 — temas, sidebar compacta e símbolo vetorizado (atualização)
+
+Frente aberta depois deste documento. O que ela muda aqui:
+
+- **A navegação ganhou um irmão configurável:** além de `navigation.style` (Sidebar/Ícones),
+  existe agora `appearance.theme` com 3 temas nomeados, mesma persistência local. Ver
+  `solis-tokens.json` → `themes` e `appearance`.
+- **O bloco `colorLight` deixou de existir.** Ele presumia modo claro binário sobre canvas
+  chapado; os temas `espacial` e `claro` têm canvas fotográfico, o que invalidou também os
+  contrastes anotados nele. Substituído por `themes`, com valores medidos por pixel.
+- **A seção "Símbolo oficial" abaixo está superada na parte técnica** (ver nota nela).
+- **Backgrounds: uma foto por tema.** Reverte a arquitetura de foto compartilhada entre
+  espacial e claro, e o dark deixa de ser arco sintético em CSS. Junto disso, o ciclo do
+  dia foi removido — ver `SOLIS_SIGNATURE.md` → Camada 2.
+- **Plataforma alvo: Windows.**
+- Números medidos, método e divergências resolvidas: `MEDICOES_FASE2.md`.
+
 ## Símbolo oficial — RESOLVIDO (mudança de abordagem)
+
+> **Atualização da Fase 2:** o símbolo foi refinado (arco de pontas finas) e **vetorizado** —
+> `design/solis-symbol.svg`, traço direto do raster aprovado, IoU 98,98%, sem ajuste manual
+> em ponto de controle. Isso desfaz a limitação descrita nesta seção: a marca não é mais um
+> PNG achatado, e o app-icon/favicon passam a sair do vetor em qualquer tamanho em vez de
+> ampliar um raster de 387px. O que a seção diz sobre a Camada 3 continua valendo como
+> arquitetura (o glow é uma camada CSS separada atrás da arte), mas agora por escolha, não
+> por impossibilidade. Os assets em `referencias/brand/symbol/`, `logo/`, `states/` e
+> `app-icon/` foram desenhados sobre o símbolo ANTIGO e estão pendentes de regeneração.
 
 A pendência de "vetorizar o símbolo" foi resolvida, mas não do jeito originalmente planejado. Em vez de um SVG vetorial com camadas separadas (`horizon`/`sun`/`glow` editáveis), a marca final é uma **imagem raster (PNG) gerada e aprovada pelo Matheus**, em `brand/`:
 
@@ -78,7 +104,7 @@ solis/
 │   │   ├── SolisSymbol/           → horizon + sun + glow como sub-componentes separados
 │   │   ├── buttons/ cards/ inputs/
 │   ├── views/                     → Início, Conversa, Memória, Foco, Ferramentas, Configurações (lazy loaded)
-│   ├── hooks/                     → useAudioLevel (Web Audio API), useDayCycle
+│   ├── hooks/                     → useAudioLevel (Web Audio API)
 │   └── styles/tokens.css
 ├── backend/                       → Python/FastAPI
 │   ├── stt/ (Whisper) tts/ (Piper) vision/ (OpenCV)

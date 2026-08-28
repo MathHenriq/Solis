@@ -1,0 +1,111 @@
+/* GERADO por design/gerar-tokens-css.py — nao editar a mao.
+ * Fonte de verdade: docs/solis-tokens.json. Mexeu no token, roda o script.
+ *
+ * O tema e trocado por [data-theme] no elemento raiz, nunca por Context de
+ * React distribuindo cor: a Camada 1 do SOLIS_SIGNATURE.md e montada uma vez
+ * no shell e nao pode remontar na troca de tema. Trocar um atributo so
+ * repinta; trocar o valor de um Context re-renderiza a arvore. */
+
+:root {
+  /* escala — independente de tema */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+  --space-4xl: 64px;
+  --icon-xs: 16px;
+  --icon-sm: 20px;
+  --icon-md: 24px;
+
+  /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */
+  --sidebar-width: 200px;
+  --sidebar-icon: 18px;
+  --sidebar-logo: 71px;
+  --sidebar-pitch: 55px;
+  --sidebar-label: 14px;
+  --sidebar-icon-inset: 29px;
+  --sidebar-label-inset: 69px;
+  --composer-height: 79px;
+  --composer-width: 805px;
+
+  /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de
+   * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */
+  --solis-cena-altura: 55vh;
+  --solis-bg-position-y: 66%;
+  /* Mascara do topo da banda: alpha 0 -> 1 entre 68% e 83% da altura da JANELA,
+   * convertidos aqui pra coordenada da propria banda (0% = topo da banda).
+   * Acima do primeiro stop o alpha e zero, entao o texto da tela cai em canvas
+   * chapado e o contraste volta a ser o dos tokens. */
+  --solis-cena-mascara: linear-gradient(to bottom, rgb(0 0 0 / 0.000) 41.82%, rgb(0 0 0 / 0.043) 45.23%, rgb(0 0 0 / 0.156) 48.64%, rgb(0 0 0 / 0.316) 52.05%, rgb(0 0 0 / 0.500) 55.45%, rgb(0 0 0 / 0.684) 58.86%, rgb(0 0 0 / 0.844) 62.27%, rgb(0 0 0 / 0.957) 65.68%, rgb(0 0 0 / 1.000) 69.09%, rgb(0 0 0 / 1) 100%);
+  --composer-radius: 13px;
+  --chip-height: 58px;
+
+  /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) */
+  --ease: cubic-bezier(0.45, 0, 0.2, 1);
+  --font-body: Inter;
+  --font-display: 'Playfair Display';
+  --font-wordmark: 'DM Sans';
+  --wordmark-tracking: 0.524em;
+  --text-hero: 52px;
+  --weight-hero: 400;
+  --text-title1: 32px;
+  --weight-title1: 600;
+  --text-title2: 20px;
+  --weight-title2: 500;
+  --text-body: 16px;
+  --weight-body: 400;
+  --text-caption: 12px;
+  --weight-caption: 400;
+}
+
+/* Tema padrao na primeira instalacao: dark. O atributo tem que estar no HTML
+ * ANTES do primeiro paint — senao o app pisca num tema e troca pro outro. */
+
+[data-theme="espacial"] {
+  --canvas: #FAE7D0;
+  --divider: #DAC1A8;
+  --text-primary: #4A0A09;
+  --text-secondary: #894D43;
+  --text-placeholder: #90554B;
+  --accent: #A25500;
+  --solis-horizon-image: url('/fundos/bg-espacial.webp');
+}
+
+[data-theme="claro"] {
+  --canvas: #FCF7F2;
+  --divider: #E5DDD5;
+  --text-primary: #27231C;
+  --text-secondary: #726E6A;
+  --text-placeholder: #64615E;
+  --accent: #A56100;
+  --solis-horizon-image: url('/fundos/bg-claro.webp');
+}
+
+[data-theme="dark"] {
+  --canvas: #07080D;
+  --divider: #181A1C;
+  --text-primary: #F1E4D4;
+  --text-secondary: #82786D;
+  --text-placeholder: #8F8172;
+  --accent: #F0BA46;
+  --solis-horizon-image: url('/fundos/bg-dark.webp');
+}
+
+/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem
+ * de fundo" desligado ela some e sobra a versao solida da paleta do mesmo
+ * tema. Nenhuma cor nova precisa existir pra isso. */
+[data-scene="off"] { --solis-horizon-image: none; }
+
+body { background: var(--canvas); color: var(--text-primary); font-family: var(--font-body); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* PERFORMANCE.md: todas as duracoes vao a ~0 */
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

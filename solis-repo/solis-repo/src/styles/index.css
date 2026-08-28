@@ -1,0 +1,95 @@
+/* tokens.css é GERADO de docs/solis-tokens.json — ver design/gerar-tokens-css.py.
+   Entra antes do Tailwind pra que as custom properties existam quando as
+   utilitárias que referenciam var() forem aplicadas. */
+@import './tokens.css';
+
+/* O @import TEM que vir antes de qualquer outra regra: pela spec do CSS ele é
+   ignorado se vier depois, e foi o que aconteceu quando pus o @font-face acima
+   dele — o tokens.css inteiro sumiu do build e os 3 temas iam junto. */
+/* Playfair Display, servida do próprio bundle. NUNCA por <link> pro Google: o
+   HANDOFF.md trava "sem dependência de rede", e o Solis é local-first — o título
+   não pode depender de a máquina estar online. Ver public/fontes/LEIA-ME.md. */
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fontes/playfair-display-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fontes/playfair-display-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* DM Sans 500 — a sans do wordmark SOLIS, escolhida na folha
+   design/wordmark-candidatas.png. Só o subset `latin`: o wordmark tem 4 glifos
+   distintos (S O L I) e todos cabem nele — latin-ext aqui seria peso morto.
+   Self-hosted pelo mesmo motivo da Playfair: HANDOFF.md trava "sem dependência
+   de rede". Ver public/fontes/LEIA-ME.md. */
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fontes/dm-sans-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+
+/* A troca de tema é uma transição de cor, não um corte seco. Só color e
+   background-color: PERFORMANCE.md proíbe filter/box-shadow animados, e isto
+   aqui é transição pontual, não loop. */
+body {
+  transition: background-color 200ms var(--ease),
+              color 200ms var(--ease);
+}
+
+/* Camada 1 — horizonte. Ver src/components/Horizonte.tsx.
+
+   A cena é uma BANDA colada na base da área de conteúdo — não um fundo de tela
+   cheia. Foi assim que ela nasceu no SOLIS_SIGNATURE.md ("ocupando a parte
+   inferior de toda tela") e é o que as 3 referências mostram: acima de ~68% da
+   altura da janela o fundo é canvas chapado, e é lá que todo o texto vive.
+   Esticar a foto atrás da tela inteira punha texto em cima de foto e o
+   contraste desabava (1,00:1 no claro) — nenhuma cor chapada de texto aguenta
+   uma imagem que tem região muito clara e muito escura ao mesmo tempo.
+
+   Começa em --sidebar-width, não em 0: nas referências a coluna da sidebar fica
+   em canvas chapado até a base. A sidebar não tem superfície própria, então a
+   foto passando por baixo dela cairia atrás do bloco de perfil.
+
+   Altura, ancoragem e máscara vêm de tokens gerados de solis-tokens.json →
+   scenes (._ancoragem, ._geometria, ._fade). A máscara mora AQUI, no elemento
+   estático, e não no .cena, que é o que anima: máscara em elemento animado
+   passeia junto com o scale. */
+.cena-camada {
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  height: var(--solis-cena-altura);
+  -webkit-mask-image: var(--solis-cena-mascara);
+  mask-image: var(--solis-cena-mascara);
+}
+
+/* A banda é bem mais larga que 1,6:1, então `cover` escala a foto pela LARGURA
+   e sobra folga vertical — é ela que faz o --solis-bg-position-y voltar a ter
+   efeito e que põe o ápice do horizonte a ~85% da altura da janela, o valor
+   medido nas 3 referências. Na camada de tela cheia anterior não havia folga
+   nenhuma e o position-y era inerte. */
+.cena {
+  background-image: var(--solis-horizon-image, none);
+  background-position: 50% var(--solis-bg-position-y);
+  background-size: cover;
+  background-repeat: no-repeat;
+}

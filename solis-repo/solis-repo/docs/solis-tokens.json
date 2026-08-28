@@ -11,15 +11,74 @@
     "success": "#8FBF6D",
     "error": "#E4674A"
   },
-  "colorLight": {
-    "_status": "NOVO — paleta de modo claro. Reverte a decisão anterior de 'um modo só' no Figma; a coleção Solis/Color precisa ganhar um modo Light se isso voltar pro Figma.",
-    "_comment": "Cores existentes (solar/amber/muted) falham contraste como texto sobre fundo claro — não são reaproveitáveis diretas, exigiram 3 tokens novos.",
-    "paper": { "hex": "#FFFFFF", "role": "superfície de card, mais clara que o canvas" },
-    "graphite": { "hex": "#5C6470", "role": "texto secundário", "contrastOnCanvas": "5.27:1" },
-    "amberDeep": { "hex": "#9A5510", "role": "texto/ícone de destaque", "contrastOnCanvas": "5.02:1" },
-    "canvas": { "ref": "color.warmWhite", "role": "fundo do app — reaproveita token existente, sem cor nova" },
-    "textPrimary": { "ref": "color.night", "contrastOnCanvas": "16.9:1" },
-    "elevation": { "_rule": "modo claro usa box-shadow real (sutil), não borda translúcida — a regra anti-sombra do PERFORMANCE.md é só contra filter/shadow ANIMADO em loop, não contra sombra estática." }
+  "themes": {
+    "_status": "MEDIDO — valores amostrados por pixel nas 3 referências da Fase 2. Método e números completos em docs/MEDICOES_FASE2.md.",
+    "_substitui": "O bloco 'colorLight' (modo claro binário). Ele presumia canvas de cor chapada (warmWhite) e trazia contrastes calculados contra ela; nos temas 'espacial' e 'claro' o canvas é foto, então aqueles números não valiam mais.",
+    "_estrutura": "3 temas, 3 cenas — uma foto por tema. REVERTE a arquitetura anterior, em que 'espacial' e 'claro' dividiam a mesma foto e o 'dark' não tinha foto nenhuma (era um arco sintético em CSS). Cada foto já retrata um momento do dia próprio: espacial = amanhecer dourado, claro = manhã pálida, dark = noite com fresta de luz.",
+    "_fechado": "São 3 temas, não 4 — decidido.",
+    "_regraDeConsumo": "Componente nunca lê hex daqui. Lê custom property semântica (--canvas, --divider, --text-primary, --text-secondary, --text-placeholder, --accent); o tema só troca o valor delas.",
+    "espacial": {
+      "scene": "espacial",
+      "canvas": "#FAE7D0",
+      "divider": "#DAC1A8",
+      "textPrimary": "#4A0A09",
+      "textSecondary": "#894D43",
+      "textPlaceholder": "#90554B",
+      "accent": "#A25500",
+      "_nota": "O vinho é #4A0A09 (interior do traço). #6B1420 era estimativa não amostrada e foi descartado.",
+      "_accent": "Derivado de #DA7B22 (medido na referencia) escurecendo so o L em OKLCh, matiz travado. O medido dava 2.55:1 sobre o canvas — e o accent nao pinta so icone: ele pinta o rotulo da nav ativa, que e texto de 14px, entao o criterio e 4,5:1 e nao 3:1. Agora 4.54:1. dEOK 0.1450 — mudanca grande e visivel, aprovada pelo Matheus. Matiz 57.4° -> 57.1°; o croma cedeu de 0.1506 pra 0.1285 porque nesse L o laranja original nao cabe no gamut sRGB — ceder croma preserva o matiz, cortar canal nao. Ver docs/MEDICOES_FASE2.md."
+    },
+    "claro": {
+      "scene": "claro",
+      "canvas": "#FCF7F2",
+      "divider": "#E5DDD5",
+      "textPrimary": "#27231C",
+      "textSecondary": "#726E6A",
+      "_textSecondary": "Derivado de #888480 (medido) escurecendo só o L em OKLCh — croma e matiz travados. O medido dava 3,49:1, abaixo de AA para texto normal. Alvo aplicado ao PIOR fundo dos 70% superiores da janela (não só ao canvas chapado), pra sobrar margem sobre a foto: 4,52:1 no pior pixel de fundo, 4,72:1 de mediana. dEOK 0,0750; matiz preservado (67,7°). O alvo contra o pior pixel da foto ficou conservador demais depois que a cena passou a ocupar so a faixa de baixo — hoje o texto cai sempre em canvas chapado. Mantido assim mesmo: passa com folga e o valor ja estava aprovado. Ver docs/MEDICOES_FASE2.md.",
+      "textPlaceholder": "#64615E",
+      "accent": "#A56100",
+      "_accent": "Derivado de #E18A21 (medido na referencia) escurecendo so o L em OKLCh, matiz travado. O medido dava 2.51:1 sobre o canvas — e o accent nao pinta so icone: ele pinta o rotulo da nav ativa, que e texto de 14px, entao o criterio e 4,5:1 e nao 3:1. Agora 4.58:1. dEOK 0.1545 — mudanca grande e visivel, aprovada pelo Matheus. Matiz 64.1° -> 64.5°; o croma cedeu de 0.1507 pra 0.1255 porque nesse L o laranja original nao cabe no gamut sRGB — ceder croma preserva o matiz, cortar canal nao. Ver docs/MEDICOES_FASE2.md."
+    },
+    "dark": {
+      "scene": "dark",
+      "canvas": "#07080D",
+      "divider": "#181A1C",
+      "textPrimary": "#F1E4D4",
+      "textSecondary": "#82786D",
+      "_textSecondary": "Derivado de #746A5F (medido) clareando só o L em OKLCh — croma e matiz travados. O medido dava 3,78:1. Alvo aplicado ao PIOR fundo dos 70% superiores da janela: 4,55:1 no pior pixel de fundo, 4,63:1 de mediana. dEOK 0,0482; matiz preservado (70,0°). O alvo contra o pior pixel da foto ficou conservador demais depois que a cena passou a ocupar so a faixa de baixo — hoje o texto cai sempre em canvas chapado. Mantido assim mesmo: passa com folga e o valor ja estava aprovado. Ver docs/MEDICOES_FASE2.md.",
+      "textPlaceholder": "#8F8172",
+      "accent": "#F0BA46",
+      "_nota": "Foto propria (bg-dark.webp). A nota anterior dizia 'sem foto, arco sintetico em CSS' — isso valeu ate a reversao de arquitetura de fundos, em que cada tema ganhou a sua foto."
+    },
+    "_acentoNaoEhUnico": "O acento varia por tema, então não existe um 'solar' único servindo os três. Consequência decidida: o controle 'Cor de destaque' SAI de Configurações → Aparência (ele aparece em referencias/telas/06-configuracoes.png, que é anterior a essa decisão). Escolher o tema já escolhe o acento.",
+    "_sidebarNaoEhSuperficie": "Nos 3 temas o fundo da sidebar é o mesmo do canvas (diferença dentro do ruído do render). O que separa é a divisória de 1px. Não criar bg.surface pra ela.",
+    "_contrastePendente": "Contraste sobre foto é faixa, não número. textPrimary passa com folga nos 3. textSecondary #894D43 sobre a região clara da foto precisa ser medido com a imagem-fonte em resolução real (pendência 0a) antes de fechar."
+  },
+  "scenes": {
+    "_comment": "Uma foto por tema. Os arquivos vivem em public/fundos/ e os nomes são fixos: src/styles/tokens.css é gerado daqui.",
+    "_horizonteComum": "Os 3 assets foram RECORTADOS para o horizonte cair em 74,0% da altura em todos, com o mesmo aspecto (16:10). Por isso existe um único positionY, e não um por tema.",
+    "_recorte": "Cada fonte perdeu 4% da altura e 4% da largura, com o deslocamento vertical calculado para levar o horizonte a 74,0%. Nada foi redesenhado nem esticado — é reenquadramento. Saída em 2880x1800, WebP q88.",
+    "positionY": "66%",
+    "espacial": {
+      "asset": "/fundos/bg-espacial.webp",
+      "horizonteNaFonte": "74,2%"
+    },
+    "claro": {
+      "asset": "/fundos/bg-claro.webp",
+      "horizonteNaFonte": "73,2%"
+    },
+    "dark": {
+      "asset": "/fundos/bg-dark.webp",
+      "horizonteNaFonte": "71,9%"
+    },
+    "_ancoragem": "A cena ocupa a PARTE DE BAIXO da area de conteudo — nao a tela inteira. Foi assim que ela nasceu no SOLIS_SIGNATURE.md (Camada 1: 'ocupando a parte inferior de toda tela') e e assim nas 3 referencias: acima de ~68% da altura da janela o fundo e canvas chapado, e o texto vive sobre ele. Esticar a foto atras da tela inteira quebrava o contraste de texto (medido: 1,00:1 no claro, 1,89:1 no espacial, 1,28:1 no dark — criterio 4,5:1), porque a mesma foto tem regiao muito clara e muito escura e nenhuma cor de texto chapada aguenta as duas.",
+    "_porQueNaoCobreASidebar": "left = larguraDaSidebar. Nas 3 referencias a coluna da sidebar fica em canvas chapado ate a base — a foto comeca na divisoria. A sidebar nao tem superficie propria (mesmo canvas dos 3 temas), entao se a cena passasse por baixo dela o bloco de perfil ('Matheus' / 'Online') cairia em cima da foto.",
+    "_geometria": "height=55vh + background-size:cover + positionY=66% poe o apice do horizonte em 84-86% da altura da janela de 1024x768 a 1920x1200 (medido na referencia: 85,0% no espacial e no claro, 84,5% no dark). A banda e mais larga que 1,6:1 em qualquer janela usual, entao o cover escala pela LARGURA e sobra folga vertical — que e o que faz o positionY voltar a ter efeito (com a camada de tela cheia anterior nao sobrava folga nenhuma e o positionY era inerte).",
+    "height": "55vh",
+    "fadeFromViewport": "68%",
+    "fadeToViewport": "83%",
+    "_fade": "A cena nao entra com corte seco: sobe de 0 a 1 de alpha entre 68% e 83% da altura da JANELA (o gerador converte para coordenada da banda). O 68% e o piso do texto mais baixo da Conversa — os chips terminam a 607px de 930, 65,3% — com folga. Acima disso o alpha e exatamente 0, entao todo texto da tela cai em canvas chapado e o contraste volta a ser o dos tokens.",
+    "_recorteContinuaValendo": "O recorte dos 3 assets (horizonte em 74,0% da altura de cada um) continua sendo o que mantem os temas alinhados entre si: com a mesma geometria de banda, mesma fracao de imagem => mesma altura na tela."
   },
   "radius": {
     "sm": "8px",
@@ -39,22 +98,58 @@
   },
   "elevation": {
     "_comment": "Fundo é escuro demais para box-shadow tradicional. Elevação = superfície + borda translúcida em Solar, não sombra.",
-    "0": { "background": "color.night", "border": "none" },
-    "1": { "background": "color.deep", "border": "1px solid rgba(255,183,77,0.08)" },
-    "2": { "background": "color.deep", "border": "1px solid rgba(255,183,77,0.16)" },
-    "glow": { "extends": "2", "note": "Somar glow funcional (ver motion.glow) apenas em elemento ativo, nunca como hierarquia estática." }
+    "0": {
+      "background": "color.night",
+      "border": "none"
+    },
+    "1": {
+      "background": "color.deep",
+      "border": "1px solid rgba(255,183,77,0.08)"
+    },
+    "2": {
+      "background": "color.deep",
+      "border": "1px solid rgba(255,183,77,0.16)"
+    },
+    "glow": {
+      "extends": "2",
+      "note": "Somar glow funcional (ver motion.glow) apenas em elemento ativo, nunca como hierarquia estática."
+    }
   },
   "typography": {
     "_status": "PROVISÓRIO — fonte final não escolhida (DS v0.1, seção 8). Candidatas: Inter, Sora, Manrope, Poppins. Validar na interface real antes de travar.",
-    "fontFamilyDisplay": "Inter",
+    "_displayStatus": "Playfair Display, self-hosted em public/fontes/ (peso 400, subsets latin e latin-ext). FECHADA com o Matheus. Usada so na saudacao — o contraste com a sans do resto da interface e intencional.",
+    "fontFamilyDisplay": "'Playfair Display'",
     "fontFamilyBody": "Inter",
     "wordmarkLetterSpacing": "4px",
     "scale": {
-      "title1": { "size": "32px", "weight": 600 },
-      "title2": { "size": "20px", "weight": 500 },
-      "body": { "size": "16px", "weight": 400 },
-      "caption": { "size": "12px", "weight": 400 }
-    }
+      "hero": {
+        "size": "52px",
+        "weight": 400,
+        "family": "fontFamilyDisplay",
+        "_medido": "Fase 2, normalizado pra janela de 1440px. Único lugar onde a serifada entra."
+      },
+      "title1": {
+        "size": "32px",
+        "weight": 600
+      },
+      "title2": {
+        "size": "20px",
+        "weight": 500
+      },
+      "body": {
+        "size": "16px",
+        "weight": 400
+      },
+      "caption": {
+        "size": "12px",
+        "weight": 400
+      }
+    },
+    "_wordmarkStatus": "DM Sans peso 500, self-hosted em public/fontes/ (so o subset latin: o wordmark tem 4 glifos distintos, S O L I, todos em latim basico). Escolhida pelo Matheus na folha design/wordmark-candidatas.png, gerada por design/comparar-wordmark.py contra o wordmark de referencia em brand/symbol-refinado/mono-wordmark.png. Nao e a fonte original da folha — e a mais proxima em licenca aberta, que e o que o HANDOFF.md permite (self-hosted, sem dependencia de rede). Usada so no wordmark SOLIS.",
+    "fontFamilyWordmark": "'DM Sans'",
+    "_wordmarkMetrica": "Medido na referencia (as 3 telas da Fase 2, sidebar): caixa alta de 11px numa janela de 1536 e largura de tinta de 68-73px — largura/cap de 6,545 na mediana. O tracking de 0,524em e o que reproduz essa razao na DM Sans 500 (cap/em dela = 0,724). O tracking do LOCKUP e outro, 0,652em, porque a folha da marca usa razao 7,250 — marca e interface tem espacejamentos diferentes de proposito.",
+    "wordmarkTracking": "0.524em",
+    "wordmarkTrackingLockup": "0.652em"
   },
   "icon": {
     "strokeBase": "2px",
@@ -79,15 +174,62 @@
       "xl": "128px"
     }
   },
+  "layout": {
+    "_status": "MEDIDO na Fase 2, normalizado pra janela de 1440px de largura. Ver docs/MEDICOES_FASE2.md.",
+    "sidebar": {
+      "width": "200px",
+      "widthPercent": 13.9,
+      "logoWidth": "71px",
+      "_logoWidth": "FECHADO em 71px — a largura do simbolo medida nas referencias espacial e claro (71x43 normalizado pra 1440). Era 110px, e esse numero saiu de tratar os '63px' da leitura do Matheus como altura do SIMBOLO; medindo depois, 63px e a altura do BLOCO inteiro (simbolo + folga + wordmark), e com o simbolo a 71px o bloco fecha justamente em 63. A hipotese ja estava anotada aqui ('se a medida era do bloco simbolo+wordmark, o valor certo e outro') e a medicao confirmou. O que estava mesmo pequeno era o wordmark, nao o simbolo: ele saia com cap de 8px contra os 10,3px da referencia.",
+      "iconSize": "18px",
+      "_iconSize": "Os ícones da referência medem 17–18px normalizados; 17 era arredondamento pra baixo e deixava o glifo 1px menor que o da referência.",
+      "itemPitch": "55px",
+      "labelSize": "14px",
+      "_labelSize": "14px é o medido. O pedido dizia 13px, mas era estimativa; vale a referência.",
+      "activeIndicator": {
+        "width": "3px",
+        "inset": "12px"
+      },
+      "iconInset": "29px",
+      "labelInset": "69px",
+      "_anterior": "A referência anterior (telas/06-configuracoes.png) tinha 250px, ícone de 21px, passo de 62px e rótulo de ~16px.",
+      "_blocoDoLogo": "O bloco todo sai de --sidebar-logo: altura do simbolo = 57,37% dela (aspecto do viewBox do SVG), folga = 14,5%, cap do wordmark = 14,5% (fontSize 20%). O respiro ate o primeiro item da nav e calculado a partir disso pra manter a nav a 225px do topo da janela — mexer no logo nao pode empurrar a navegacao."
+    },
+    "composer": {
+      "height": "79px",
+      "width": "805px",
+      "_width": "Medido 849-867px @1536 nas 3 telas; 805px é a normalização pra janela de 1440.",
+      "radius": "13px",
+      "actionChipHeight": "58px",
+      "_actionChipHeight": "58px é o que fecha contra a referência no render real; 55px vinha da detecção de borda, que come o antialiasing.",
+      "_nota": "Não ficou mais baixo que a versão anterior (81px) — ficou mais leve: borda âmbar virou neutra sutil e o botão circular âmbar de 48px virou seta fina. Decisão registrada.",
+      "_microfone": "As 3 telas da Fase 2 não mostram o microfone. Confirmado como omissão do gerador de imagem, não decisão: ele é reintroduzido. Whisper e a Camada 3 do SOLIS_SIGNATURE.md dependem dele."
+    }
+  },
   "motion": {
     "easing": "cubic-bezier(0.45, 0, 0.2, 1)",
     "_status": "Durações abaixo são PROVISÓRIAS — usadas no protótipo visual, ainda não validadas em produto real (DS v0.1 não define ms).",
     "state": {
-      "idle": { "durationMs": 4500, "description": "Respiração lenta do glow, ease-in-out, loop infinito" },
-      "listening": { "durationMs": 1600, "description": "Pulso rápido + ondas subindo" },
-      "thinking": { "durationMs": 3000, "description": "Rotação sutil do arco + pulso do núcleo" },
-      "responding": { "durationMs": 1100, "description": "Pulso luminoso mais forte" },
-      "executing": { "durationMs": 0, "description": "Brilho intenso constante, sem loop" }
+      "idle": {
+        "durationMs": 4500,
+        "description": "Respiração lenta do glow, ease-in-out, loop infinito"
+      },
+      "listening": {
+        "durationMs": 1600,
+        "description": "Pulso rápido + ondas subindo"
+      },
+      "thinking": {
+        "durationMs": 3000,
+        "description": "Rotação sutil do arco + pulso do núcleo"
+      },
+      "responding": {
+        "durationMs": 1100,
+        "description": "Pulso luminoso mais forte"
+      },
+      "executing": {
+        "durationMs": 0,
+        "description": "Brilho intenso constante, sem loop"
+      }
     },
     "loading": {
       "_status": "PROVISÓRIO — sequência núcleo → expansão → fechamento → repetição (DS seção 14), sem timing oficial.",
@@ -105,27 +247,33 @@
       "heightPx": "2-4px",
       "placement": "base de toda tela, renderizado uma vez no shell do app, nunca remontado ao trocar de view"
     },
-    "dayCycle": {
-      "_rule": "Nunca criar hex novo aqui — cada fase é opacidade/mistura dos tokens de color já existentes.",
-      "phases": [
-        { "name": "madrugada", "hours": "00-05", "colors": ["night", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 },
-        { "name": "amanhecer", "hours": "05-08", "colors": ["amber", "night"], "sunArcPosition": 0.35, "glowIntensity": 0.4 },
-        { "name": "dia", "hours": "08-17", "colors": ["solar", "light"], "sunArcPosition": 1.0, "glowIntensity": 1.0 },
-        { "name": "entardecer", "hours": "17-20", "colors": ["amber", "deep"], "sunArcPosition": 0.35, "glowIntensity": 0.4 },
-        { "name": "noite", "hours": "20-24", "colors": ["muted", "deep"], "sunArcPosition": 0.05, "glowIntensity": 0.05 }
-      ]
-    },
+    "_dayCycleRemovido": "O ciclo do dia FOI REMOVIDO. Cada tema agora tem uma foto fixa que já representa um momento do dia; um cálculo de cor ambiente por hora do relógio entraria em conflito com essa narrativa — a interface diria 'é dia' com o fundo mostrando noite. Se dinamismo por hora real voltar, nasce como decisão nova com assets que suportem variação, não como retrofit disto.",
     "audioReactive": {
       "_rule": "Fonte do dado é o frontend via Web Audio API (AnalyserNode), NUNCA o pipeline do Whisper — evita latência.",
       "activeOnlyDuringState": "listening",
       "smoothingFactor": 0.3,
       "noiseFloor": 0.05,
-      "outputRange": { "opacity": [0.4, 0.9], "scale": [0.95, 1.15] },
+      "outputRange": {
+        "opacity": [
+          0.4,
+          0.9
+        ],
+        "scale": [
+          0.95,
+          1.15
+        ]
+      },
       "reducedMotionBehavior": "vira indicador estático de nível, sem animação de escala"
     }
   },
   "states": {
-    "order": ["idle", "listening", "thinking", "responding", "executing"],
+    "order": [
+      "idle",
+      "listening",
+      "thinking",
+      "responding",
+      "executing"
+    ],
     "labelsPtBr": {
       "idle": "Repouso",
       "listening": "Escutando",
@@ -135,13 +283,44 @@
     }
   },
   "navigation": {
-    "items": ["Conversa", "Memória", "Modelos locais", "Ferramentas", "Tarefas", "Agenda", "Conhecimento", "Configurações"],
+    "items": [
+      "Conversa",
+      "Memória",
+      "Modelos locais",
+      "Ferramentas",
+      "Tarefas",
+      "Agenda",
+      "Conhecimento",
+      "Configurações"
+    ],
+    "_itemsNoteFase2": "As 3 telas da Fase 2 mostram 7 itens, sem 'Modelos locais'. Confirmado como omissão do gerador de imagem: a lista oficial continua sendo os 8 abaixo. Aquelas telas valem pro ESTILO da nav, não pra lista de itens.",
     "_itemsNote": "Lista unificada — as telas geradas no GPT tinham inconsistência entre si (item faltando/ordem diferente). Esta é a lista oficial única. NOTA: 'Foco' saiu da lista e 4 itens novos entraram (Modelos locais, Tarefas, Agenda, Conhecimento) — confirmar se essa expansão de escopo é intencional.",
     "style": {
-      "options": ["sidebar", "iconbar"],
+      "options": [
+        "sidebar",
+        "iconbar"
+      ],
       "configurable": true,
       "persistence": "local (config do usuário, não é estado de sessão)",
       "defaultOnFirstInstall": "NÃO DEFINIDO — decisão de produto em aberto, não travar sem decidir"
     }
+  },
+  "appearance": {
+    "theme": {
+      "options": [
+        "espacial",
+        "claro",
+        "dark"
+      ],
+      "configurable": true,
+      "persistence": "local — mesmo mecanismo do navigation.style, mesmo registro de config",
+      "applyAs": "atributo data-theme no elemento raiz, lido ANTES do primeiro paint (senão o app pisca num tema e troca pro outro). Nunca distribuir cor por Context: a Camada 1 do SOLIS_SIGNATURE.md é montada uma vez no shell e não pode remontar na troca de tema.",
+      "defaultOnFirstInstall": "dark",
+      "_defaultRationale": "Decidido. Não carrega asset fotográfico no primeiro paint e é o tema em que o ciclo do dia roda."
+    }
+  },
+  "platform": {
+    "target": "Windows",
+    "_nota": "As telas da Fase 2 usam os controles de janela do Windows (minimizar/maximizar/fechar). As referências anteriores usavam os do macOS. Afeta a configuração de decorations no Tauri."
   }
 }
