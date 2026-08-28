@@ -301,10 +301,10 @@ Hexes declarados na folha do símbolo, conferidos contra os tokens:
 | Fundos | ~~Uma foto compartilhada entre espacial e claro, dark sem foto~~ → **uma foto por tema** |
 | Rótulo da nav | 14px (o medido), não 13px |
 
-## Contraste sobre as fotos reais — REPROVA
+## Contraste sobre as fotos — reprovava, e por quê
 
-Medido com a UI escondida (só a camada da cena), nas regiões onde texto secundário
-efetivamente cai: subtítulo, placeholder do composer, rótulos dos chips e bloco de perfil.
+Medido com a UI escondida (só a camada da cena), nas regiões onde texto efetivamente cai.
+Com a foto esticada atrás da tela inteira:
 
 | tema | secundário | pior caso | veredito |
 |---|---|---|---|
@@ -312,30 +312,105 @@ efetivamente cai: subtítulo, placeholder do composer, rótulos dos chips e bloc
 | claro | `#726E6A` | **1,00:1** | reprova |
 | dark | `#82786D` | **1,28:1** | reprova |
 
-O primário sobrevive quase todo (hero entre 9,1:1 e 15,2:1), com uma exceção: os rótulos da
-nav no `espacial` caem a 3,14:1.
+O primário sobrevivia quase todo (hero entre 9,1:1 e 15,2:1), com uma exceção: os rótulos da
+nav no `espacial` caíam a 3,14:1.
 
-**A causa não é a cor do texto.** A faixa de luminância do fundo dentro de um mesmo tema é
+**A causa não era a cor do texto.** A faixa de luminância do fundo dentro de um mesmo tema é
 de 13× a 21× (espacial 0,014–0,981; claro 0,028–1,000; dark 0,000–1,000). Nenhuma cor
 chapada sustenta 4,5:1 contra essa variação — uma cor que passa no claro reprova no escuro
-e vice-versa.
+e vice-versa. Véu de tela cheia também não resolvia: a opacidade mínima que devolveria
+4,5:1 era de 82% no espacial, 95% no claro e 99% no dark — apagaria a foto.
 
-**Véu de tela cheia também não resolve.** Calculando a opacidade mínima de um véu da cor do
-próprio canvas que devolveria 4,5:1: espacial 82%, claro 95%, dark 99%. Ou seja, apagaria a
-foto.
+**A causa era a geometria.** As secundárias tinham sido derivadas contra as telas de
+referência, cujo fundo é chapado na área de texto. Nas referências a cena ocupa só a parte de
+baixo — é o que o `SOLIS_SIGNATURE.md` sempre disse na Camada 1 ("ocupando a parte inferior de
+toda tela"). Esticar a foto atrás da tela inteira foi um desvio meu da referência, não uma
+decisão de produto.
 
-As secundárias haviam sido derivadas contra as telas de referência, cujo fundo era quase
-chapado na área de conteúdo. A foto real não é — e é isso que quebrou o critério.
+## Cena ancorada na parte de baixo — correção
+
+`.cena-camada` deixou de ser uma camada de tela cheia e virou uma banda:
+
+| parâmetro | valor | de onde veio |
+|---|---|---|
+| `left` | `var(--sidebar-width)` | nas 3 referências a coluna da sidebar fica em canvas chapado até a base |
+| `height` | `55vh` | escolhida junto com o `positionY` para pôr o ápice do horizonte em ~85% |
+| `background-size` | `cover` | a banda é bem mais larga que 1,6:1, então o cover escala pela **largura** e sobra folga vertical — é isso que faz o `position-y` voltar a ter efeito |
+| `background-position-y` | `66%` | resolve o ápice em 85% da altura da janela |
+| máscara | alpha 0 → 1 entre **68% e 83%** da altura da janela, em smoothstep de 9 paradas | 68% é o piso do texto mais baixo da Conversa (os chips terminam a 607px de 930 = 65,3%) com folga; smoothstep em vez de rampa linear porque o gradiente ocupa 15% da tela e rampa crua deixa banding de Mach nas duas pontas |
+
+Tudo isso vive em `solis-tokens.json → scenes` e é gerado pra `tokens.css`.
+
+### Contraste depois — passa
+
+Medido com `design/medir-caixas.mjs` + `design/medir-contraste.py`, janela 1440×930, animação
+congelada no frame 0%. Em **todos** os 19 alvos das 3 telas o pior pixel e o melhor pixel dão
+o mesmo número — ou seja, o fundo debaixo de todo texto é chapado, a cena não encosta em
+nenhum.
+
+| tema | pior texto | valor |
+|---|---|---|
+| espacial | placeholder `#90554B` | 4,85:1 |
+| claro | subtítulo / chips `#726E6A` | 4,75:1 |
+| dark | subtítulo / chips `#82786D` | 4,63:1 |
+
+### Altura do horizonte — bate com a referência
+
+`design/medir-horizonte.py`, mesma faixa medida no app e na referência:
+
+| tema | ápice (app) | ápice (ref) | borda do planeta x1210–1380 (app) | borda (ref) |
+|---|---|---|---|---|
+| espacial | 85,7% | 85,0% | 90,1% | 90,3% |
+| claro | 84,7% | 85,0% | 95,4% | 96,4% |
+| dark | 85,2% | 84,5% | 90,0% | 89,9% |
+
+Espalhamento entre os 3 temas: **9px** no ápice e **50px** na borda — menor que o
+espalhamento da própria referência (66px na borda). O recorte dos assets feito antes
+continua sendo o que sustenta isso.
+
+Estável fora de 1440×930 (ápice, os 3 temas):
+
+| janela | aspecto | espacial | claro | dark |
+|---|---|---|---|---|
+| 1440×1200 | 1,20 | 84,6% | 83,8% | 84,2% |
+| 1280×800 | 1,60 | 85,6% | 84,6% | 85,1% |
+| 1366×768 | 1,78 | 86,2% | 85,2% | 85,7% |
+| 1600×900 | 1,78 | 86,2% | 85,1% | 85,7% |
+| 1920×1080 | 1,78 | 86,2% | 85,1% | 85,8% |
+
+Comparação visual antes/depois/referência: `design/fundo-ancorado.png`.
+
+### O que sobrou reprovando: a cor de destaque
+
+Não tem relação com o fundo — é o par `--accent` × `--canvas`, chapado contra chapado, e já
+era assim antes desta mudança. Medido:
+
+| tema | accent | sobre o canvas | onde aparece |
+|---|---|---|---|
+| espacial | `#DA7B22` | **2,55:1** | rótulo "Conversa" da nav ativa (14px), ícone de enviar, ícones dos chips |
+| claro | `#E18A21` | **2,51:1** | idem |
+| dark | `#F0BA46` | 11,26:1 | passa |
+
+Derivando pelo mesmo método das secundárias (só o L em OKLCh, croma e matiz travados):
+
+| tema | para 4,5:1 (texto) | ΔEOK | para 3:1 (só componente gráfico) | ΔEOK |
+|---|---|---|---|---|
+| espacial | `#AA5000` | 0,1411 | `#CB6E06` | 0,0430 |
+| claro | `#AF5C00` | 0,1492 | `#D17B00` | 0,0477 |
+
+ΔEOK de 0,14 é grande — o limiar de percepção lado a lado fica em torno de 0,02. Chegar a
+4,5:1 escurece visivelmente o laranja da marca nos dois temas claros. **Não mexi:** é cor de
+marca amostrada da referência e a decisão é do Matheus, não minha.
+
 
 ## Ainda em aberto
 
-1. **O contraste do texto sobre as fotos reprova** — ver a seção acima. Não é ajuste de
-   cor: a faixa de luminância do fundo é grande demais para qualquer cor chapada, e véu de
-   tela cheia precisaria de 82–99% de opacidade. É decisão de design, com três caminhos
-   possíveis levantados. As duas secundárias já
-   foram derivadas até 4,5:1 no pior pixel, mas a medição saiu do screenshot; a imagem em
-   resolução real pode ter faixa dinâmica maior nas altas luzes e exigir mais um passo de
-   L no tema `claro`.
+1. **A cor de destaque reprova nos dois temas claros** — `#DA7B22` a 2,55:1 no `espacial` e
+   `#E18A21` a 2,51:1 no `claro`, contra o canvas chapado de cada um. Não tem relação com o
+   fundo, é anterior a ele, e atinge o rótulo da nav ativa (texto de 14px) além dos ícones.
+   Derivar até 4,5:1 pelo mesmo método das secundárias dá `#AA5000` e `#AF5C00`, com ΔEOK de
+   0,14 — escurecimento visível do laranja da marca. Números completos na seção "O que sobrou
+   reprovando". Não mexi: é cor de marca amostrada da referência, a decisão é do Matheus.
 2. **Confirmar a Playfair Display** — já aplicada e self-hosted em `public/fontes/`,
    aguardando só a conferência visual contra a referência nova antes de virar oficial.
 3. **Os lockups de `brand/logo/`** — continuam com o símbolo antigo. Regerar depende da

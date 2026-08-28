@@ -17,6 +17,30 @@ PAPEIS = [('canvas', '--canvas'), ('divider', '--divider'),
 TEMAS = [t for t in T['themes'] if not t.startswith('_')]
 PADRAO = T['appearance']['theme']['defaultOnFirstInstall']
 
+CENA = T['scenes']
+
+def _frac(v):
+    return float(str(v).replace('%', '').replace('vh', '')) / 100.0
+
+# A banda vive colada na base: topo dela = 1 - altura. Converter um ponto dado em
+# fracao da JANELA pra fracao da BANDA e so tirar o topo e dividir pela altura.
+_ALT = _frac(CENA['height'])
+_TOPO = 1.0 - _ALT
+def _naBanda(v):
+    return (_frac(v) - _TOPO) / _ALT
+
+_S, _E = _naBanda(CENA['fadeFromViewport']), _naBanda(CENA['fadeToViewport'])
+# smoothstep amostrado em 9 pontos — rampa linear crua deixa banding de Mach nas
+# duas pontas, e o gradiente e grande na tela (15% da altura da janela).
+_PARADAS = []
+for _i in range(9):
+    _t = _i / 8.0
+    _a = _t * _t * (3 - 2 * _t)
+    _pos = _S + _t * (_E - _S)
+    _PARADAS.append('rgb(0 0 0 / %.3f) %.2f%%' % (_a, _pos * 100))
+_PARADAS.append('rgb(0 0 0 / 1) 100%')
+MASCARA = ', '.join(_PARADAS)
+
 L = []
 w = L.append
 w('/* GERADO por design/gerar-tokens-css.py — nao editar a mao.')
@@ -46,9 +70,15 @@ w('  --sidebar-label-inset: %s;'% sb['labelInset'])
 w('  --composer-height: %s;'    % cp['height'])
 w('  --composer-width: %s;'     % cp['width'])
 w('')
-w('  /* Um valor só: os 3 assets foram recortados pro horizonte cair na mesma')
-w('   * altura. Ver solis-tokens.json -> scenes._porQueNaoFoiOffsetPorTema. */')
-w('  --solis-bg-position-y: %s;' % T['scenes']['positionY'])
+w('  /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de')
+w('   * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */')
+w('  --solis-cena-altura: %s;' % CENA['height'])
+w('  --solis-bg-position-y: %s;' % CENA['positionY'])
+w('  /* Mascara do topo da banda: alpha 0 -> 1 entre %s e %s da altura da JANELA,' % (CENA['fadeFromViewport'], CENA['fadeToViewport']))
+w('   * convertidos aqui pra coordenada da propria banda (0% = topo da banda).')
+w('   * Acima do primeiro stop o alpha e zero, entao o texto da tela cai em canvas')
+w('   * chapado e o contraste volta a ser o dos tokens. */')
+w('  --solis-cena-mascara: linear-gradient(to bottom, %s);' % MASCARA)
 w('  --composer-radius: %s;'    % cp['radius'])
 w('  --chip-height: %s;'        % cp['actionChipHeight'])
 w('')

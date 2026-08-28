@@ -35,9 +35,15 @@
   --composer-height: 79px;
   --composer-width: 805px;
 
-  /* Um valor só: os 3 assets foram recortados pro horizonte cair na mesma
-   * altura. Ver solis-tokens.json -> scenes._porQueNaoFoiOffsetPorTema. */
-  --solis-bg-position-y: 50%;
+  /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de
+   * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */
+  --solis-cena-altura: 55vh;
+  --solis-bg-position-y: 66%;
+  /* Mascara do topo da banda: alpha 0 -> 1 entre 68% e 83% da altura da JANELA,
+   * convertidos aqui pra coordenada da propria banda (0% = topo da banda).
+   * Acima do primeiro stop o alpha e zero, entao o texto da tela cai em canvas
+   * chapado e o contraste volta a ser o dos tokens. */
+  --solis-cena-mascara: linear-gradient(to bottom, rgb(0 0 0 / 0.000) 41.82%, rgb(0 0 0 / 0.043) 45.23%, rgb(0 0 0 / 0.156) 48.64%, rgb(0 0 0 / 0.316) 52.05%, rgb(0 0 0 / 0.500) 55.45%, rgb(0 0 0 / 0.684) 58.86%, rgb(0 0 0 / 0.844) 62.27%, rgb(0 0 0 / 0.957) 65.68%, rgb(0 0 0 / 1.000) 69.09%, rgb(0 0 0 / 1) 100%);
   --composer-radius: 13px;
   --chip-height: 58px;
 

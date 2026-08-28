@@ -43,18 +43,39 @@ body {
 
 /* Camada 1 — horizonte. Ver src/components/Horizonte.tsx.
 
-   A imagem e a ancoragem vertical vêm do tema (--solis-horizon-image e
-   --solis-bg-position-y, ambas geradas de solis-tokens.json). Os três temas
-   usam position-y diferentes porque as fotos fonte têm o horizonte em alturas
-   ligeiramente diferentes — exceção deliberada ao princípio de fonte única,
-   documentada em solis-tokens.json → scenes._excecao.
+   A cena é uma BANDA colada na base da área de conteúdo — não um fundo de tela
+   cheia. Foi assim que ela nasceu no SOLIS_SIGNATURE.md ("ocupando a parte
+   inferior de toda tela") e é o que as 3 referências mostram: acima de ~68% da
+   altura da janela o fundo é canvas chapado, e é lá que todo o texto vive.
+   Esticar a foto atrás da tela inteira punha texto em cima de foto e o
+   contraste desabava (1,00:1 no claro) — nenhuma cor chapada de texto aguenta
+   uma imagem que tem região muito clara e muito escura ao mesmo tempo.
 
-   `background-size: cover` mantém a foto cobrindo a janela em qualquer
-   proporção; o position-y é o que decide qual faixa da imagem fica visível, e
-   por isso é ele que alinha o horizonte entre os temas. */
+   Começa em --sidebar-width, não em 0: nas referências a coluna da sidebar fica
+   em canvas chapado até a base. A sidebar não tem superfície própria, então a
+   foto passando por baixo dela cairia atrás do bloco de perfil.
+
+   Altura, ancoragem e máscara vêm de tokens gerados de solis-tokens.json →
+   scenes (._ancoragem, ._geometria, ._fade). A máscara mora AQUI, no elemento
+   estático, e não no .cena, que é o que anima: máscara em elemento animado
+   passeia junto com o scale. */
+.cena-camada {
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  height: var(--solis-cena-altura);
+  -webkit-mask-image: var(--solis-cena-mascara);
+  mask-image: var(--solis-cena-mascara);
+}
+
+/* A banda é bem mais larga que 1,6:1, então `cover` escala a foto pela LARGURA
+   e sobra folga vertical — é ela que faz o --solis-bg-position-y voltar a ter
+   efeito e que põe o ápice do horizonte a ~85% da altura da janela, o valor
+   medido nas 3 referências. Na camada de tela cheia anterior não havia folga
+   nenhuma e o position-y era inerte. */
 .cena {
   background-image: var(--solis-horizon-image, none);
-  background-position: 50% var(--solis-bg-position-y, 50%);
+  background-position: 50% var(--solis-bg-position-y);
   background-size: cover;
   background-repeat: no-repeat;
 }

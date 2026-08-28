@@ -55,12 +55,28 @@
   "scenes": {
     "_comment": "Uma foto por tema. Os arquivos vivem em public/fundos/ e os nomes são fixos: src/styles/tokens.css é gerado daqui.",
     "_horizonteComum": "Os 3 assets foram RECORTADOS para o horizonte cair em 74,0% da altura em todos, com o mesmo aspecto (16:10). Por isso existe um único positionY, e não um por tema.",
-    "_porQueNaoFoiOffsetPorTema": "A decisão original era compensar as alturas diferentes (74,2% / 73,2% / 71,9% nas fontes) com um background-position-y por tema. Isso NÃO FUNCIONA nesta geometria: com background-size:cover e imagem de aspecto 1,60 numa janela de 1,55, o cover escala pela ALTURA — a imagem cobre os 930px exatos e só sobra folga na horizontal. Sem folga vertical, position-y não move nada, e os 3 horizontes ficariam travados a 690/681/669px. A própria nota da decisão já apontava recortar os assets como a correção certa se o desalinhamento aparecesse fora de 1440px; aqui ele aparece EM 1440px, então foi esse o caminho.",
     "_recorte": "Cada fonte perdeu 4% da altura e 4% da largura, com o deslocamento vertical calculado para levar o horizonte a 74,0%. Nada foi redesenhado nem esticado — é reenquadramento. Saída em 2880x1800, WebP q88.",
-    "positionY": "50%",
-    "espacial": { "asset": "/fundos/bg-espacial.webp", "horizonteNaFonte": "74,2%" },
-    "claro":    { "asset": "/fundos/bg-claro.webp",    "horizonteNaFonte": "73,2%" },
-    "dark":     { "asset": "/fundos/bg-dark.webp",     "horizonteNaFonte": "71,9%" }
+    "positionY": "66%",
+    "espacial": {
+      "asset": "/fundos/bg-espacial.webp",
+      "horizonteNaFonte": "74,2%"
+    },
+    "claro": {
+      "asset": "/fundos/bg-claro.webp",
+      "horizonteNaFonte": "73,2%"
+    },
+    "dark": {
+      "asset": "/fundos/bg-dark.webp",
+      "horizonteNaFonte": "71,9%"
+    },
+    "_ancoragem": "A cena ocupa a PARTE DE BAIXO da area de conteudo — nao a tela inteira. Foi assim que ela nasceu no SOLIS_SIGNATURE.md (Camada 1: 'ocupando a parte inferior de toda tela') e e assim nas 3 referencias: acima de ~68% da altura da janela o fundo e canvas chapado, e o texto vive sobre ele. Esticar a foto atras da tela inteira quebrava o contraste de texto (medido: 1,00:1 no claro, 1,89:1 no espacial, 1,28:1 no dark — criterio 4,5:1), porque a mesma foto tem regiao muito clara e muito escura e nenhuma cor de texto chapada aguenta as duas.",
+    "_porQueNaoCobreASidebar": "left = larguraDaSidebar. Nas 3 referencias a coluna da sidebar fica em canvas chapado ate a base — a foto comeca na divisoria. A sidebar nao tem superficie propria (mesmo canvas dos 3 temas), entao se a cena passasse por baixo dela o bloco de perfil ('Matheus' / 'Online') cairia em cima da foto.",
+    "_geometria": "height=55vh + background-size:cover + positionY=66% poe o apice do horizonte em 84-86% da altura da janela de 1024x768 a 1920x1200 (medido na referencia: 85,0% no espacial e no claro, 84,5% no dark). A banda e mais larga que 1,6:1 em qualquer janela usual, entao o cover escala pela LARGURA e sobra folga vertical — que e o que faz o positionY voltar a ter efeito (com a camada de tela cheia anterior nao sobrava folga nenhuma e o positionY era inerte).",
+    "height": "55vh",
+    "fadeFromViewport": "68%",
+    "fadeToViewport": "83%",
+    "_fade": "A cena nao entra com corte seco: sobe de 0 a 1 de alpha entre 68% e 83% da altura da JANELA (o gerador converte para coordenada da banda). O 68% e o piso do texto mais baixo da Conversa — os chips terminam a 607px de 930, 65,3% — com folga. Acima disso o alpha e exatamente 0, entao todo texto da tela cai em canvas chapado e o contraste volta a ser o dos tokens.",
+    "_recorteContinuaValendo": "O recorte dos 3 assets (horizonte em 74,0% da altura de cada um) continua sendo o que mantem os temas alinhados entre si: com a mesma geometria de banda, mesma fracao de imagem => mesma altura na tela."
   },
   "radius": {
     "sm": "8px",
@@ -80,10 +96,22 @@
   },
   "elevation": {
     "_comment": "Fundo é escuro demais para box-shadow tradicional. Elevação = superfície + borda translúcida em Solar, não sombra.",
-    "0": { "background": "color.night", "border": "none" },
-    "1": { "background": "color.deep", "border": "1px solid rgba(255,183,77,0.08)" },
-    "2": { "background": "color.deep", "border": "1px solid rgba(255,183,77,0.16)" },
-    "glow": { "extends": "2", "note": "Somar glow funcional (ver motion.glow) apenas em elemento ativo, nunca como hierarquia estática." }
+    "0": {
+      "background": "color.night",
+      "border": "none"
+    },
+    "1": {
+      "background": "color.deep",
+      "border": "1px solid rgba(255,183,77,0.08)"
+    },
+    "2": {
+      "background": "color.deep",
+      "border": "1px solid rgba(255,183,77,0.16)"
+    },
+    "glow": {
+      "extends": "2",
+      "note": "Somar glow funcional (ver motion.glow) apenas em elemento ativo, nunca como hierarquia estática."
+    }
   },
   "typography": {
     "_status": "PROVISÓRIO — fonte final não escolhida (DS v0.1, seção 8). Candidatas: Inter, Sora, Manrope, Poppins. Validar na interface real antes de travar.",
@@ -92,11 +120,28 @@
     "fontFamilyBody": "Inter",
     "wordmarkLetterSpacing": "4px",
     "scale": {
-      "hero": { "size": "52px", "weight": 400, "family": "fontFamilyDisplay", "_medido": "Fase 2, normalizado pra janela de 1440px. Único lugar onde a serifada entra." },
-      "title1": { "size": "32px", "weight": 600 },
-      "title2": { "size": "20px", "weight": 500 },
-      "body": { "size": "16px", "weight": 400 },
-      "caption": { "size": "12px", "weight": 400 }
+      "hero": {
+        "size": "52px",
+        "weight": 400,
+        "family": "fontFamilyDisplay",
+        "_medido": "Fase 2, normalizado pra janela de 1440px. Único lugar onde a serifada entra."
+      },
+      "title1": {
+        "size": "32px",
+        "weight": 600
+      },
+      "title2": {
+        "size": "20px",
+        "weight": 500
+      },
+      "body": {
+        "size": "16px",
+        "weight": 400
+      },
+      "caption": {
+        "size": "12px",
+        "weight": 400
+      }
     }
   },
   "icon": {
@@ -134,7 +179,10 @@
       "itemPitch": "55px",
       "labelSize": "14px",
       "_labelSize": "14px é o medido. O pedido dizia 13px, mas era estimativa; vale a referência.",
-      "activeIndicator": { "width": "3px", "inset": "12px" },
+      "activeIndicator": {
+        "width": "3px",
+        "inset": "12px"
+      },
       "iconInset": "29px",
       "labelInset": "69px",
       "_anterior": "A referência anterior (telas/06-configuracoes.png) tinha 250px, ícone de 21px, passo de 62px e rótulo de ~16px."
@@ -154,11 +202,26 @@
     "easing": "cubic-bezier(0.45, 0, 0.2, 1)",
     "_status": "Durações abaixo são PROVISÓRIAS — usadas no protótipo visual, ainda não validadas em produto real (DS v0.1 não define ms).",
     "state": {
-      "idle": { "durationMs": 4500, "description": "Respiração lenta do glow, ease-in-out, loop infinito" },
-      "listening": { "durationMs": 1600, "description": "Pulso rápido + ondas subindo" },
-      "thinking": { "durationMs": 3000, "description": "Rotação sutil do arco + pulso do núcleo" },
-      "responding": { "durationMs": 1100, "description": "Pulso luminoso mais forte" },
-      "executing": { "durationMs": 0, "description": "Brilho intenso constante, sem loop" }
+      "idle": {
+        "durationMs": 4500,
+        "description": "Respiração lenta do glow, ease-in-out, loop infinito"
+      },
+      "listening": {
+        "durationMs": 1600,
+        "description": "Pulso rápido + ondas subindo"
+      },
+      "thinking": {
+        "durationMs": 3000,
+        "description": "Rotação sutil do arco + pulso do núcleo"
+      },
+      "responding": {
+        "durationMs": 1100,
+        "description": "Pulso luminoso mais forte"
+      },
+      "executing": {
+        "durationMs": 0,
+        "description": "Brilho intenso constante, sem loop"
+      }
     },
     "loading": {
       "_status": "PROVISÓRIO — sequência núcleo → expansão → fechamento → repetição (DS seção 14), sem timing oficial.",
@@ -182,12 +245,27 @@
       "activeOnlyDuringState": "listening",
       "smoothingFactor": 0.3,
       "noiseFloor": 0.05,
-      "outputRange": { "opacity": [0.4, 0.9], "scale": [0.95, 1.15] },
+      "outputRange": {
+        "opacity": [
+          0.4,
+          0.9
+        ],
+        "scale": [
+          0.95,
+          1.15
+        ]
+      },
       "reducedMotionBehavior": "vira indicador estático de nível, sem animação de escala"
     }
   },
   "states": {
-    "order": ["idle", "listening", "thinking", "responding", "executing"],
+    "order": [
+      "idle",
+      "listening",
+      "thinking",
+      "responding",
+      "executing"
+    ],
     "labelsPtBr": {
       "idle": "Repouso",
       "listening": "Escutando",
@@ -197,11 +275,23 @@
     }
   },
   "navigation": {
-    "items": ["Conversa", "Memória", "Modelos locais", "Ferramentas", "Tarefas", "Agenda", "Conhecimento", "Configurações"],
+    "items": [
+      "Conversa",
+      "Memória",
+      "Modelos locais",
+      "Ferramentas",
+      "Tarefas",
+      "Agenda",
+      "Conhecimento",
+      "Configurações"
+    ],
     "_itemsNoteFase2": "As 3 telas da Fase 2 mostram 7 itens, sem 'Modelos locais'. Confirmado como omissão do gerador de imagem: a lista oficial continua sendo os 8 abaixo. Aquelas telas valem pro ESTILO da nav, não pra lista de itens.",
     "_itemsNote": "Lista unificada — as telas geradas no GPT tinham inconsistência entre si (item faltando/ordem diferente). Esta é a lista oficial única. NOTA: 'Foco' saiu da lista e 4 itens novos entraram (Modelos locais, Tarefas, Agenda, Conhecimento) — confirmar se essa expansão de escopo é intencional.",
     "style": {
-      "options": ["sidebar", "iconbar"],
+      "options": [
+        "sidebar",
+        "iconbar"
+      ],
       "configurable": true,
       "persistence": "local (config do usuário, não é estado de sessão)",
       "defaultOnFirstInstall": "NÃO DEFINIDO — decisão de produto em aberto, não travar sem decidir"
@@ -209,7 +299,11 @@
   },
   "appearance": {
     "theme": {
-      "options": ["espacial", "claro", "dark"],
+      "options": [
+        "espacial",
+        "claro",
+        "dark"
+      ],
       "configurable": true,
       "persistence": "local — mesmo mecanismo do navigation.style, mesmo registro de config",
       "applyAs": "atributo data-theme no elemento raiz, lido ANTES do primeiro paint (senão o app pisca num tema e troca pro outro). Nunca distribuir cor por Context: a Camada 1 do SOLIS_SIGNATURE.md é montada uma vez no shell e não pode remontar na troca de tema.",
