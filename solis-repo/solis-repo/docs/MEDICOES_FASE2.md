@@ -604,6 +604,57 @@ Folha de validação: `design/estados-glow.png` (os 5 estados, em duas fases do 
 Os renders antigos em `brand/states/` foram para `_legado/`: o glow deixou de ser asset e
 virou código.
 
+## Como medir uma referência nova — o gerador não segura geometria
+
+Vale para toda tela daqui para frente, e custou duas gerações para ficar claro.
+
+**O gerador de imagem não obedece medida absoluta.** Tentado duas vezes:
+
+| | sidebar (normalizada para 1440) | caixa alta do rótulo da nav |
+|---|---|---|
+| app (aprovado, construído) | 200px | 10,2px |
+| 1ª geração | 267px | 14,1px |
+| 2ª geração, com "213px" repetido em maiúscula no prompt | **297px** | **16,9px** |
+
+A segunda tentativa foi **mais longe**, não mais perto. Insistir no prompt não resolve.
+
+**Reconciliar pela sidebar também não serve.** As duas gerações dão fatores diferentes
+(0,724 e 0,604) e portanto valores diferentes para a mesma coisa — o título sairia 34px por
+uma e 28px pela outra. O gerador escala a sidebar independentemente do conteúdo, então ela
+não é régua.
+
+**O que é estável são as razões dentro da área de conteúdo:**
+
+| razão | 1ª geração | 2ª geração |
+|---|---|---|
+| título / texto do item | 2,11 | 2,00 |
+| origem / texto do item | 0,88 | 0,89 |
+| data / texto do item | — | 0,94 |
+
+### O método
+
+1. Da referência vêm **estrutura, composição, hierarquia, conteúdo e proporção**.
+2. A **escala** vem do design system já construído e aprovado.
+3. Âncora: o **corpo de texto**, 16px, fechado desde a tela de Conversa. Todo tamanho de
+   tipo da tela nova sai de uma razão contra ele, medida na referência.
+4. Geometria horizontal e vertical: medida **relativa à divisória da sidebar** e às
+   proporções internas, nunca em px absoluto tirado da imagem.
+
+Isso muda os prompts também: **parar de pôr especificação de pixel neles.** Pedir estrutura,
+conteúdo e hierarquia, e deixar a escala comigo — é menos frágil e o resultado sai melhor.
+
+### O que a Memória construída ganhou com isso
+
+Os valores já entregues sobreviveram às duas medições:
+
+| | construído | 2ª geração (razão × 16px) |
+|---|---|---|
+| título | 34px | 32,0px |
+| origem | 14px | 14,2px |
+| data | 14px → **15px** | 15,1px |
+
+Só a data mudou, de 14 para 15px.
+
 ## Ainda em aberto
 
 1. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
