@@ -10,7 +10,13 @@ import { SolisSimbolo } from './SolisSimbolo';
  *
  *  O fundo NÃO é uma superfície própria — nos 3 temas ele é o mesmo do canvas,
  *  e o que separa é a divisória de 1px. Por isso aqui não há bg. */
-export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
+export function Sidebar({
+  ativo = 'conversa',
+  aoTrocar,
+}: {
+  ativo?: string;
+  aoTrocar?: (id: string) => void;
+}) {
   return (
     <nav
       className="shrink-0 border-r border-divider flex flex-col"
@@ -73,9 +79,18 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
           const ehAtivo = item.id === ativo;
           return (
             <li key={item.id}>
+              {/* Continua sendo <a> com href: o item é navegação de verdade, e
+                  trocar por <button> tiraria "abrir em nova aba" e o papel de
+                  link das tecnologias assistivas. O preventDefault existe só
+                  porque a troca é estado local e não navegação de documento. */}
               <a
                 href={item.rota}
                 aria-current={ehAtivo ? 'page' : undefined}
+                onClick={(e) => {
+                  if (!aoTrocar) return;
+                  e.preventDefault();
+                  aoTrocar(item.id);
+                }}
                 className={`relative flex items-center ${
                   ehAtivo ? 'text-accent' : 'text-text-primary'
                 }`}
