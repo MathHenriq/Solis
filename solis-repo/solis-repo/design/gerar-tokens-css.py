@@ -105,6 +105,19 @@ w('  --perfil-ponto: %s;'     % pf['statusDot'])
 w('  --composer-height: %s;'    % cp['height'])
 w('  --composer-width: %s;'     % cp['width'])
 w('')
+w('  /* Memoria — medido em 09-memoria.png. Ver layout.memoria no JSON. */')
+mem = T['layout']['memoria']
+for chave, var in [('padLeft','--mem-pad-l'), ('padRight','--mem-pad-r'),
+                   ('titleTop','--mem-titulo-top'), ('titleSize','--mem-titulo'),
+                   ('countGap','--mem-contagem-gap'), ('countSize','--mem-contagem'),
+                   ('searchGap','--mem-busca-gap'), ('searchHeight','--mem-busca-h'),
+                   ('searchRadius','--mem-busca-raio'), ('listGap','--mem-lista-gap'),
+                   ('itemPadY','--mem-item-pad-y'), ('itemTextSize','--mem-item-texto'),
+                   ('itemLineHeight','--mem-item-lh'), ('originTop','--mem-origem-top'),
+                   ('originSize','--mem-origem'), ('dateSize','--mem-data'),
+                   ('textMaxWidth','--mem-texto-max')]:
+    w('  %s: %s;' % (var, mem[chave]))
+w('')
 w('  /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de')
 w('   * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */')
 w('  --solis-cena-altura: %s;' % CENA['height'])
@@ -139,6 +152,10 @@ for nome in TEMAS:
         w('  %s: %s;' % (var, t[chave]))
     cena = T['scenes'][t['scene']]
     w('  --solis-horizon-image: url(\'%s\');' % cena['asset'])
+    # O veu do hover clareia no tema escuro e escurece nos claros — o mesmo hex
+    # nao serve aos tres, mas o mesmo COMPONENTE serve, porque le a variavel.
+    mem = T['layout']['memoria']
+    w('  --mem-hover: %s;' % (mem['hoverTint'] if nome == 'dark' else mem['hoverTintClaro']))
     w('}')
 w('')
 w('/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem')

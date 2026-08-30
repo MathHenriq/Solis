@@ -44,6 +44,25 @@
   --composer-height: 79px;
   --composer-width: 805px;
 
+  /* Memoria — medido em 09-memoria.png. Ver layout.memoria no JSON. */
+  --mem-pad-l: 38px;
+  --mem-pad-r: 34px;
+  --mem-titulo-top: 56px;
+  --mem-titulo: 34px;
+  --mem-contagem-gap: 31px;
+  --mem-contagem: 15px;
+  --mem-busca-gap: 22px;
+  --mem-busca-h: 44px;
+  --mem-busca-raio: 10px;
+  --mem-lista-gap: 30px;
+  --mem-item-pad-y: 15px;
+  --mem-item-texto: 16px;
+  --mem-item-lh: 1.55;
+  --mem-origem-top: 7px;
+  --mem-origem: 14px;
+  --mem-data: 14px;
+  --mem-texto-max: 540px;
+
   /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de
    * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */
   --solis-cena-altura: 55vh;
@@ -85,6 +104,7 @@
   --text-placeholder: #90554B;
   --accent: #A25500;
   --solis-horizon-image: url('/fundos/bg-espacial.webp');
+  --mem-hover: rgb(0 0 0 / 0.035);
 }
 
 [data-theme="claro"] {
@@ -95,6 +115,7 @@
   --text-placeholder: #64615E;
   --accent: #A56100;
   --solis-horizon-image: url('/fundos/bg-claro.webp');
+  --mem-hover: rgb(0 0 0 / 0.035);
 }
 
 [data-theme="dark"] {
@@ -105,6 +126,7 @@
   --text-placeholder: #8F8172;
   --accent: #F0BA46;
   --solis-horizon-image: url('/fundos/bg-dark.webp');
+  --mem-hover: rgb(255 255 255 / 0.045);
 }
 
 /* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem
