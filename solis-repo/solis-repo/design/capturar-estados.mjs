@@ -1,7 +1,7 @@
 /* Fotografa a folha dos 5 estados com a animacao congelada num instante fixo.
  * Sem congelar, cada captura pega uma fase diferente do ciclo e duas folhas do
  * mesmo codigo saem diferentes. */
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 const [, , arquivo, saida, fase = '0.5'] = process.argv;
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 const p = await b.newPage({ viewport: { width: 1500, height: 460 }, deviceScaleFactor: 2 });

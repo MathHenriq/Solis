@@ -20,7 +20,7 @@
  * Precisa do playwright disponível no node_modules (não é dependência
  * declarada do app: isto aqui é ferramenta de validação, não roda no produto)
  * e do Chromium em /opt/pw-browsers. */
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 
 const [, , base, saida, larg = '1440', alt = '930', modo = ''] = process.argv;
 const W = Number(larg), H = Number(alt);
