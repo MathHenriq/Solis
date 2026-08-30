@@ -7,7 +7,7 @@
  * do texto que o app realmente pinta — não o do token que eu acho que ele usa.
  * O par disso é design/medir-contraste.py, que lê este JSON contra a captura
  * feita em modo `fundo`. */
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 import fs from 'fs';
 
 const [, , base, saida, larg = '1440', alt = '930'] = process.argv;

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd solis-repo/solis-repo && npm ci",
+  "buildCommand": "cd solis-repo/solis-repo && npm run build",
+  "outputDirectory": "solis-repo/solis-repo/dist",
+  "framework": null,
+  "cleanUrls": true
+}

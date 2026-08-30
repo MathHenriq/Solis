@@ -16,7 +16,7 @@
  *   camada certa (opacity + transform)      4ms de tarefa,   0 recálculos
  *   filter dentro do keyframe             133ms de tarefa, 360 recálculos
  * Um recálculo de estilo por frame, 33× mais trabalho, pelo mesmo efeito. */
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 for (const arquivo of process.argv.slice(2)) {

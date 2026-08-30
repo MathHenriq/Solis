@@ -657,6 +657,16 @@ Só a data mudou, de 14 para 15px.
 
 ## Ainda em aberto
 
-1. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
-   Sidebar/Ícones, e perder "Cor de destaque". A referência atual
-   (`telas/06-configuracoes.png`) é anterior a tudo isso.
+1. **As telas que faltam** — Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento, e a
+   Conversa com uma thread em andamento. Sem referência ainda. Configurações → Aparência e a
+   barra de ícones já têm (`telas/11-` e `telas/12-`).
+2. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o
+   preview do front no ar. Ver `PREVIEW.md` na raiz do repositório.
+
+## Fechado nesta rodada
+
+- **Posição vertical da sidebar.** Estava marcada como pendente por engano — foi resolvida
+  junto com o ritmo vertical: símbolo em 69 contra 69 da referência, primeiro rótulo da nav
+  em 223 contra 223, avatar em 829 contra 827,5. Não há divergência.
+- **Referência do card Aparência.** Chegou em `telas/11-configuracoes-aparencia.png`, com os
+  três controles corretos e sem "Cor de destaque".
