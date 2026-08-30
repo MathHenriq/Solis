@@ -183,7 +183,7 @@
       "_logoWidth": "FECHADO em 71px — a largura do simbolo medida nas referencias espacial e claro (71x43 normalizado pra 1440). Era 110px, e esse numero saiu de tratar os '63px' da leitura do Matheus como altura do SIMBOLO; medindo depois, 63px e a altura do BLOCO inteiro (simbolo + folga + wordmark), e com o simbolo a 71px o bloco fecha justamente em 63. A hipotese ja estava anotada aqui ('se a medida era do bloco simbolo+wordmark, o valor certo e outro') e a medicao confirmou. O que estava mesmo pequeno era o wordmark, nao o simbolo: ele saia com cap de 8px contra os 10,3px da referencia.",
       "iconSize": "18px",
       "_iconSize": "Os ícones da referência medem 17–18px normalizados; 17 era arredondamento pra baixo e deixava o glifo 1px menor que o da referência.",
-      "itemPitch": "55px",
+      "itemPitch": "57px",
       "labelSize": "14px",
       "_labelSize": "14px é o medido. O pedido dizia 13px, mas era estimativa; vale a referência.",
       "activeIndicator": {
@@ -193,7 +193,22 @@
       "iconInset": "29px",
       "labelInset": "69px",
       "_anterior": "A referência anterior (telas/06-configuracoes.png) tinha 250px, ícone de 21px, passo de 62px e rótulo de ~16px.",
-      "_blocoDoLogo": "O bloco todo sai de --sidebar-logo: altura do simbolo = 57,37% dela (aspecto do viewBox do SVG), folga = 14,5%, cap do wordmark = 14,5% (fontSize 20%). O respiro ate o primeiro item da nav e calculado a partir disso pra manter a nav a 225px do topo da janela — mexer no logo nao pode empurrar a navegacao."
+      "_blocoDoLogo": "O bloco todo sai de --sidebar-logo: altura do simbolo = 57,37% dela (aspecto do viewBox do SVG), folga = 14,5%, cap do wordmark = 14,5% (fontSize 20%). O respiro ate o primeiro item da nav e calculado a partir disso pra manter a nav a 225px do topo da janela — mexer no logo nao pode empurrar a navegacao.",
+      "_itemPitch": "57px. Era 55. Medido de novo pelo TOPO da tinta do rotulo, e nao pelo centro: 'Memoria' tem acento e 'Configuracoes' tem cedilha e til, entao a caixa de tinta delas e mais alta e o centro desce 2px. Do 1o ao 7o rotulo da referencia sao 60,83px de passo numa janela de 1536 = 57,0 em 1440.",
+      "paddingTop": "69px",
+      "_paddingTop": "Topo da tinta do simbolo na referencia: y=74 em 1536 = 69 em 1440. Estava 87 — 18px baixo demais, e isso empurrava a coluna inteira.",
+      "navFirstItemInk": "223px",
+      "_navFirstItemInk": "Topo da tinta do rotulo do 1o item: y=238 em 1536 = 223 em 1440. O app estava em 247. O respiro entre o bloco do logo e a nav e calculado pra cair aqui, entao mexer no tamanho do logo nao desloca a navegacao.",
+      "profile": {
+        "blockHeight": "113px",
+        "avatarSize": "41px",
+        "avatarInset": "20px",
+        "avatarTopInset": "11px",
+        "nameSize": "15px",
+        "statusSize": "12px",
+        "statusDot": "9px"
+      },
+      "_profile": "Tudo medido na referencia espacial e normalizado pra 1440x930 pela LARGURA da janela (1440/1532), com as posicoes verticais contadas a partir da BASE — a referencia tem 1020px de altura util e o alvo tem 930, entao normalizar y pelo topo erra o bloco inteiro. Avatar 41x41 a 20px da esquerda e 828 do topo; 'Matheus' com tinta em y 833 e 'Online' em 852; texto a 73px da esquerda (avatar + 12 de folga). A divisoria fica a 113px da base — so o tema dark a mostra na referencia, nos claros ela existe mas quase nao contrasta. Sobram ~62px de canvas vazio abaixo do avatar: e assim na referencia."
     },
     "composer": {
       "height": "79px",

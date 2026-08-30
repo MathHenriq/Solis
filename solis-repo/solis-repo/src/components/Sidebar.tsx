@@ -21,7 +21,7 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
           A largura vem do token, e todo o resto do bloco (folga e wordmark) é
           proporcional a ela: mexer no token reescala o bloco inteiro sem tocar em
           mais nada. Ver solis-tokens.json → layout.sidebar._blocoDoLogo. */}
-      <div className="flex flex-col items-center" style={{ paddingTop: 87 }}>
+      <div className="flex flex-col items-center" style={{ paddingTop: 'var(--sidebar-padding-top)' }}>
         <SolisSimbolo
           className="text-text-primary opacity-90"
           style={{
@@ -56,12 +56,19 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
         </span>
       </div>
 
-      {/* O primeiro item da nav fica a 225px do topo da janela. Este respiro é o
-          que sobra depois do bloco do logo, então ele é CALCULADO a partir de
-          --sidebar-logo: 87 de padding + 57,37% (altura do símbolo) + 14,5%
-          (folga) + 20% (caixa do wordmark). Assim redimensionar o logo não
-          empurra a navegação. */}
-      <ul style={{ marginTop: 'calc(225px - 87px - var(--sidebar-logo) * 0.9187)' }}>
+      {/* A tinta do primeiro rótulo cai em --sidebar-nav-ink, medido na referência.
+          Este respiro é o que sobra depois do bloco do logo, então ele é CALCULADO:
+          padding + 91,87% de --sidebar-logo (altura do símbolo 57,37% + folga 14,5%
+          + caixa do wordmark 20%), menos os 23px entre o topo da caixa do item e o
+          topo da tinta do rótulo (metade da folga do passo, mais a diferença entre a
+          caixa da fonte e a altura de caixa alta). Assim mexer no tamanho do logo
+          não desloca a navegação. */}
+      <ul
+        style={{
+          marginTop:
+            'calc(var(--sidebar-nav-ink) - 23px - var(--sidebar-padding-top) - var(--sidebar-logo) * 0.9187)',
+        }}
+      >
         {ITENS_NAV.map((item) => {
           const ehAtivo = item.id === ativo;
           return (
@@ -93,21 +100,45 @@ export function Sidebar({ ativo = 'conversa' }: { ativo?: string }) {
         })}
       </ul>
 
-      {/* Perfil: divisória a 38px da base da janela, bloco abaixo dela. */}
-      <div className="mt-auto border-t border-divider flex items-center" style={{ height: 76, paddingLeft: 19 }}>
+      {/* Perfil. Todas as medidas vêm da referência espacial, normalizadas pela
+          LARGURA da janela e com o vertical contado a partir da BASE — a referência
+          tem 1020px de altura útil e o alvo tem 930, então normalizar y pelo topo
+          erra o bloco inteiro. Ver solis-tokens.json → layout.sidebar._profile.
+
+          O conteúdo fica no ALTO do bloco, não centrado: na referência sobram ~62px
+          de canvas vazio abaixo do avatar. */}
+      <div
+        className="mt-auto border-t border-divider flex items-start"
+        style={{
+          height: 'var(--perfil-altura)',
+          paddingLeft: 'var(--perfil-avatar-x)',
+          paddingTop: 'var(--perfil-avatar-y)',
+        }}
+      >
         <div
           className="rounded-pill shrink-0 bg-divider"
-          style={{ width: 32, height: 32 }}
+          style={{ width: 'var(--perfil-avatar)', height: 'var(--perfil-avatar)' }}
           aria-hidden
         />
         <div className="ml-md leading-tight">
-          <div className="text-text-primary" style={{ fontSize: 13 }}>Matheus</div>
-          <div className="text-text-secondary flex items-center gap-xs" style={{ fontSize: 11 }}>
-            <span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: '#8FBF6D' }} />
+          <div className="text-text-primary" style={{ fontSize: 'var(--perfil-nome)' }}>Matheus</div>
+          <div
+            className="text-text-secondary flex items-center gap-xs"
+            style={{ fontSize: 'var(--perfil-status)', marginTop: 3 }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 'var(--perfil-ponto)',
+                height: 'var(--perfil-ponto)',
+                borderRadius: 99,
+                background: '#8FBF6D',
+              }}
+            />
             Online
           </div>
         </div>
-        <span className="ml-auto mr-lg text-text-secondary">
+        <span className="ml-auto mr-lg text-text-secondary" style={{ marginTop: 6 }}>
           <Icone nome="chevron" tamanho={14} />
         </span>
       </div>

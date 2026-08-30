@@ -28,10 +28,19 @@
   --sidebar-width: 200px;
   --sidebar-icon: 18px;
   --sidebar-logo: 71px;
-  --sidebar-pitch: 55px;
+  --sidebar-pitch: 57px;
   --sidebar-label: 14px;
   --sidebar-icon-inset: 29px;
   --sidebar-label-inset: 69px;
+  --sidebar-padding-top: 69px;
+  --sidebar-nav-ink: 223px;
+  --perfil-altura: 113px;
+  --perfil-avatar: 41px;
+  --perfil-avatar-x: 20px;
+  --perfil-avatar-y: 11px;
+  --perfil-nome: 15px;
+  --perfil-status: 12px;
+  --perfil-ponto: 9px;
   --composer-height: 79px;
   --composer-width: 805px;
 

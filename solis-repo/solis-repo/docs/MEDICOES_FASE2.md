@@ -501,22 +501,53 @@ aqui.
 
 Comparação visual: `design/logo-sidebar.png`.
 
-### Uma divergência que sobrou, e não é do logo
+## Ritmo vertical da sidebar — alinhado à referência
 
-O bloco do logo começa a 87px do topo no app e a 69px na referência, e o rótulo da nav
-ativa cai em y 247–256 no app contra 223–232 na referência. São ~20px de diferença no
-`paddingTop` da sidebar e ~24px na posição da nav — anteriores a esta mudança e fora do
-escopo dela. Não mexi: encostar aí move a nav inteira, que foi validada em outra passada.
+**Como normalizar.** A referência tem janela útil de 1532 × 1020 e o alvo é 1440 × 930 —
+aspectos diferentes (1,50 contra 1,55). Então: horizontal e tamanhos escalam por
+1440/1532; posições verticais de coisas ancoradas no **topo** também; mas o bloco de perfil
+é ancorado na **base**, e para ele o que se normaliza é a distância até a base. Normalizar
+o perfil pelo topo erra o bloco inteiro — foi o que me fez ler 19px de erro onde havia 47.
+
+**Topo da tinta, em px numa janela de 1440 × 930:**
+
+| | referência | app antes | app agora |
+|---|---|---|---|
+| símbolo | 69 | 87 | **69** |
+| wordmark | 122 | 154 | **123** |
+| 1º rótulo da nav | 223 | 247 | **223** |
+| 2º rótulo | 281 | 302 | **278** |
+| passo entre itens | 57,0 | 55 | **57** |
+| avatar do perfil | 827,5 | 854 | **829** |
+| "Matheus" | 833 | 880 | **831** |
+| "Online" | 849 | 896 | **852** |
+
+Do 3º item em diante o app fica um passo abaixo da referência — **é esperado**: a
+referência tem 7 itens de nav e o app tem 8, porque "Modelos locais" foi reintroduzido por
+decisão de produto.
+
+**O passo era 57, não 55.** A medição anterior saiu do centro da tinta do rótulo, e
+"Memória" tem acento e "Configurações" tem cedilha e til: a caixa de tinta delas é mais
+alta e o centro desce ~2px. Medindo pelo **topo** da tinta, do 1º ao 7º rótulo dão 60,83px
+de passo em 1536 = 57,0 em 1440.
+
+**O perfil não é centrado no bloco.** O conteúdo fica no alto e sobram ~62px de canvas
+vazio abaixo do avatar — é assim na referência, nos três temas. O avatar mede 41 × 41 (era
+32), a 20px da esquerda. A divisória fica a 113px da base; só o tema `dark` a mostra
+visivelmente na referência, nos claros ela existe mas quase não contrasta contra o canvas.
+
+**Nada disso tem px solto.** Todas as posições saem de tokens em
+`solis-tokens.json → layout.sidebar`, e o respiro entre o bloco do logo e a nav é calculado
+a partir de `--sidebar-logo`, de forma que mexer no tamanho do logo não desloca a
+navegação.
+
+Comparação visual: `design/sidebar-vertical.png`.
 
 ## Ainda em aberto
 
-1. **A posição vertical da sidebar** — o bloco do logo começa a 87px do topo no app e a
-   69px na referência; o rótulo da nav ativa cai em y 247–256 contra 223–232. São ~20px no
-   `paddingTop` e ~24px na nav. Anterior a tudo que foi feito aqui, e mexer move a nav
-   inteira, que foi validada em outra passada. Ver a seção "Logo da sidebar".
-2. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
+1. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
    vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
    atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.
-3. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
+2. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
    Sidebar/Ícones, e perder "Cor de destaque". A referência atual
    (`telas/06-configuracoes.png`) é anterior a tudo isso.
