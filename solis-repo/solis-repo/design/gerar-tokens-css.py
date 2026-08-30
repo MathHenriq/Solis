@@ -41,6 +41,31 @@ for _i in range(9):
 _PARADAS.append('rgb(0 0 0 / 1) 100%')
 MASCARA = ', '.join(_PARADAS)
 
+# ---- Camada 3: os 5 estados. So opacity e transform, nunca filter num keyframe.
+G, M = T['states']['glow'], T['states']['motion']
+def _estados(w):
+    w('')
+    w('/* Camada 3 — os 5 estados do simbolo. Ver src/components/SolisEstado.tsx.')
+    w(' *')
+    w(' * O filtro do glow e ESTATICO e mora no SVG; aqui so anda opacity e transform')
+    w(' * da camada de brilho. Medido no proprio simbolo, 6s a 60fps: camada parada 1ms')
+    w(' * de main thread, animando opacity+transform 3ms, e com `filter` dentro do')
+    w(' * keyframe 48ms com um recalculo de estilo por frame. E a regra 1 do')
+    w(' * PERFORMANCE.md com numero medido. */')
+    w('.solis-estado { position: relative; display: block; }')
+    w('.solis-estado > svg { display: block; width: 100%; height: auto; overflow: visible; }')
+    w('.solis-brilho { position: absolute; inset: 0; color: %s; will-change: transform, opacity; }' % G['nearColor'])
+    w('.solis-arte { position: relative; color: %s; }' % G['artColor'])
+    for est in T['states']['order']:
+        p = M[est]
+        w('')
+        w('@keyframes solis-%s {' % est)
+        w('  0%%, 100%% { opacity: %s; transform: scale(%s); }' % (p['opacity'][0], p['scale'][0]))
+        w('  50%%      { opacity: %s; transform: scale(%s); }' % (p['opacity'][1], p['scale'][1]))
+        w('}')
+        w('.solis-brilho[data-estado="%s"] { animation: solis-%s %s ease-in-out infinite; }'
+          % (est, est, p['duration']))
+
 L = []
 w = L.append
 w('/* GERADO por design/gerar-tokens-css.py — nao editar a mao.')
@@ -122,6 +147,8 @@ w(' * tema. Nenhuma cor nova precisa existir pra isso. */')
 w('[data-scene="off"] { --solis-horizon-image: none; }')
 w('')
 w('body { background: var(--canvas); color: var(--text-primary); font-family: var(--font-body); }')
+w('')
+_estados(w)
 w('')
 w('@media (prefers-reduced-motion: reduce) {')
 w('  /* PERFORMANCE.md: todas as duracoes vao a ~0 */')

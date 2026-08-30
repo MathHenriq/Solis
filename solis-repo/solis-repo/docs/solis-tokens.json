@@ -295,6 +295,76 @@
       "thinking": "Pensando",
       "responding": "Respondendo",
       "executing": "Executando"
+    },
+    "glow": {
+      "_metodo": "Filtro SVG estatico (dois feGaussianBlur somados) numa CAMADA propria atras da arte nitida. O halo acompanha o desenho, coisa que radial-gradient nao faz — e o arco do simbolo e curvo, nao um ponto. O que anima e so opacity e transform DA CAMADA; o filtro nunca entra em keyframe.",
+      "_medidoNaReferencia": "Perfil do halo medido em brand/states/solis-state-listening.png, num corte perpendicular ao traco: pico L=170 com traco de 4-5px, caindo a 9% do pico a 6px, 5% a 12px, 3% a 18px e 1,8% a 27px. Nao e uma gaussiana so — e um nucleo apertado mais um rabo largo e fraco. Por isso dois desfoques, e nao um.",
+      "_custo": "Medido no proprio simbolo, janela de 6s a 60fps: camada parada 1ms de main thread, camada animando opacity+transform 3ms, e a versao proibida (filter dentro do keyframe) 48ms com 360 recalculos de estilo — um por frame. 16x mais trabalho pelo mesmo efeito.",
+      "nearBlur": "2.0",
+      "nearColor": "#FFA733",
+      "nearGain": "2.2",
+      "farBlur": "9.0",
+      "farColor": "#E85F0A",
+      "farGain": "0.6",
+      "artColor": "#FFF0D6"
+    },
+    "motion": {
+      "_regra": "So opacity e transform. O SCALE e minimo de proposito: o halo acompanha o desenho, e o simbolo tem 190px de largura por 109 de altura — escalar a camada de brilho em 6% desloca o halo em ~11px nas pontas e ele descola da arte, virando um fantasma laranja ao lado do traco. Na referencia o brilho pulsa em INTENSIDADE, nao em tamanho. Quem carrega a respiracao aqui e o opacity; o scale entra so pra tirar o ar de pisca-pisca.",
+      "idle": {
+        "duration": "4.5s",
+        "opacity": [
+          0.42,
+          0.92
+        ],
+        "scale": [
+          1.0,
+          1.012
+        ]
+      },
+      "listening": {
+        "duration": "1.6s",
+        "opacity": [
+          0.35,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.022
+        ]
+      },
+      "thinking": {
+        "duration": "2.4s",
+        "opacity": [
+          0.28,
+          0.7
+        ],
+        "scale": [
+          1.0,
+          1.006
+        ]
+      },
+      "responding": {
+        "duration": "1.1s",
+        "opacity": [
+          0.6,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.016
+        ]
+      },
+      "executing": {
+        "duration": "0.9s",
+        "opacity": [
+          0.5,
+          0.88
+        ],
+        "scale": [
+          1.0,
+          1.008
+        ]
+      }
     }
   },
   "navigation": {

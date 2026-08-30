@@ -543,11 +543,69 @@ navegação.
 
 Comparação visual: `design/sidebar-vertical.png`.
 
+## Glow reativo — CSS aguenta, e agora tem número
+
+**Pergunta:** o glow precisa ser totalmente natural; se o CSS mantiver o mesmo nível de
+qualidade, fica; se não, outro método. **Resposta: fica em CSS/SVG.**
+
+### O que a referência faz
+
+Perfil medido em `brand/states/solis-state-listening.png`, num corte perpendicular ao traço
+(traço de 4–5px, pico L=170 sobre fundo `#000410`):
+
+| distância do traço | luminância acima do fundo | % do pico |
+|---|---|---|
+| ±6px | 15,5 | 9,1% |
+| ±12px | 8,7 | 5,1% |
+| ±18px | 4,2 | 2,5% |
+| ±27px | 2,9 | 1,8% |
+| ±33px | 1,9 | ruído de fundo |
+
+Não é uma gaussiana. Uma que fecha em 6px morre bem antes dos 27; a que chega aos 27 borra
+o traço. São **duas somadas** — núcleo apertado mais rabo largo e fraco. É por isso que o
+filtro tem dois `feGaussianBlur` (σ 2,0 e 9,0) e não um.
+
+### Por que filtro SVG e não `radial-gradient`
+
+O `SOLIS_SIGNATURE.md` previa `radial-gradient` porque a marca era um PNG achatado do qual
+não dava pra separar o glow. **A premissa caiu na Fase 2:** a marca é vetor. Um gradiente
+radial só sabe iluminar um ponto, e o símbolo é um arco curvo e assimétrico — o halo saía
+como uma bolha atrás da arte em vez de luz saindo dela. Com o vetor, o filtro age sobre o
+próprio caminho e o halo acompanha o traço.
+
+### O custo, medido
+
+`design/medir-custo-animacao.mjs`, 5 estados animando ao mesmo tempo, janela de 6s a 60fps:
+
+| | tarefa (main thread) | recálculos de estilo |
+|---|---|---|
+| camada certa (`opacity` + `transform`) | **4ms** | **0** |
+| `filter` dentro do keyframe | 133ms | 360 (um por frame) |
+
+33× mais trabalho pelo mesmo efeito. A regra 1 do `PERFORMANCE.md` deixou de ser asserção.
+
+**Contar frames com `requestAnimationFrame` não serve para isso.** Numa cena pequena as duas
+versões batem 60fps e a diferença some — as três primeiras medições que fiz deram
+p95 = 16,7ms para tudo. O rAF mede cadência do main thread; o que separa uma camada
+rasterizada uma vez de uma que refaz o filtro a cada frame é o **trabalho**. Daí a medida
+vir do CDP (`Performance.getMetrics`).
+
+### Um erro que a validação visual pegou
+
+A primeira versão seguia o exemplo do `PERFORMANCE.md` ao pé da letra: `opacity` de 0,55 a
+0,95 e `scale` de 1,0 a 1,06. Num blob radial pequeno isso funciona. Num símbolo de 190px
+de largura, escalar a camada de brilho em 6% desloca o halo ~11px nas pontas e **ele descola
+da arte** — vira um fantasma laranja ao lado do traço, visível na folha.
+
+Na referência o brilho pulsa em **intensidade**, não em tamanho. O `scale` caiu para
+1,006–1,022 conforme o estado, e quem carrega a respiração passou a ser o `opacity`.
+
+Folha de validação: `design/estados-glow.png` (os 5 estados, em duas fases do ciclo).
+Os renders antigos em `brand/states/` foram para `_legado/`: o glow deixou de ser asset e
+virou código.
+
 ## Ainda em aberto
 
-1. **`brand/states/`** — os 3 renders com glow são do símbolo antigo e não derivam do
-   vetor. Se a arquitetura do `SOLIS_SIGNATURE.md` for mantida (glow como camada CSS
-   atrás da arte), eles deixam de ser necessários em vez de precisarem ser regerados.
-2. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
+1. **Referência visual do card Aparência** — ele vai ganhar o seletor de tema e o seletor
    Sidebar/Ícones, e perder "Cor de destaque". A referência atual
    (`telas/06-configuracoes.png`) é anterior a tudo isso.

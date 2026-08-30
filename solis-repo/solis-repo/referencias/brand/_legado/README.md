@@ -12,9 +12,8 @@ tela nova.
   porque eram a única leitura existente do arranjo horizontal — as proporções do lado a
   lado (cap 24,74% e folga 23,26% da largura do símbolo) foram medidas neles.
 
-Continua fora desta pasta, ainda em uso, mas também desenhado sobre o símbolo antigo:
-
-- `brand/states/` — listening, rings-soft, rings-strong. São renders com glow, não
-  desenho de traço: não dá pra derivar do vetor. Vale notar que o `SOLIS_SIGNATURE.md` já
-  prevê o glow como **camada CSS separada atrás da arte** — se essa arquitetura for
-  mantida, estes 3 arquivos deixam de ser necessários em vez de precisarem ser regerados.
+- `states/` — listening, rings-soft, rings-strong, desenhados sobre o símbolo antigo.
+  **Não precisam ser regerados:** o glow deixou de ser asset e virou código
+  (`src/components/SolisEstado.tsx`), com filtro SVG sobre o próprio vetor. Ficam aqui
+  porque foi neles que o perfil do halo foi medido — o corte perpendicular ao traço que
+  definiu os dois desfoques do filtro saiu de `solis-state-listening.png`.

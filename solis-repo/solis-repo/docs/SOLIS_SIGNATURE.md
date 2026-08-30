@@ -71,11 +71,24 @@ variação — não como retrofit desta camada. O bloco `signature.dayCycle` sai
 
 Só ativo durante `listening`. O brilho reage à amplitude real do microfone, não a um timer decorativo.
 
-### Atualização: a arte final é raster, não vetor em camadas
+### Atualização (Fase 2): a marca voltou a ser vetor, e o glow acompanha o desenho
 
-O plano original desta seção presumia um SVG com `horizon`/`sun`/`glow` como elementos separados e animáveis. A marca aprovada (ver `HANDOFF.md` → "Símbolo oficial") é uma imagem PNG achatada, gerada e aprovada visualmente pelo Matheus — não dá mais pra recortar o glow de dentro dela.
+A nota anterior dizia que a arte era um PNG achatado e que, por isso, o glow teria de ser um `radial-gradient` atrás da imagem. **Essa premissa caiu:** a marca é vetor desde a Fase 2 (`design/solis-symbol.svg`, IoU 98,98% contra o raster aprovado).
 
-**Ajuste de arquitetura:** o glow reativo passa a ser uma camada CSS **independente**, posicionada atrás da imagem (`radial-gradient` com blur, opacity/scale controlados por `--audio-level`). A arte da marca nunca é modificada — só uma camada extra por trás dela pulsa. Implementação de referência em `solis-prototype.html` (classe `.symbol-glow`).
+Um `radial-gradient` só sabe iluminar um ponto, e o símbolo é um arco curvo e assimétrico — o halo saía como uma bolha atrás da arte, não como luz saindo dela. Com o vetor de volta, o glow é um **filtro SVG sobre o próprio caminho**, e o halo acompanha o traço.
+
+**Arquitetura (`src/components/SolisEstado.tsx`):** duas camadas empilhadas.
+
+1. `.solis-brilho` — o mesmo caminho, só desfocado. É a camada que respira.
+2. `.solis-arte` — a arte nítida, estática, por cima.
+
+O filtro é **estático**: mora no `<defs>` e nunca entra num keyframe. O que anima é `opacity` e `transform` da camada de brilho. Isso é a regra 1 do `PERFORMANCE.md`, e agora tem número: medido com os 5 estados animando ao mesmo tempo por 6s (`design/medir-custo-animacao.mjs`), a camada certa custa **4ms** de main thread com **zero** recálculos de estilo, e a versão com `filter` dentro do keyframe custa **133ms** com **360** recálculos — um por frame. 33× mais trabalho pelo mesmo efeito.
+
+**Dois desfoques, não um.** Medido na referência `brand/states/solis-state-listening.png`, num corte perpendicular ao traço: o halo cai a 9% do pico em 6px e ainda tem 1,8% em 27px. Uma gaussiana só que fecha em 6px morre antes dos 27; a que chega aos 27 borra o traço. São duas somadas — um núcleo apertado e um rabo largo e fraco.
+
+**O `scale` é mínimo de propósito.** Escalar a camada de brilho em 6% desloca o halo em ~11px nas pontas de um símbolo de 190px, e ele descola da arte — vira um fantasma laranja ao lado do traço. Na referência o brilho pulsa em **intensidade**, não em tamanho: quem carrega a respiração é o `opacity`.
+
+Parâmetros e durações em `solis-tokens.json` → `states.glow` e `states.motion`. Folha de validação: `design/estados-glow.png`.
 
 ### Como pegar o áudio sem travar nada
 
