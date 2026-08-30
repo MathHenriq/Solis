@@ -28,10 +28,19 @@
   --sidebar-width: 200px;
   --sidebar-icon: 18px;
   --sidebar-logo: 71px;
-  --sidebar-pitch: 55px;
+  --sidebar-pitch: 57px;
   --sidebar-label: 14px;
   --sidebar-icon-inset: 29px;
   --sidebar-label-inset: 69px;
+  --sidebar-padding-top: 69px;
+  --sidebar-nav-ink: 223px;
+  --perfil-altura: 113px;
+  --perfil-avatar: 41px;
+  --perfil-avatar-x: 20px;
+  --perfil-avatar-y: 11px;
+  --perfil-nome: 15px;
+  --perfil-status: 12px;
+  --perfil-ponto: 9px;
   --composer-height: 79px;
   --composer-width: 805px;
 
@@ -104,6 +113,49 @@
 [data-scene="off"] { --solis-horizon-image: none; }
 
 body { background: var(--canvas); color: var(--text-primary); font-family: var(--font-body); }
+
+
+/* Camada 3 — os 5 estados do simbolo. Ver src/components/SolisEstado.tsx.
+ *
+ * O filtro do glow e ESTATICO e mora no SVG; aqui so anda opacity e transform
+ * da camada de brilho. Medido no proprio simbolo, 6s a 60fps: camada parada 1ms
+ * de main thread, animando opacity+transform 3ms, e com `filter` dentro do
+ * keyframe 48ms com um recalculo de estilo por frame. E a regra 1 do
+ * PERFORMANCE.md com numero medido. */
+.solis-estado { position: relative; display: block; }
+.solis-estado > svg { display: block; width: 100%; height: auto; overflow: visible; }
+.solis-brilho { position: absolute; inset: 0; color: #FFA733; will-change: transform, opacity; }
+.solis-arte { position: relative; color: #FFF0D6; }
+
+@keyframes solis-idle {
+  0%, 100% { opacity: 0.42; transform: scale(1.0); }
+  50%      { opacity: 0.92; transform: scale(1.012); }
+}
+.solis-brilho[data-estado="idle"] { animation: solis-idle 4.5s ease-in-out infinite; }
+
+@keyframes solis-listening {
+  0%, 100% { opacity: 0.35; transform: scale(1.0); }
+  50%      { opacity: 1.0; transform: scale(1.022); }
+}
+.solis-brilho[data-estado="listening"] { animation: solis-listening 1.6s ease-in-out infinite; }
+
+@keyframes solis-thinking {
+  0%, 100% { opacity: 0.28; transform: scale(1.0); }
+  50%      { opacity: 0.7; transform: scale(1.006); }
+}
+.solis-brilho[data-estado="thinking"] { animation: solis-thinking 2.4s ease-in-out infinite; }
+
+@keyframes solis-responding {
+  0%, 100% { opacity: 0.6; transform: scale(1.0); }
+  50%      { opacity: 1.0; transform: scale(1.016); }
+}
+.solis-brilho[data-estado="responding"] { animation: solis-responding 1.1s ease-in-out infinite; }
+
+@keyframes solis-executing {
+  0%, 100% { opacity: 0.5; transform: scale(1.0); }
+  50%      { opacity: 0.88; transform: scale(1.008); }
+}
+.solis-brilho[data-estado="executing"] { animation: solis-executing 0.9s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   /* PERFORMANCE.md: todas as duracoes vao a ~0 */
