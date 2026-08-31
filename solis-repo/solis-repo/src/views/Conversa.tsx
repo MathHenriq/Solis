@@ -23,7 +23,10 @@ export function Conversa() {
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
           tem métrica diferente da serifada genérica que estava antes: a mesma caixa
           punha a tinta 3px mais alto. */}
-      <div style={{ paddingLeft: 191, paddingTop: 298 }}>
+      {/* No modo 'icones' não há sidebar, e a referência mostra a coluna
+          centralizada na janela em vez de encostada à esquerda. A troca é só de
+          CSS, por atributo na raiz — o componente não precisa saber do modo. */}
+      <div className="conversa-coluna" style={{ paddingLeft: 191, paddingTop: 298 }}>
         <h1 className="font-display text-hero text-text-primary leading-none">Olá, Matheus.</h1>
 
         {/* subtítulo a 359px do topo */}
