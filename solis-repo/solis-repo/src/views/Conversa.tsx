@@ -17,7 +17,7 @@ const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
   { rotulo: 'Analisar', icone: 'analisar' },
 ];
 
-export function Conversa() {
+export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {}) {
   return (
     <main className="relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
@@ -38,7 +38,10 @@ export function Conversa() {
         <form
           className="flex items-center border border-divider rounded-composer"
           style={{ marginTop: 44, width: 'var(--composer-width)', height: 'var(--composer-height)' }}
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            aoAbrirThread?.();
+          }}
         >
           <input
             className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"

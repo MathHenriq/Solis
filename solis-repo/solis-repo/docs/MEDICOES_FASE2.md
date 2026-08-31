@@ -696,13 +696,71 @@ O modo vai pro DOM como atributo (`data-nav`) pelo mesmo motivo do tema: quem pr
 SOLIS na horizontal e, no canto direito, um ícone de sino e um de perfil. Não foi
 construído: são componentes novos e dois ícones que ainda não existem em `icons.tsx`.
 
+## As telas restantes — fechadas
+
+Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento e a Conversa com thread.
+Referências `telas/13-` a `18-`, medidas pelo método das razões.
+
+### Uma moldura só, não seis
+
+`src/components/Tela.tsx` carrega o padrão que se repete em todas: título, subtítulo,
+ação opcional à direita, e a área de conteúdo que rola até a base. As referências das seis
+confirmam o mesmo padrão que Memória e Configurações já tinham — e ter um componente só é o
+que garante que ele continue igual quando uma delas mudar.
+
+### Decisões de forma que a referência não decide sozinha
+
+**Modelos locais.** "Em uso" é etiqueta preenchida, "Embeddings" é só texto. Um é estado do
+sistema agora, o outro é uma função permanente; dar o mesmo peso visual esconderia qual
+modelo está rodando.
+
+**Ferramentas.** Os sete interruptores ficam numa coluna alinhada, inclusive o da linha com
+permissão negada — que numa das gerações saía da coluna. Esta é uma tela de confiança antes
+de ser de configuração: é onde a pessoa vê de uma olhada o alcance que deu ao assistente, e
+uma coluna quebrada justo na linha mais delicada atrapalha exatamente onde não pode.
+
+**Tarefas.** A caixa de seleção é desenhada, não `<input type=checkbox>`: o nativo não aceita
+cor de traço nem raio consistentes entre sistemas, e esta interface precisa parecer a mesma
+no Windows e no Mac. O papel fica pelo `role`/`aria-checked`.
+
+**Agenda.** Linha do tempo do dia, não grade de mês. A grade responde "que dia é hoje"; a
+linha do tempo responde "o que vem agora", que é a pergunta que se faz a um assistente. Os
+buracos entre horas são informação: mostram onde sobra tempo.
+
+**Conhecimento.** Grade de cartões e não lista, porque cada fonte é um objeto com identidade
+— nome, tipo, tamanho, estado de indexação —, não uma linha de texto. É o que separa esta
+tela de Memória, onde cada item é uma frase.
+
+**Conversa com thread.** A diferença entre quem fala é deliberadamente sutil:
+
+- a pessoa vem à direita, num bloco com véu e teto de 66% da largura, porque o que ela
+  escreve é curto e delimitado;
+- o Solis vem à esquerda, sem fundo, ocupando a largura toda. A resposta dele é texto longo,
+  e texto longo dentro de um balão vira uma coluna estreita e cansativa.
+
+**Não há confirmação de leitura.** Uma das gerações trouxe os dois tiquinhos de "lida" e foi
+descartada: não existe entrega nem leitura aqui. O Solis roda na mesma máquina, não há rede
+entre as pontas e não há outra pessoa do outro lado — o indicador contaria uma história falsa
+sobre o que o app é.
+
+### Variantes descartadas
+
+Três gerações alternativas foram para `referencias/telas/_variantes/`, com o motivo de cada
+descarte escrito. Duas referências da mesma tela dentro de `telas/` seriam uma contradição
+esperando pra virar bug.
+
+### Cabeçalho do modo barra de ícones
+
+Fechado. Sem sidebar a marca sumia da tela, e com ela a única âncora que diz onde a pessoa
+está. O cabeçalho devolve a marca ao topo, na horizontal, com os dois atalhos que na sidebar
+viviam no bloco de perfil. É `fixed` e não no fluxo: neste modo a Conversa centraliza o
+conteúdo na altura da janela, e um cabeçalho no fluxo empurraria esse centro.
+
+Comparação visual: `design/telas-restantes.png`.
+
 ## Ainda em aberto
 
-1. **As telas que faltam** — Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento e a
-   Conversa com thread. As referências foram geradas mas ainda não chegaram no repositório.
-2. **O cabeçalho do modo barra de ícones** — símbolo + SOLIS no topo, sino e perfil à
-   direita. Ver a seção acima.
-3. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o
+1. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o
    preview do front no ar. Ver `PREVIEW.md` na raiz do repositório.
 
 ## Fechado nesta rodada

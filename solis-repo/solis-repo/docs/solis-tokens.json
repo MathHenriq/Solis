@@ -9,7 +9,8 @@
     "warmWhite": "#F5F0E7",
     "muted": "#A1A7B3",
     "success": "#8FBF6D",
-    "error": "#E4674A"
+    "error": "#E4674A",
+    "erro": "#E4674A"
   },
   "themes": {
     "_status": "MEDIDO — valores amostrados por pixel nas 3 referências da Fase 2. Método e números completos em docs/MEDICOES_FASE2.md.",
@@ -282,6 +283,21 @@
       "activeBoxSize": "62px",
       "activeBoxRadius": "14px",
       "_nota": "A capsula e centrada na janela inteira, nao numa area de conteudo — neste modo nao existe sidebar, entao nao existe area de conteudo separada."
+    },
+    "thread": {
+      "_fonte": "Medido em referencias/telas/18-conversa-thread.png. Ver _variantes/LEIA-ME.md pro porque das outras duas geracoes terem sido descartadas.",
+      "bubbleMaxWidth": "66%",
+      "_bubbleMaxWidth": "Balao do usuario com 693px numa area de conteudo de ~1050 = 66%. Teto e nao largura fixa: mensagem curta nao pode virar uma faixa vazia.",
+      "bubblePadX": "24px",
+      "bubblePadY": "16px",
+      "bubbleRadius": "14px",
+      "avatarSize": "34px",
+      "avatarGap": "20px",
+      "turnGap": "34px",
+      "paragraphGap": "18px",
+      "composerHeight": "98px",
+      "composerBottom": "35px",
+      "timeSize": "14px"
     }
   },
   "motion": {

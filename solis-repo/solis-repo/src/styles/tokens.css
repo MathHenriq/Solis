@@ -102,6 +102,18 @@
   --barra-ativo: 62px;
   --barra-ativo-raio: 14px;
 
+  --erro: #E4674A;
+  --th-balao-max: 66%;
+  --th-balao-px: 24px;
+  --th-balao-py: 16px;
+  --th-balao-raio: 14px;
+  --th-avatar: 34px;
+  --th-avatar-gap: 20px;
+  --th-turno-gap: 34px;
+  --th-par-gap: 18px;
+  --th-composer-h: 98px;
+  --th-composer-base: 35px;
+  --th-hora: 14px;
   --composer-radius: 13px;
   --chip-height: 58px;
 

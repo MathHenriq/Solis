@@ -147,6 +147,15 @@ for chave, var in [('width','--barra-l'), ('height','--barra-h'), ('bottom','--b
                    ('activeBoxSize','--barra-ativo'), ('activeBoxRadius','--barra-ativo-raio')]:
     w('  %s: %s;' % (var, ib[chave]))
 w('')
+w('  --erro: %s;' % T['color']['error'])
+th = T['layout']['thread']
+for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-balao-px'),
+                   ('bubblePadY','--th-balao-py'), ('bubbleRadius','--th-balao-raio'),
+                   ('avatarSize','--th-avatar'), ('avatarGap','--th-avatar-gap'),
+                   ('turnGap','--th-turno-gap'), ('paragraphGap','--th-par-gap'),
+                   ('composerHeight','--th-composer-h'), ('composerBottom','--th-composer-base'),
+                   ('timeSize','--th-hora')]:
+    w('  %s: %s;' % (var, th[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
 w('  --chip-height: %s;'        % cp['actionChipHeight'])
 w('')
