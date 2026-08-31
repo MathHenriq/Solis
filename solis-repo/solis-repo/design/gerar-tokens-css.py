@@ -127,6 +127,26 @@ w('   * convertidos aqui pra coordenada da propria banda (0% = topo da banda).')
 w('   * Acima do primeiro stop o alpha e zero, entao o texto da tela cai em canvas')
 w('   * chapado e o contraste volta a ser o dos tokens. */')
 w('  --solis-cena-mascara: linear-gradient(to bottom, %s);' % MASCARA)
+w('')
+w('  /* Configuracoes e barra de icones — ver layout.configuracoes e layout.iconBar. */')
+cfg, ib = T['layout']['configuracoes'], T['layout']['iconBar']
+for chave, var in [('cardTop','--cfg-card-top'), ('cardPadding','--cfg-card-pad'),
+                   ('cardRadius','--cfg-card-raio'), ('cardInsetLeft','--cfg-inset-l'),
+                   ('cardInsetRight','--cfg-inset-r'), ('sectionTitleSize','--cfg-secao'),
+                   ('rowLabelSize','--cfg-rotulo'), ('rowHintSize','--cfg-dica'),
+                   ('rowHintTop','--cfg-dica-top'), ('rowPadY','--cfg-linha-pad'),
+                   ('thumbWidth','--cfg-mini-l'), ('thumbGap','--cfg-mini-gap'),
+                   ('thumbRadius','--cfg-mini-raio'), ('thumbNameTop','--cfg-mini-nome-top'),
+                   ('segmentWidth','--cfg-seg-l'), ('segmentHeight','--cfg-seg-h'),
+                   ('segmentRadius','--cfg-seg-raio'), ('switchWidth','--cfg-sw-l'),
+                   ('switchHeight','--cfg-sw-h')]:
+    w('  %s: %s;' % (var, cfg[chave]))
+w('  --cfg-mini-razao: %s;' % cfg['thumbRatio'])
+for chave, var in [('width','--barra-l'), ('height','--barra-h'), ('bottom','--barra-base'),
+                   ('radius','--barra-raio'), ('iconSize','--barra-icone'),
+                   ('activeBoxSize','--barra-ativo'), ('activeBoxRadius','--barra-ativo-raio')]:
+    w('  %s: %s;' % (var, ib[chave]))
+w('')
 w('  --composer-radius: %s;'    % cp['radius'])
 w('  --chip-height: %s;'        % cp['actionChipHeight'])
 w('')

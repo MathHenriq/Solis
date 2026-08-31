@@ -73,6 +73,30 @@ body {
    scenes (._ancoragem, ._geometria, ._fade). A máscara mora AQUI, no elemento
    estático, e não no .cena, que é o que anima: máscara em elemento animado
    passeia junto com o scale. */
+/* Sem sidebar não há divisória, e a cena passa a começar na borda da janela.
+   O shell marca o modo no elemento raiz. */
+:root[data-nav="icones"] .cena-camada { left: 0; }
+
+/* Sem sidebar, a Conversa deixa de ser uma coluna encostada à esquerda e passa
+   a ser um bloco centralizado na janela — é o que a referência
+   telas/12-conversa-barra-icones.png mostra. O padding de baixo abre espaço pra
+   cápsula flutuante, que é `fixed` e não empurra o conteúdo sozinha. */
+:root[data-nav="icones"] .conversa-coluna {
+  padding-left: 0;
+  /* fit-content e não a largura do composer: a fileira de chips é mais larga
+     que ele, e travar na largura do composer quebrava "Nova tarefa" em duas
+     linhas. O composer mantém a largura dele por conta própria. */
+  width: fit-content;
+  margin-inline: auto;
+  text-align: center;
+  padding-bottom: calc(var(--barra-base) + var(--barra-h) + 24px);
+}
+:root[data-nav="icones"] .conversa-coluna form,
+:root[data-nav="icones"] .conversa-coluna > div:last-child {
+  justify-content: center;
+}
+:root[data-nav="icones"] .conversa-coluna input { text-align: center; }
+
 .cena-camada {
   left: var(--sidebar-width);
   right: 0;

@@ -72,6 +72,36 @@
    * Acima do primeiro stop o alpha e zero, entao o texto da tela cai em canvas
    * chapado e o contraste volta a ser o dos tokens. */
   --solis-cena-mascara: linear-gradient(to bottom, rgb(0 0 0 / 0.000) 41.82%, rgb(0 0 0 / 0.043) 45.23%, rgb(0 0 0 / 0.156) 48.64%, rgb(0 0 0 / 0.316) 52.05%, rgb(0 0 0 / 0.500) 55.45%, rgb(0 0 0 / 0.684) 58.86%, rgb(0 0 0 / 0.844) 62.27%, rgb(0 0 0 / 0.957) 65.68%, rgb(0 0 0 / 1.000) 69.09%, rgb(0 0 0 / 1) 100%);
+
+  /* Configuracoes e barra de icones — ver layout.configuracoes e layout.iconBar. */
+  --cfg-card-top: 142px;
+  --cfg-card-pad: 34px;
+  --cfg-card-raio: 14px;
+  --cfg-inset-l: 35px;
+  --cfg-inset-r: 48px;
+  --cfg-secao: 20px;
+  --cfg-rotulo: 16px;
+  --cfg-dica: 15px;
+  --cfg-dica-top: 6px;
+  --cfg-linha-pad: 30px;
+  --cfg-mini-l: 279px;
+  --cfg-mini-gap: 27px;
+  --cfg-mini-raio: 10px;
+  --cfg-mini-nome-top: 19px;
+  --cfg-seg-l: 387px;
+  --cfg-seg-h: 62px;
+  --cfg-seg-raio: 10px;
+  --cfg-sw-l: 79px;
+  --cfg-sw-h: 41px;
+  --cfg-mini-razao: 1.53;
+  --barra-l: 805px;
+  --barra-h: 124px;
+  --barra-base: 38px;
+  --barra-raio: 62px;
+  --barra-icone: 24px;
+  --barra-ativo: 62px;
+  --barra-ativo-raio: 14px;
+
   --composer-radius: 13px;
   --chip-height: 58px;
 

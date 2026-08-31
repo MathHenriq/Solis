@@ -248,6 +248,40 @@
       "countGap": "31px",
       "searchGap": "22px",
       "listGap": "30px"
+    },
+    "configuracoes": {
+      "_fonte": "Medido em referencias/telas/11-configuracoes-aparencia.png. Tipografia pelas razoes contra o corpo de 16px (ver layout.memoria._escala); geometria em fracao da area de conteudo, nunca px bruto da imagem.",
+      "cardTop": "142px",
+      "cardPadding": "34px",
+      "cardRadius": "14px",
+      "cardInsetLeft": "35px",
+      "cardInsetRight": "48px",
+      "sectionTitleSize": "20px",
+      "rowLabelSize": "16px",
+      "rowHintSize": "15px",
+      "rowHintTop": "6px",
+      "rowPadY": "30px",
+      "thumbWidth": "279px",
+      "thumbGap": "27px",
+      "thumbRatio": 1.53,
+      "thumbRadius": "10px",
+      "thumbNameTop": "19px",
+      "segmentWidth": "387px",
+      "segmentHeight": "62px",
+      "segmentRadius": "10px",
+      "switchWidth": "79px",
+      "switchHeight": "41px"
+    },
+    "iconBar": {
+      "_fonte": "Medido em referencias/telas/12-conversa-barra-icones.png.",
+      "width": "805px",
+      "height": "124px",
+      "bottom": "38px",
+      "radius": "62px",
+      "iconSize": "24px",
+      "activeBoxSize": "62px",
+      "activeBoxRadius": "14px",
+      "_nota": "A capsula e centrada na janela inteira, nao numa area de conteudo — neste modo nao existe sidebar, entao nao existe area de conteudo separada."
     }
   },
   "motion": {
@@ -431,6 +465,15 @@
       "applyAs": "atributo data-theme no elemento raiz, lido ANTES do primeiro paint (senão o app pisca num tema e troca pro outro). Nunca distribuir cor por Context: a Camada 1 do SOLIS_SIGNATURE.md é montada uma vez no shell e não pode remontar na troca de tema.",
       "defaultOnFirstInstall": "dark",
       "_defaultRationale": "Decidido. Não carrega asset fotográfico no primeiro paint e é o tema em que o ciclo do dia roda."
+    },
+    "navStyle": {
+      "options": [
+        "sidebar",
+        "icones"
+      ],
+      "defaultOnFirstInstall": "sidebar",
+      "persistence": "local, mesma chave-registro do tema: solis.appearance.nav",
+      "_nota": "Substituicao, nao complemento: com 'icones' a coluna lateral deixa de existir e os 8 itens migram pra uma capsula flutuante no rodape. Foi o erro da 1a geracao da referencia, que manteve a sidebar e acrescentou uma barra de ferramentas."
     }
   },
   "platform": {

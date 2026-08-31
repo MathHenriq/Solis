@@ -26,6 +26,24 @@ export function aplicarTema(tema: Tema): void {
   document.documentElement.dataset.theme = tema;
 }
 
+/** Estilo de navegação: a coluna lateral OU a cápsula flutuante no rodapé.
+ *  É substituição, não complemento — com 'icones' a sidebar deixa de existir e
+ *  os 8 itens migram pro rodapé. Ver appearance.navStyle no solis-tokens.json. */
+export const ESTILOS_NAV = ['sidebar', 'icones'] as const;
+export type EstiloNav = (typeof ESTILOS_NAV)[number];
+export const NAV_PADRAO: EstiloNav = 'sidebar';
+export const CHAVE_NAV = 'solis.appearance.nav';
+
+export function ehEstiloNav(v: unknown): v is EstiloNav {
+  return typeof v === 'string' && (ESTILOS_NAV as readonly string[]).includes(v);
+}
+
+/** O modo de nav também vai pro DOM: a camada da cena precisa saber, porque sem
+ *  sidebar ela começa na borda da janela e não na divisória. */
+export function aplicarNav(estilo: EstiloNav): void {
+  document.documentElement.dataset.nav = estilo;
+}
+
 export function aplicarCena(ligada: boolean): void {
   // "Exibir imagem de fundo" desligado cai na versão sólida da paleta do
   // mesmo tema — a cena é uma camada sobre --canvas, não o fundo em si.

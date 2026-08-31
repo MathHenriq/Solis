@@ -655,12 +655,54 @@ Os valores já entregues sobreviveram às duas medições:
 
 Só a data mudou, de 14 para 15px.
 
+## Configurações → Aparência, e o modo barra de ícones
+
+Medido em `telas/11-configuracoes-aparencia.png`, com o método das razões: tipografia
+ancorada no corpo de 16px, geometria em fração da área de conteúdo.
+
+| | razão contra o corpo | px |
+|---|---|---|
+| título da tela | 1,89 | 34px (o mesmo token da Memória) |
+| "Aparência" (título da seção) | 1,22 | 20px |
+| rótulo do controle | 1,00 | 16px |
+| descrição sob o rótulo | 0,94 | 15px |
+
+Miniaturas de 279 × 182 (razão 1,53), 27px de folga; seletor segmentado de 387 × 62;
+interruptor de 79 × 41. Cápsula da barra de ícones: 805 × 124, centrada na janela, a 38px
+da base.
+
+### As miniaturas de tema não são desenho, são a coisa
+
+Cada miniatura é um `data-theme` local, e desenha a prévia com as **custom properties do
+tema que ela representa** — inclusive a foto do horizonte, ancorada embaixo pelo mesmo
+mecanismo da tela real. Consequência: elas não podem divergir do tema de verdade, porque
+leem exatamente os mesmos tokens. Uma ilustração pintada à mão divergiria na primeira vez
+que uma cor mudasse — e neste projeto as cores já mudaram três vezes.
+
+### "Barra de ícones" é substituição, não complemento
+
+Foi o erro da primeira geração da referência, e o produto não pode repeti-lo: com esse modo
+a sidebar **deixa de existir**. O que muda no código:
+
+- `App` não monta a `Sidebar`; monta a `BarraIcones`, que consome o mesmo `nav-items`.
+- A camada da cena passa a começar na borda da janela, não na divisória — por
+  `:root[data-nav="icones"] .cena-camada { left: 0 }`.
+- A Conversa deixa de ser uma coluna encostada à esquerda e vira um bloco centralizado.
+
+O modo vai pro DOM como atributo (`data-nav`) pelo mesmo motivo do tema: quem precisa saber
+é o CSS, e atributo só repinta.
+
+**Falta o cabeçalho desse modo.** A referência mostra, no topo, o símbolo com a palavra
+SOLIS na horizontal e, no canto direito, um ícone de sino e um de perfil. Não foi
+construído: são componentes novos e dois ícones que ainda não existem em `icons.tsx`.
+
 ## Ainda em aberto
 
-1. **As telas que faltam** — Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento, e a
-   Conversa com uma thread em andamento. Sem referência ainda. Configurações → Aparência e a
-   barra de ícones já têm (`telas/11-` e `telas/12-`).
-2. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o
+1. **As telas que faltam** — Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento e a
+   Conversa com thread. As referências foram geradas mas ainda não chegaram no repositório.
+2. **O cabeçalho do modo barra de ícones** — símbolo + SOLIS no topo, sino e perfil à
+   direita. Ver a seção acima.
+3. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o
    preview do front no ar. Ver `PREVIEW.md` na raiz do repositório.
 
 ## Fechado nesta rodada
