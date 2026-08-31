@@ -102,7 +102,6 @@
   --barra-ativo: 62px;
   --barra-ativo-raio: 14px;
 
-  --erro: #E4674A;
   --th-balao-max: 66%;
   --th-balao-px: 24px;
   --th-balao-py: 16px;
@@ -141,6 +140,7 @@
 [data-theme="espacial"] {
   --canvas: #FAE7D0;
   --divider: #DAC1A8;
+  --erro: #BA4024;
   --text-primary: #4A0A09;
   --text-secondary: #894D43;
   --text-placeholder: #90554B;
@@ -152,6 +152,7 @@
 [data-theme="claro"] {
   --canvas: #FCF7F2;
   --divider: #E5DDD5;
+  --erro: #C44A2E;
   --text-primary: #27231C;
   --text-secondary: #726E6A;
   --text-placeholder: #64615E;
@@ -163,6 +164,7 @@
 [data-theme="dark"] {
   --canvas: #07080D;
   --divider: #181A1C;
+  --erro: #E4674A;
   --text-primary: #F1E4D4;
   --text-secondary: #82786D;
   --text-placeholder: #8F8172;

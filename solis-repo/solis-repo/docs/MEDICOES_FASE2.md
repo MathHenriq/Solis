@@ -758,6 +758,34 @@ conteúdo na altura da janela, e um cabeçalho no fluxo empurraria esse centro.
 
 Comparação visual: `design/telas-restantes.png`.
 
+## Varredura de fechamento — 8 telas × 3 temas
+
+`npm run varrer` (com o preview de pé) percorre toda combinação de tela e tema procurando o
+que só aparece quando se olha tudo junto:
+
+- **erro de runtime** em qualquer combinação;
+- **estouro horizontal** — conteúdo mais largo que a janela;
+- **contraste de cada texto contra o fundo que ele realmente tem**, lido do DOM e não do
+  token. É o que pega o texto que herdou a cor errada, e nenhuma medição por token pegaria.
+
+A primeira rodada achou dois: `"Permissão negada"`, em Ferramentas, a 3,11:1 no `claro` e
+2,75:1 no `espacial`. A cor de erro do DS (`#E4674A`) foi desenhada contra fundo escuro e não
+aguenta canvas claro.
+
+Derivada por tema, pelo mesmo método das secundárias e do accent — só o L em OKLCh, matiz
+travado:
+
+| tema | antes | derivado | depois | ΔEOK |
+|---|---|---|---|---|
+| espacial | 2,75:1 | `#BA4024` | 4,52:1 | 0,1212 |
+| claro | 3,11:1 | `#C44A2E` | 4,52:1 | 0,0914 |
+| dark | 6,04:1 | (mantido `#E4674A`) | — | — |
+
+Ela virou papel de tema (`--erro`), não constante global — pelo mesmo motivo que canvas e
+divisória são: o valor certo depende do fundo em que a cor cai.
+
+Segunda rodada: **limpa**. 8 telas × 3 temas, sem erro, sem estouro, nada abaixo de 4,5:1.
+
 ## Ainda em aberto
 
 1. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o

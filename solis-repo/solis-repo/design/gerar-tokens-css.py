@@ -11,7 +11,7 @@ interface sem passar pela fonte de verdade primeiro.
 import json
 
 T = json.load(open('docs/solis-tokens.json'))
-PAPEIS = [('canvas', '--canvas'), ('divider', '--divider'),
+PAPEIS = [('canvas', '--canvas'), ('divider', '--divider'), ('erro', '--erro'),
           ('textPrimary', '--text-primary'), ('textSecondary', '--text-secondary'),
           ('textPlaceholder', '--text-placeholder'), ('accent', '--accent')]
 TEMAS = [t for t in T['themes'] if not t.startswith('_')]
@@ -147,7 +147,6 @@ for chave, var in [('width','--barra-l'), ('height','--barra-h'), ('bottom','--b
                    ('activeBoxSize','--barra-ativo'), ('activeBoxRadius','--barra-ativo-raio')]:
     w('  %s: %s;' % (var, ib[chave]))
 w('')
-w('  --erro: %s;' % T['color']['error'])
 th = T['layout']['thread']
 for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-balao-px'),
                    ('bubblePadY','--th-balao-py'), ('bubbleRadius','--th-balao-raio'),
