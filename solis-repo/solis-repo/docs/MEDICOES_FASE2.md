@@ -873,6 +873,38 @@ os 191px entravam na conta. Trocado por `marginLeft`, que não muda a base do c�
 Os chips seguem a mesma largura. Antes cada um tinha medida independente, e numa janela larga
 um esticava e o outro não — o tipo de desalinho que só aparece fora dos 1440px da referência.
 
+### 9. E aí a âncora de 191px virou o novo torto
+
+Com o composer elástico, o campo para de crescer no teto de 980px — mas a coluna continuava
+presa aos 191px medidos da sidebar. Numa janela de 1900 isso dava **360px de vão à esquerda e
+516px à direita**: o bloco inteiro escorado no canto esquerdo com um vazio maior do outro lado.
+A âncora só é uma proporção enquanto o campo ainda acompanha a janela; passado o teto, ela vira
+exatamente o desalinho que o clamp foi consertar.
+
+A regra saiu do style inline e foi pro CSS, onde `max()` sobre porcentagem cabe:
+
+```css
+.conversa-coluna {
+  width: var(--composer-width);
+  margin-left: max(var(--conversa-ancora), (100% - var(--composer-max)) / 2);
+  max-width: calc(100% - var(--conversa-ancora));
+}
+```
+
+Abaixo do teto o `max()` devolve os 191px e **nada muda** — a medida de 1440 continua exata.
+A partir do teto ele devolve a metade da sobra, e a coluna centraliza.
+
+| janela | composer | vão esquerdo | vão direito |
+|---|---|---|---|
+| 1280 × 800 | 702px | 191 | 187 |
+| 1440 × 930 | **806px** | **191** | **243** (a referência, intacta) |
+| 1900 × 866 | 980px | 360 | 360 |
+| 2560 × 1080 | 980px | 690 | 690 |
+
+O teto e a âncora viraram tokens próprios (`composer.maxWidth`, `composer.anchorLeft`) porque
+agora um depende do outro — deixar os 980 escritos em dois lugares era garantir que um dia
+divergissem.
+
 ### O que continua sendo diferença de web para app
 
 A janela do navegador não é a janela do Tauri: barra de endereço, aba e a proporção que o

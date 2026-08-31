@@ -218,7 +218,7 @@
     },
     "composer": {
       "height": "64px",
-      "width": "clamp(560px, 65%, 980px)",
+      "width": "clamp(560px, 65%, var(--composer-max))",
       "_width": "Era 805px fixo. Os 805 sao 65% da area de conteudo na janela de 1440 em que a referencia foi medida — entao 65% NAO abandona a medida, e a mesma medida escrita como proporcao. Numa janela de 1900 os 805 fixos deixavam o campo desproporcional e sobrava vazio dos dois lados. O piso de 560 impede que ele fique estreito demais numa janela pequena, e o teto de 980 impede que uma linha de texto vire uma faixa larga demais pra ler de um golpe de olho.",
       "radius": "13px",
       "actionChipHeight": "46px",
@@ -228,7 +228,11 @@
       "_height": "Era 79px. Afinado depois de ver no ar: o campo estava alto demais pro peso do que ele contem, uma linha de texto.",
       "chipTextSize": "14px",
       "chipSurface": "true",
-      "_chipSurface": "Os chips ganharam superficie propria em vez de fundo transparente. Sobre a foto do horizonte o contorno fino sozinho sumia e o texto flutuava — a borda delimitava um retangulo que o olho nao fechava. Um veu do proprio canvas resolve sem opacar a foto atras."
+      "_chipSurface": "Os chips ganharam superficie propria em vez de fundo transparente. Sobre a foto do horizonte o contorno fino sozinho sumia e o texto flutuava — a borda delimitava um retangulo que o olho nao fechava. Um veu do proprio canvas resolve sem opacar a foto atras.",
+      "maxWidth": "980px",
+      "_maxWidth": "Teto da largura do composer. Existe como token proprio porque a ancora da coluna depende dele: enquanto o campo ainda cresce com a janela, a ancora de 191px e uma proporcao; passado o teto ela vira um vao desequilibrado.",
+      "anchorLeft": "191px",
+      "_anchorLeft": "Distancia da sidebar ate a coluna da Conversa, medida na referencia 01-conversa.png numa janela de 1440. Vale enquanto o composer nao bateu o teto; a partir dai a coluna centraliza (ver _maxWidth)."
     },
     "memoria": {
       "_fonte": "Medido em referencias/telas/09-memoria.png (1534x1022 uteis), normalizado pela LARGURA da janela pra 1440. O x de tudo foi medido a partir da DIVISORIA da sidebar, nao da borda da janela — a referencia veio com sidebar de 267px e a do app tem 200px, entao medir da borda deslocaria a tela inteira.",

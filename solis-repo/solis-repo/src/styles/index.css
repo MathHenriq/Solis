@@ -129,6 +129,24 @@ main {
   padding-bottom: calc(var(--barra-h) + var(--barra-base) + 24px);
 }
 
+/* A coluna da Conversa fica ancorada a 191px da sidebar — foi assim que a
+   referência 01-conversa.png foi medida, numa janela de 1440. Mas a âncora só é
+   uma proporção enquanto o composer ainda cresce com a janela: passado o teto
+   de 980px o campo para de acompanhar, e os 191px viram um vão desequilibrado
+   (numa janela de 1900 sobravam 353px de um lado e 516px do outro — foi o
+   "torto" que apareceu no preview). Daí o max(): abaixo do teto nada muda e a
+   medida de 1440 continua exata; a partir dele a coluna centraliza.
+
+   margin-left e não padding-left: a largura do composer é uma porcentagem, e
+   ela resolve contra o bloco que a contém. Com padding, a âncora entraria na
+   conta e o campo sairia estreito demais; com margem, a base do cálculo
+   continua sendo a área de conteúdo inteira, que é o que foi medido. */
+.conversa-coluna {
+  width: var(--composer-width);
+  margin-left: max(var(--conversa-ancora), (100% - var(--composer-max)) / 2);
+  max-width: calc(100% - var(--conversa-ancora));
+}
+
 /* Sem sidebar, a Conversa deixa de ser uma coluna encostada à esquerda e passa
    a ser um bloco centralizado na janela — é o que a referência
    telas/12-conversa-barra-icones.png mostra. O padding de baixo abre espaço pra

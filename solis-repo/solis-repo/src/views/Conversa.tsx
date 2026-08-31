@@ -32,12 +32,9 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
           que a referência foi medida. */}
       <div
         className="conversa-coluna"
-        // marginLeft e não paddingLeft: a largura do composer é uma
-        // porcentagem, e ela resolve contra o bloco que a contém. Com padding, os
-        // 191px entravam na conta e o campo saía 191px mais estreito do que a
-        // proporção pede; com margem, a base do cálculo continua sendo a área de
-        // conteúdo inteira, que é o que foi medido.
-        style={{ marginLeft: 191, paddingTop: 298, width: 'var(--composer-width)', maxWidth: 'calc(100% - 191px)' }}
+        // Largura, âncora e teto vivem no CSS (.conversa-coluna em index.css):
+        // dependem de max() sobre porcentagem, que o style inline não expressa.
+        style={{ paddingTop: 298 }}
       >
         <h1 className="font-display text-hero text-text-primary leading-none">Olá, Matheus.</h1>
 

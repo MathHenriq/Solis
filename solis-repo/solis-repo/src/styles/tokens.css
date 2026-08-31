@@ -42,7 +42,9 @@
   --perfil-status: 12px;
   --perfil-ponto: 9px;
   --composer-height: 64px;
-  --composer-width: clamp(560px, 65%, 980px);
+  --composer-max: 980px;
+  --composer-width: clamp(560px, 65%, var(--composer-max));
+  --conversa-ancora: 191px;
 
   /* Memoria — medido em 09-memoria.png. Ver layout.memoria no JSON. */
   --mem-pad-l: 38px;
