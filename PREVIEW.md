@@ -21,18 +21,13 @@ Vercel procuraria um `package.json` na raiz do repositório e falharia.
   um app de janela, não um site.
 - **Os dados são de exemplo.** A lista de Memória é um array no próprio componente, marcado
   como `PROVISÓRIO`. Não há backend, não há banco, não há modelo. É o front.
-- **A troca de tela funciona** — clicar em Conversa ou Memória na sidebar troca de verdade.
-  As outras seis ainda caem na Conversa.
-- **A troca de tema não tem interface ainda.** O tema é lido do `localStorage` antes do
-  primeiro paint. Para ver os outros dois no preview, abrir o console e rodar:
-
-      localStorage.setItem('solis.appearance.theme', 'espacial'); location.reload()
-
-  Os valores válidos são `espacial`, `claro` e `dark`. E para desligar a foto de fundo:
-
-      localStorage.setItem('solis.appearance.scene', 'off'); location.reload()
-
-  Isso vira o card Aparência em Configurações quando essa tela for construída.
+- **As 8 telas funcionam** e a navegação troca de verdade. A Conversa tem dois estados:
+  vazia, e com thread — enviar qualquer coisa no campo abre o segundo.
+- **Aparência é o melhor lugar pra passear.** Em Configurações → Aparência dá pra trocar os
+  3 temas, ligar e desligar a foto de fundo, e trocar a sidebar pela barra de ícones. Tudo
+  persiste entre recarregamentos.
+- **A barra de ícones muda mais do que parece:** a sidebar deixa de existir, a foto passa a
+  ocupar a janela inteira e a Conversa centraliza. É um modo, não um enfeite.
 
 ## Backend
 
