@@ -135,7 +135,7 @@ export function Thread() {
       >
         <form
           className="flex items-center border border-divider rounded-composer"
-          style={{ height: 'var(--th-composer-h)' }}
+          style={{ height: 'var(--th-composer-h)', width: 'var(--composer-width)', maxWidth: '100%', marginInline: 'auto' }}
           onSubmit={(e) => e.preventDefault()}
         >
           <input

@@ -848,6 +848,31 @@ invisível.
 medida de referência que, na escala real, dava peso a mais para o que os elementos contêm —
 uma linha de texto e um rótulo curto.
 
+### 8. O composer era largura fixa
+
+805px numa janela de 1900 deixava o campo desproporcional, com vazio dos dois lados.
+Virou `clamp(560px, 65%, 980px)`.
+
+**65% não abandona a medida — é a mesma medida escrita como proporção.** Os 805px são
+exatamente 65% da área de conteúdo na janela de 1440 em que a referência foi medida, e o
+app renderiza 806px lá. O piso de 560 impede que ele fique estreito demais numa janela
+pequena; o teto de 980 impede que uma linha de texto vire uma faixa larga demais pra ler de
+um golpe de olho.
+
+| janela | composer | % da área de conteúdo |
+|---|---|---|
+| 1280 × 800 | 702px | 65% |
+| 1440 × 930 | **806px** | 65% |
+| 1900 × 866 | 980px | 58% (no teto) |
+| 2560 × 1080 | 980px | 42% (no teto) |
+
+**Uma armadilha de CSS no caminho.** A primeira tentativa deu 615px em vez de 806: a coluna
+tinha `paddingLeft: 191`, e uma largura em porcentagem resolve contra o bloco que a contém —
+os 191px entravam na conta. Trocado por `marginLeft`, que não muda a base do cálculo.
+
+Os chips seguem a mesma largura. Antes cada um tinha medida independente, e numa janela larga
+um esticava e o outro não — o tipo de desalinho que só aparece fora dos 1440px da referência.
+
 ### O que continua sendo diferença de web para app
 
 A janela do navegador não é a janela do Tauri: barra de endereço, aba e a proporção que o

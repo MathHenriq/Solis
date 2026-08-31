@@ -26,7 +26,19 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
       {/* No modo 'icones' não há sidebar, e a referência mostra a coluna
           centralizada na janela em vez de encostada à esquerda. A troca é só de
           CSS, por atributo na raiz — o componente não precisa saber do modo. */}
-      <div className="conversa-coluna" style={{ paddingLeft: 191, paddingTop: 298 }}>
+      {/* A coluna acompanha a largura do composer. Sem isso os chips e o campo
+          ficavam com medidas independentes, e numa janela larga um esticava e o
+          outro não — que é o tipo de desalinho que só aparece fora dos 1440px em
+          que a referência foi medida. */}
+      <div
+        className="conversa-coluna"
+        // marginLeft e não paddingLeft: a largura do composer é uma
+        // porcentagem, e ela resolve contra o bloco que a contém. Com padding, os
+        // 191px entravam na conta e o campo saía 191px mais estreito do que a
+        // proporção pede; com margem, a base do cálculo continua sendo a área de
+        // conteúdo inteira, que é o que foi medido.
+        style={{ marginLeft: 191, paddingTop: 298, width: 'var(--composer-width)', maxWidth: 'calc(100% - 191px)' }}
+      >
         <h1 className="font-display text-hero text-text-primary leading-none">Olá, Matheus.</h1>
 
         {/* subtítulo a 359px do topo */}
@@ -37,7 +49,7 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
         {/* composer a 422px do topo, 802×79, raio 13 */}
         <form
           className="flex items-center border border-divider rounded-composer"
-          style={{ marginTop: 44, width: 'var(--composer-width)', height: 'var(--composer-height)' }}
+          style={{ marginTop: 44, width: '100%', height: 'var(--composer-height)' }}
           onSubmit={(e) => {
             e.preventDefault();
             aoAbrirThread?.();

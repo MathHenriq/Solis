@@ -218,8 +218,8 @@
     },
     "composer": {
       "height": "64px",
-      "width": "805px",
-      "_width": "Medido 849-867px @1536 nas 3 telas; 805px é a normalização pra janela de 1440.",
+      "width": "clamp(560px, 65%, 980px)",
+      "_width": "Era 805px fixo. Os 805 sao 65% da area de conteudo na janela de 1440 em que a referencia foi medida — entao 65% NAO abandona a medida, e a mesma medida escrita como proporcao. Numa janela de 1900 os 805 fixos deixavam o campo desproporcional e sobrava vazio dos dois lados. O piso de 560 impede que ele fique estreito demais numa janela pequena, e o teto de 980 impede que uma linha de texto vire uma faixa larga demais pra ler de um golpe de olho.",
       "radius": "13px",
       "actionChipHeight": "46px",
       "_actionChipHeight": "Era 58px. Mesma razao do composer.",

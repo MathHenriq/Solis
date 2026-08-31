@@ -135,10 +135,12 @@ main {
    cápsula flutuante, que é `fixed` e não empurra o conteúdo sozinha. */
 :root[data-nav="icones"] .conversa-coluna {
   padding-left: 0;
-  /* fit-content e não a largura do composer: a fileira de chips é mais larga
-     que ele, e travar na largura do composer quebrava "Nova tarefa" em duas
-     linhas. O composer mantém a largura dele por conta própria. */
-  width: fit-content;
+  /* O composer é elástico (clamp), e a coluna segue ele. Antes era fit-content
+     porque a fileira de chips era mais larga que o composer fixo e travar na
+     largura dele quebrava "Nova tarefa" em duas linhas — com os chips menores e
+     o composer elástico, isso deixou de acontecer. */
+  width: var(--composer-width);
+  max-width: 92%;
   margin-inline: auto;
   text-align: center;
   padding-bottom: calc(var(--barra-base) + var(--barra-h) + 24px);
