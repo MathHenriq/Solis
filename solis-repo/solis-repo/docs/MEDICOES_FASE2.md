@@ -786,6 +786,74 @@ divisória são: o valor certo depende do fundo em que a cor cai.
 
 Segunda rodada: **limpa**. 8 telas × 3 temas, sem erro, sem estouro, nada abaixo de 4,5:1.
 
+## Depois de ver no ar — o que a Vercel revelou
+
+Sete coisas apareceram só com o app rodando, e cinco delas não apareceriam em captura
+nenhuma. Vale registrar por quê.
+
+### 1. Não havia movimento nenhum
+
+O clique era corte seco: a tela trocava no mesmo quadro. Sem transição, uma interface não
+parece rápida — parece que pisca. Foi a primeira coisa que o Matheus sentiu, e "muito forte".
+
+Entrou:
+
+| | duração | o quê |
+|---|---|---|
+| troca de tela | 190ms | `opacity` 0→1 com 10px de deslocamento |
+| passar o mouse | 140ms | opacidade, fundo e cor |
+| apertar | 90ms | `scale(0.97)` |
+
+Medido quadro a quadro: 0ms em opacity 0 e 10px deslocado, 78ms em 0,66, 150ms em 0,97,
+213ms parado. Só `transform` e `opacity`, como manda o `PERFORMANCE.md` — e aqui isso não é
+só disciplina de performance, é o que permite animar em cada clique sem custo. Medido com
+`npm run varrer` e `design/medir-custo-animacao.mjs`: **9ms** de main thread em 6 segundos,
+zero recálculo de estilo.
+
+As regras usam `:where()`, que mantém a especificidade em zero — qualquer regra do
+componente continua ganhando.
+
+### 2. A barra de ícones estava 35% grande demais
+
+805 × 124. A medida saiu da referência, mas a referência foi desenhada numa escala ~35%
+maior que a do app — o mesmo desvio já documentado em `layout.memoria._escala`. Numa janela
+de 866px de altura, 124px era 14% da altura só de navegação: ela competia com o conteúdo em
+vez de servi-lo. Agora **620 × 76**.
+
+### 3. Flutuar virou cobrir
+
+A cápsula e o cabeçalho são `fixed`. Nas telas de conteúdo isso escondia a última linha — em
+Configurações, "Exibir imagem de fundo" ficava atrás da barra. No modo `icones` as telas
+passaram a reservar o espaço dos dois.
+
+### 4. O fundo translúcido não funcionava
+
+A cápsula tinha véu, e o texto de trás aparecia através dela. Virou quase opaca
+(`color-mix` com 92% do canvas) mais uma sombra estática.
+
+**Sem `backdrop-filter` de propósito.** Vidro embaçado obriga o navegador a repintar a região
+a cada scroll, e o `PERFORMANCE.md` pede o contrário. Fundo quase opaco resolve a
+legibilidade pelo mesmo preço — que é zero.
+
+### 5. Os chips flutuavam sobre a foto
+
+Contorno fino sozinho, sobre o horizonte, sumia: a borda delimitava um retângulo que o olho
+não fechava. Ganharam superfície própria, com o mesmo véu do canvas — não opaca a foto atrás.
+E um véu mais forte no hover, porque sobre uma superfície que já tem véu o hover normal seria
+invisível.
+
+### 6 e 7. Composer e chips altos demais
+
+79 → **64px** no composer, 58 → **46px** nos chips, com o texto de 15 para 14. Ambos eram
+medida de referência que, na escala real, dava peso a mais para o que os elementos contêm —
+uma linha de texto e um rótulo curto.
+
+### O que continua sendo diferença de web para app
+
+A janela do navegador não é a janela do Tauri: barra de endereço, aba e a proporção que o
+sistema dá. Parte do "não está encaixado no PC" é isso e some no empacotamento. O que **não**
+era isso — e foi consertado — é tudo acima.
+
 ## Ainda em aberto
 
 1. **Backend** — SQLite+FTS5, Ollama, Whisper, Piper. Nada começou, por decisão: primeiro o

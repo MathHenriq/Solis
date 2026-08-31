@@ -144,8 +144,15 @@ for chave, var in [('cardTop','--cfg-card-top'), ('cardPadding','--cfg-card-pad'
 w('  --cfg-mini-razao: %s;' % cfg['thumbRatio'])
 for chave, var in [('width','--barra-l'), ('height','--barra-h'), ('bottom','--barra-base'),
                    ('radius','--barra-raio'), ('iconSize','--barra-icone'),
-                   ('activeBoxSize','--barra-ativo'), ('activeBoxRadius','--barra-ativo-raio')]:
+                   ('activeBoxSize','--barra-ativo'), ('activeBoxRadius','--barra-ativo-raio'),
+                   ('topBarHeight','--topo-h'), ('surface','--barra-fundo'),
+                   ('shadow','--barra-sombra')]:
     w('  %s: %s;' % (var, ib[chave]))
+w('  --chip-texto: %s;' % cp['chipTextSize'])
+mo = T['motion']
+for chave, var in [('screenIn','--mov-tela'), ('screenShift','--mov-desloc'),
+                   ('press','--mov-toque'), ('hover','--mov-hover')]:
+    w('  %s: %s;' % (var, mo[chave]))
 w('')
 th = T['layout']['thread']
 for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-balao-px'),
@@ -184,6 +191,7 @@ for nome in TEMAS:
     # nao serve aos tres, mas o mesmo COMPONENTE serve, porque le a variavel.
     mem = T['layout']['memoria']
     w('  --mem-hover: %s;' % (mem['hoverTint'] if nome == 'dark' else mem['hoverTintClaro']))
+    w('  --mem-hover-forte: %s;' % (mem['hoverTintStrong'] if nome == 'dark' else mem['hoverTintClaroStrong']))
     w('}')
 w('')
 w('/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem')

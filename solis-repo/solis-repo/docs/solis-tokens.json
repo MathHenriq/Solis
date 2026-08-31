@@ -217,14 +217,18 @@
       "_profile": "Tudo medido na referencia espacial e normalizado pra 1440x930 pela LARGURA da janela (1440/1532), com as posicoes verticais contadas a partir da BASE — a referencia tem 1020px de altura util e o alvo tem 930, entao normalizar y pelo topo erra o bloco inteiro. Avatar 41x41 a 20px da esquerda e 828 do topo; 'Matheus' com tinta em y 833 e 'Online' em 852; texto a 73px da esquerda (avatar + 12 de folga). A divisoria fica a 113px da base — so o tema dark a mostra na referencia, nos claros ela existe mas quase nao contrasta. Sobram ~62px de canvas vazio abaixo do avatar: e assim na referencia."
     },
     "composer": {
-      "height": "79px",
+      "height": "64px",
       "width": "805px",
       "_width": "Medido 849-867px @1536 nas 3 telas; 805px é a normalização pra janela de 1440.",
       "radius": "13px",
-      "actionChipHeight": "58px",
-      "_actionChipHeight": "58px é o que fecha contra a referência no render real; 55px vinha da detecção de borda, que come o antialiasing.",
+      "actionChipHeight": "46px",
+      "_actionChipHeight": "Era 58px. Mesma razao do composer.",
       "_nota": "Não ficou mais baixo que a versão anterior (81px) — ficou mais leve: borda âmbar virou neutra sutil e o botão circular âmbar de 48px virou seta fina. Decisão registrada.",
-      "_microfone": "As 3 telas da Fase 2 não mostram o microfone. Confirmado como omissão do gerador de imagem, não decisão: ele é reintroduzido. Whisper e a Camada 3 do SOLIS_SIGNATURE.md dependem dele."
+      "_microfone": "As 3 telas da Fase 2 não mostram o microfone. Confirmado como omissão do gerador de imagem, não decisão: ele é reintroduzido. Whisper e a Camada 3 do SOLIS_SIGNATURE.md dependem dele.",
+      "_height": "Era 79px. Afinado depois de ver no ar: o campo estava alto demais pro peso do que ele contem, uma linha de texto.",
+      "chipTextSize": "14px",
+      "chipSurface": "true",
+      "_chipSurface": "Os chips ganharam superficie propria em vez de fundo transparente. Sobre a foto do horizonte o contorno fino sozinho sumia e o texto flutuava — a borda delimitava um retangulo que o olho nao fechava. Um veu do proprio canvas resolve sem opacar a foto atras."
     },
     "memoria": {
       "_fonte": "Medido em referencias/telas/09-memoria.png (1534x1022 uteis), normalizado pela LARGURA da janela pra 1440. O x de tudo foi medido a partir da DIVISORIA da sidebar, nao da borda da janela — a referencia veio com sidebar de 267px e a do app tem 200px, entao medir da borda deslocaria a tela inteira.",
@@ -253,7 +257,10 @@
       "_itemTextSize": "15,4px pela regra da ancora; arredondado pra 16 porque e o corpo de texto do resto do app (typography.scale.body) e 0,6px nao justifica um segundo tamanho de corpo.",
       "countGap": "31px",
       "searchGap": "22px",
-      "listGap": "30px"
+      "listGap": "30px",
+      "hoverTintStrong": "rgb(255 255 255 / 0.085)",
+      "hoverTintClaroStrong": "rgb(0 0 0 / 0.065)",
+      "_hoverTintStrong": "O veu forte e pro hover de superficie que JA tem veu — os chips da Conversa. Sem ele o hover de um chip seria invisivel, porque o normal dele ja e o veu fraco."
     },
     "configuracoes": {
       "_fonte": "Medido em referencias/telas/11-configuracoes-aparencia.png. Tipografia pelas razoes contra o corpo de 16px (ver layout.memoria._escala); geometria em fracao da area de conteudo, nunca px bruto da imagem.",
@@ -280,14 +287,21 @@
     },
     "iconBar": {
       "_fonte": "Medido em referencias/telas/12-conversa-barra-icones.png.",
-      "width": "805px",
-      "height": "124px",
-      "bottom": "38px",
-      "radius": "62px",
-      "iconSize": "24px",
-      "activeBoxSize": "62px",
-      "activeBoxRadius": "14px",
-      "_nota": "A capsula e centrada na janela inteira, nao numa area de conteudo — neste modo nao existe sidebar, entao nao existe area de conteudo separada."
+      "width": "620px",
+      "height": "76px",
+      "bottom": "26px",
+      "radius": "38px",
+      "iconSize": "22px",
+      "activeBoxSize": "46px",
+      "activeBoxRadius": "12px",
+      "_nota": "A capsula e centrada na janela inteira, nao numa area de conteudo — neste modo nao existe sidebar, entao nao existe area de conteudo separada.",
+      "_tamanho": "Reduzida de 805x124 pra 620x76 depois de ver no ar. A medida original saiu da referencia, mas a referencia foi desenhada numa escala ~35% maior que a do app — o mesmo desvio de geracao ja documentado em layout.memoria._escala. Numa janela de 866px de altura os 124px originais davam 14% da altura so de barra de navegacao, e ela competia com o conteudo em vez de servi-lo.",
+      "_espacoReservado": "A capsula e fixed e flutua por cima. Nas telas de conteudo isso escondia a ultima linha, entao no modo 'icones' as telas ganham respiro inferior de altura da barra + a folga da base + 24. Flutuar nao pode significar cobrir.",
+      "topBarHeight": "72px",
+      "surface": "color-mix(in srgb, var(--canvas) 92%, var(--text-primary))",
+      "_surface": "Quase opaca, e nao um veu translucido. Ela flutua sobre conteudo rolavel, e com veu o texto de tras aparecia atraves dela — foi o 'fundo transparente nao ficou legal'. Sem backdrop-filter de proposito: vidro embacado obriga o navegador a repintar a regiao a cada scroll, e o PERFORMANCE.md pede o contrario. Fundo quase opaco custa zero e resolve a legibilidade igual.",
+      "shadow": "0 10px 34px rgb(0 0 0 / 0.18)",
+      "_shadow": "Sombra estatica, nunca animada. E o que separa a capsula do conteudo e diz que ela flutua — sem ela o fundo quase opaco parece um retangulo colado na tela."
     },
     "thread": {
       "_fonte": "Medido em referencias/telas/18-conversa-thread.png. Ver _variantes/LEIA-ME.md pro porque das outras duas geracoes terem sido descartadas.",
@@ -338,7 +352,12 @@
     },
     "reducedMotion": {
       "rule": "Todas as durações acima devem ir para ~0ms quando prefers-reduced-motion estiver ativo ou o usuário desativar 'Movimento reduzido' nas configurações."
-    }
+    },
+    "_regraTransicao": "So transform e opacity, como o resto. A troca de tela nao pode ser corte seco: sem nenhuma transicao a interface parece que pisca em vez de responder, e foi a primeira coisa que o Matheus sentiu vendo no ar.",
+    "screenIn": "190ms",
+    "screenShift": "10px",
+    "press": "90ms",
+    "hover": "140ms"
   },
   "signature": {
     "_comment": "Ver SOLIS_SIGNATURE.md para o racional completo. Três camadas independentes: horizonte persistente, ciclo do dia, glow reativo ao áudio.",

@@ -81,7 +81,7 @@ export function LinhaLista({
 }) {
   return (
     <div
-      className={`border-b border-divider ${hover ? 'hover:bg-[var(--mem-hover)]' : ''}`}
+      className={`solis-linha border-b border-divider ${hover ? 'hover:bg-[var(--mem-hover)]' : ''}`}
       style={{
         paddingTop: 'var(--mem-item-pad-y)',
         paddingBottom: 'var(--mem-item-pad-y)',

@@ -20,13 +20,18 @@ export function BarraIcones({
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed left-1/2 -translate-x-1/2 flex items-center justify-between
-                 border border-divider bg-[var(--mem-hover)] backdrop-blur-sm"
+      className="fixed left-1/2 -translate-x-1/2 flex items-center justify-between border border-divider"
       style={{
         bottom: 'var(--barra-base)',
         width: 'var(--barra-l)',
         height: 'var(--barra-h)',
         borderRadius: 'var(--barra-raio)',
+        // Quase opaca, não um véu: ela flutua sobre conteúdo rolável, e com véu
+        // o texto de trás aparecia através dela. Sem vidro embaçado de propósito
+        // — backdrop-filter obriga o navegador a repintar a região a cada
+        // scroll, e fundo opaco resolve a legibilidade pelo mesmo preço zero.
+        background: 'var(--barra-fundo)',
+        boxShadow: 'var(--barra-sombra)',
         paddingLeft: 'calc(var(--barra-h) * 0.25)',
         paddingRight: 'calc(var(--barra-h) * 0.25)',
         zIndex: 2,

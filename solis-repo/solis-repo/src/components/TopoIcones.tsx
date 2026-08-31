@@ -15,7 +15,7 @@ export function TopoIcones() {
     <header
       aria-label="Marca e atalhos"
       className="fixed inset-x-0 top-0 flex items-center pointer-events-none"
-      style={{ height: 96, zIndex: 3 }}
+      style={{ height: 'var(--topo-h)', zIndex: 3 }}
     >
       <div className="flex items-center gap-lg mx-auto">
         <SolisSimbolo className="text-text-primary" style={{ width: 48, height: 'auto' }} />

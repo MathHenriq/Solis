@@ -55,6 +55,49 @@ body {
               color 200ms var(--ease);
 }
 
+/* MOVIMENTO
+   ---------------------------------------------------------------------------
+   Só transform e opacity, como manda o PERFORMANCE.md — e aqui isso não é só
+   uma regra de performance, é o que permite animar sem custo em cada clique.
+
+   A troca de tela era corte seco, e sem transição nenhuma a interface parece
+   piscar em vez de responder. 190ms com 10px de deslocamento é curto o bastante
+   pra não atrasar quem sabe onde está clicando, e longo o bastante pra o olho
+   entender que uma coisa saiu e outra entrou.
+
+   Os estados de toque são ainda mais curtos (90ms): resposta ao dedo tem que
+   parecer instantânea, só não pode ser invisível. */
+@keyframes solis-entrada {
+  from { opacity: 0; transform: translateY(var(--mov-desloc)); }
+  to   { opacity: 1; transform: none; }
+}
+
+main {
+  animation: solis-entrada var(--mov-tela) var(--ease) both;
+}
+
+/* Tudo que é clicável responde ao passar e ao apertar. `:where` mantém a
+   especificidade em zero, então qualquer regra do componente ganha desta. */
+:where(button, a, [role='switch'], [role='checkbox']) {
+  transition: opacity var(--mov-hover) var(--ease),
+              background-color var(--mov-hover) var(--ease),
+              color var(--mov-hover) var(--ease),
+              transform var(--mov-toque) var(--ease);
+}
+:where(button, a, [role='switch'], [role='checkbox']):hover { opacity: 0.86; }
+:where(button, a, [role='switch'], [role='checkbox']):active { transform: scale(0.97); }
+
+/* Linha de lista e cartão: o véu de hover entra em transição em vez de aparecer
+   de uma vez. */
+:where(.solis-linha, article) {
+  transition: background-color var(--mov-hover) var(--ease);
+}
+
+/* O botão redondo do interruptor desliza; o fundo troca de cor junto. */
+:where([role='switch']) > span {
+  transition: transform var(--mov-hover) var(--ease);
+}
+
 /* Camada 1 — horizonte. Ver src/components/Horizonte.tsx.
 
    A cena é uma BANDA colada na base da área de conteúdo — não um fundo de tela
@@ -76,6 +119,15 @@ body {
 /* Sem sidebar não há divisória, e a cena passa a começar na borda da janela.
    O shell marca o modo no elemento raiz. */
 :root[data-nav="icones"] .cena-camada { left: 0; }
+
+/* A cápsula é `fixed` e flutua por cima; o cabeçalho também. Flutuar não pode
+   significar cobrir: no modo 'icones' as telas reservam o espaço dos dois, ou a
+   última linha da lista some atrás da barra — foi o que aconteceu em
+   Configurações. */
+:root[data-nav="icones"] main {
+  padding-top: var(--topo-h);
+  padding-bottom: calc(var(--barra-h) + var(--barra-base) + 24px);
+}
 
 /* Sem sidebar, a Conversa deixa de ser uma coluna encostada à esquerda e passa
    a ser um bloco centralizado na janela — é o que a referência

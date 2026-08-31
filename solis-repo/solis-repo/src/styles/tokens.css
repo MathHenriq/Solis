@@ -41,7 +41,7 @@
   --perfil-nome: 15px;
   --perfil-status: 12px;
   --perfil-ponto: 9px;
-  --composer-height: 79px;
+  --composer-height: 64px;
   --composer-width: 805px;
 
   /* Memoria — medido em 09-memoria.png. Ver layout.memoria no JSON. */
@@ -94,13 +94,21 @@
   --cfg-sw-l: 79px;
   --cfg-sw-h: 41px;
   --cfg-mini-razao: 1.53;
-  --barra-l: 805px;
-  --barra-h: 124px;
-  --barra-base: 38px;
-  --barra-raio: 62px;
-  --barra-icone: 24px;
-  --barra-ativo: 62px;
-  --barra-ativo-raio: 14px;
+  --barra-l: 620px;
+  --barra-h: 76px;
+  --barra-base: 26px;
+  --barra-raio: 38px;
+  --barra-icone: 22px;
+  --barra-ativo: 46px;
+  --barra-ativo-raio: 12px;
+  --topo-h: 72px;
+  --barra-fundo: color-mix(in srgb, var(--canvas) 92%, var(--text-primary));
+  --barra-sombra: 0 10px 34px rgb(0 0 0 / 0.18);
+  --chip-texto: 14px;
+  --mov-tela: 190ms;
+  --mov-desloc: 10px;
+  --mov-toque: 90ms;
+  --mov-hover: 140ms;
 
   --th-balao-max: 66%;
   --th-balao-px: 24px;
@@ -114,7 +122,7 @@
   --th-composer-base: 35px;
   --th-hora: 14px;
   --composer-radius: 13px;
-  --chip-height: 58px;
+  --chip-height: 46px;
 
   /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) */
   --ease: cubic-bezier(0.45, 0, 0.2, 1);
@@ -147,6 +155,7 @@
   --accent: #A25500;
   --solis-horizon-image: url('/fundos/bg-espacial.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
+  --mem-hover-forte: rgb(0 0 0 / 0.065);
 }
 
 [data-theme="claro"] {
@@ -159,6 +168,7 @@
   --accent: #A56100;
   --solis-horizon-image: url('/fundos/bg-claro.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
+  --mem-hover-forte: rgb(0 0 0 / 0.065);
 }
 
 [data-theme="dark"] {
@@ -171,6 +181,7 @@
   --accent: #F0BA46;
   --solis-horizon-image: url('/fundos/bg-dark.webp');
   --mem-hover: rgb(255 255 255 / 0.045);
+  --mem-hover-forte: rgb(255 255 255 / 0.085);
 }
 
 /* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem

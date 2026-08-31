@@ -58,13 +58,22 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}
-        <div className="flex" style={{ marginTop: 32, gap: 22 }}>
+        <div className="flex" style={{ marginTop: 28, gap: 18 }}>
           {ATALHOS.map((a) => (
             <button
               key={a.rotulo}
               type="button"
-              className="flex items-center gap-md border border-divider rounded-md text-text-primary"
-              style={{ height: 'var(--chip-height)', paddingLeft: 21, paddingRight: 22, fontSize: 15 }}
+              // Superfície própria em vez de fundo transparente: sobre a foto
+              // do horizonte o contorno fino sozinho sumia e o texto flutuava.
+              // O véu é o do canvas, então não opaca a foto atrás.
+              className="flex items-center gap-md border border-divider rounded-md text-text-primary
+                         bg-[var(--mem-hover)] hover:bg-[var(--mem-hover-forte)]"
+              style={{
+                height: 'var(--chip-height)',
+                paddingLeft: 18,
+                paddingRight: 19,
+                fontSize: 'var(--chip-texto)',
+              }}
             >
               <span className="text-accent"><Icone nome={a.icone} tamanho={17} /></span>
               {a.rotulo}
