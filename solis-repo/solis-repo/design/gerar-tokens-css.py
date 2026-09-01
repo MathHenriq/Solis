@@ -77,6 +77,21 @@ w(' * no shell e nao pode remontar na troca de tema. Trocar um atributo so')
 w(' * repinta; trocar o valor de um Context re-renderiza a arvore. */')
 w('')
 
+# --- escala vertical -------------------------------------------------------
+# A Fase 2 inteira foi medida numa janela de 1440x930. Um navegador da ~693px de
+# altura util, e com o ritmo em px absolutos a pagina passava a rolar e o bloco de
+# perfil era espremido. Cada medida vertical vira aqui a PROPORCAO que ela tinha
+# em 930, com piso e teto: em 930 o vh bate no teto e a referencia fica intacta,
+# px a px; abaixo disso tudo encolhe junto e as relacoes entre os elementos se
+# mantem. Ver layout.escalaVertical no JSON.
+EV = T['layout']['escalaVertical']
+H_REF, PISO = EV['alturaDeReferencia'], EV['piso']
+
+def vy(valor):
+    """'69px' -> 'clamp(55px, 7.419vh, 69px)'."""
+    px = float(str(valor).replace('px', ''))
+    return 'clamp(%gpx, %.3fvh, %gpx)' % (round(px * PISO), px * 100.0 / H_REF, px)
+
 w(':root {')
 w('  /* escala — independente de tema */')
 for k, v in T['radius'].items():   w('  --radius-%s: %s;' % (k, v))
@@ -87,15 +102,15 @@ w('  /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */')
 sb, cp = T['layout']['sidebar'], T['layout']['composer']
 w('  --sidebar-width: %s;'      % sb['width'])
 w('  --sidebar-icon: %s;'       % sb['iconSize'])
-w('  --sidebar-logo: %s;'       % sb['logoWidth'])
-w('  --sidebar-pitch: %s;'      % sb['itemPitch'])
+w('  --sidebar-logo: %s;'       % vy(sb['logoWidth']))
+w('  --sidebar-pitch: %s;'      % vy(sb['itemPitch']))
 w('  --sidebar-label: %s;'      % sb['labelSize'])
 w('  --sidebar-icon-inset: %s;' % sb['iconInset'])
 w('  --sidebar-label-inset: %s;'% sb['labelInset'])
-w('  --sidebar-padding-top: %s;' % sb['paddingTop'])
-w('  --sidebar-nav-ink: %s;'     % sb['navFirstItemInk'])
+w('  --sidebar-padding-top: %s;' % vy(sb['paddingTop']))
+w('  --sidebar-nav-ink: %s;'     % vy(sb['navFirstItemInk']))
 pf = sb['profile']
-w('  --perfil-altura: %s;'    % pf['blockHeight'])
+w('  --perfil-altura: %s;'    % vy(pf['blockHeight']))
 w('  --perfil-avatar: %s;'    % pf['avatarSize'])
 w('  --perfil-avatar-x: %s;'  % pf['avatarInset'])
 w('  --perfil-avatar-y: %s;'  % pf['avatarTopInset'])
@@ -106,6 +121,11 @@ w('  --composer-height: %s;'    % cp['height'])
 w('  --composer-max: %s;'       % cp['maxWidth'])
 w('  --composer-width: %s;'     % cp['width'])
 w('  --conversa-ancora: %s;'    % cp['anchorLeft'])
+cv = T['layout']['conversa']
+w('  --conversa-topo: %s;'      % vy(cv['topPadding']))
+w('  --conversa-sub: %s;'       % vy(cv['subtitleGap']))
+w('  --conversa-campo: %s;'     % vy(cv['composerGap']))
+w('  --conversa-chips: %s;'     % vy(cv['chipsGap']))
 w('')
 w('  /* Memoria — medido em 09-memoria.png. Ver layout.memoria no JSON. */')
 mem = T['layout']['memoria']

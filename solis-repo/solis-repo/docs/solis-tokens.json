@@ -321,6 +321,22 @@
       "composerHeight": "98px",
       "composerBottom": "35px",
       "timeSize": "14px"
+    },
+    "escalaVertical": {
+      "alturaDeReferencia": 930,
+      "piso": 0.8,
+      "_comment": "Toda a Fase 2 foi medida numa janela de 1440x930 — a altura util de um app desktop. Um navegador nao da isso: 1920x1080 a 125% de escala vira 1536x864 CSS, e o Chrome come ~170px em aba, barra de endereco e barra de favoritos. Sobram ~693px. Com o ritmo vertical em px absolutos a sidebar precisava de 769px, entao a pagina passava a rolar, o bloco de perfil era espremido de 113 para 53px e o titulo comecava a 43% da altura da janela em vez de 32%. Era isso o 'errado como site'.",
+      "_metodo": "Mesma solucao do composer, no outro eixo: a medida vira a PROPORCAO que ela tinha na janela de referencia, com piso e teto. clamp(V*0.80, (V/9.3)vh, V). Em 930px de altura o vh bate exatamente no teto e a referencia fica INTACTA, px a px. Abaixo disso tudo encolhe junto, entao a relacao entre os elementos e preservada — nao e cada valor achatando por conta propria.",
+      "_porQueOPisoE080": "A sidebar precisa de padding + bloco do logo + respiro + 8 itens + perfil. A 0,80 isso fecha em 613px, e cabe numa janela de 640 — a menor que um notebook de 1366x768 entrega com o Chrome aberto. Abaixo do piso o ritmo para de encolher e a nav rola dentro dela mesma, em vez de empurrar a pagina.",
+      "_naoEscala": "Alturas de controle (composer, chips, avatar) e tamanhos de tipo ficam de fora. Um campo de texto que encolhe com a janela vira alvo de clique ruim, e corpo de 16px e legibilidade, nao ritmo."
+    },
+    "conversa": {
+      "topPadding": "298px",
+      "subtitleGap": "21px",
+      "composerGap": "44px",
+      "chipsGap": "28px",
+      "_comment": "Ritmo vertical da tela de Conversa, medido em 1440x930. Estava escrito no style inline do componente; virou token porque agora segue layout.escalaVertical e precisa ser gerado com o clamp.",
+      "_topPadding": "298 e nao 295: a Playfair tem metrica diferente da serifada generica que estava antes, e a mesma caixa punha a tinta 3px mais alto."
     }
   },
   "motion": {

@@ -19,7 +19,7 @@ export function Sidebar({
 }) {
   return (
     <nav
-      className="shrink-0 border-r border-divider flex flex-col"
+      className="shrink-0 min-h-0 overflow-hidden border-r border-divider flex flex-col"
       style={{ width: 'var(--sidebar-width)' }}
       aria-label="Navegação principal"
     >
@@ -68,11 +68,21 @@ export function Sidebar({
           + caixa do wordmark 20%), menos os 23px entre o topo da caixa do item e o
           topo da tinta do rótulo (metade da folga do passo, mais a diferença entre a
           caixa da fonte e a altura de caixa alta). Assim mexer no tamanho do logo
-          não desloca a navegação. */}
+          não desloca a navegação.
+
+          Esses 23px viraram 40,35% do passo: o passo agora encolhe em janela
+          curta (ver layout.escalaVertical) e uma constante fixa aqui subiria o
+          primeiro rótulo. Em 930px de altura, 57 x 0,4035 = 23,0 — a medida da
+          referência, intacta. */}
+      {/* min-h-0 e overflow-y: a lista é a única parte da sidebar que pode rolar.
+          Sem isso, numa janela curta ela empurrava a coluna inteira e a PÁGINA
+          passava a rolar — foi o que apareceu no preview em 693px de altura. */}
       <ul
+        className="min-h-0 overflow-y-auto"
         style={{
           marginTop:
-            'calc(var(--sidebar-nav-ink) - 23px - var(--sidebar-padding-top) - var(--sidebar-logo) * 0.9187)',
+            'calc(var(--sidebar-nav-ink) - var(--sidebar-pitch) * 0.4035' +
+            ' - var(--sidebar-padding-top) - var(--sidebar-logo) * 0.9187)',
         }}
       >
         {ITENS_NAV.map((item) => {
@@ -122,8 +132,11 @@ export function Sidebar({
 
           O conteúdo fica no ALTO do bloco, não centrado: na referência sobram ~62px
           de canvas vazio abaixo do avatar. */}
+      {/* shrink-0: o bloco tem altura medida, não é folga. Sem isso o flex o
+          espremia de 113 para 53px numa janela curta e o "Online" saía cortado —
+          exatamente o que apareceu no preview. */}
       <div
-        className="mt-auto border-t border-divider flex items-start"
+        className="mt-auto shrink-0 border-t border-divider flex items-start"
         style={{
           height: 'var(--perfil-altura)',
           paddingLeft: 'var(--perfil-avatar-x)',

@@ -22,7 +22,10 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
     <main className="relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
           tem métrica diferente da serifada genérica que estava antes: a mesma caixa
-          punha a tinta 3px mais alto. */}
+          punha a tinta 3px mais alto. Esses 298 são o TETO: numa janela de 930 de
+          altura é exatamente o que sai; numa de 693, que é o que um navegador dá,
+          298 seriam 43% da altura e jogavam o bloco inteiro pra metade de baixo,
+          espremendo o horizonte. Ver layout.escalaVertical. */}
       {/* No modo 'icones' não há sidebar, e a referência mostra a coluna
           centralizada na janela em vez de encostada à esquerda. A troca é só de
           CSS, por atributo na raiz — o componente não precisa saber do modo. */}
@@ -34,19 +37,21 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
         className="conversa-coluna"
         // Largura, âncora e teto vivem no CSS (.conversa-coluna em index.css):
         // dependem de max() sobre porcentagem, que o style inline não expressa.
-        style={{ paddingTop: 298 }}
+        // O ritmo vertical virou token porque agora ele encolhe em janela curta:
+        // ver layout.escalaVertical em solis-tokens.json.
+        style={{ paddingTop: 'var(--conversa-topo)' }}
       >
         <h1 className="font-display text-hero text-text-primary leading-none">Olá, Matheus.</h1>
 
         {/* subtítulo a 359px do topo */}
-        <p className="text-text-secondary" style={{ marginTop: 21, fontSize: 20 }}>
+        <p className="text-text-secondary" style={{ marginTop: 'var(--conversa-sub)', fontSize: 20 }}>
           Como posso te ajudar hoje?
         </p>
 
         {/* composer a 422px do topo, 802×79, raio 13 */}
         <form
           className="flex items-center border border-divider rounded-composer"
-          style={{ marginTop: 44, width: '100%', height: 'var(--composer-height)' }}
+          style={{ marginTop: 'var(--conversa-campo)', width: '100%', height: 'var(--composer-height)' }}
           onSubmit={(e) => {
             e.preventDefault();
             aoAbrirThread?.();
@@ -67,7 +72,7 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}
-        <div className="flex" style={{ marginTop: 28, gap: 18 }}>
+        <div className="flex" style={{ marginTop: 'var(--conversa-chips)', gap: 18 }}>
           {ATALHOS.map((a) => (
             <button
               key={a.rotulo}

@@ -905,6 +905,77 @@ O teto e a âncora viraram tokens próprios (`composer.maxWidth`, `composer.anch
 agora um depende do outro — deixar os 980 escritos em dois lugares era garantir que um dia
 divergissem.
 
+### 10. E o erro maior: todo o ritmo vertical era px absoluto
+
+O composer foi consertado no eixo horizontal e o problema real estava no vertical.
+
+**A janela de referência não existe no navegador.** Tudo na Fase 2 foi medido em
+1440 × 930 — a altura útil de um app desktop. Um notebook de 1920 × 1080 a 125% de escala
+dá 1536 × 864 CSS, e o Chrome come ~170px em aba, barra de endereço e favoritos. Sobram
+**693px**. Medido no app com o ritmo em px absolutos, nessa janela:
+
+| | 1440 × 930 (referência) | 1532 × 693 (navegador) |
+|---|---|---|
+| altura que a sidebar pede | 769px | 769px |
+| altura disponível | 930px | **693px** |
+| a página rola? | não | **sim** |
+| bloco de perfil | 113px | **53px, espremido e cortado** |
+| topo do "Olá, Matheus." | 298px = 32% da janela | 298px = **43% da janela** |
+
+Os três sintomas são o mesmo defeito. A sidebar tem um piso duro — 8 itens de 57px, mais o
+bloco do logo, mais o perfil — e quando ele não cabe, o flex espreme o que puder e o resto
+vira barra de rolagem. E um título ancorado a 43% da altura empurra o bloco inteiro pra
+metade de baixo, esmagando a faixa do horizonte contra o rodapé.
+
+**A solução é a mesma do composer, no outro eixo.** Cada medida vertical vira a proporção
+que ela tinha em 930, com piso e teto:
+
+```
+clamp(V × 0,80,  (V / 9,3)vh,  V)
+```
+
+Em 930px de altura o `vh` bate exatamente no teto e **a referência fica intacta, px a px**.
+Abaixo disso tudo encolhe junto — passo, respiro, bloco do logo, altura do perfil, topo do
+título — então a relação entre os elementos é preservada. Não é cada valor achatando por
+conta própria.
+
+O piso de 0,80 não é arbitrário: a 0,80 a sidebar fecha em 613px e cabe numa janela de 640,
+que é o que um notebook de 1366 × 768 entrega com o Chrome aberto.
+
+Medido depois:
+
+| janela | página rola | passo da nav | perfil | topo do título |
+|---|---|---|---|---|
+| 1440 × 930 | não | **57px** | **113px** | **298px** |
+| 1532 × 693 | não | 46px | 90px | 238px |
+| 1366 × 640 | não | 46px | 90px | 238px |
+| 1920 × 1080 | não | **57px** | **113px** | **298px** |
+
+A linha de 1440 e a de 1920 são idênticas à referência — o teto garante isso.
+
+Duas correções estruturais foram junto, porque o clamp sozinho não bastava:
+
+- **`shrink-0` no bloco de perfil.** Ele tem altura medida, não é folga. Sem isso o flex o
+  espremia de 113 para 53px e o "Online" saía cortado ao meio.
+- **`min-h-0` + `overflow-y` na lista de itens**, e `overflow: hidden` na sidebar. A lista é
+  a única parte que pode rolar; a coluna nunca empurra a página.
+
+A constante de 23px entre o topo da caixa do item e a tinta do rótulo virou 40,35% do passo.
+Ela era metade da folga do passo — com o passo encolhendo, uma constante fixa subiria o
+primeiro rótulo. Em 930: 57 × 0,4035 = 23,0, a medida da referência.
+
+### A varredura ganhou a janela do navegador
+
+Nada disso aparecia na varredura porque ela rodava só em 1440 × 930. Agora roda em duas
+janelas e checa mais duas coisas: se a **página rola** (o Solis é app — o que rola é a área
+de conteúdo, nunca o documento) e se alguma caixa **corta conteúdo**.
+
+A segunda existe porque a primeira sozinha era guarda falsa: o `overflow: hidden` que eu
+tinha acabado de pôr na sidebar troca a barra de rolagem por conteúdo cortado, que é pior e
+não aparece em nenhuma medida de altura. Testado reinjetando as medidas antigas no app
+corrigido: a checagem de rolagem não acusou nada, a de corte acusou
+`<ul> precisa de 456px e tem 380px`. Uma guarda que não falha quando deveria não vale nada.
+
 ### O que continua sendo diferença de web para app
 
 A janela do navegador não é a janela do Tauri: barra de endereço, aba e a proporção que o
