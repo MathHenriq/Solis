@@ -145,14 +145,36 @@ main {
   width: var(--composer-width);
   margin-left: max(var(--conversa-ancora), (100% - var(--composer-max)) / 2);
   max-width: calc(100% - var(--conversa-ancora));
+  padding-top: var(--conversa-topo);
 }
 
 /* Sem sidebar, a Conversa deixa de ser uma coluna encostada à esquerda e passa
    a ser um bloco centralizado na janela — é o que a referência
-   telas/12-conversa-barra-icones.png mostra. O padding de baixo abre espaço pra
-   cápsula flutuante, que é `fixed` e não empurra o conteúdo sozinha. */
+   telas/12-conversa-barra-icones.png mostra.
+
+   E "centralizado na altura" é literal, não um offset fixo. A âncora de
+   --conversa-topo existe porque na sidebar o bloco tem a janela inteira acima
+   dele; aqui ele vive numa FAIXA, entre o cabeçalho fixo e a cápsula flutuante.
+   Somar o offset ao cabeçalho jogava o título a 45% da altura numa janela de
+   693px, e o respiro da cápsula era contado duas vezes — no main e de novo aqui
+   — então o main pedia 828px numa janela de 693 e virava uma área rolável solta
+   por cima do horizonte. O respiro mora só no main; a faixa que sobra centraliza
+   o bloco sozinha.
+
+   `safe center` e não `center`: se um dia o bloco não couber na faixa, `center`
+   estoura pros DOIS lados e o topo fica inalcançável, atrás do cabeçalho. Com
+   `safe` ele encosta no início e o excesso rola pra baixo, que é recuperável. */
+:root[data-nav="icones"] main.tela-conversa {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  justify-content: safe center;
+}
+
 :root[data-nav="icones"] .conversa-coluna {
   padding-left: 0;
+  padding-top: 0;
+  padding-bottom: 0;
   /* O composer é elástico (clamp), e a coluna segue ele. Antes era fit-content
      porque a fileira de chips era mais larga que o composer fixo e travar na
      largura dele quebrava "Nova tarefa" em duas linhas — com os chips menores e
@@ -161,7 +183,6 @@ main {
   max-width: 92%;
   margin-inline: auto;
   text-align: center;
-  padding-bottom: calc(var(--barra-base) + var(--barra-h) + 24px);
 }
 :root[data-nav="icones"] .conversa-coluna form,
 :root[data-nav="icones"] .conversa-coluna > div:last-child {

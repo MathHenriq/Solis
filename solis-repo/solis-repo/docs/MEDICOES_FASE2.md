@@ -964,6 +964,42 @@ A constante de 23px entre o topo da caixa do item e a tinta do rótulo virou 40,
 Ela era metade da folga do passo — com o passo encolhendo, uma constante fixa subiria o
 primeiro rótulo. Em 930: 57 × 0,4035 = 23,0, a medida da referência.
 
+### 11. O mesmo defeito, escondido no modo barra de ícones
+
+Com a sidebar a correção acima fechou. Trocando pro modo de ícones o app voltava a rolar —
+agora não a página, mas a área de conteúdo, que virava um bloco solto deslizando por cima do
+horizonte. Medido em 1532 × 693: **o `main` pedia 828px numa janela de 693.**
+
+Duas causas somadas, e as duas do mesmo tipo — medida absoluta onde cabia proporção:
+
+1. **O respiro da cápsula era contado duas vezes.** `main` reserva
+   `barra-h + barra-base + 24` = 126px pra cápsula flutuante não cobrir a última linha das
+   telas de lista. A coluna da Conversa reservava os mesmos 126px de novo. 126px de altura
+   inventados do nada.
+2. **O topo era empilhado no cabeçalho.** A coluna aplicava `--conversa-topo` (238px) por
+   cima dos 72px do cabeçalho fixo: título a 310px numa janela de 693, **45% da altura**.
+
+A âncora de `--conversa-topo` existe porque na sidebar o bloco tem a janela inteira acima
+dele. No modo de ícones ele não tem: vive numa FAIXA, entre o cabeçalho fixo e a cápsula. A
+correção é dizer isso ao CSS — `main` vira flex column com `justify-content: safe center`, a
+coluna zera topo e base, e a faixa que sobra centraliza o bloco sozinha. Nenhum número novo.
+
+`safe center` e não `center`: se um dia o bloco não couber na faixa, `center` estoura pros
+dois lados e o topo fica inalcançável atrás do cabeçalho; com `safe` ele encosta no início e
+o excesso rola pra baixo, que é recuperável.
+
+| janela | rola | topo do título | fim dos atalhos | folga até a cápsula |
+|---|---|---|---|---|
+| 1440 × 930 | não | 31,8% | 62,4% | 248px |
+| 1532 × 693 | não | 26,9% | 65,3% | 139px |
+| 1366 × 640 | não | 25,0% | 66,6% | 112px |
+| 1920 × 1080 | não | 34,3% | 60,7% | 323px |
+
+**Uma armadilha no caminho.** A primeira tentativa não mudou nada: o título continuou a 47,8%
+da altura. O `padding-top` da coluna estava num `style` inline do componente, e inline vence
+qualquer seletor — a regra do modo de ícones que zerava o topo era silenciosamente ignorada.
+Toda a geometria da coluna saiu do inline pro CSS.
+
 ### A varredura ganhou a janela do navegador
 
 Nada disso aparecia na varredura porque ela rodava só em 1440 × 930. Agora roda em duas
@@ -975,6 +1011,24 @@ tinha acabado de pôr na sidebar troca a barra de rolagem por conteúdo cortado,
 não aparece em nenhuma medida de altura. Testado reinjetando as medidas antigas no app
 corrigido: a checagem de rolagem não acusou nada, a de corte acusou
 `<ul> precisa de 456px e tem 380px`. Uma guarda que não falha quando deveria não vale nada.
+
+**E ela não cobria o modo de ícones.** Foi por isso que voltou limpa com o bug do parágrafo
+anterior de pé: rodava só na sidebar. Uma varredura que não cobre um modo inteiro é uma
+varredura que mente. Agora são **96 combinações** — 8 telas × 3 temas × 2 modos de nav ×
+2 janelas.
+
+Faltava ainda uma checagem: o bug do modo de ícones não rolava a página e não cortava nada;
+o que ele fazia era rolar a ÁREA DE CONTEÚDO. Nas telas de lista isso é o esperado, então a
+regra vale só onde há uma composição fechada: **a Conversa em estado de abertura não tem o
+que rolar** — título, subtítulo, campo e quatro atalhos, e nada mais. Se ela rola, alguma
+medida não coube. Testada reinjetando o defeito: acusou
+`conteudo rola sem ter o que rolar: 828px em 693px`.
+
+Um último falso positivo apareceu e foi corrigido na guarda, não no app: `pagina rola: 940px
+em 930px`, 10px exatos. São os 10px de `translateY` da animação de entrada — `transform` não
+muda o layout mas entra na área de scroll do ancestral, e a medição pegava o meio do
+movimento. A varredura agora congela a entrada junto com o horizonte: ela mede layout, não
+movimento.
 
 ### O que continua sendo diferença de web para app
 

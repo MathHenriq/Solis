@@ -19,7 +19,7 @@ const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
 
 export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {}) {
   return (
-    <main className="relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
+    <main className="tela-conversa relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
           tem métrica diferente da serifada genérica que estava antes: a mesma caixa
           punha a tinta 3px mais alto. Esses 298 são o TETO: numa janela de 930 de
@@ -33,14 +33,12 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
           ficavam com medidas independentes, e numa janela larga um esticava e o
           outro não — que é o tipo de desalinho que só aparece fora dos 1440px em
           que a referência foi medida. */}
-      <div
-        className="conversa-coluna"
-        // Largura, âncora e teto vivem no CSS (.conversa-coluna em index.css):
-        // dependem de max() sobre porcentagem, que o style inline não expressa.
-        // O ritmo vertical virou token porque agora ele encolhe em janela curta:
-        // ver layout.escalaVertical em solis-tokens.json.
-        style={{ paddingTop: 'var(--conversa-topo)' }}
-      >
+      {/* Nenhuma geometria aqui: largura, âncora, teto e o topo vivem todos no
+          CSS (.conversa-coluna em index.css). O topo estava neste style inline, e
+          inline vence qualquer seletor — então a regra do modo 'icones', que
+          precisa zerar o topo pra centralizar o bloco na faixa, era silenciosamente
+          ignorada. */}
+      <div className="conversa-coluna">
         <h1 className="font-display text-hero text-text-primary leading-none">Olá, Matheus.</h1>
 
         {/* subtítulo a 359px do topo */}
