@@ -55,6 +55,64 @@ body {
               color 200ms var(--ease);
 }
 
+/* BARRA DE ROLAGEM
+   ---------------------------------------------------------------------------
+   A nativa aparecia inteira — trilho chapado e setas em cima e embaixo — e não
+   tem relação nenhuma com os 3 temas. Aqui ela vira um polegar arredondado
+   sobre trilho transparente.
+
+   A cor sai de color-mix e não de --divider: no dark a divisória é #181A1C
+   sobre canvas #07080D, o que funciona como linha de 1px e some como polegar. E
+   não pode ser um hex por tema, porque o mesmo componente serve os 3. O
+   color-mix puxa o canvas na direção do texto, então clareia nos escuros e
+   escurece nos claros sozinho — é a mesma construção da superfície da cápsula.
+
+   Os 12px são a área de agarrar; com a borda transparente e background-clip o
+   que se vê são 6px. Barra fina demais é bonita e impossível de pegar.
+
+   De propósito SEM `scrollbar-gutter: stable`: ele reserva o espaço à direita do
+   container e deslocaria o conteúdo centralizado meia-barra pra esquerda, que é
+   exatamente o eixo que acabou de ser acertado.
+
+   DOIS CAMINHOS, de propósito, e vale saber qual vence onde. Chrome 121+, Edge e
+   Firefox usam as propriedades padrão abaixo, e nesses navegadores definir
+   `scrollbar-color` faz o Blink IGNORAR os pseudo-elementos -webkit- (não é bug,
+   é a regra de precedência dele). Safari e WebViews mais antigas não conhecem o
+   padrão e caem nos pseudo-elementos. Os dois caminhos dão a mesma coisa —
+   polegar na cor do tema, trilho transparente, sem setas — então qualquer um que
+   o navegador escolha entrega o mesmo resultado. Ambos verificados resolvendo no
+   elemento real, com a mesma cor computada.
+
+   As duas propriedades são herdadas, então declarar na raiz cobre todo scroller
+   do app sem precisar repetir em cada um. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-polegar) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scroll-larg);
+  height: var(--scroll-larg);
+}
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-corner { background: transparent; }
+/* As setas do topo e da base. É o que mais denuncia a barra do sistema. */
+*::-webkit-scrollbar-button { display: none; }
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-polegar);
+  border: var(--scroll-recuo) solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-polegar-hover);
+}
+
+/* A rolagem de uma lista não continua na página. Sem isto, chegar ao fim da
+   lista repassa o gesto pro documento e a tela inteira dá aquele solavanco de
+   elástico — o "solta" que apareceu no preview. */
+:where(main, nav ul) { overscroll-behavior: contain; }
+
 /* MOVIMENTO
    ---------------------------------------------------------------------------
    Só transform e opacity, como manda o PERFORMANCE.md — e aqui isso não é só

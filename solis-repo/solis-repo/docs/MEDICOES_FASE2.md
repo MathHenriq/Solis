@@ -1075,6 +1075,45 @@ eixo da janela. Nenhuma medida de caixa pegava esse defeito — a caixa do form 
 então a regra foi escrita como o olho vê. Testada reinjetando o defeito: acusou
 `fora do eixo: texto dentro do campo a -44.0px do centro`.
 
+### 14. A barra de rolagem era a do sistema
+
+Trilho chapado e setas em cima e embaixo — a barra nativa do Windows, sem relação nenhuma
+com os 3 temas. Virou token (`appearance.scrollbar`): polegar arredondado sobre trilho
+transparente, sem setas.
+
+**A cor não pode ser `--divider` nem um hex por tema.** A divisória no dark é `#181A1C` sobre
+canvas `#07080D` — funciona como linha de 1px e sumiria como polegar. E um hex por tema não
+serve porque o mesmo componente serve os 3. Sai de `color-mix`, o canvas puxado 22% na
+direção do texto: clareia nos temas escuros e escurece nos claros sozinho. É a mesma
+construção da superfície da cápsula.
+
+Os 12px são a área de agarrar; com borda transparente e `background-clip: content-box` o que
+se vê são 6px. Barra fina demais é bonita e impossível de pegar com o mouse.
+
+**Sem `scrollbar-gutter: stable`, de propósito.** Ele reserva o espaço à direita do container
+e deslocaria o conteúdo centralizado meia-barra pra esquerda — o eixo da seção 13.
+
+**Dois caminhos, e vale saber qual vence onde.** Chrome 121+, Edge e Firefox usam
+`scrollbar-width`/`scrollbar-color`, e nesses o Blink IGNORA os pseudo-elementos `-webkit-`
+quando `scrollbar-color` está definido — é a regra de precedência dele, não um bug. Safari e
+WebViews mais antigas caem nos pseudo-elementos. Os dois entregam a mesma coisa, e ambos
+foram verificados resolvendo no elemento real com a mesma cor computada:
+
+```
+padrao W3C : scrollbar-width thin · scrollbar-color color(srgb 0.229 0.221 0.223) transparent
+webkit     : largura 12px · polegar a mesma cor · raio 999px · borda 3px · setas display:none
+```
+
+Junto foi `overscroll-behavior: contain` nos scrollers. Sem ele, chegar ao fim de uma lista
+repassa o gesto pro documento e a tela inteira dá o solavanco de elástico.
+
+**Limitação declarada.** O Chromium headless desta máquina usa barra de sobreposição e não
+pinta nenhuma barra na captura, com ou sem as flags de desativar overlay (`OverlayScrollbar`,
+`FluentOverlayScrollbar`, `FluentScrollbar` — todas testadas, todas reservam 0px). Então
+**não existe pixel desta mudança**, e pela Regra 3 isso é dito e não disfarçado: o que existe
+é a verificação computada acima, no elemento real do app. A confirmação visual tem que vir da
+máquina do Matheus.
+
 ### A varredura ganhou a janela do navegador
 
 Nada disso aparecia na varredura porque ela rodava só em 1440 × 930. Agora roda em duas

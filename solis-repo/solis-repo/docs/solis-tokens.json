@@ -537,6 +537,17 @@
       "defaultOnFirstInstall": "sidebar",
       "persistence": "local, mesma chave-registro do tema: solis.appearance.nav",
       "_nota": "Substituicao, nao complemento: com 'icones' a coluna lateral deixa de existir e os 8 itens migram pra uma capsula flutuante no rodape. Foi o erro da 1a geracao da referencia, que manteve a sidebar e acrescentou uma barra de ferramentas."
+    },
+    "scrollbar": {
+      "width": "12px",
+      "inset": "3px",
+      "thumb": "color-mix(in srgb, var(--canvas) 78%, var(--text-primary))",
+      "thumbHover": "color-mix(in srgb, var(--canvas) 62%, var(--text-primary))",
+      "_comment": "A barra de rolagem nativa do sistema aparecia inteira — trilho chapado, setas em cima e embaixo — e nao tem nada a ver com os 3 temas. Aqui ela vira um polegar arredondado sobre trilho transparente, sem setas.",
+      "_porQueColorMix": "Nao da pra usar --divider: no dark ele e #181A1C sobre canvas #07080D, uma linha de 1px que funciona como divisoria e some como polegar. E nao da pra usar um hex por tema, porque o mesmo componente serve os 3. O color-mix resolve os dois: sempre o canvas puxado na direcao do texto, entao clareia nos temas escuros e escurece nos claros, sozinho. E a mesma construcao da superficie da capsula (iconBar.surface).",
+      "_inset": "O polegar tem borda transparente e background-clip: content-box. Os 12px sao a area de agarrar; o que se ve sao 6px. Barra fina demais e bonita e impossivel de pegar com o mouse.",
+      "_semGutter": "De proposito NAO se usa scrollbar-gutter: stable. Ele reserva o espaco a direita do container e deslocaria o conteudo centralizado meia-barra pra esquerda — exatamente o eixo que acabou de ser acertado.",
+      "_doisCaminhos": "Chrome 121+, Edge e Firefox usam scrollbar-width/scrollbar-color; nesses o Blink IGNORA os pseudo-elementos -webkit- quando scrollbar-color esta definido — e a regra de precedencia dele, nao um bug. Safari e WebViews antigas caem nos pseudo-elementos. Os dois caminhos entregam a mesma coisa: polegar na cor do tema, trilho transparente, sem setas. Verificados resolvendo no elemento real com a mesma cor computada."
     }
   },
   "platform": {

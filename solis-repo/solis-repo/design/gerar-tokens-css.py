@@ -185,6 +185,13 @@ for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-bala
                    ('timeSize','--th-hora')]:
     w('  %s: %s;' % (var, th[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
+w('')
+w('  /* Barra de rolagem. Ver appearance.scrollbar no JSON. */')
+sc = T['appearance']['scrollbar']
+w('  --scroll-larg: %s;'        % sc['width'])
+w('  --scroll-recuo: %s;'       % sc['inset'])
+w('  --scroll-polegar: %s;'     % sc['thumb'])
+w('  --scroll-polegar-hover: %s;' % sc['thumbHover'])
 w('  --chip-height: %s;'        % cp['actionChipHeight'])
 w('')
 w('  /* tipografia — fontFamilyDisplay so na saudacao (contraste intencional) */')
