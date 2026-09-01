@@ -17,8 +17,24 @@ export function TopoIcones() {
       className="fixed inset-x-0 top-0 flex items-center pointer-events-none"
       style={{ height: 'var(--topo-h)', zIndex: 3 }}
     >
-      <div className="flex items-center gap-lg mx-auto">
-        <SolisSimbolo className="text-text-primary" style={{ width: 48, height: 'auto' }} />
+      {/* Quem centraliza é o NOME, não o lockup inteiro — o símbolo fica absoluto
+          à esquerda dele e sai da conta.
+
+          A referência centraliza a caixa do lockup (medido: caixa a -1,5px do
+          centro, nome a +58,5px). O app fazia igual, e ficava menos deslocado que
+          ela (+32px numa janela de 1919). Mas o olho não lê a caixa: ele traça a
+          linha do meio de "SOLIS" e cobra que a cápsula e os atalhos caiam nela.
+          Divergência da referência ASSUMIDA, e é a única do projeto — registrada
+          em layout.iconBar._alinhamentoDoNome.
+
+          O paddingLeft compensa o letter-spacing, que o CSS aplica também depois
+          da última letra: sem ele a caixa é assimétrica e centralizá-la não
+          centralizaria a palavra. */}
+      <div className="relative mx-auto">
+        <SolisSimbolo
+          className="absolute right-full top-1/2 -translate-y-1/2 mr-lg text-text-primary"
+          style={{ width: 48, height: 'auto' }}
+        />
         <span
           className="font-wordmark text-text-primary"
           style={{ fontSize: 20, letterSpacing: 'var(--wordmark-tracking)', paddingLeft: 'var(--wordmark-tracking)' }}

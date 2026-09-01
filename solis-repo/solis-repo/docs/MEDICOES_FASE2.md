@@ -1000,6 +1000,43 @@ da altura. O `padding-top` da coluna estava num `style` inline do componente, e 
 qualquer seletor — a regra do modo de ícones que zerava o topo era silenciosamente ignorada.
 Toda a geometria da coluna saiu do inline pro CSS.
 
+### 12. O campo transparente, e a única divergência assumida da referência
+
+**O campo ganhou superfície.** Transparente sobre a foto do horizonte, o contorno fino
+sozinho não fechava o retângulo e o campo flutuava — é literalmente o mesmo defeito que os
+chips já tinham tido, descrito em `_chipSurface`. Agora ele usa a mesma superfície deles: o
+véu fraco do canvas, véu forte no `focus-within`. Véu e não cor chapada porque o mesmo
+componente serve os 3 temas, e nos claros o véu tem que escurecer em vez de clarear.
+
+**O alinhamento do cabeçalho — divergência assumida, a única do projeto.** O Matheus leu o
+cabeçalho como torto. Fui à referência antes de mexer:
+
+| | lockup inteiro | só a palavra "SOLIS" |
+|---|---|---|
+| `12-conversa-barra-icones.png` (1536) | centro **−1,5px** | **+58,5px** |
+| app, antes (1919) | centro **0px** | **+32px** |
+
+A referência centraliza a CAIXA do lockup, e o app fazia o mesmo — ficando inclusive menos
+deslocado que ela em proporção. Pela Regra 2 o app estava certo.
+
+**Mas a leitura dele procede, e é o tipo de coisa que só aparece com o app na frente.** O
+olho não traça a linha do meio da caixa; traça a do meio do NOME, e cobra que a cápsula, o
+campo e os atalhos caiam nela. Uma caixa centrada com um símbolo pesado de um lado só
+desloca a palavra, e é a palavra que serve de eixo.
+
+Então quem centraliza passou a ser o wordmark; o símbolo ficou absoluto à esquerda dele e
+saiu da conta. Medido depois, em três janelas — desvio do eixo da janela:
+
+| | nome | cápsula | campo | atalhos |
+|---|---|---|---|---|
+| 1919 × 865 | **0** | **0** | **0** | **0** |
+| 1532 × 693 | **0** | **0** | **0** | **0** |
+| 1440 × 930 | **0** | **0** | **0** | **0** |
+
+Registrada em `layout.iconBar._alinhamentoDoNome`. É a única divergência deliberada da
+referência no projeto inteiro, e está aqui porque foi decidida com a medição da referência na
+mesa, não por aproximação.
+
 ### A varredura ganhou a janela do navegador
 
 Nada disso aparecia na varredura porque ela rodava só em 1440 × 930. Agora roda em duas

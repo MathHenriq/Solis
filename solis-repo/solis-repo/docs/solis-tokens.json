@@ -232,7 +232,9 @@
       "maxWidth": "980px",
       "_maxWidth": "Teto da largura do composer. Existe como token proprio porque a ancora da coluna depende dele: enquanto o campo ainda cresce com a janela, a ancora de 191px e uma proporcao; passado o teto ela vira um vao desequilibrado.",
       "anchorLeft": "191px",
-      "_anchorLeft": "Distancia da sidebar ate a coluna da Conversa, medida na referencia 01-conversa.png numa janela de 1440. Vale enquanto o composer nao bateu o teto; a partir dai a coluna centraliza (ver _maxWidth)."
+      "_anchorLeft": "Distancia da sidebar ate a coluna da Conversa, medida na referencia 01-conversa.png numa janela de 1440. Vale enquanto o composer nao bateu o teto; a partir dai a coluna centraliza (ver _maxWidth).",
+      "surface": "true",
+      "_surface": "O campo ganhou a mesma superficie dos atalhos logo abaixo (o veu fraco do canvas, veu forte no focus-within). Transparente, sobre a foto do horizonte, o contorno fino sozinho nao fechava o retangulo e o campo flutuava — exatamente o defeito que os chips ja tinham tido e que _chipSurface descreve. Veu e nao cor chapada porque o mesmo componente serve os 3 temas."
     },
     "memoria": {
       "_fonte": "Medido em referencias/telas/09-memoria.png (1534x1022 uteis), normalizado pela LARGURA da janela pra 1440. O x de tudo foi medido a partir da DIVISORIA da sidebar, nao da borda da janela — a referencia veio com sidebar de 267px e a do app tem 200px, entao medir da borda deslocaria a tela inteira.",
@@ -305,7 +307,8 @@
       "surface": "color-mix(in srgb, var(--canvas) 92%, var(--text-primary))",
       "_surface": "Quase opaca, e nao um veu translucido. Ela flutua sobre conteudo rolavel, e com veu o texto de tras aparecia atraves dela — foi o 'fundo transparente nao ficou legal'. Sem backdrop-filter de proposito: vidro embacado obriga o navegador a repintar a regiao a cada scroll, e o PERFORMANCE.md pede o contrario. Fundo quase opaco custa zero e resolve a legibilidade igual.",
       "shadow": "0 10px 34px rgb(0 0 0 / 0.18)",
-      "_shadow": "Sombra estatica, nunca animada. E o que separa a capsula do conteudo e diz que ela flutua — sem ela o fundo quase opaco parece um retangulo colado na tela."
+      "_shadow": "Sombra estatica, nunca animada. E o que separa a capsula do conteudo e diz que ela flutua — sem ela o fundo quase opaco parece um retangulo colado na tela.",
+      "_alinhamentoDoNome": "DIVERGENCIA ASSUMIDA da referencia, a unica do projeto. Na referencia 12 o lockup do cabecalho e centrado pela CAIXA: medida, a caixa fica a -1,5px do centro da janela e a palavra SOLIS a +58,5px. O app fazia o mesmo e ficava ate menos deslocado (+32px numa janela de 1919). O Matheus leu como torto, e a leitura procede: o olho nao traca a linha do meio da caixa, traca a do meio do NOME, e cobra que a capsula e os atalhos caiam nela. Agora quem centraliza e o wordmark; o simbolo fica absoluto a esquerda dele e sai da conta. Capsula, composer, atalhos e nome passam todos pelo mesmo eixo."
     },
     "thread": {
       "_fonte": "Medido em referencias/telas/18-conversa-thread.png. Ver _variantes/LEIA-ME.md pro porque das outras duas geracoes terem sido descartadas.",
