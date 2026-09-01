@@ -190,6 +190,24 @@ main {
 }
 :root[data-nav="icones"] .conversa-coluna input { text-align: center; }
 
+/* O recuo de 29px do texto no campo. Mora aqui e não num style inline porque o
+   modo 'icones' precisa zerá-lo: lá o texto é centralizado, e 29px de padding
+   deslocariam o centro em 14,5px. */
+.conversa-coluna input { padding-left: 29px; }
+:root[data-nav="icones"] .conversa-coluna input { padding-left: 0; }
+
+/* O espelho do bloco de ações. Ver o comentário no form em Conversa.tsx: ele
+   existe só pra devolver ao lado esquerdo a largura que o microfone e a seta
+   tomam do direito, pra que o texto centralizado caia no eixo do form e não no
+   da caixa do input. `visibility: hidden` reserva o espaço; `display: none`
+   não reservaria, e é justamente o espaço que interessa. */
+.composer-espelho { display: none; }
+:root[data-nav="icones"] .composer-espelho {
+  display: flex;
+  align-items: center;
+  visibility: hidden;
+}
+
 .cena-camada {
   left: var(--sidebar-width);
   right: 0;

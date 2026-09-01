@@ -83,6 +83,34 @@ for (const nav of NAVS) {
           saida.push(`conteudo rola sem ter o que rolar: ${main.scrollHeight}px em ${main.clientHeight}px`);
         }
       }
+      /* O EIXO. No modo 'icones' tudo e centrado na janela, e "tudo" inclui o
+         texto dentro do campo. Ele estava caindo 30px a esquerda porque texto
+         centralizado se centra na caixa do INPUT, e a caixa do input e mais
+         curta que o form — o microfone e a seta ocupam a direita. Nenhuma
+         medida de caixa pegava isso: a caixa do form estava certa. A regra e a
+         que o olho usa, entao ela e escrita como o olho ve: todo elemento que
+         devia estar no eixo, no eixo. */
+      if (document.documentElement.dataset.nav === 'icones') {
+        const eixo = window.innerWidth / 2;
+        const meio = (el) => { const r = el.getBoundingClientRect(); return (r.left + r.right) / 2; };
+        const col = document.querySelector('.conversa-coluna');
+        const cap = [...document.querySelectorAll('nav, div')]
+          .find((e) => getComputedStyle(e).position === 'fixed' && e.querySelectorAll('a').length >= 8);
+        const nome = [...document.querySelectorAll('header span')]
+          .find((e) => e.textContent.trim() === 'SOLIS');
+        const alvos = [
+          ['nome no cabecalho', nome],
+          ['capsula', cap],
+          ['campo', col && col.querySelector('form')],
+          ['texto dentro do campo', col && col.querySelector('input')],
+          ['fileira de atalhos', col && col.lastElementChild],
+        ];
+        for (const [rotulo, el] of alvos) {
+          if (!el) continue;
+          const d = meio(el) - eixo;
+          if (Math.abs(d) > 1) saida.push(`fora do eixo: ${rotulo} a ${d.toFixed(1)}px do centro`);
+        }
+      }
       if (document.documentElement.scrollWidth > window.innerWidth + 1) {
         saida.push(`estouro horizontal: ${document.documentElement.scrollWidth}px`);
       }

@@ -1037,6 +1037,44 @@ Registrada em `layout.iconBar._alinhamentoDoNome`. É a única divergência deli
 referência no projeto inteiro, e está aqui porque foi decidida com a medição da referência na
 mesa, não por aproximação.
 
+### 13. O eixo, medido em tinta e não em caixa
+
+Depois de centralizar o nome o Matheus marcou duas linhas na tela e disse que continuava
+torto. Estava. E eu não tinha achado porque estava medindo **caixas**, e todas elas estavam
+certas.
+
+Medindo **tinta** — leitura de pixel na captura, que é o que o olho faz — desvio do eixo da
+janela numa janela de 1919:
+
+| | antes | depois |
+|---|---|---|
+| nome "SOLIS" | −0,5 | −0,5 |
+| título | −1,0 | −1,0 |
+| subtítulo | −0,5 | −0,5 |
+| **texto dentro do campo** | **−30,0** | **−0,5** |
+| fileira de atalhos | −0,5 | −0,5 |
+| ícones da cápsula | +0,5 | +0,5 |
+
+**Texto centralizado se centra na caixa do INPUT, não na do form.** E a caixa do input é 89px
+mais curta que o form, porque o microfone e a seta ocupam a direita. A conta fecha exata:
+−89/2 da meia-caixa, +29/2 do recuo do texto = **−30,0px**, que é o que a tinta mostrou. A
+marcação dele passava justamente pelo "S" de "Solis…".
+
+A correção é um **espelho** do bloco de ações à esquerda do campo, e ele carrega os controles
+DE VERDADE, invisíveis — não uma largura em token. Assim os dois lados têm a mesma largura
+por construção e não podem divergir se um ícone mudar de tamanho um dia. `visibility: hidden`
+e não `display: none`: só o primeiro reserva o espaço, e é o espaço que interessa.
+
+O recuo de 29px do texto saiu do `style` inline pro CSS — mesma armadilha da seção 11, e no
+modo de ícones ele agora é zero, porque com o texto centralizado 29px de padding deslocariam
+o centro em 14,5px.
+
+**A guarda nova é a regra que o olho usa.** No modo de ícones a varredura passou a exigir que
+nome, cápsula, campo, texto dentro do campo e fileira de atalhos estejam a no máximo 1px do
+eixo da janela. Nenhuma medida de caixa pegava esse defeito — a caixa do form estava certa —
+então a regra foi escrita como o olho vê. Testada reinjetando o defeito: acusou
+`fora do eixo: texto dentro do campo a -44.0px do centro`.
+
 ### A varredura ganhou a janela do navegador
 
 Nada disso aparecia na varredura porque ela rodava só em 1440 × 930. Agora roda em duas

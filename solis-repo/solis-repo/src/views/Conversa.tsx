@@ -17,6 +17,34 @@ const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
   { rotulo: 'Analisar', icone: 'analisar' },
 ];
 
+/** Microfone e envio. Renderizado duas vezes: uma de verdade à direita do campo
+ *  e uma invisível à esquerda, como espelho — ver o comentário no form. */
+function Acoes({ interativo = false }: { interativo?: boolean } = {}) {
+  return (
+    <>
+      <button
+        type="button"
+        className="text-text-secondary p-sm"
+        aria-label={interativo ? 'Falar' : undefined}
+        aria-hidden={!interativo}
+        tabIndex={interativo ? undefined : -1}
+      >
+        <Icone nome="microfone" tamanho={19} />
+      </button>
+      <button
+        type={interativo ? 'submit' : 'button'}
+        className="text-accent p-sm"
+        style={{ marginRight: 18 }}
+        aria-label={interativo ? 'Enviar' : undefined}
+        aria-hidden={!interativo}
+        tabIndex={interativo ? undefined : -1}
+      >
+        <Icone nome="enviar" tamanho={19} />
+      </button>
+    </>
+  );
+}
+
 export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {}) {
   return (
     <main className="tela-conversa relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
@@ -61,18 +89,28 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
             aoAbrirThread?.();
           }}
         >
+          {/* Espelho do bloco de ações, à esquerda do campo.
+              No modo 'icones' o texto do campo é centralizado, e centralizado
+              DENTRO DA CAIXA DO INPUT — que é 89px mais curta que o form, porque
+              o microfone e a seta ocupam a direita. O texto caía 30px à esquerda
+              do eixo (−44,5 da meia-caixa, +14,5 do padding), e era isso o torto:
+              tudo o mais na tela passava pelo eixo, menos o placeholder.
+
+              O espelho carrega os controles DE VERDADE, invisíveis: assim a
+              largura dos dois lados é a mesma por construção e não pode divergir
+              se um ícone mudar de tamanho. `visibility: hidden` e não `display:
+              none` justamente porque só o primeiro reserva o espaço.
+              No modo sidebar o texto é alinhado à esquerda e o espelho some. */}
+          <span className="composer-espelho" aria-hidden>
+            <Acoes />
+          </span>
           <input
             className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
-            style={{ paddingLeft: 29, fontSize: 16 }}
+            style={{ fontSize: 16 }}
             placeholder="Fale com o Solis…"
             aria-label="Fale com o Solis"
           />
-          <button type="button" className="text-text-secondary p-sm" aria-label="Falar">
-            <Icone nome="microfone" tamanho={19} />
-          </button>
-          <button type="submit" className="text-accent p-sm" style={{ marginRight: 18 }} aria-label="Enviar">
-            <Icone nome="enviar" tamanho={19} />
-          </button>
+          <Acoes interativo />
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}
