@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Icone, type NomeIcone } from '../components/icons';
 
 /** Tela de Conversa — estado de abertura.
@@ -8,7 +9,11 @@ import { Icone, type NomeIcone } from '../components/icons';
  *
  *  O microfone está aqui porque a decisão registrada é que ele sumiu das 3
  *  telas por omissão do gerador de imagem, não por decisão de produto: Whisper
- *  e a Camada 3 do SOLIS_SIGNATURE.md dependem dele como porta de entrada. */
+ *  e a Camada 3 do SOLIS_SIGNATURE.md dependem dele como porta de entrada.
+ *
+ *  Enviar texto daqui abre a Thread E manda a mensagem pro modelo local (ver
+ *  lib/useConversa). A tela não espera a resposta: quem desenha o estado de
+ *  "gerando" é a Thread, com o cursor. */
 
 const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
   { rotulo: 'Nova tarefa', icone: 'nova-tarefa' },
@@ -45,7 +50,12 @@ function Acoes({ interativo = false }: { interativo?: boolean } = {}) {
   );
 }
 
-export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {}) {
+export function Conversa({
+  aoAbrirThread,
+  aoEnviar,
+}: { aoAbrirThread?: () => void; aoEnviar?: (texto: string) => void } = {}) {
+  const [texto, definirTexto] = useState('');
+
   return (
     <main className="tela-conversa relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
@@ -86,6 +96,15 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
           style={{ marginTop: 'var(--conversa-campo)', width: '100%', height: 'var(--composer-height)' }}
           onSubmit={(e) => {
             e.preventDefault();
+            // Campo vazio continua abrindo a Thread sem mandar nada: é por aí
+            // que design/capturar-todas.mjs chega no segundo estado da tela pra
+            // conferir contra a referência. Com texto, a mensagem vai pro
+            // modelo e a Thread abre já com ela.
+            const limpo = texto.trim();
+            if (limpo) {
+              definirTexto('');
+              aoEnviar?.(limpo);
+            }
             aoAbrirThread?.();
           }}
         >
@@ -109,6 +128,8 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
             style={{ fontSize: 16 }}
             placeholder="Fale com o Solis…"
             aria-label="Fale com o Solis"
+            value={texto}
+            onChange={(e) => definirTexto(e.target.value)}
           />
           <Acoes interativo />
         </form>

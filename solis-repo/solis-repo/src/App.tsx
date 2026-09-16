@@ -3,6 +3,7 @@ import { BarraIcones } from './components/BarraIcones';
 import { Horizonte } from './components/Horizonte';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
+import { useConversa } from './lib/useConversa';
 import { useTheme } from './theme/useTheme';
 import { Agenda } from './views/Agenda';
 import { Conhecimento } from './views/Conhecimento';
@@ -23,18 +24,25 @@ import { Thread } from './views/Thread';
  *  router de verdade. */
 export default function App() {
   const [tela, definirTela] = useState('conversa');
-  // A Conversa tem dois estados: vazia e com thread. PROVISÓRIO — hoje é um
-  // botão de demonstração; quando o backend entrar, quem decide é ter ou não
-  // mensagens na conversa aberta.
+  // A Conversa tem dois estados: vazia e com thread.
   const [comThread, definirComThread] = useState(false);
   const { tema, setTema, cena, setCena, nav, setNav } = useTheme();
+  // A conversa mora AQUI e não dentro da Conversa ou da Thread: as duas são a
+  // mesma tela em dois estados, e o App troca uma pela outra ao enviar. Estado
+  // dentro delas morreria nessa troca — junto com a mensagem recém-enviada.
+  const conversa = useConversa();
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
   const comSidebar = nav === 'sidebar';
 
   const TELAS: Record<string, () => ReactElement> = {
-    conversa: () => (comThread ? <Thread /> : <Conversa aoAbrirThread={() => definirComThread(true)} />),
+    conversa: () =>
+      comThread ? (
+        <Thread turnos={conversa.turnos} gerando={conversa.gerando} aoEnviar={conversa.enviar} />
+      ) : (
+        <Conversa aoAbrirThread={() => definirComThread(true)} aoEnviar={conversa.enviar} />
+      ),
     memoria: () => <Memoria />,
     modelos: () => <ModelosLocais />,
     ferramentas: () => <Ferramentas />,

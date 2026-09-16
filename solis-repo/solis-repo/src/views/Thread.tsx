@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icone } from '../components/icons';
 import { SolisSimbolo } from '../components/SolisSimbolo';
+import type { Turno } from '../lib/useConversa';
 
 /** Conversa com thread em andamento — o outro estado da tela de Conversa.
  *  Referência: referencias/telas/18-conversa-thread.png.
@@ -19,14 +20,19 @@ import { SolisSimbolo } from '../components/SolisSimbolo';
  *  o Solis roda na mesma máquina, não há rede entre as pontas e não há outra
  *  pessoa do outro lado. Ver referencias/telas/_variantes/LEIA-ME.md.
  *
- *  PROVISÓRIO: a thread é estática e o cursor não pisca de verdade contra um
- *  stream. Quando o Ollama entrar, `digitando` vira o estado real do stream. */
+ *  Os turnos vêm de fora (lib/useConversa) — este componente só desenha. O
+ *  formato é o mesmo de quando a thread era uma constante aqui dentro; o que
+ *  mudou foi a origem: agora é o modelo local respondendo.
+ *
+ *  PROVISÓRIO: `digitando` é o cursor de espera, não um stream token a token —
+ *  o backend responde de uma vez (stream: false). Quando o streaming entrar,
+ *  este mesmo campo passa a acompanhar o stream de verdade. */
 
-type Turno =
-  | { de: 'pessoa'; hora: string; texto: string }
-  | { de: 'solis'; hora: string; blocos: ReactNode[]; digitando?: boolean };
-
-const THREAD: Turno[] = [
+/** A thread de referência, usada quando ninguém passa turnos: é o segundo
+ *  estado da tela em design/capturar-todas.mjs, pra conferir o desenho contra
+ *  referencias/telas/18-conversa-thread.png sem depender do backend. Conversa
+ *  de verdade nunca chega aqui vazia — sempre tem ao menos a pergunta. */
+const REFERENCIA: Turno[] = [
   { de: 'pessoa', hora: '10:32', texto: 'Me lembra o que a gente decidiu sobre o fundo da tela?' },
   {
     de: 'solis',
@@ -64,16 +70,35 @@ function Paragrafo({ bloco }: { bloco: ReactNode }) {
   return <p style={{ marginTop: 'var(--th-par-gap)' }}>{bloco}</p>;
 }
 
-export function Thread() {
+export function Thread({
+  turnos,
+  gerando = false,
+  aoEnviar,
+}: { turnos?: Turno[]; gerando?: boolean; aoEnviar?: (texto: string) => void } = {}) {
+  const [texto, definirTexto] = useState('');
+  const rolagem = useRef<HTMLDivElement>(null);
+
+  const lista = turnos && turnos.length ? turnos : REFERENCIA;
+
+  // Mensagem nova nasce abaixo da dobra; sem isto a conversa parece parada.
+  // `scrollTop` direto e não scrollIntoView com `behavior: smooth`: a rolagem
+  // suave do navegador anima o scroll do container em cada frame e briga com a
+  // rolagem do usuário se ele estiver lendo mais acima.
+  useEffect(() => {
+    const caixa = rolagem.current;
+    if (caixa) caixa.scrollTop = caixa.scrollHeight;
+  }, [lista, gerando]);
+
   return (
     <main className="relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
       {/* A thread rola e a primeira mensagem entra cortada pela borda de cima —
           é o corte que diz que há histórico acima. */}
       <div
+        ref={rolagem}
         className="flex-1 overflow-y-auto"
         style={{ paddingLeft: 'var(--mem-pad-l)', paddingRight: 'var(--mem-pad-r)', paddingTop: 'var(--th-turno-gap)' }}
       >
-        {THREAD.map((t, i) =>
+        {lista.map((t, i) =>
           t.de === 'pessoa' ? (
             <div key={i} className="flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
               <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
@@ -136,13 +161,21 @@ export function Thread() {
         <form
           className="flex items-center border border-divider rounded-composer"
           style={{ height: 'var(--th-composer-h)', width: 'var(--composer-width)', maxWidth: '100%', marginInline: 'auto' }}
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const limpo = texto.trim();
+            if (!limpo) return;
+            definirTexto('');
+            aoEnviar?.(limpo);
+          }}
         >
           <input
             className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
             style={{ paddingLeft: 29, fontSize: 'var(--mem-item-texto)' }}
             placeholder="Fale com o Solis…"
             aria-label="Fale com o Solis"
+            value={texto}
+            onChange={(e) => definirTexto(e.target.value)}
           />
           <button type="button" className="text-text-secondary p-sm" aria-label="Falar">
             <Icone nome="microfone" tamanho={22} />
