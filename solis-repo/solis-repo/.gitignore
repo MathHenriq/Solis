@@ -3,3 +3,6 @@ dist/
 src-tauri/target/
 __pycache__/
 *.pyc
+
+# venv do backend
+backend/.venv/

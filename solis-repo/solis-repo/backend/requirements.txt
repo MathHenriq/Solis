@@ -1,0 +1,7 @@
+# Backend do Solis. Só o necessário pra falar HTTP e servir HTTP.
+# Nada de LangChain e afins: a conversa com o Ollama é um POST em /api/chat, e
+# uma camada de abstração em cima disso custaria megabytes e travaria a versão
+# de metade da árvore de dependências.
+fastapi>=0.115
+uvicorn[standard]>=0.32
+httpx>=0.27
