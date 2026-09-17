@@ -69,6 +69,26 @@ CORS_ORIGINS = [
     "https://tauri.localhost",
 ]
 
+# --- Base de conhecimento (RAG) -------------------------------------------
+
+# Quantos chunks a busca devolve. Cinco cobre a pergunta que se espalha por
+# seções diferentes sem encher o contexto de ruído — cada chunk a mais é texto
+# que o modelo lê e pondera antes de responder.
+RAG_K = int(os.environ.get("SOLIS_RAG_K", "5"))
+
+# Fração mínima dos termos da pergunta que precisa aparecer no melhor trecho
+# para o contexto ser usado. Ver rag.gate_relevancia: é cobertura de termos,
+# não limiar de BM25.
+RAG_MINIMO = float(os.environ.get("SOLIS_RAG_MINIMO", "0.3"))
+
+# Teto do bloco de trechos no system prompt. 6000 caracteres são ~1500 tokens:
+# sobra janela para o histórico e para a resposta num modelo de contexto curto.
+RAG_MAX_CHARS = int(os.environ.get("SOLIS_RAG_MAX_CHARS", "6000"))
+
+# Teto do upload, em MB. Existe porque o arquivo é lido inteiro em memória
+# antes de virar texto — sem limite, um arquivo grande derruba o processo.
+MAX_UPLOAD_MB = int(os.environ.get("SOLIS_MAX_UPLOAD_MB", "25"))
+
 # --- Servidor -------------------------------------------------------------
 
 HOST = os.environ.get("SOLIS_HOST", "127.0.0.1")
