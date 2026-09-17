@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icone } from '../components/icons';
 import { SolisSimbolo } from '../components/SolisSimbolo';
+import type { Fonte as FonteRag } from '../lib/solisApi';
 import type { Turno } from '../lib/useConversa';
 
 /** Conversa com thread em andamento — o outro estado da tela de Conversa.
@@ -53,6 +54,33 @@ const REFERENCIA: Turno[] = [
     blocos: ['Sim. O contraste atende aos níveis AA do WCAG em todos os tem'],
   },
 ];
+
+/** De onde o Solis tirou a resposta, quando ela veio da base de conhecimento.
+ *
+ *  Fora do bloco de texto e no tamanho de legenda (`--mem-origem`, o mesmo das
+ *  linhas de detalhe da Memória e dos Modelos): a procedência é verificável,
+ *  não é a resposta. Herdar o corpo da mensagem daria a ela o mesmo peso do
+ *  que o Solis disse.
+ *
+ *  O trecho inteiro vai no `title` em vez de na tela — conferir a fonte é
+ *  eventual, e despejar quatro trechos embaixo de cada resposta empurraria a
+ *  conversa toda pra fora da dobra. */
+function Fontes({ fontes }: { fontes: FonteRag[] }) {
+  return (
+    <div
+      className="text-text-secondary"
+      style={{ marginTop: 'var(--th-par-gap)', fontSize: 'var(--mem-origem)' }}
+    >
+      <span>Fontes:</span>
+      {fontes.map((f, i) => (
+        <span key={`${f.document}-${f.chunk_idx}-${i}`} title={f.preview}>
+          {i ? ' · ' : ' '}
+          {f.document} <span style={{ opacity: 0.7 }}>(trecho {f.chunk_idx + 1})</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function Paragrafo({ bloco }: { bloco: ReactNode }) {
   if (Array.isArray(bloco)) {
@@ -143,6 +171,7 @@ export function Thread({
                     />
                   )}
                 </div>
+                {t.fontes && t.fontes.length > 0 && <Fontes fontes={t.fontes} />}
               </div>
             </div>
           ),

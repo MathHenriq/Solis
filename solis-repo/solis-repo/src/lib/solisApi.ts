@@ -50,9 +50,20 @@ export interface ListaModelos {
 export interface PedidoChat {
   message: string;
   model?: string;
+  /** Deixar indefinido mantém o padrão do backend (ligado). */
+  use_knowledge?: boolean;
   /** Turnos anteriores. Sem "system" de propósito: o system prompt é montado no
    *  backend e não é coisa que o frontend informe. */
   history?: TurnoHistorico[];
+}
+
+/** De onde saiu um pedaço da resposta, quando ela veio da base de conhecimento. */
+export interface Fonte {
+  document: string;
+  chunk_idx: number;
+  /** BM25 do SQLite: negativo, e quanto menor, melhor o casamento. */
+  score: number;
+  preview: string;
 }
 
 export interface RespostaChat {
@@ -60,6 +71,37 @@ export interface RespostaChat {
   model: string;
   eval_count: number;
   total_duration_ms: number;
+  /** Vazio quando a resposta não veio de documento nenhum. */
+  sources: Fonte[];
+  used_knowledge: boolean;
+}
+
+/** Um arquivo da base de conhecimento. `status` 'erro' vem com `error` preenchido. */
+export interface Documento {
+  id: number;
+  name: string;
+  chars: number;
+  n_chunks: number;
+  status: 'processado' | 'erro';
+  error: string | null;
+  created_at: string;
+}
+
+export interface ChunkEncontrado {
+  chunk_id: number;
+  document_id: number;
+  idx: number;
+  text: string;
+  document: string;
+  score: number;
+}
+
+export interface RespostaBusca {
+  /** A expressão MATCH que a pergunta gerou. Vazia = não havia termo buscável. */
+  fts_query: string;
+  chunks: ChunkEncontrado[];
+  passou_no_gate: boolean;
+  motivo: string;
 }
 
 /** Por que a chamada falhou, no nível em que dá pra decidir o que dizer:
@@ -97,7 +139,7 @@ async function detalheDoErro(resposta: Response): Promise<string> {
 
 async function pedir<T>(
   rota: string,
-  opcoes: { corpo?: unknown; timeout?: number } = {},
+  opcoes: { metodo?: 'GET' | 'POST' | 'DELETE'; corpo?: unknown; timeout?: number } = {},
 ): Promise<T> {
   const controle = new AbortController();
   // AbortController e não AbortSignal.timeout: o webview do Tauri no Linux é
@@ -107,10 +149,21 @@ async function pedir<T>(
 
   let resposta: Response;
   try {
+    // FormData vai cru e SEM Content-Type: o navegador precisa escrever o
+    // header ele mesmo pra incluir o `boundary` que separa as partes. Definir
+    // 'multipart/form-data' na mão produz um header sem boundary e o servidor
+    // não consegue ler o arquivo.
+    const ehFormData = typeof FormData !== 'undefined' && opcoes.corpo instanceof FormData;
     resposta = await fetch(`${BASE_URL}${rota}`, {
-      method: opcoes.corpo === undefined ? 'GET' : 'POST',
-      headers: opcoes.corpo === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: opcoes.corpo === undefined ? undefined : JSON.stringify(opcoes.corpo),
+      method: opcoes.metodo ?? (opcoes.corpo === undefined ? 'GET' : 'POST'),
+      headers:
+        opcoes.corpo === undefined || ehFormData ? undefined : { 'Content-Type': 'application/json' },
+      body:
+        opcoes.corpo === undefined
+          ? undefined
+          : ehFormData
+            ? (opcoes.corpo as FormData)
+            : JSON.stringify(opcoes.corpo),
       signal: controle.signal,
     });
   } catch (erro) {
@@ -144,4 +197,30 @@ export function listModels(): Promise<ListaModelos> {
 /** Uma rodada de conversa. */
 export function chat(pedido: PedidoChat): Promise<RespostaChat> {
   return pedir<RespostaChat>('/chat', { corpo: pedido, timeout: TIMEOUT_CHAT });
+}
+
+/** Sobe um arquivo para a base de conhecimento.
+ *
+ *  Resolve mesmo quando o arquivo não deu pra ler: aí o documento volta com
+ *  `status: 'erro'` e a mensagem em `error`. Rejeitar seria perder o registro
+ *  que a tela precisa mostrar na linha do arquivo. */
+export function uploadDocumento(arquivo: File): Promise<Documento> {
+  const forma = new FormData();
+  forma.append('file', arquivo);
+  // Mesmo teto do /chat: extrair texto de um PDF grande leva tempo, e o
+  // backend faz isso numa thread — a espera é real, não travamento.
+  return pedir<Documento>('/knowledge/documents', { corpo: forma, timeout: TIMEOUT_CHAT });
+}
+
+export function listarDocumentos(): Promise<Documento[]> {
+  return pedir<Documento[]>('/knowledge/documents');
+}
+
+export function removerDocumento(id: number): Promise<{ removed: number }> {
+  return pedir<{ removed: number }>(`/knowledge/documents/${id}`, { metodo: 'DELETE' });
+}
+
+/** Busca crua na base, sem modelo no meio. Mostra a consulta gerada e o gate. */
+export function buscarConhecimento(query: string, k?: number): Promise<RespostaBusca> {
+  return pedir<RespostaBusca>('/knowledge/search', { corpo: k === undefined ? { query } : { query, k } });
 }

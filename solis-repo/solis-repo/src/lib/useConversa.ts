@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { chat, SolisApiError, type TurnoHistorico } from './solisApi';
+import { chat, SolisApiError, type Fonte, type TurnoHistorico } from './solisApi';
 
 /** O estado de uma conversa: os turnos, se há resposta em curso, e como mandar
  *  a próxima. Mora fora das views porque a Conversa (tela vazia) e a Thread
@@ -16,7 +16,16 @@ export type Bloco = string | string[];
 
 export type Turno =
   | { de: 'pessoa'; hora: string; texto: string }
-  | { de: 'solis'; hora: string; blocos: Bloco[]; digitando?: boolean; erro?: boolean };
+  | {
+      de: 'solis';
+      hora: string;
+      blocos: Bloco[];
+      digitando?: boolean;
+      erro?: boolean;
+      /** Trechos da base de conhecimento que embasaram esta resposta. Vazio ou
+       *  ausente quando ela não veio de documento nenhum. */
+      fontes?: Fonte[];
+    };
 
 /** Quantos turnos anteriores acompanham a mensagem nova. Seis é o suficiente
  *  pra "o que eu disse antes" continuar valendo sem empurrar a conversa inteira
@@ -127,7 +136,14 @@ export function useConversa() {
 
       try {
         const resposta = await chat({ message: texto, history: historico });
-        acrescentar({ de: 'solis', hora: hora(), blocos: emBlocos(resposta.response) });
+        acrescentar({
+          de: 'solis',
+          hora: hora(),
+          blocos: emBlocos(resposta.response),
+          // `sources` e não `used_knowledge`: o que a interface mostra é a
+          // lista de trechos, então é a lista que decide se há o que mostrar.
+          fontes: resposta.sources?.length ? resposta.sources : undefined,
+        });
       } catch (erro) {
         // Backend fora do ar, Ollama parado, modelo ausente: tudo vira mensagem
         // dentro da conversa. Nada de alert nem de tela de crash
