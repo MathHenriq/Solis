@@ -268,6 +268,24 @@
       "hoverTintClaroStrong": "rgb(0 0 0 / 0.065)",
       "_hoverTintStrong": "O veu forte e pro hover de superficie que JA tem veu — os chips da Conversa. Sem ele o hover de um chip seria invisivel, porque o normal dele ja e o veu fraco."
     },
+    "estadoVazio": {
+      "_fonte": "Medido em referencias/telas/10-memoria-vazio.png (1536x1024). Escala pela regra de layout.memoria._escala, ancorada no titulo da propria imagem: o M de 'Memoria' tem 36px de caixa alta para um titulo de 34px em Playfair (caixa alta 0,708em), entao a imagem desenha 1,5px por px de CSS. Conferido no corpo: o N do subtitulo da 15,6px pelo mesmo fator, e o token e 15.",
+      "_uso": "Bloco centralizado de icone + titulo + corpo, para vazio e para erro (ERROR_STATES.md §6: o erro e uma mensagem dentro do fluxo, nao um alerta). Primeiro uso: Modelos locais sem Ollama ou sem servidor.",
+      "iconSize": "90px",
+      "_iconSize": "Tinta do icone na referencia: 115px de altura / 1,5 = 77px. O icone de modelos ocupa 20 das 24 unidades do grid, mais o traco fixo de 2px: 77 = caixa x 20/24 + 2, caixa de 90px. Conferido no app renderizado: 78px de tinta.",
+      "iconStroke": "2px",
+      "_iconStroke": "Traco de 3px na imagem / 1,5 = 2px — o mesmo traco do grid de icones. Fica constante em qualquer tamanho (vector-effect: non-scaling-stroke); escalar junto com a caixa daria quase 8px.",
+      "titleSize": "22px",
+      "_titleSize": "Caixa alta do A de 'Ainda' = 23px na imagem / 36px do M do titulo x 34px = 21,7px.",
+      "bodySize": "15px",
+      "bodyLineHeight": "1.42",
+      "_bodyLineHeight": "Passo entre as duas linhas do corpo: 32px na imagem / 1,5 = 21,3px sobre corpo de 15px.",
+      "iconTitleGap": "26px",
+      "titleBodyGap": "17px",
+      "_gaps": "Medidos na imagem e divididos por 1,5: do fim do icone ao topo da caixa alta do titulo, 35px; da LINHA DE BASE do titulo ao topo da caixa alta do corpo, 23px (base e nao fim da tinta, porque o 'g' de 'guardado' desce e um titulo sem descendente mediria outro vao) e convertidos em margem de caixa conferindo a tinta no app renderizado — a caixa de linha tem respiro acima da caixa alta e abaixo da descendente, entao a margem e menor que o vao de tinta.",
+      "centerY": "57.2%",
+      "_centerY": "Centro do bloco (topo do icone ao fim do corpo) a 586px de 1024 — 57,2% da altura da janela, abaixo do meio. Fracao e nao px, pelo mesmo motivo do ritmo vertical: a janela varia."
+    },
     "configuracoes": {
       "_fonte": "Medido em referencias/telas/11-configuracoes-aparencia.png. Tipografia pelas razoes contra o corpo de 16px (ver layout.memoria._escala); geometria em fracao da area de conteudo, nunca px bruto da imagem.",
       "cardTop": "142px",

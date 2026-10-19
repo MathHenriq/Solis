@@ -87,9 +87,12 @@ type Props = Omit<SVGProps<SVGSVGElement>, 'name'> & {
    *  property do contexto (ex.: 'var(--sidebar-icon)') pra que o tamanho venha
    *  do token e não de um default escondido aqui dentro. */
   tamanho?: number | string;
+  /** Traço em px de tela, constante em qualquer tamanho. Sem isto o traço 2
+   *  escala com a caixa — certo a 18–24px, grosso demais num ícone de 92px. */
+  tracoFixo?: string;
 };
 
-export function Icone({ nome, tamanho = 'var(--icon-xs)', style, ...resto }: Props) {
+export function Icone({ nome, tamanho = 'var(--icon-xs)', tracoFixo, style, ...resto }: Props) {
   // O tamanho vai por `style`, nunca pelos atributos width/height: atributo de
   // SVG é XML e não aceita var() — passar a custom property por ali faz o
   // navegador descartar o valor e o ícone estoura pra 100% do contêiner.
@@ -106,7 +109,12 @@ export function Icone({ nome, tamanho = 'var(--icon-xs)', style, ...resto }: Pro
       focusable="false"
       {...resto}
     >
-      <path d={CAMINHOS[nome]} />
+      {/* vector-effect não é herdado: tem que estar no path, não no svg. */}
+      <path
+        d={CAMINHOS[nome]}
+        vectorEffect={tracoFixo ? 'non-scaling-stroke' : undefined}
+        style={tracoFixo ? { strokeWidth: tracoFixo } : undefined}
+      />
     </svg>
   );
 }

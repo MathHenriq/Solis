@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Icone, type NomeIcone } from './icons';
 
 /** Moldura comum das telas de lista.
  *
@@ -19,12 +20,16 @@ export function Tela({
   acao,
   children,
   rolagem = true,
+  estado,
 }: {
   titulo: string;
   subtitulo?: string;
   acao?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   rolagem?: boolean;
+  /** Um <EstadoVazio>. Fica fora da área de lista porque se posiciona pela
+   *  altura da JANELA (57,2%), não pela da lista. */
+  estado?: ReactNode;
 }) {
   return (
     <main className="relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
@@ -62,7 +67,54 @@ export function Tela({
       >
         {children}
       </div>
+
+      {estado}
     </main>
+  );
+}
+
+/** Ícone + título + corpo, centralizado — o vazio e o erro de qualquer tela.
+ *  Referência: referencias/telas/10-memoria-vazio.png; medidas em
+ *  layout.estadoVazio no solis-tokens.json.
+ *
+ *  O mesmo bloco serve pra erro porque ERROR_STATES.md §6 pede isso: o erro é
+ *  uma mensagem dentro do fluxo, no tom do resto, nunca um alerta. O corpo
+ *  aceita quebra de linha explícita (`\n`) porque a referência quebra o texto
+ *  em frases, não pela largura. */
+export function EstadoVazio({ icone, titulo, corpo }: { icone: NomeIcone; titulo: string; corpo: string }) {
+  return (
+    <div
+      className="absolute flex flex-col items-center text-center pointer-events-none"
+      style={{
+        left: 'var(--mem-pad-l)',
+        right: 'var(--mem-pad-r)',
+        top: 'var(--vazio-centro-y)',
+        transform: 'translateY(-50%)',
+      }}
+    >
+      <Icone
+        nome={icone}
+        tamanho="var(--vazio-icone)"
+        tracoFixo="var(--vazio-traco)"
+        className="text-text-secondary"
+      />
+      <h2
+        className="font-display text-text-primary leading-none"
+        style={{ fontSize: 'var(--vazio-titulo)', marginTop: 'var(--vazio-icone-gap)' }}
+      >
+        {titulo}
+      </h2>
+      <p
+        className="text-text-secondary whitespace-pre-line"
+        style={{
+          fontSize: 'var(--vazio-corpo)',
+          lineHeight: 'var(--vazio-corpo-lh)',
+          marginTop: 'var(--vazio-titulo-gap)',
+        }}
+      >
+        {corpo}
+      </p>
+    </div>
   );
 }
 

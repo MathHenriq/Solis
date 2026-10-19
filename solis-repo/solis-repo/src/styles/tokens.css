@@ -69,6 +69,16 @@
   --mem-data: 15px;
   --mem-texto-max: 540px;
 
+  /* Estado vazio/erro — medido em 10-memoria-vazio.png. Ver layout.estadoVazio. */
+  --vazio-icone: 90px;
+  --vazio-traco: 2px;
+  --vazio-titulo: 22px;
+  --vazio-corpo: 15px;
+  --vazio-corpo-lh: 1.42;
+  --vazio-icone-gap: 26px;
+  --vazio-titulo-gap: 17px;
+  --vazio-centro-y: 57.2%;
+
   /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de
    * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */
   --solis-cena-altura: 55vh;

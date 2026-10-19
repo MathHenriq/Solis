@@ -140,6 +140,14 @@ for chave, var in [('padLeft','--mem-pad-l'), ('padRight','--mem-pad-r'),
                    ('textMaxWidth','--mem-texto-max')]:
     w('  %s: %s;' % (var, mem[chave]))
 w('')
+w('  /* Estado vazio/erro — medido em 10-memoria-vazio.png. Ver layout.estadoVazio. */')
+ev = T['layout']['estadoVazio']
+for chave, var in [('iconSize','--vazio-icone'), ('iconStroke','--vazio-traco'),
+                   ('titleSize','--vazio-titulo'), ('bodySize','--vazio-corpo'),
+                   ('bodyLineHeight','--vazio-corpo-lh'), ('iconTitleGap','--vazio-icone-gap'),
+                   ('titleBodyGap','--vazio-titulo-gap'), ('centerY','--vazio-centro-y')]:
+    w('  %s: %s;' % (var, ev[chave]))
+w('')
 w('  /* A cena e uma BANDA ancorada na base da area de conteudo, nao um fundo de')
 w('   * tela cheia. Ver solis-tokens.json -> scenes._ancoragem e ._geometria. */')
 w('  --solis-cena-altura: %s;' % CENA['height'])
