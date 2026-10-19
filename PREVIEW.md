@@ -19,8 +19,9 @@ Vercel procuraria um `package.json` na raiz do repositório e falharia.
 - **É uma interface de desktop.** Foi medida contra referências de 1440 × 930 e não tem
   layout responsivo — abrir no celular vai parecer quebrado, e está certo assim: o Solis é
   um app de janela, não um site.
-- **Os dados são de exemplo.** A lista de Memória é um array no próprio componente, marcado
-  como `PROVISÓRIO`. Não há backend, não há banco, não há modelo. É o front.
+- **Os dados são de exemplo**, menos em Modelos locais. As outras listas são arrays no próprio
+  componente, marcados como `PROVISÓRIO`. Modelos locais lê do servidor local, que não existe
+  na Vercel — então ali aparece "Servidor do Solis desligado", e está certo.
 - **As 8 telas funcionam** e a navegação troca de verdade. A Conversa tem dois estados:
   vazia, e com thread — enviar qualquer coisa no campo abre o segundo.
 - **Aparência é o melhor lugar pra passear.** Em Configurações → Aparência dá pra trocar os
@@ -31,6 +32,6 @@ Vercel procuraria um `package.json` na raiz do repositório e falharia.
 
 ## Backend
 
-Fica para depois do preview no ar, por decisão do Matheus. Quando entrar (SQLite+FTS5,
-Ollama, Whisper, Piper), nada disso roda na Vercel — é tudo local, dentro do Tauri. O
-preview continua sendo só a casca visual.
+Começou: `solis-repo/solis-repo/backend/` (FastAPI), hoje só com o Ollama. Como ligar está no
+README de lá. Nada dele roda na Vercel — é tudo local. O preview continua sendo a casca
+visual.

@@ -11,6 +11,7 @@
     "tokens": "python3 design/gerar-tokens-css.py",
     "assets": "python3 design/gerar-assets.py",
     "checar": "python3 design/checar-regras.py",
+    "backend": "cd backend && python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765 --reload",
     "varrer": "node design/varrer-telas.mjs http://localhost:4173/"
   },
   "dependencies": {
