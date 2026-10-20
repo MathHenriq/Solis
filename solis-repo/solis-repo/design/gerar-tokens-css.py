@@ -190,7 +190,7 @@ for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-bala
                    ('avatarSize','--th-avatar'), ('avatarGap','--th-avatar-gap'),
                    ('turnGap','--th-turno-gap'), ('paragraphGap','--th-par-gap'),
                    ('composerHeight','--th-composer-h'), ('composerBottom','--th-composer-base'),
-                   ('timeSize','--th-hora')]:
+                   ('timeSize','--th-hora'), ('textMaxWidth','--th-texto-max')]:
     w('  %s: %s;' % (var, th[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
 w('')

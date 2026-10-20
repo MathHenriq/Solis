@@ -332,6 +332,8 @@
       "_fonte": "Medido em referencias/telas/18-conversa-thread.png. Ver _variantes/LEIA-ME.md pro porque das outras duas geracoes terem sido descartadas.",
       "bubbleMaxWidth": "66%",
       "_bubbleMaxWidth": "Balao do usuario com 693px numa area de conteudo de ~1050 = 66%. Teto e nao largura fixa: mensagem curta nao pode virar uma faixa vazia.",
+      "textMaxWidth": "540px",
+      "_textMaxWidth": "Coluna do texto do Solis. Na referencia as linhas quebram antes da borda: a mais longa ('O Dark mantem a foto mais discreta...') tem 789px de tinta, e o 'e' seguinte nao coube. Escala pelo corpo de 16px (caixa alta do D = 17px na imagem, 11,6px de Inter, fator 1,46): 789 / 1,46 = 540px. E o mesmo teto do texto da Memoria (layout.memoria.textMaxWidth) — o sistema mantem uma medida de leitura so. Sem o teto, numa janela larga a linha passava de 200 caracteres.",
       "bubblePadX": "24px",
       "bubblePadY": "16px",
       "bubbleRadius": "14px",

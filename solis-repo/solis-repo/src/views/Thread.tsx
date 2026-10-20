@@ -11,9 +11,11 @@ import type { Turno } from '../conversa';
  *
  *    - a pessoa vem à direita, num bloco com véu de fundo e teto de 66% da
  *      largura, porque o que ela escreve é curto e delimitado;
- *    - o Solis vem à esquerda, sem fundo nenhum, ocupando a largura toda, com o
- *      símbolo marcando quem fala. A resposta dele é texto longo, e enfiar texto
- *      longo dentro de um balão o transforma numa coluna estreita e cansativa.
+ *    - o Solis vem à esquerda, sem fundo nenhum, com o símbolo marcando quem
+ *      fala. A resposta dele é texto longo, e enfiar texto longo dentro de um
+ *      balão o transforma numa coluna estreita e cansativa. Sem balão, mas com
+ *      teto de leitura (--th-texto-max): a referência quebra a linha em ~70
+ *      caracteres, e sem teto uma janela larga passava de 200.
  *
  *  Não há confirmação de leitura. Uma das gerações da referência trouxe os dois
  *  tiquinhos de "lida", e foi descartada: não existe entrega nem leitura aqui —
@@ -169,7 +171,10 @@ export function Thread({
                 >
                   {/* Aviso de erro em texto secundário: é o Solis falando do
                       sistema, não respondendo à pergunta. */}
-                  <div className={t.falha ? 'text-text-secondary' : undefined}>
+                  <div
+                    className={t.falha ? 'text-text-secondary' : undefined}
+                    style={{ maxWidth: 'var(--th-texto-max)' }}
+                  >
                     {/* Antes do primeiro pedaço não há bloco onde pôr o cursor:
                         ele ocupa um parágrafo vazio sozinho. */}
                     {(t.texto ? blocosDe(t.texto) : ['']).map((b, j, todos) => (

@@ -137,6 +137,7 @@
   --th-composer-h: 98px;
   --th-composer-base: 35px;
   --th-hora: 14px;
+  --th-texto-max: 540px;
   --composer-radius: 13px;
 
   /* Barra de rolagem. Ver appearance.scrollbar no JSON. */
