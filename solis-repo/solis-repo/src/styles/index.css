@@ -74,20 +74,23 @@ body {
    container e deslocaria o conteúdo centralizado meia-barra pra esquerda, que é
    exatamente o eixo que acabou de ser acertado.
 
-   DOIS CAMINHOS, de propósito, e vale saber qual vence onde. Chrome 121+, Edge e
-   Firefox usam as propriedades padrão abaixo, e nesses navegadores definir
-   `scrollbar-color` faz o Blink IGNORAR os pseudo-elementos -webkit- (não é bug,
-   é a regra de precedência dele). Safari e WebViews mais antigas não conhecem o
-   padrão e caem nos pseudo-elementos. Os dois caminhos dão a mesma coisa —
-   polegar na cor do tema, trilho transparente, sem setas — então qualquer um que
-   o navegador escolha entrega o mesmo resultado. Ambos verificados resolvendo no
-   elemento real, com a mesma cor computada.
+   DOIS CAMINHOS, e só um por navegador. Quem conhece os pseudo-elementos
+   -webkit- (Chrome, Edge, Safari e o WebView2 do Tauri no Windows) usa SÓ eles;
+   as propriedades padrão ficam para quem não os conhece (Firefox).
 
-   As duas propriedades são herdadas, então declarar na raiz cobre todo scroller
+   Não dá pra declarar os dois: com `scrollbar-color` definido o Blink ignora os
+   pseudo-elementos -webkit-, e as propriedades padrão não têm como esconder as
+   setas. Foi o que aconteceu — a barra saiu com a cor certa e as setas de pé, no
+   Chrome do Matheus no Windows. O headless daqui não pinta barra nenhuma, então
+   o defeito só apareceu na máquina dele.
+
+   As duas propriedades padrão são herdadas: declarar na raiz cobre todo scroller
    do app sem precisar repetir em cada um. */
-:root {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-polegar) transparent;
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-polegar) transparent;
+  }
 }
 
 *::-webkit-scrollbar {
