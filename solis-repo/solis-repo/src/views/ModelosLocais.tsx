@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icone } from '../components/icons';
 import { BotaoContorno, EstadoVazio, LinhaLista, Tela } from '../components/Tela';
-import { listarModelos, type Modelo, type Resultado } from '../servidor';
+import { escolherModelo, listarModelos, modeloEmUso, type Modelo, type Resultado } from '../servidor';
 
 /** Modelos locais — o que está instalado, o que ocupa disco, o que está em uso.
  *  Referência: referencias/telas/13-modelos-locais.png.
@@ -52,6 +52,8 @@ export function ModelosLocais() {
   // null = ainda perguntando. Não há "carregando" visível: o servidor é local e
   // responde em milissegundos; um indicador só piscaria.
   const [resultado, definirResultado] = useState<Resultado<Modelo[]> | null>(null);
+  // Só pra re-renderizar ao escolher: a escolha em si mora na config local.
+  const [, definirEscolha] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -97,6 +99,7 @@ export function ModelosLocais() {
   if (resultado === null) return <Tela titulo="Modelos locais" />;
 
   const instalados = resultado.dados;
+  const emUso = modeloEmUso(instalados);
   const total = instalados.reduce((soma, m) => soma + m.bytes, 0);
   const subtitulo =
     instalados.length === 0
@@ -106,7 +109,20 @@ export function ModelosLocais() {
   return (
     <Tela titulo="Modelos locais" subtitulo={subtitulo}>
       {instalados.map((m) => (
-        <LinhaLista key={m.nome}>
+        <LinhaLista
+          key={m.nome}
+          // Clicar na linha escolhe o modelo da Conversa. Embeddings não
+          // conversa, então a linha dele não é clicável.
+          aoClicar={
+            m.embeddings
+              ? undefined
+              : () => {
+                  escolherModelo(m.nome);
+                  definirEscolha(m.nome);
+                }
+          }
+          rotulo={m.embeddings ? undefined : `Usar ${nomeCurto(m.nome)} na Conversa`}
+        >
           <div className="flex items-center gap-lg">
             <div className="flex-1">
               <div className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>{nomeCurto(m.nome)}</div>
@@ -115,7 +131,7 @@ export function ModelosLocais() {
             {/* "Em uso" é etiqueta preenchida e "Embeddings" é só texto: um é
                 estado do sistema agora, o outro é uma função permanente. Dar o
                 mesmo peso visual aos dois esconderia qual modelo está rodando. */}
-            {m.emUso && (
+            {m.nome === emUso && (
               <span
                 className="bg-accent text-canvas shrink-0"
                 style={{ fontSize: 'var(--mem-data)', padding: '7px 16px', borderRadius: 8 }}
@@ -123,12 +139,19 @@ export function ModelosLocais() {
                 Em uso
               </span>
             )}
-            {m.embeddings && !m.emUso && (
+            {m.embeddings && (
               <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--mem-data)' }}>
                 Embeddings
               </span>
             )}
-            <button type="button" className="text-text-secondary shrink-0" aria-label={`Opções de ${nomeCurto(m.nome)}`}>
+            {/* stopPropagation: o menu fica dentro da linha clicável, e abrir
+                as opções não pode escolher o modelo de quebra. */}
+            <button
+              type="button"
+              className="text-text-secondary shrink-0"
+              aria-label={`Opções de ${nomeCurto(m.nome)}`}
+              onClick={(e) => e.stopPropagation()}
+            >
               <Icone nome="mais" tamanho={20} />
             </button>
           </div>

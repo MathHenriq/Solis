@@ -1,12 +1,13 @@
-"""Leitura do Ollama — o que está instalado, o que está carregado.
+"""Conversa com o Ollama — o que está instalado, o que está carregado, e o chat.
 
 Só fala HTTP com o servidor do Ollama (padrão 127.0.0.1:11434). Não formata
 nada pra tela: devolve bytes e números crus, e quem decide "4,7 GB" ou "128k"
-é o front. Assim a mesma rota serve a tela de Modelos e, depois, a escolha de
-modelo da Conversa.
+é o front.
 """
 import asyncio
+import json
 import os
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -17,9 +18,27 @@ OLLAMA = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')
 # pra dizer que o Ollama está fora do ar.
 TIMEOUT = httpx.Timeout(8.0, connect=2.0)
 
+# Na conversa os 8s não servem: o primeiro pedaço só sai depois que o Ollama
+# carrega o modelo na memória, e um 14B frio passa disso fácil. O limite vale
+# ENTRE pedaços — um modelo que travou no meio ainda é cortado, só que em 2 min.
+TIMEOUT_CONVERSA = httpx.Timeout(120.0, connect=2.0)
+
+# PROVISÓRIO: quem o Solis é, em uma frase. Sem isto cada modelo responde na
+# própria persona e, os menores, em inglês.
+SISTEMA = (
+    'Você é o Solis, o assistente pessoal do Matheus, rodando localmente no '
+    'computador dele. Responda em português do Brasil, com clareza e sem rodeios.'
+)
+
+PAPEIS = {'pessoa': 'user', 'solis': 'assistant'}
+
 
 class OllamaIndisponivel(Exception):
     """O Ollama não respondeu — desligado, porta errada ou travado."""
+
+
+class ModeloInexistente(Exception):
+    """O modelo pedido não está instalado no Ollama."""
 
 
 def _contexto(info: dict) -> int | None:
@@ -69,12 +88,68 @@ async def listar_modelos(transporte: httpx.AsyncBaseTransport | None = None) -> 
             'bytes': m.get('size', 0),
             'quantizacao': m.get('details', {}).get('quantization_level'),
             'contexto': _contexto(d.get('model_info', {})),
-            # "Em uso" = carregado na memória agora (/api/ps). PROVISÓRIO: o
-            # Ollama descarrega o modelo depois de ~5 min parado, e a etiqueta
-            # some junto. Quando a Conversa escolher um modelo, "em uso" passa
-            # a ser essa escolha, não o estado da memória.
-            'emUso': m['name'] in carregados,
+            # Na memória agora (/api/ps). Não é o "Em uso" da tela — esse é o
+            # modelo escolhido pra Conversa, e quem guarda a escolha é o front.
+            # O Ollama descarrega o modelo depois de ~5 min parado.
+            'carregado': m['name'] in carregados,
             'embeddings': _embeddings(m['name'], d),
         }
         for m, d in zip(modelos, detalhes)
     ]
+
+
+async def conversar(
+    modelo: str,
+    mensagens: list[dict],
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> AsyncIterator[str]:
+    """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
+
+    O erro de conexão e o de modelo inexistente são levantados AQUI, antes do
+    primeiro pedaço — depois que o streaming começa já não dá pra trocar o
+    status da resposta HTTP. Um corte no meio só encerra o texto onde parou.
+    """
+    corpo = {
+        'model': modelo,
+        'stream': True,
+        'messages': [{'role': 'system', 'content': SISTEMA}]
+        + [{'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens],
+    }
+    cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte)
+    try:
+        r = await cliente.send(cliente.build_request('POST', '/api/chat', json=corpo), stream=True)
+    except httpx.HTTPError as e:
+        await cliente.aclose()
+        raise OllamaIndisponivel() from e
+
+    if r.status_code == 404:
+        await r.aclose()
+        await cliente.aclose()
+        raise ModeloInexistente()
+    if not r.is_success:
+        await r.aclose()
+        await cliente.aclose()
+        raise OllamaIndisponivel()
+
+    async def pedacos() -> AsyncIterator[str]:
+        try:
+            # Um JSON por linha. Modelos que "pensam" (qwen3) mandam o raciocínio
+            # em `message.thinking`; só `content` é resposta, o resto fica de fora.
+            async for linha in r.aiter_lines():
+                if not linha:
+                    continue
+                parte = json.loads(linha)
+                if 'error' in parte:
+                    break
+                texto = parte.get('message', {}).get('content', '')
+                if texto:
+                    yield texto
+                if parte.get('done'):
+                    break
+        except httpx.HTTPError:
+            pass
+        finally:
+            await r.aclose()
+            await cliente.aclose()
+
+    return pedacos()

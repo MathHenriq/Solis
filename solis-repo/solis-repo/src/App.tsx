@@ -3,6 +3,7 @@ import { BarraIcones } from './components/BarraIcones';
 import { Horizonte } from './components/Horizonte';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
+import { useConversa } from './conversa';
 import { useTheme } from './theme/useTheme';
 import { Agenda } from './views/Agenda';
 import { Conhecimento } from './views/Conhecimento';
@@ -23,10 +24,9 @@ import { Thread } from './views/Thread';
  *  router de verdade. */
 export default function App() {
   const [tela, definirTela] = useState('conversa');
-  // A Conversa tem dois estados: vazia e com thread. PROVISÓRIO — hoje é um
-  // botão de demonstração; quando o backend entrar, quem decide é ter ou não
-  // mensagens na conversa aberta.
-  const [comThread, definirComThread] = useState(false);
+  // A Conversa tem dois estados: vazia e com thread. Quem decide é ter ou não
+  // mensagens — e a conversa mora aqui, então trocar de tela não a apaga.
+  const conversa = useConversa();
   const { tema, setTema, cena, setCena, nav, setNav } = useTheme();
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
@@ -34,7 +34,12 @@ export default function App() {
   const comSidebar = nav === 'sidebar';
 
   const TELAS: Record<string, () => ReactElement> = {
-    conversa: () => (comThread ? <Thread /> : <Conversa aoAbrirThread={() => definirComThread(true)} />),
+    conversa: () =>
+      conversa.turnos.length ? (
+        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} />
+      ) : (
+        <Conversa aoEnviar={conversa.enviar} />
+      ),
     memoria: () => <Memoria />,
     modelos: () => <ModelosLocais />,
     ferramentas: () => <Ferramentas />,
@@ -53,18 +58,14 @@ export default function App() {
     ),
   };
 
-  const trocar = (id: string) => {
-    if (id !== 'conversa') definirComThread(false);
-    definirTela(id);
-  };
 
   return (
     <div className="relative flex h-full bg-canvas text-text-primary font-sans">
       <Horizonte />
-      {comSidebar && <Sidebar ativo={tela} aoTrocar={trocar} />}
+      {comSidebar && <Sidebar ativo={tela} aoTrocar={definirTela} />}
       {!comSidebar && <TopoIcones />}
       {(TELAS[tela] ?? TELAS.conversa)()}
-      {!comSidebar && <BarraIcones ativo={tela} aoTrocar={trocar} />}
+      {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
     </div>
   );
 }

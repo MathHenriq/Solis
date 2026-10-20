@@ -34,9 +34,9 @@ def test_lista_com_contexto_uso_e_embeddings():
     modelos = asyncio.run(ollama.listar_modelos(httpx.MockTransport(ollama_falso)))
     assert modelos == [
         {'nome': 'llama3.1:8b', 'bytes': 4_920_753_328, 'quantizacao': 'Q4_K_M',
-         'contexto': 131072, 'emUso': True, 'embeddings': False},
+         'contexto': 131072, 'carregado': True, 'embeddings': False},
         {'nome': 'nomic-embed-text:latest', 'bytes': 274_302_450, 'quantizacao': 'F16',
-         'contexto': 2048, 'emUso': False, 'embeddings': True},
+         'contexto': 2048, 'carregado': False, 'embeddings': True},
     ]
 
 

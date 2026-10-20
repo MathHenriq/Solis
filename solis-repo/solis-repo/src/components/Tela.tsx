@@ -126,14 +126,32 @@ export function LinhaLista({
   children,
   destacada = false,
   hover = true,
+  aoClicar,
+  rotulo,
 }: {
   children: ReactNode;
   destacada?: boolean;
   hover?: boolean;
+  /** A linha inteira como alvo de clique — ex.: escolher o modelo da Conversa. */
+  aoClicar?: () => void;
+  /** Nome acessível da ação de `aoClicar`. */
+  rotulo?: string;
 }) {
   return (
     <div
-      className={`solis-linha border-b border-divider ${hover ? 'hover:bg-[var(--mem-hover)]' : ''}`}
+      role={aoClicar ? 'button' : undefined}
+      tabIndex={aoClicar ? 0 : undefined}
+      aria-label={rotulo}
+      onClick={aoClicar}
+      onKeyDown={
+        aoClicar &&
+        ((e) => {
+          if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+          e.preventDefault();
+          aoClicar();
+        })
+      }
+      className={`solis-linha border-b border-divider ${hover ? 'hover:bg-[var(--mem-hover)]' : ''} ${aoClicar ? 'cursor-pointer' : ''}`}
       style={{
         paddingTop: 'var(--mem-item-pad-y)',
         paddingBottom: 'var(--mem-item-pad-y)',

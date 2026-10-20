@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Icone, type NomeIcone } from '../components/icons';
 
 /** Tela de Conversa — estado de abertura.
@@ -45,7 +46,8 @@ function Acoes({ interativo = false }: { interativo?: boolean } = {}) {
   );
 }
 
-export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {}) {
+export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = {}) {
+  const [rascunho, definirRascunho] = useState('');
   return (
     <main className="tela-conversa relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
@@ -86,7 +88,9 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
           style={{ marginTop: 'var(--conversa-campo)', width: '100%', height: 'var(--composer-height)' }}
           onSubmit={(e) => {
             e.preventDefault();
-            aoAbrirThread?.();
+            // A primeira mensagem é o que abre a thread — o shell troca de
+            // estado assim que a conversa deixa de estar vazia.
+            if (rascunho.trim()) aoEnviar?.(rascunho);
           }}
         >
           {/* Espelho do bloco de ações, à esquerda do campo.
@@ -105,6 +109,8 @@ export function Conversa({ aoAbrirThread }: { aoAbrirThread?: () => void } = {})
             <Acoes />
           </span>
           <input
+            value={rascunho}
+            onChange={(e) => definirRascunho(e.target.value)}
             className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
             style={{ fontSize: 16 }}
             placeholder="Fale com o Solis…"

@@ -31,6 +31,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 |---|---|
 | `GET /saude` | `{"ok": true}` |
 | `GET /modelos` | modelos instalados no Ollama, com tamanho, quantização, contexto e se está carregado. `503` se o Ollama não responder |
+| `POST /conversa` | `{"modelo", "mensagens": [{"papel": "pessoa"\|"solis", "texto"}]}` → a resposta em texto puro, pedaço a pedaço. `503` sem Ollama, `404` se o modelo não estiver instalado |
+
+O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
+escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
 
 ## Testes
 
@@ -42,6 +46,8 @@ Não precisam do Ollama instalado — as respostas dele são simuladas.
 
 ## O que ainda não existe
 
+- A conversa vive só na memória da janela: recarregar começa do zero. Guardar é trabalho do
+  SQLite.
 - O Tauri não sobe este servidor sozinho. Hoje é `npm run backend` à mão; empacotar como
   sidecar fica pra quando o app for instalado de verdade.
 - O preview na Vercel não tem servidor — lá a tela de Modelos mostra "Servidor do Solis
