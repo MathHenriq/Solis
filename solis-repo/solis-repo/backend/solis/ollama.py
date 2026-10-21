@@ -26,17 +26,27 @@ TIMEOUT_CONVERSA = httpx.Timeout(120.0, connect=2.0)
 # Quem o Solis é e, sobretudo, o que ele NÃO consegue fazer. O modelo não sabe
 # o que o app em volta dele faz: sem esta lista, perguntado se tem internet, ele
 # inventa que tem (aconteceu, com o llama3.2:3b). Este texto descreve as
-# capacidades de HOJE — quando memória ou ferramentas entrarem, ele muda junto.
+# capacidades de HOJE — quando ferramentas entrarem, ele muda junto.
 SISTEMA = (
     'Você é o Solis, o assistente pessoal do Matheus. Você roda localmente no '
     'computador dele, num modelo de linguagem pequeno.\n\n'
     'O que você NÃO pode fazer, e deve dizer com clareza quando perguntarem: '
-    'acessar a internet, ler arquivos ou programas do computador, e lembrar do '
-    'que foi dito em outras conversas. Você só sabe o que foi dito nesta '
-    'conversa e o que aprendeu no treinamento.\n\n'
+    'acessar a internet e ler arquivos ou programas do computador. De outras '
+    'conversas, você só sabe o que estiver nas memórias abaixo. Fora isso, você '
+    'só sabe o que foi dito nesta conversa e o que aprendeu no treinamento.\n\n'
+    'Quando o Matheus pedir pra guardar ou lembrar algo, isso fica guardado nas '
+    'memórias — pode confirmar que guardou.\n\n'
     'Quando não souber algo, diga que não sabe. Responda em português do Brasil, '
     'com clareza e sem rodeios.'
 )
+
+
+def sistema(memorias: list[dict]) -> str:
+    if not memorias:
+        return SISTEMA + '\n\nAinda não há memórias guardadas.'
+    lista = '\n'.join(f'- {m["texto"]}' for m in memorias)
+    return f'{SISTEMA}\n\nMemórias sobre o Matheus:\n{lista}'
+
 
 PAPEIS = {'pessoa': 'user', 'solis': 'assistant'}
 
@@ -109,6 +119,7 @@ async def listar_modelos(transporte: httpx.AsyncBaseTransport | None = None) -> 
 async def conversar(
     modelo: str,
     mensagens: list[dict],
+    memorias: list[dict] | None = None,
     transporte: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
@@ -120,7 +131,7 @@ async def conversar(
     corpo = {
         'model': modelo,
         'stream': True,
-        'messages': [{'role': 'system', 'content': SISTEMA}]
+        'messages': [{'role': 'system', 'content': sistema(memorias or [])}]
         + [{'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens],
     }
     cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte)
@@ -161,3 +172,35 @@ async def conversar(
             await cliente.aclose()
 
     return pedacos()
+
+
+async def responder_json(
+    modelo: str,
+    instrucao: str,
+    texto: str,
+    esquema: dict,
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> dict:
+    """Uma pergunta só, sem streaming, com a resposta presa a um JSON Schema.
+
+    `format` com esquema obriga o Ollama a gerar JSON válido nesse formato —
+    sem isso um modelo pequeno devolve "Claro! Aqui está o JSON:" antes do JSON.
+    Temperatura 0: extração não é lugar de criatividade.
+    """
+    corpo = {
+        'model': modelo,
+        'stream': False,
+        'format': esquema,
+        'options': {'temperature': 0},
+        'messages': [{'role': 'system', 'content': instrucao}, {'role': 'user', 'content': texto}],
+    }
+    try:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+            r = await c.post('/api/chat', json=corpo)
+    except httpx.HTTPError as e:
+        raise OllamaIndisponivel() from e
+    if r.status_code == 404:
+        raise ModeloInexistente()
+    if not r.is_success:
+        raise OllamaIndisponivel()
+    return json.loads(r.json()['message']['content'])

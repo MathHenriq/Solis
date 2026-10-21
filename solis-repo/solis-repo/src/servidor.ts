@@ -38,6 +38,18 @@ export async function listarModelos(): Promise<Resultado<Modelo[]>> {
   return { estado: 'ok', dados: corpo.modelos };
 }
 
+export type Memoria = { id: number; texto: string; tema: string; pedido: boolean; criada: string };
+
+export async function listarMemorias(): Promise<Resultado<Memoria[]>> {
+  try {
+    const r = await fetch(`${BASE}/memorias`);
+    if (!r.ok) return { estado: 'sem-servidor' };
+    return { estado: 'ok', dados: ((await r.json()) as { memorias: Memoria[] }).memorias };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
 const CHAVE_MODELO = 'solis.modelo';
 
 export function escolherModelo(nome: string): void {

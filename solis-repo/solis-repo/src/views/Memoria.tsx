@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icone } from '../components/icons';
+import { EstadoVazio } from '../components/Tela';
+import { listarMemorias, type Memoria as MemoriaGuardada, type Resultado } from '../servidor';
 
 /** Tela de Memória — lista e busca.
  *
@@ -16,50 +18,52 @@ import { Icone } from '../components/icons';
  *  fechados desde as 3 telas de tema, o gerador recebeu os hexes exatos no
  *  prompt e não os respeitou. Ver layout.memoria._divergencias. */
 
-type Memoria = {
-  id: number;
-  texto: string;
-  origem: string;
-  data: string;
-};
+const MES = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' });
 
-/** PROVISÓRIO: dados de exemplo, os mesmos da referência, pra a tela poder ser
- *  medida contra ela. Sai quando o SQLite/FTS5 entrar. */
-const EXEMPLO: Memoria[] = [
-  {
-    id: 1,
-    texto: 'Prefere respostas diretas, sem introdução longa. Gosta que eu vá direto ao ponto e deixe o contexto pro final.',
-    origem: 'Preferências de comunicação',
-    data: 'há 3 dias',
-  },
-  { id: 2, texto: 'Trabalha melhor de manhã cedo, entre 6h e 10h.', origem: 'Rotina e produtividade', data: 'há 5 dias' },
-  {
-    id: 3,
-    texto: 'Está construindo o Solis, um assistente pessoal local-first para desktop. Stack: Tauri, React, TypeScript, Python com FastAPI, SQLite e Ollama. Prioriza leveza e fluidez acima de tudo.',
-    origem: 'Projeto Solis',
-    data: '12 mar',
-  },
-  { id: 4, texto: 'Tem alergia a frutos do mar.', origem: 'Saúde e bem-estar', data: '10 mar' },
-  {
-    id: 5,
-    texto: 'A referência visual do projeto é sempre a fonte da verdade. Nada é feito de memória ou por aproximação.',
-    origem: 'Projeto Solis',
-    data: '8 mar',
-  },
-  { id: 6, texto: 'Prefere ser chamado de Matheus, não de Mateus.', origem: 'Preferências pessoais', data: 'ontem' },
-  { id: 7, texto: 'Gosta de estudar com música instrumental e fones over-ear.', origem: 'Rotina e produtividade', data: 'há 7 dias' },
-];
-
-/** PROVISÓRIO junto com EXEMPLO: o total não é o tamanho da lista carregada. A
- *  lista é paginada e o contador vem de um COUNT no banco — mostrar
- *  EXEMPLO.length aqui seria mentir sobre o que a tela conta. */
-const TOTAL: number = 128;
+/** "hoje", "ontem", "há 3 dias", e a data a partir de uma semana — como a
+ *  referência escreve. Conta dias de calendário, não blocos de 24h: uma memória
+ *  das 23h é "ontem" à 1h da manhã seguinte. */
+function quando(iso: string): string {
+  const d = new Date(iso);
+  const hoje = new Date();
+  const dias = Math.round(
+    (new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime() -
+      new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
+      86_400_000,
+  );
+  if (dias <= 0) return 'hoje';
+  if (dias === 1) return 'ontem';
+  if (dias < 7) return `há ${dias} dias`;
+  return MES.format(d).replace('.', '');
+}
 
 export function Memoria() {
   const [busca, definirBusca] = useState('');
+  const [resultado, definirResultado] = useState<Resultado<MemoriaGuardada[]> | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    listarMemorias().then((r) => vivo && definirResultado(r));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const todas = resultado?.estado === 'ok' ? resultado.dados : [];
+  // PROVISÓRIO: busca por trecho, no front. O FTS5 do SQLite entra quando a
+  // lista crescer a ponto de não caber inteira na tela de uma vez.
   const filtradas = busca
-    ? EXEMPLO.filter((m) => (m.texto + m.origem).toLowerCase().includes(busca.toLowerCase()))
-    : EXEMPLO;
+    ? todas.filter((m) => (m.texto + m.tema).toLowerCase().includes(busca.toLowerCase()))
+    : todas;
+
+  // Antes da resposta, nem contagem nem vazio: piscaria "Nenhuma memória"
+  // por um instante numa lista que tem memórias.
+  const subtitulo =
+    resultado?.estado !== 'ok'
+      ? ''
+      : todas.length === 0
+        ? 'Nenhuma memória ainda'
+        : `${todas.length} ${todas.length === 1 ? 'memória' : 'memórias'}`;
 
   // bg-canvas, e não fundo transparente como a Conversa: esta lista sangra até a
   // base da janela, e sobre a foto do horizonte o texto perderia o contraste que
@@ -91,7 +95,7 @@ export function Memoria() {
             marginTop: 'var(--mem-contagem-gap)',
           }}
         >
-          {TOTAL === 0 ? 'Nenhuma memória ainda' : `${TOTAL} memórias`}
+          {subtitulo}
         </p>
 
         <div
@@ -157,18 +161,34 @@ export function Memoria() {
                 className="text-text-secondary shrink-0 whitespace-nowrap ml-auto"
                 style={{ fontSize: 'var(--mem-data)' }}
               >
-                {m.data}
+                {quando(m.criada)}
               </span>
             </div>
             <p
               className="text-text-secondary"
               style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}
             >
-              de: {m.origem}
+              de: {m.tema}
             </p>
           </li>
         ))}
       </ul>
+
+      {/* Texto de referencias/telas/10-memoria-vazio.png. */}
+      {resultado?.estado === 'ok' && todas.length === 0 && (
+        <EstadoVazio
+          icone="memoria"
+          titulo="Ainda não há nada guardado"
+          corpo={'O Solis guarda o que importa das suas conversas.\nO que ele lembrar vai aparecer aqui.'}
+        />
+      )}
+      {resultado?.estado === 'sem-servidor' && (
+        <EstadoVazio
+          icone="memoria"
+          titulo="Servidor do Solis desligado"
+          corpo={'Sem ele, o Solis não alcança as memórias guardadas.\nIniciar com npm run backend.'}
+        />
+      )}
     </main>
   );
 }

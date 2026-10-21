@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from solis import main, ollama
+from solis import main, memoria, ollama
 
 PEDACOS = ['Olá', ', Matheus', '.']
 
@@ -33,7 +33,7 @@ def test_junta_os_pedacos_e_monta_o_pedido():
         fluxo = await ollama.conversar(
             'llama3.2:3b',
             [{'papel': 'pessoa', 'texto': 'oi'}, {'papel': 'solis', 'texto': 'Olá.'}, {'papel': 'pessoa', 'texto': 'tudo bem?'}],
-            httpx.MockTransport(chat_falso(recebido)),
+            transporte=httpx.MockTransport(chat_falso(recebido)),
         )
         return await juntar(fluxo)
 
@@ -41,7 +41,7 @@ def test_junta_os_pedacos_e_monta_o_pedido():
     pedido = recebido[0]
     assert pedido['model'] == 'llama3.2:3b' and pedido['stream'] is True
     assert [m['role'] for m in pedido['messages']] == ['system', 'user', 'assistant', 'user']
-    assert pedido['messages'][0]['content'] == ollama.SISTEMA
+    assert pedido['messages'][0]['content'].startswith(ollama.SISTEMA)
 
 
 def test_modelo_inexistente():
@@ -49,14 +49,14 @@ def test_modelo_inexistente():
         return httpx.Response(404, json={'error': "model 'x' not found"})
 
     with pytest.raises(ollama.ModeloInexistente):
-        asyncio.run(ollama.conversar('x', [], httpx.MockTransport(nao_achou)))
+        asyncio.run(ollama.conversar('x', [], transporte=httpx.MockTransport(nao_achou)))
 
 
 def falso_que_responde(monkeypatch, pedacos=PEDACOS, quebra_no=None):
     """Troca o Ollama por um gerador; `quebra_no` simula a conexão caindo."""
     recebido = []
 
-    async def falso(modelo, mensagens):
+    async def falso(modelo, mensagens, memorias=None):
         recebido.append(mensagens)
 
         async def gen():
@@ -66,6 +66,10 @@ def falso_que_responde(monkeypatch, pedacos=PEDACOS, quebra_no=None):
                 yield p
         return gen()
     monkeypatch.setattr(ollama, 'conversar', falso)
+    # O aprendizado de fundo tem teste próprio; aqui ele não pode sair pra rede.
+    async def sem_aprender(*_):
+        pass
+    monkeypatch.setattr(memoria, 'aprender', sem_aprender)
     return recebido
 
 

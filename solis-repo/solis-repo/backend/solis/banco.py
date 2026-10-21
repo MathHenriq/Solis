@@ -1,4 +1,4 @@
-"""O SQLite do Solis — onde as conversas ficam guardadas.
+"""O SQLite do Solis — onde as conversas e as memórias ficam guardadas.
 
 Um arquivo só, na pasta de dados do usuário (no Windows, %APPDATA%\\Solis).
 `sqlite3` é da biblioteca padrão: nenhum servidor de banco pra instalar, que é o
@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS mensagens (
     criada   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS mensagens_da_conversa ON mensagens (conversa, id);
+CREATE TABLE IF NOT EXISTS memorias (
+    id       INTEGER PRIMARY KEY,
+    texto    TEXT NOT NULL,
+    tema     TEXT NOT NULL,
+    -- 1 quando o Matheus pediu pra guardar; 0 quando o Solis achou relevante.
+    pedido   INTEGER NOT NULL DEFAULT 0,
+    -- De onde veio. Apagar a conversa não apaga o que foi aprendido nela.
+    conversa INTEGER REFERENCES conversas(id) ON DELETE SET NULL,
+    criada   TEXT NOT NULL
+);
 """
 
 
@@ -91,3 +101,22 @@ def adicionar(conversa: int, papel: str, texto: str) -> None:
             'INSERT INTO mensagens (conversa, papel, texto, criada) VALUES (?, ?, ?, ?)',
             (conversa, papel, texto, _agora()),
         )
+
+
+def memorias() -> list[dict]:
+    """Da mais nova pra mais antiga — é a ordem da tela e a do prompt."""
+    linhas = _con().execute('SELECT id, texto, tema, pedido, criada FROM memorias ORDER BY id DESC')
+    return [{**dict(l), 'pedido': bool(l['pedido'])} for l in linhas]
+
+
+def adicionar_memoria(texto: str, tema: str, pedido: bool, conversa: int | None) -> None:
+    with _con() as c:
+        c.execute(
+            'INSERT INTO memorias (texto, tema, pedido, conversa, criada) VALUES (?, ?, ?, ?, ?)',
+            (texto, tema, int(pedido), conversa, _agora()),
+        )
+
+
+def apagar_memoria(memoria: int) -> bool:
+    with _con() as c:
+        return c.execute('DELETE FROM memorias WHERE id = ?', (memoria,)).rowcount > 0

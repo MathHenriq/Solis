@@ -35,11 +35,22 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
 | `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, manda o histórico ao Ollama e devolve a resposta em texto puro, pedaço a pedaço. A resposta é guardada no fim, mesmo se cortada no meio. `503` sem Ollama, `404` se o modelo ou a conversa não existirem |
 
+| `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga |
+| `DELETE /memorias/{id}` | esquece uma memória |
+
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
 
 As conversas ficam num SQLite em `%APPDATA%\Solis\solis.db`. O app reabre a mais recente;
 digitar `/nova` na Conversa começa outra (a anterior continua guardada).
+
+## Memória
+
+Depois de cada resposta, o servidor pergunta ao mesmo modelo, em segundo plano, o que a
+mensagem tem de novo e duradouro sobre o Matheus, e guarda com um tema. Se a mensagem pede
+pra guardar ("grave", "guarde", "anote", "memorize", "lembre", "registre"), algo é guardado
+de qualquer jeito: se o modelo não achar nada, ou o Ollama estiver fora, vai a própria
+mensagem, com o tema "Pedido direto". Todas as memórias entram no prompt de toda conversa.
 
 ## Testes
 
@@ -51,6 +62,7 @@ Não precisam do Ollama instalado — as respostas dele são simuladas.
 
 ## O que ainda não existe
 
+- Esquecer uma memória pela tela: a rota existe, o controle visual ainda não (sem referência).
 - Lista de conversas antigas e botão de "nova conversa": as anteriores ficam no banco, mas
   ainda não há tela pra voltar a elas. Os dois precisam de referência visual.
 - O Tauri não sobe este servidor sozinho. Hoje é `npm run backend` à mão; empacotar como

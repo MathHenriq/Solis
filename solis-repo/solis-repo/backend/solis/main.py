@@ -9,8 +9,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
-from . import banco, ollama
+from . import banco, memoria, ollama
 
 app = FastAPI(title='Solis')
 
@@ -19,7 +20,7 @@ app = FastAPI(title='Solis')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['http://localhost:1420', 'tauri://localhost', 'http://tauri.localhost'],
-    allow_methods=['GET', 'POST'],
+    allow_methods=['GET', 'POST', 'DELETE'],
     allow_headers=['*'],
 )
 
@@ -69,11 +70,15 @@ async def enviar(conversa: int, envio: Envio):
     historico = [{'papel': m['papel'], 'texto': m['texto']} for m in banco.mensagens(conversa)]
 
     try:
-        fluxo = await ollama.conversar(envio.modelo, historico)
-    except ollama.OllamaIndisponivel:
+        fluxo = await ollama.conversar(envio.modelo, historico, banco.memorias())
+    except (ollama.OllamaIndisponivel, ollama.ModeloInexistente) as e:
+        # Sem modelo não há extração — mas um pedido de guardar não pode se perder
+        # porque o Ollama estava fora. Guarda a mensagem como veio.
+        if memoria.eh_pedido(envio.texto):
+            memoria.guardar_pedido_cru(envio.texto, conversa)
+        if isinstance(e, ollama.ModeloInexistente):
+            return JSONResponse({'erro': 'modelo_inexistente'}, status_code=404)
         return JSONResponse({'erro': 'ollama_indisponivel'}, status_code=503)
-    except ollama.ModeloInexistente:
-        return JSONResponse({'erro': 'modelo_inexistente'}, status_code=404)
 
     async def repassar_e_guardar():
         resposta = []
@@ -89,4 +94,25 @@ async def enviar(conversa: int, envio: Envio):
 
     # Texto puro, pedaço a pedaço: o front só concatena. NDJSON seria mais uma
     # camada de parse pra carregar um campo só.
-    return StreamingResponse(repassar_e_guardar(), media_type='text/plain; charset=utf-8')
+    #
+    # O aprendizado roda como tarefa de fundo: só começa depois que a resposta
+    # terminou de chegar, então a conversa não espera a segunda pergunta ao modelo.
+    # O contexto são as duas falas antes da mensagem nova (a pergunta do Solis
+    # que a mensagem talvez responda), não o histórico inteiro.
+    return StreamingResponse(
+        repassar_e_guardar(),
+        media_type='text/plain; charset=utf-8',
+        background=BackgroundTask(memoria.aprender, envio.modelo, conversa, envio.texto, historico[-3:-1]),
+    )
+
+
+@app.get('/memorias')
+async def listar_memorias():
+    return {'memorias': banco.memorias()}
+
+
+@app.delete('/memorias/{id_}')
+async def esquecer(id_: int):
+    if not banco.apagar_memoria(id_):
+        return JSONResponse({'erro': 'memoria_inexistente'}, status_code=404)
+    return {'ok': True}
