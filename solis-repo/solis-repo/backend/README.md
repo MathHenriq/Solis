@@ -31,10 +31,15 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 |---|---|
 | `GET /saude` | `{"ok": true}` |
 | `GET /modelos` | modelos instalados no Ollama, com tamanho, quantização, contexto e se está carregado. `503` se o Ollama não responder |
-| `POST /conversa` | `{"modelo", "mensagens": [{"papel": "pessoa"\|"solis", "texto"}]}` → a resposta em texto puro, pedaço a pedaço. `503` sem Ollama, `404` se o modelo não estiver instalado |
+| `GET /conversas/atual` | a conversa mais recente, com as mensagens. `id: null` se ainda não houver nenhuma |
+| `POST /conversas` | cria uma conversa vazia e devolve o `id` |
+| `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, manda o histórico ao Ollama e devolve a resposta em texto puro, pedaço a pedaço. A resposta é guardada no fim, mesmo se cortada no meio. `503` sem Ollama, `404` se o modelo ou a conversa não existirem |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
+
+As conversas ficam num SQLite em `%APPDATA%\Solis\solis.db`. O app reabre a mais recente;
+digitar `/nova` na Conversa começa outra (a anterior continua guardada).
 
 ## Testes
 
@@ -46,8 +51,8 @@ Não precisam do Ollama instalado — as respostas dele são simuladas.
 
 ## O que ainda não existe
 
-- A conversa vive só na memória da janela: recarregar começa do zero. Guardar é trabalho do
-  SQLite.
+- Lista de conversas antigas e botão de "nova conversa": as anteriores ficam no banco, mas
+  ainda não há tela pra voltar a elas. Os dois precisam de referência visual.
 - O Tauri não sobe este servidor sozinho. Hoje é `npm run backend` à mão; empacotar como
   sidecar fica pra quando o app for instalado de verdade.
 - O preview na Vercel não tem servidor — lá a tela de Modelos mostra "Servidor do Solis

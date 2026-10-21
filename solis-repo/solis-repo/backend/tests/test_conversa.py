@@ -52,20 +52,69 @@ def test_modelo_inexistente():
         asyncio.run(ollama.conversar('x', [], httpx.MockTransport(nao_achou)))
 
 
-def test_rota_devolve_o_texto_em_stream(monkeypatch):
+def falso_que_responde(monkeypatch, pedacos=PEDACOS, quebra_no=None):
+    """Troca o Ollama por um gerador; `quebra_no` simula a conexão caindo."""
+    recebido = []
+
     async def falso(modelo, mensagens):
+        recebido.append(mensagens)
+
         async def gen():
-            for p in PEDACOS:
+            for i, p in enumerate(pedacos):
+                if i == quebra_no:
+                    raise RuntimeError('caiu')
                 yield p
         return gen()
     monkeypatch.setattr(ollama, 'conversar', falso)
-    r = TestClient(main.app).post('/conversa', json={'modelo': 'm', 'mensagens': [{'papel': 'pessoa', 'texto': 'oi'}]})
-    assert r.status_code == 200 and r.text == 'Olá, Matheus.'
+    return recebido
 
 
-def test_rota_diz_quem_falhou(monkeypatch):
+def test_conversa_e_guardada_e_volta_inteira(monkeypatch):
+    recebido = falso_que_responde(monkeypatch)
     cliente = TestClient(main.app)
-    corpo = {'modelo': 'm', 'mensagens': []}
+    assert cliente.get('/conversas/atual').json() == {'id': None, 'mensagens': []}
+
+    cid = cliente.post('/conversas').json()['id']
+    r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
+    assert r.status_code == 200 and r.text == 'Olá, Matheus.'
+    cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'e aí?'})
+
+    # O histórico que vai ao modelo sai do banco, com a resposta anterior junto.
+    assert [m['texto'] for m in recebido[1]] == ['oi', 'Olá, Matheus.', 'e aí?']
+
+    atual = cliente.get('/conversas/atual').json()
+    assert atual['id'] == cid
+    assert [(m['papel'], m['texto']) for m in atual['mensagens']] == [
+        ('pessoa', 'oi'), ('solis', 'Olá, Matheus.'), ('pessoa', 'e aí?'), ('solis', 'Olá, Matheus.'),
+    ]
+
+
+def test_nova_conversa_vira_a_atual_e_comeca_vazia(monkeypatch):
+    recebido = falso_que_responde(monkeypatch)
+    cliente = TestClient(main.app)
+    a = cliente.post('/conversas').json()['id']
+    cliente.post(f'/conversas/{a}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
+    b = cliente.post('/conversas').json()['id']
+    cliente.post(f'/conversas/{b}/mensagens', json={'modelo': 'm', 'texto': 'do zero'})
+    assert [m['texto'] for m in recebido[-1]] == ['do zero']
+    assert cliente.get('/conversas/atual').json()['id'] == b
+
+
+def test_resposta_cortada_guarda_o_que_chegou(monkeypatch):
+    falso_que_responde(monkeypatch, quebra_no=2)
+    cliente = TestClient(main.app)
+    cid = cliente.post('/conversas').json()['id']
+    try:
+        cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
+    except RuntimeError:
+        pass  # o TestClient repassa a exceção do gerador; no servidor real a conexão só fecha
+    textos = [m['texto'] for m in cliente.get('/conversas/atual').json()['mensagens']]
+    assert textos == ['oi', 'Olá, Matheus']
+
+
+def test_rota_diz_quem_falhou_e_nao_guarda_o_aviso(monkeypatch):
+    cliente = TestClient(main.app)
+    cid = cliente.post('/conversas').json()['id']
     for erro, status, chave in [
         (ollama.OllamaIndisponivel, 503, 'ollama_indisponivel'),
         (ollama.ModeloInexistente, 404, 'modelo_inexistente'),
@@ -73,5 +122,13 @@ def test_rota_diz_quem_falhou(monkeypatch):
         async def falha(*_, erro=erro):
             raise erro()
         monkeypatch.setattr(ollama, 'conversar', falha)
-        r = cliente.post('/conversa', json=corpo)
+        r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
         assert (r.status_code, r.json()) == (status, {'erro': chave})
+    # A fala da pessoa fica; nenhuma resposta do Solis foi inventada.
+    papeis = [m['papel'] for m in cliente.get('/conversas/atual').json()['mensagens']]
+    assert papeis == ['pessoa', 'pessoa']
+
+
+def test_conversa_inexistente():
+    r = TestClient(main.app).post('/conversas/999/mensagens', json={'modelo': 'm', 'texto': 'oi'})
+    assert (r.status_code, r.json()) == (404, {'erro': 'conversa_inexistente'})

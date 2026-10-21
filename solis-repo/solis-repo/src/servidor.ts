@@ -56,15 +56,31 @@ export function modeloEmUso(modelos: Modelo[]): string | null {
   return conversam.find((m) => m.nome === escolhido)?.nome ?? conversam[0]?.nome ?? null;
 }
 
-export type Mensagem = { papel: 'pessoa' | 'solis'; texto: string };
+export type Mensagem = { papel: 'pessoa' | 'solis'; texto: string; criada: string };
 export type Falha = 'sem-servidor' | 'sem-ollama' | 'sem-modelo';
 
-/** Manda a conversa e entrega a resposta pedaço a pedaço em `aoReceber`.
- *  Devolve null quando deu certo, ou QUEM falhou. Um corte no meio da resposta
- *  não é falha: o texto só termina onde parou. */
+/** A conversa mais recente guardada — o app reabre nela. null quando o servidor
+ *  não responde: aí a tela começa vazia, que é o que dá pra mostrar. */
+export async function carregarConversa(): Promise<{ id: number | null; mensagens: Mensagem[] } | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/atual`);
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Manda uma mensagem e entrega a resposta pedaço a pedaço em `aoReceber`.
+ *
+ *  Só a mensagem nova vai: o histórico mora no banco, do lado do servidor, e é
+ *  ele que o monta. `conversa` null cria uma conversa nova antes, e o id dela
+ *  volta por `aoCriar`. Devolve null quando deu certo, ou QUEM falhou. Um corte
+ *  no meio da resposta não é falha: o texto só termina onde parou. */
 export async function conversar(
-  mensagens: Mensagem[],
+  conversa: number | null,
+  texto: string,
   aoReceber: (pedaco: string) => void,
+  aoCriar: (id: number) => void,
 ): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado !== 'ok') return lista.estado;
@@ -73,26 +89,38 @@ export async function conversar(
 
   let r: Response;
   try {
-    r = await fetch(`${BASE}/conversa`, {
+    if (conversa === null) {
+      const criada = await fetch(`${BASE}/conversas`, { method: 'POST' });
+      if (!criada.ok) return 'sem-servidor';
+      conversa = ((await criada.json()) as { id: number }).id;
+      aoCriar(conversa);
+    }
+    r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelo, mensagens }),
+      body: JSON.stringify({ modelo, texto }),
     });
   } catch {
     return 'sem-servidor';
   }
   if (r.status === 503) return 'sem-ollama';
-  if (r.status === 404) return 'sem-modelo';
+  if (r.status === 404) {
+    // Dois 404 diferentes. A conversa sumir do banco (o arquivo foi apagado com
+    // o app aberto) não é culpa de ninguém: começa outra e manda de novo.
+    const { erro } = (await r.json()) as { erro: string };
+    if (erro === 'conversa_inexistente') return conversar(null, texto, aoReceber, aoCriar);
+    return 'sem-modelo';
+  }
   if (!r.ok || !r.body) return 'sem-servidor';
 
   const leitor = r.body.getReader();
   // `stream: true` porque um acento pode chegar partido entre dois pedaços.
-  const texto = new TextDecoder();
+  const decodificador = new TextDecoder();
   try {
     for (;;) {
       const { done, value } = await leitor.read();
       if (done) break;
-      aoReceber(texto.decode(value, { stream: true }));
+      aoReceber(decodificador.decode(value, { stream: true }));
     }
   } catch {
     /* conexão caiu no meio: fica o que chegou */
