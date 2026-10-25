@@ -34,7 +34,6 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /conversas/atual` | a conversa mais recente, com as mensagens. `id: null` se ainda não houver nenhuma |
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
 | `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, manda o histórico ao Ollama e devolve a resposta em texto puro, pedaço a pedaço. A resposta é guardada no fim, mesmo se cortada no meio. `503` sem Ollama, `404` se o modelo ou a conversa não existirem |
-
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga |
 | `DELETE /memorias/{id}` | esquece uma memória |
 
