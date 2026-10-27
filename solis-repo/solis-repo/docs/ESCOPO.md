@@ -1,20 +1,36 @@
 # Escopo do Solis — onde estamos e para onde vamos
 
-Documento vivo. Atualizar ao fechar cada fase. Última revisão: outubro de 2026.
+Documento vivo. Atualizar ao fechar cada fase. Última revisão: 27 de outubro de 2026.
 
 ## A visão
 
 Um assistente pessoal que conhece o Matheus por inteiro: tudo o que ele manda é guardado,
-tudo o que ele diz é entendido no contexto da vida dele, e o histórico é completo. Roda no
-computador dele, sem nuvem, e se fala com ele por voz.
+tudo o que ele diz é entendido no contexto da vida dele, e o histórico é completo. A
+referência é o Jarvis: prontidão, voz, acesso total ao computador.
 
-**O que isso entrega e o que não entrega.** A vantagem do Solis sobre um ChatGPT ou um
-Claude é o **contexto**: ele sabe da Syngenta, dos estudos, das preferências, sem que nada
-precise ser repetido. Ele **não** raciocina melhor que esses modelos. Um modelo local de 3B a
-14B é muito menor que um modelo de nuvem de ponta, e isso aparece em perguntas difíceis.
-O que dá pra fazer é escolher o maior modelo que a GPU aguenta e deixar a **busca de
-contexto** fazer o trabalho pesado: um modelo médio com o contexto certo responde melhor
-sobre a vida do Matheus do que um modelo enorme sem contexto nenhum.
+O Solis tem **dois papéis**, e separar os dois resolve quase tudo:
+
+1. **Ser a memória.** Tudo sobre o Matheus mora no Solis, na máquina dele. É a fonte da
+   verdade — inclusive pros outros assistentes.
+2. **Executar.** Responder, pesquisar, programar, controlar o PC. A inteligência vem de onde
+   for melhor no momento: Claude Code e Codex (pela assinatura do Matheus, nunca API paga),
+   APIs gratuitas, ou modelos locais quando a cota acabar ou o assunto for privado.
+
+**O que isso entrega e o que não entrega.** A vantagem do Solis é o **contexto**: ele sabe
+da Syngenta, dos estudos, das preferências, sem que nada precise ser repetido. Um modelo
+local de 3B a 14B **não** raciocina como um modelo de nuvem de ponta — por isso o trabalho
+pesado (código, sistemas grandes como a NF-e da loja) vai pros modelos de nuvem, e o Solis
+entrega a eles o contexto certo.
+
+## Decisões do Matheus
+
+| Questão | Decisão |
+|---|---|
+| Prioridade | Um assistente que guarda e lembra de tudo. Sem ordem fixa além disso |
+| Servidor | O PC de casa liga quando for usar; o notebook é a reserva, acordado por Wake-on-LAN |
+| Privacidade | Modo privado: senhas, saúde e o que for marcado nunca saem da máquina. O resto pode ir pros modelos de nuvem |
+| Tecnologias | Nenhum apego. Escolher medindo |
+| Hardware | Notebook com 8 GB de VRAM (o principal). PC de casa com GTX 1650 de 4 GB |
 
 ## Arquitetura hoje
 
@@ -50,73 +66,102 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 | Conversa | A resposta chega em streaming; markdown vira parágrafo, lista e negrito |
 | Histórico | Toda mensagem vai pro SQLite; o app reabre na última conversa; `/nova` começa outra |
 | Memória | Automática (o modelo extrai fatos depois de cada resposta) e garantida quando pedida ("grave", "anote"...) |
+| Busca por significado | Memórias e mensagens viram vetores; cada pedido leva as memórias e os trechos de conversas antigas mais parecidos com a mensagem |
+| Modo privado | Memórias sensíveis são marcadas — pelo modelo, ou à força quando a mensagem diz "privado" |
 | Prompt honesto | O prompt de sistema diz o que o Solis **não** consegue fazer, pra ele não inventar |
 | Erros | Cada falha diz quem falhou: servidor, Ollama ou falta de modelo |
 
-21 testes automáticos no servidor, rodando sem precisar do Ollama.
+35 testes automáticos no servidor, rodando sem precisar do Ollama.
 
 ### O que ainda é provisório
 
 - Tarefas, Agenda, Conhecimento e Ferramentas mostram dados de exemplo.
-- Todas as memórias vão inteiras em todo pedido ao modelo (ver Fase 3).
-- O histórico da conversa também vai inteiro.
+- O piso de similaridade da busca foi escolhido sem dados reais; precisa calibrar no notebook.
+- A memória privada está em texto puro no `solis.db` (sem criptografia).
 - O servidor precisa ser ligado à mão (`npm run backend`).
 - Não há controle na tela pra esquecer uma memória nem pra voltar a conversas antigas.
 
 ## Para onde vamos
 
-A ordem segue uma regra: **primeiro o que torna o Solis útil, depois o que o torna
-impressionante.** Voz sobre um assistente que esquece as coisas é só um assistente que
-esquece as coisas, falando.
+A regra: **primeiro o que torna o Solis útil, depois o que o torna impressionante.** Voz
+sobre um assistente que esquece as coisas é só um assistente que esquece as coisas,
+falando. As fases não têm ordem rígida (decisão do Matheus), mas as primeiras são a base
+das outras.
 
-### Fase 3 — Contexto que escala (próxima; dá pra fazer sem o notebook)
+### Memória completa — em andamento
 
-Hoje toda memória entra em todo pedido. Com centenas delas, o pedido passa da janela de
-contexto do modelo, o Ollama corta o começo sem avisar, e o Solis "esquece".
+- [x] Conversas guardadas; memória automática e pedida.
+- [x] Busca por significado em memórias e conversas antigas (RAG).
+- [x] Janela do histórico (as últimas 20 mensagens vão inteiras).
+- [x] Marca de privada.
+- [ ] Resumo do começo de conversas longas, em vez de só cortar.
+- [ ] Contradição: "saí da Syngenta" substitui a memória antiga em vez de somar.
+- [ ] Esquecer e corrigir memória pela tela; lista de conversas antigas (precisam de referência visual).
+- [ ] Busca textual (FTS5) na tela de Memória.
+- [ ] Criptografar as memórias privadas (DPAPI do Windows).
 
-- **Busca por significado (RAG) nas memórias.** Cada memória vira um vetor de números
-  (embedding, com o `nomic-embed-text`). A mensagem nova também. Só entram no pedido as
-  memórias mais parecidas com a mensagem, por similaridade de cosseno. Os vetores ficam no
-  próprio SQLite.
-- **Janela do histórico.** Só as últimas mensagens vão inteiras; o começo de uma conversa
-  longa vira um resumo.
-- **Busca textual (FTS5)** na tela de Memória.
-- **Desligar o raciocínio oculto** dos modelos que "pensam" (qwen3), pra responderem mais
-  rápido.
+### Importar o passado
 
-### Fase 4 — Controle sobre a memória
+O ChatGPT e o Claude exportam todo o histórico (em JSON, pelas configurações de cada um). Um
+importador lê as conversas, passa pela mesma extração de memória e popula o Solis com anos
+de contexto. Os arquivos reais são necessários pra escrever o leitor de cada formato.
 
-Memória automática erra. Sem controle, ela vira lixo acumulado.
+### Cérebros externos
 
-- Esquecer e corrigir uma memória pela tela (precisa de referência visual).
-- Contradição: quando chega "saí da Syngenta", a memória antiga é substituída, não somada.
-- Lista de conversas antigas (precisa de referência visual).
+- **Claude Code e Codex pelo terminal**, com a assinatura do Matheus: o Solis chama o CLI
+  oficial (`claude -p`, e o equivalente do Codex) como um processo. Nunca extrair o login pra
+  chamar a API por fora — viola os termos e quebra a cada atualização.
+- **Servidor MCP de memória.** O Solis expõe `buscar_memoria` e `guardar_memoria` pelo MCP,
+  que o Claude Code e o Codex já entendem. Eles consultam a memória do Solis antes de
+  trabalhar — até quando usados fora do Solis. Memória privada não entra.
+- **Roteador por regras** (código, não LLM): conversa e assuntos pessoais → modelo local;
+  código e tarefas difíceis → Claude ou Codex; cota acabou → o próximo da fila.
+- **APIs gratuitas** (Gemini e outras) como mais opções — lendo os termos: vários planos
+  gratuitos usam os dados pra treinar.
 
-### Fase 5 — Conhecimento: os seus arquivos
+### Servidor em casa e acesso de fora
 
-"Tudo que eu mando ele salva" inclui documentos. A tela Conhecimento passa a indexar PDFs,
-notas e textos: cada arquivo é cortado em trechos, cada trecho vira vetor, e entra no mesmo
-mecanismo de busca da Fase 3. É aqui que o Solis passa a saber do que está nos arquivos, e
-não só do que foi dito na conversa.
+- O PC de casa roda o servidor, o banco, os embeddings e um modelo pequeno (cabe na 1650).
+- O notebook entra com os modelos maiores quando estiver ligado.
+- **Tailscale** liga os aparelhos do Matheus numa rede privada: o Solis é acessado do
+  celular ou de outro PC sem nada exposto na internet.
+- Wake-on-LAN: funciona bem por cabo, mal ou nada por Wi-Fi, e precisa de algo acordado na
+  rede de casa pra mandar o sinal. Se tudo estiver desligado, nada acorda nada.
+- Dividir um modelo só entre as duas placas pela rede existe, mas a rede vira gargalo: cada
+  máquina com um papel compensa mais.
 
-### Fase 6 — Voz
+### Conhecimento: os seus arquivos
 
-Detalhado abaixo, porque é onde está a dúvida da GPU.
+A tela Conhecimento indexa PDFs, notas e textos: cada arquivo é cortado em trechos, cada
+trecho vira vetor, e entra na mesma busca das memórias.
 
-1. **Apertar pra falar** primeiro: um botão ou atalho grava, solta e transcreve. Valida a
-   transcrição e a voz sem a complexidade da escuta contínua.
-2. **Escuta contínua com palavra de ativação** ("Solis") depois.
-3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio (`docs/SOLIS_SIGNATURE.md`).
+### Voz
 
-### Fase 7 — App de verdade
+1. **Apertar pra falar** primeiro.
+2. **Palavra de ativação** ("Solis") depois.
+3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 
-- O Tauri sobe o servidor sozinho (o Python empacotado como sidecar).
-- Instalador `.msi`, inicia com o Windows.
+### Controle do PC e visão da tela
 
-### Depois
+- Um agente leve em cada máquina que o Solis controla: arquivos, comandos, programas,
+  navegador.
+- Permissão por nível: ler é livre; escrever e executar pedem confirmação ou estão numa
+  lista aprovada; tudo fica registrado. Motivo técnico: com acesso total e lendo páginas e
+  e-mails, um texto malicioso pode mandar o Solis executar coisas (prompt injection).
+- Visão sem gastar GPU: a tela é capturada continuamente só na RAM (últimos segundos), junto
+  com o título da janela e o texto da interface pela acessibilidade do Windows. O modelo de
+  visão só roda quando o Matheus pergunta. Capturas nunca vão pro disco.
 
-- **Ferramentas:** Agenda e Tarefas reais, ler arquivos com permissão.
-- **Visão** (OpenCV, já na stack): o Solis olhar a tela ou a câmera quando pedido.
+### Laboratório de modelos
+
+As mesmas perguntas em vários modelos, com resposta, tempo e nota guardados no SQLite. Serve
+pra escolher modelos medindo — e é um projeto de análise de dados com dados reais.
+
+### App de verdade e celular
+
+- O Tauri sobe o servidor sozinho; instalador `.msi`; inicia com o Windows.
+- Telegram como canal pelo celular (bot oficial e gratuito). WhatsApp só pela API oficial
+  da Meta; as bibliotecas não oficiais violam os termos e podem banir o número.
 
 ## Voz e a GPU: como funciona a escuta contínua
 
@@ -141,10 +186,15 @@ minutos parado (configurável). O preço disso: a primeira resposta depois de um
 demora mais, porque o modelo precisa ser carregado de novo. Dá pra escolher entre "GPU
 livre" e "resposta instantânea" — é uma configuração, não uma limitação.
 
-**O que ainda precisa ser medido no notebook:** quanta memória de vídeo (VRAM) a GPU tem.
-Whisper, LLM e voz disputam a mesma memória. Pra ver: Gerenciador de Tarefas → Desempenho →
-GPU → "Memória dedicada da GPU". Esse número decide qual modelo de linguagem e qual Whisper
-cabem juntos.
+**Orçamento de 8 GB de VRAM.** Whisper, LLM e voz disputam a mesma memória. Modelo que não
+cabe inteiro vai em parte pra RAM (offload) e fica várias vezes mais lento:
+
+| Modelo | Tamanho | Cabe inteiro em 8 GB? |
+|---|---|---|
+| qwen3:8b | 5,2 GB | Sim, com folga |
+| qwen3.5:9b | 6,6 GB | Sim, com pouca folga |
+| gemma3:12b | 8,1 GB | Não |
+| qwen3:14b | 9,3 GB | Não |
 
 ### Candidatos (nada fechado — escolher medindo)
 
