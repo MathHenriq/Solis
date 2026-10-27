@@ -21,6 +21,10 @@ log = logging.getLogger('solis.memoria')
 # como se PERGUNTA ("você lembra o que...?", "ele guarda as conversas?").
 PEDIDO = re.compile(r'\b(grave|guarde|anote|memorize|lembre(-se)?|registre)\b', re.IGNORECASE)
 
+# Pedido explícito de sigilo. Como o PEDIDO: se a palavra está lá, vale, mesmo
+# que o modelo não tenha achado o assunto sensível.
+PRIVADO = re.compile(r'\b(privad[oa]s?|confidencia(l|is)|sigilos[oa]s?|segredo)\b', re.IGNORECASE)
+
 # Tema de uma memória pedida que não passou pelo modelo.
 TEMA_PEDIDO = 'Pedido direto'
 
@@ -35,6 +39,9 @@ INSTRUCAO = (
     'Cada memória: uma frase curta em terceira pessoa, sem o nome dele '
     '("Trabalha na Syngenta."), e um tema curto que agrupe ("Trabalho", '
     '"Preferências de comunicação", "Projeto Solis").\n'
+    'Marque privada = true quando for saúde, senha ou credencial, dinheiro e '
+    'finanças, documentos pessoais, ou quando ele disser que é privado. Memória '
+    'privada nunca sai do computador dele.\n'
     'Sem nada novo, devolva a lista vazia.'
 )
 
@@ -45,8 +52,12 @@ ESQUEMA = {
             'type': 'array',
             'items': {
                 'type': 'object',
-                'properties': {'texto': {'type': 'string'}, 'tema': {'type': 'string'}},
-                'required': ['texto', 'tema'],
+                'properties': {
+                    'texto': {'type': 'string'},
+                    'tema': {'type': 'string'},
+                    'privada': {'type': 'boolean'},
+                },
+                'required': ['texto', 'tema', 'privada'],
             },
         }
     },
@@ -59,19 +70,24 @@ def eh_pedido(texto: str) -> bool:
     return bool(PEDIDO.search(texto)) and not texto.rstrip().endswith('?')
 
 
+def eh_privado(texto: str) -> bool:
+    return bool(PRIVADO.search(texto))
+
+
 def _normal(texto: str) -> str:
     return re.sub(r'\W+', ' ', texto).strip().lower()
 
 
 def guardar_pedido_cru(texto: str, conversa: int | None) -> None:
     """O pedido sem modelo nenhum: guarda a própria mensagem. Feio, mas fica."""
-    banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa)
+    banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa, privada=eh_privado(texto))
 
 
 async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dict]) -> None:
     """Extrai e guarda o que houver de novo na `mensagem`. Nunca levanta: roda
     depois da resposta, e não há mais ninguém pra receber um erro."""
     pedido = eh_pedido(mensagem)
+    privado = eh_privado(mensagem)
     guardadas = banco.memorias()
 
     anteriores = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in contexto)
@@ -101,7 +117,7 @@ async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dic
             # Já sabia. Se foi um pedido, está atendido do mesmo jeito.
             guardou = guardou or pedido
             continue
-        banco.adicionar_memoria(conteudo, tema or 'Geral', pedido, conversa)
+        banco.adicionar_memoria(conteudo, tema or 'Geral', pedido, conversa, privada=privado or bool(m.get('privada')))
         vistas.add(_normal(conteudo))
         guardou = True
 

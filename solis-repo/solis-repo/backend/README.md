@@ -49,7 +49,28 @@ Depois de cada resposta, o servidor pergunta ao mesmo modelo, em segundo plano, 
 mensagem tem de novo e duradouro sobre o Matheus, e guarda com um tema. Se a mensagem pede
 pra guardar ("grave", "guarde", "anote", "memorize", "lembre", "registre"), algo é guardado
 de qualquer jeito: se o modelo não achar nada, ou o Ollama estiver fora, vai a própria
-mensagem, com o tema "Pedido direto". Todas as memórias entram no prompt de toda conversa.
+mensagem, com o tema "Pedido direto".
+
+**Privada.** O modelo marca como privada o que for saúde, senha, finanças ou documento
+pessoal; e se a mensagem disser "privado", "confidencial", "sigiloso" ou "segredo", tudo que
+sair dela é privado, concorde o modelo ou não. Hoje todo modelo é local, então nada sai de
+qualquer jeito; a marca vale quando modelos de nuvem entrarem. Atenção: privada não é
+criptografada — está em texto puro no `solis.db`.
+
+## Busca por significado
+
+Cada memória e cada mensagem vira um vetor com o `nomic-embed-text` (precisa estar instalado
+no Ollama). A cada mensagem nova, entram no pedido ao modelo:
+
+- as memórias: todas, até 30; acima disso, as 12 mais parecidas com a mensagem mais as 5
+  mais recentes;
+- até 5 trechos de conversas antigas parecidos com a mensagem;
+- as últimas 20 mensagens da conversa aberta.
+
+Sem o modelo de embeddings, volta pro comportamento anterior (as memórias mais recentes, sem
+trechos antigos) e o que não foi vetorizado fica pendente pra próxima vez. O piso de
+similaridade dos trechos (`PISO_TRECHO` em `solis/busca.py`) foi escolhido sem dados reais e
+precisa ser calibrado.
 
 ## Testes
 

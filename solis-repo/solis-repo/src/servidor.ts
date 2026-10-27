@@ -38,7 +38,9 @@ export async function listarModelos(): Promise<Resultado<Modelo[]>> {
   return { estado: 'ok', dados: corpo.modelos };
 }
 
-export type Memoria = { id: number; texto: string; tema: string; pedido: boolean; criada: string };
+/** `privada`: nunca sai da máquina — quando modelos de nuvem entrarem, ela fica
+ *  de fora do que eles veem. */
+export type Memoria = { id: number; texto: string; tema: string; pedido: boolean; privada: boolean; criada: string };
 
 export async function listarMemorias(): Promise<Resultado<Memoria[]>> {
   try {

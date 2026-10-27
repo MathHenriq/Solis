@@ -4,8 +4,9 @@ Um arquivo só, na pasta de dados do usuário (no Windows, %APPDATA%\\Solis).
 `sqlite3` é da biblioteca padrão: nenhum servidor de banco pra instalar, que é o
 que local-first pede.
 
-O esquema é criado na primeira conexão (CREATE ... IF NOT EXISTS). Quando ele
-precisar mudar, entra uma migração de verdade guiada por PRAGMA user_version.
+O esquema base é criado na primeira conexão (CREATE ... IF NOT EXISTS). O que
+mudou depois entra por MIGRACOES, guiadas por PRAGMA user_version: um banco que
+já existe no notebook não ganha coluna nova com IF NOT EXISTS.
 """
 import os
 import sqlite3
@@ -37,6 +38,25 @@ CREATE TABLE IF NOT EXISTS memorias (
 );
 """
 
+# Cada item leva o banco da versão i pra i+1. Só se acrescenta no fim; nunca se
+# edita uma migração que já rodou na máquina de alguém.
+MIGRACOES = [
+    # 1 — modo privado e busca por significado.
+    """
+    -- Privada nunca sai da máquina: só modelo local a vê.
+    ALTER TABLE memorias ADD COLUMN privada INTEGER NOT NULL DEFAULT 0;
+    -- Embedding de uma memória ou mensagem, em float32. `tipo` diz de qual
+    -- tabela é o `ref`; não dá pra ter chave estrangeira pra duas tabelas,
+    -- então quem apaga a origem apaga o vetor junto (ver apagar_memoria).
+    CREATE TABLE vetores (
+        tipo  TEXT NOT NULL CHECK (tipo IN ('memoria', 'mensagem')),
+        ref   INTEGER NOT NULL,
+        vetor BLOB NOT NULL,
+        PRIMARY KEY (tipo, ref)
+    );
+    """,
+]
+
 
 def caminho_padrao() -> Path:
     if os.environ.get('SOLIS_BANCO'):
@@ -61,6 +81,15 @@ def usar(caminho: Path) -> None:
     _conexao.row_factory = sqlite3.Row
     _conexao.execute('PRAGMA foreign_keys = ON')
     _conexao.executescript(ESQUEMA)
+    _migrar(_conexao)
+
+
+def _migrar(c: sqlite3.Connection) -> None:
+    versao = c.execute('PRAGMA user_version').fetchone()[0]
+    for numero, sql in enumerate(MIGRACOES[versao:], start=versao + 1):
+        # executescript faz COMMIT antes de rodar, então a migração e a versão
+        # vão juntas num script só: ou as duas ficam, ou nenhuma.
+        c.executescript(f'BEGIN; {sql} PRAGMA user_version = {numero}; COMMIT;')
 
 
 def _con() -> sqlite3.Connection:
@@ -105,18 +134,61 @@ def adicionar(conversa: int, papel: str, texto: str) -> None:
 
 def memorias() -> list[dict]:
     """Da mais nova pra mais antiga — é a ordem da tela e a do prompt."""
-    linhas = _con().execute('SELECT id, texto, tema, pedido, criada FROM memorias ORDER BY id DESC')
-    return [{**dict(l), 'pedido': bool(l['pedido'])} for l in linhas]
+    linhas = _con().execute(
+        'SELECT id, texto, tema, pedido, privada, criada FROM memorias ORDER BY id DESC'
+    )
+    return [{**dict(l), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])} for l in linhas]
 
 
-def adicionar_memoria(texto: str, tema: str, pedido: bool, conversa: int | None) -> None:
+def adicionar_memoria(texto: str, tema: str, pedido: bool, conversa: int | None, privada: bool = False) -> None:
     with _con() as c:
         c.execute(
-            'INSERT INTO memorias (texto, tema, pedido, conversa, criada) VALUES (?, ?, ?, ?, ?)',
-            (texto, tema, int(pedido), conversa, _agora()),
+            'INSERT INTO memorias (texto, tema, pedido, privada, conversa, criada) VALUES (?, ?, ?, ?, ?, ?)',
+            (texto, tema, int(pedido), int(privada), conversa, _agora()),
         )
 
 
 def apagar_memoria(memoria: int) -> bool:
     with _con() as c:
+        c.execute("DELETE FROM vetores WHERE tipo = 'memoria' AND ref = ?", (memoria,))
         return c.execute('DELETE FROM memorias WHERE id = ?', (memoria,)).rowcount > 0
+
+
+# — Vetores (busca por significado) —————————————————————————————————————————————
+
+_ORIGEM = {'memoria': 'memorias', 'mensagem': 'mensagens'}
+
+
+def sem_vetor(tipo: str, limite: int) -> list[dict]:
+    """O que ainda não foi indexado. Mensagem vazia (resposta cortada no
+    primeiro pedaço) não tem o que indexar."""
+    tabela = _ORIGEM[tipo]
+    linhas = _con().execute(
+        f"SELECT o.id, o.texto FROM {tabela} o "
+        f"LEFT JOIN vetores v ON v.tipo = ? AND v.ref = o.id "
+        f"WHERE v.ref IS NULL AND o.texto != '' ORDER BY o.id LIMIT ?",
+        (tipo, limite),
+    )
+    return [dict(l) for l in linhas]
+
+
+def guardar_vetores(tipo: str, pares: list[tuple[int, bytes]]) -> None:
+    with _con() as c:
+        c.executemany(
+            'INSERT OR REPLACE INTO vetores (tipo, ref, vetor) VALUES (?, ?, ?)',
+            [(tipo, ref, vetor) for ref, vetor in pares],
+        )
+
+
+def vetores(tipo: str) -> list[tuple[int, bytes]]:
+    return [(l['ref'], l['vetor']) for l in _con().execute('SELECT ref, vetor FROM vetores WHERE tipo = ?', (tipo,))]
+
+
+def mensagens_por_id(ids: list[int]) -> list[dict]:
+    if not ids:
+        return []
+    marcas = ','.join('?' * len(ids))
+    linhas = _con().execute(
+        f'SELECT id, conversa, papel, texto, criada FROM mensagens WHERE id IN ({marcas})', ids
+    )
+    return [dict(l) for l in linhas]

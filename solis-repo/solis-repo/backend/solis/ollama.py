@@ -41,11 +41,26 @@ SISTEMA = (
 )
 
 
-def sistema(memorias: list[dict]) -> str:
-    if not memorias:
-        return SISTEMA + '\n\nAinda não há memórias guardadas.'
-    lista = '\n'.join(f'- {m["texto"]}' for m in memorias)
-    return f'{SISTEMA}\n\nMemórias sobre o Matheus:\n{lista}'
+def sistema(memorias: list[dict], trechos: list[dict] | None = None) -> str:
+    partes = [SISTEMA]
+    if memorias:
+        partes.append('Memórias sobre o Matheus:\n' + '\n'.join(f'- {m["texto"]}' for m in memorias))
+    else:
+        partes.append('Ainda não há memórias guardadas.')
+    if trechos:
+        # Com data e autor: "o Solis disse" e "o Matheus disse" pesam diferente,
+        # e "em março" responde "quando a gente falou disso?". O texto vai numa
+        # linha só: uma resposta antiga com lista viraria itens soltos no meio
+        # desta lista, misturados com ela.
+        linhas = [
+            f'- [{t["criada"][:10]}] {"Matheus" if t["papel"] == "pessoa" else "Solis"}: {" ".join(t["texto"].split())}'
+            for t in trechos
+        ]
+        partes.append(
+            'Trechos de conversas antigas que parecem ligados a esta mensagem '
+            '(use se ajudarem; ignore se não):\n' + '\n'.join(linhas)
+        )
+    return '\n\n'.join(partes)
 
 
 PAPEIS = {'pessoa': 'user', 'solis': 'assistant'}
@@ -120,6 +135,7 @@ async def conversar(
     modelo: str,
     mensagens: list[dict],
     memorias: list[dict] | None = None,
+    trechos: list[dict] | None = None,
     transporte: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
@@ -131,7 +147,7 @@ async def conversar(
     corpo = {
         'model': modelo,
         'stream': True,
-        'messages': [{'role': 'system', 'content': sistema(memorias or [])}]
+        'messages': [{'role': 'system', 'content': sistema(memorias or [], trechos)}]
         + [{'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens],
     }
     cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte)
@@ -204,3 +220,21 @@ async def responder_json(
     if not r.is_success:
         raise OllamaIndisponivel()
     return json.loads(r.json()['message']['content'])
+
+
+async def embeddings(
+    modelo: str,
+    textos: list[str],
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> list[list[float]]:
+    """Um vetor por texto, na mesma ordem (/api/embed aceita a lista inteira)."""
+    try:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+            r = await c.post('/api/embed', json={'model': modelo, 'input': textos})
+    except httpx.HTTPError as e:
+        raise OllamaIndisponivel() from e
+    if r.status_code == 404:
+        raise ModeloInexistente()
+    if not r.is_success:
+        raise OllamaIndisponivel()
+    return r.json()['embeddings']

@@ -56,7 +56,7 @@ def falso_que_responde(monkeypatch, pedacos=PEDACOS, quebra_no=None):
     """Troca o Ollama por um gerador; `quebra_no` simula a conexão caindo."""
     recebido = []
 
-    async def falso(modelo, mensagens, memorias=None):
+    async def falso(modelo, mensagens, memorias=None, trechos=None):
         recebido.append(mensagens)
 
         async def gen():

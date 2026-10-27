@@ -96,3 +96,31 @@ def test_pedido_com_ollama_fora_na_conversa(monkeypatch):
     r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'grave que eu moro em Campinas'})
     assert r.status_code == 503
     assert [t for t, *_ in textos()] == ['grave que eu moro em Campinas']
+
+
+def test_modelo_marca_o_que_e_sensivel(monkeypatch):
+    responde(monkeypatch, [
+        {'texto': 'Tem asma.', 'tema': 'Saúde', 'privada': True},
+        {'texto': 'Gosta de chá.', 'tema': 'Preferências', 'privada': False},
+    ])
+    asyncio.run(memoria.aprender('m', None, 'tenho asma e gosto de chá', []))
+    assert {m['texto']: m['privada'] for m in banco.memorias()} == {'Tem asma.': True, 'Gosta de chá.': False}
+
+
+def test_dizer_que_e_privado_vale_mesmo_se_o_modelo_discordar(monkeypatch):
+    responde(monkeypatch, [{'texto': 'Ganha 5 mil por mês.', 'tema': 'Trabalho', 'privada': False}])
+    asyncio.run(memoria.aprender('m', None, 'isso é privado: ganho 5 mil por mês', []))
+    assert [m['privada'] for m in banco.memorias()] == [True]
+
+
+def test_pedido_cru_privado_continua_privado(monkeypatch):
+    responde(monkeypatch, falha=True)
+    asyncio.run(memoria.aprender('m', None, 'grave, é segredo: a senha do wifi é abc123', []))
+    [m] = banco.memorias()
+    assert m['privada'] and m['tema'] == memoria.TEMA_PEDIDO
+
+
+def test_o_que_conta_como_pedido_de_sigilo():
+    assert memoria.eh_privado('Isso é confidencial')
+    assert memoria.eh_privado('guarda como privada')
+    assert not memoria.eh_privado('o carro é prateado')
