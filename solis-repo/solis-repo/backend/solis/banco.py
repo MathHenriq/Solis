@@ -55,6 +55,16 @@ MIGRACOES = [
         PRIMARY KEY (tipo, ref)
     );
     """,
+    # 2 — memória que muda e conversa longa.
+    """
+    -- "Saí da Syngenta" não apaga "Trabalha na Syngenta": marca a antiga como
+    -- substituída pela nova. Sai do prompt e da tela, mas continua no banco —
+    -- se o modelo errou a substituição, nada se perdeu.
+    ALTER TABLE memorias ADD COLUMN substituida_por INTEGER REFERENCES memorias(id);
+    -- Resumo das mensagens antigas da conversa, até a mensagem `resumo_ate`.
+    ALTER TABLE conversas ADD COLUMN resumo TEXT;
+    ALTER TABLE conversas ADD COLUMN resumo_ate INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
@@ -117,11 +127,23 @@ def existe(conversa: int) -> bool:
     return _con().execute('SELECT 1 FROM conversas WHERE id = ?', (conversa,)).fetchone() is not None
 
 
-def mensagens(conversa: int) -> list[dict]:
+def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
     linhas = _con().execute(
-        'SELECT papel, texto, criada FROM mensagens WHERE conversa = ? ORDER BY id', (conversa,)
+        'SELECT id, papel, texto, criada FROM mensagens WHERE conversa = ? AND id > ? ORDER BY id',
+        (conversa, depois_de),
     )
     return [dict(l) for l in linhas]
+
+
+def resumo(conversa: int) -> tuple[str | None, int]:
+    """(resumo, id da última mensagem que ele cobre). Sem resumo: (None, 0)."""
+    linha = _con().execute('SELECT resumo, resumo_ate FROM conversas WHERE id = ?', (conversa,)).fetchone()
+    return (linha['resumo'], linha['resumo_ate']) if linha else (None, 0)
+
+
+def guardar_resumo(conversa: int, texto: str, ate: int) -> None:
+    with _con() as c:
+        c.execute('UPDATE conversas SET resumo = ?, resumo_ate = ? WHERE id = ?', (texto, ate, conversa))
 
 
 def adicionar(conversa: int, papel: str, texto: str) -> None:
@@ -133,19 +155,29 @@ def adicionar(conversa: int, papel: str, texto: str) -> None:
 
 
 def memorias() -> list[dict]:
-    """Da mais nova pra mais antiga — é a ordem da tela e a do prompt."""
+    """As que valem — as substituídas ficam de fora. Da mais nova pra mais
+    antiga, que é a ordem da tela e a do prompt."""
     linhas = _con().execute(
-        'SELECT id, texto, tema, pedido, privada, criada FROM memorias ORDER BY id DESC'
+        'SELECT id, texto, tema, pedido, privada, criada FROM memorias '
+        'WHERE substituida_por IS NULL ORDER BY id DESC'
     )
     return [{**dict(l), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])} for l in linhas]
 
 
-def adicionar_memoria(texto: str, tema: str, pedido: bool, conversa: int | None, privada: bool = False) -> None:
+def adicionar_memoria(
+    texto: str, tema: str, pedido: bool, conversa: int | None, privada: bool = False, substitui: int | None = None
+) -> int:
     with _con() as c:
-        c.execute(
+        nova = c.execute(
             'INSERT INTO memorias (texto, tema, pedido, privada, conversa, criada) VALUES (?, ?, ?, ?, ?, ?)',
             (texto, tema, int(pedido), int(privada), conversa, _agora()),
-        )
+        ).lastrowid
+        if substitui is not None:
+            c.execute(
+                'UPDATE memorias SET substituida_por = ? WHERE id = ? AND substituida_por IS NULL',
+                (nova, substitui),
+            )
+        return nova
 
 
 def apagar_memoria(memoria: int) -> bool:

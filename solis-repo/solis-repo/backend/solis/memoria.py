@@ -13,7 +13,7 @@ Dois caminhos, e o segundo existe porque o primeiro erra:
 import logging
 import re
 
-from . import banco, ollama
+from . import banco, busca, ollama
 
 log = logging.getLogger('solis.memoria')
 
@@ -24,6 +24,10 @@ PEDIDO = re.compile(r'\b(grave|guarde|anote|memorize|lembre(-se)?|registre)\b', 
 # Pedido explícito de sigilo. Como o PEDIDO: se a palavra está lá, vale, mesmo
 # que o modelo não tenha achado o assunto sensível.
 PRIVADO = re.compile(r'\b(privad[oa]s?|confidencia(l|is)|sigilos[oa]s?|segredo)\b', re.IGNORECASE)
+
+# Quantas memórias existentes o extrator vê, as mais ligadas à mensagem. Mandar
+# todas não escala; e ele só precisa das do mesmo assunto pra notar o que mudou.
+CANDIDATAS = 15
 
 # Tema de uma memória pedida que não passou pelo modelo.
 TEMA_PEDIDO = 'Pedido direto'
@@ -41,7 +45,10 @@ INSTRUCAO = (
     '"Preferências de comunicação", "Projeto Solis").\n'
     'Marque privada = true quando for saúde, senha ou credencial, dinheiro e '
     'finanças, documentos pessoais, ou quando ele disser que é privado. Memória '
-    'privada nunca sai do computador dele.\n'
+    'privada nunca sai do computador dele.\n'    'Se a memória nova CORRIGE ou ATUALIZA uma já guardada (mudou de emprego, '
+    'de cidade, de opinião), ponha em substitui o número dela; senão, 0. Só '
+    'substitua quando a nova tornar a antiga falsa — fato novo sobre o mesmo '
+    'assunto não é substituição.\n'
     'Sem nada novo, devolva a lista vazia.'
 )
 
@@ -56,8 +63,11 @@ ESQUEMA = {
                     'texto': {'type': 'string'},
                     'tema': {'type': 'string'},
                     'privada': {'type': 'boolean'},
+                    # 0 em vez de null: união de tipos é onde a gramática de
+                    # formato de modelo pequeno mais tropeça.
+                    'substitui': {'type': 'integer'},
                 },
-                'required': ['texto', 'tema', 'privada'],
+                'required': ['texto', 'tema', 'privada', 'substitui'],
             },
         }
     },
@@ -89,11 +99,12 @@ async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dic
     pedido = eh_pedido(mensagem)
     privado = eh_privado(mensagem)
     guardadas = banco.memorias()
+    candidatas = await busca.memorias_parecidas(mensagem, CANDIDATAS)
 
     anteriores = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in contexto)
     texto = (
-        'Memórias já guardadas:\n'
-        + ('\n'.join(f'- {m["texto"]}' for m in guardadas) or '(nenhuma)')
+        'Memórias já guardadas sobre assuntos parecidos (número: texto):\n'
+        + ('\n'.join(f'{m["id"]}: {m["texto"]}' for m in candidatas) or '(nenhuma)')
         + f'\n\nContexto anterior:\n{anteriores or "(nenhum)"}'
         + f'\n\nÚltima mensagem do Matheus:\n{mensagem}'
     )
@@ -107,6 +118,9 @@ async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dic
         log.exception('extração de memória falhou')
         novas = []
 
+    # Só substitui o que o modelo viu: um número inventado, ou de uma memória que
+    # não estava na lista, não pode apagar nada da tela.
+    substituiveis = {m['id']: m for m in candidatas}
     vistas = {_normal(m['texto']) for m in guardadas}
     guardou = False
     for m in novas:
@@ -117,7 +131,16 @@ async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dic
             # Já sabia. Se foi um pedido, está atendido do mesmo jeito.
             guardou = guardou or pedido
             continue
-        banco.adicionar_memoria(conteudo, tema or 'Geral', pedido, conversa, privada=privado or bool(m.get('privada')))
+        antiga = substituiveis.pop(m.get('substitui') or 0, None)
+        banco.adicionar_memoria(
+            conteudo,
+            tema or 'Geral',
+            pedido,
+            conversa,
+            # Sigilo não se perde numa atualização: o que era privado continua.
+            privada=privado or bool(m.get('privada')) or bool(antiga and antiga['privada']),
+            substitui=antiga['id'] if antiga else None,
+        )
         vistas.add(_normal(conteudo))
         guardou = True
 

@@ -10,7 +10,7 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from solis import banco, busca, main, memoria, ollama
+from solis import banco, busca, main, memoria, ollama, resumo
 
 ASSUNTOS = ['syngenta', 'nfe', 'chá', 'violão', 'python']
 
@@ -138,7 +138,7 @@ def test_trechos_vao_no_prompt_com_data_e_autor():
 def test_so_o_fim_da_conversa_vai_inteiro(monkeypatch):
     recebido = []
 
-    async def falso(modelo, mensagens, memorias=None, trechos=None):
+    async def falso(modelo, mensagens, memorias=None, trechos=None, resumo=None):
         recebido.append(mensagens)
 
         async def gen():
@@ -152,5 +152,32 @@ def test_so_o_fim_da_conversa_vai_inteiro(monkeypatch):
 
     cid = conversa_com(*[f'mensagem {i}' for i in range(30)])
     TestClient(main.app).post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'a última'})
-    assert len(recebido[0]) == main.JANELA
+    # Sem resumo ainda (o modelo de resumo não respondeu): vai o teto, não tudo.
+    assert len(recebido[0]) == resumo.JANELA + resumo.LOTE
     assert recebido[0][-1]['texto'] == 'a última'
+
+
+def test_comeco_da_propria_conversa_volta_como_trecho_depois_de_resumido(embeddings_falsos):
+    cid = conversa_com('a nfe precisa de certificado A1', 'Anotado.', 'mudando de assunto')
+    asyncio.run(busca.indexar_pendentes())
+    primeira, segunda, _ = banco.mensagens(cid)
+
+    # Sem resumo, a conversa inteira já está no histórico: nada a trazer.
+    _, trechos = asyncio.run(busca.contexto('e a nfe?', cid))
+    assert trechos == []
+    # Com as duas primeiras resumidas, o trecho exato delas pode voltar.
+    _, trechos = asyncio.run(busca.contexto('e a nfe?', cid, desde=segunda['id']))
+    assert [t['id'] for t in trechos] == [primeira['id']]
+
+
+def test_extrator_recebe_as_memorias_do_mesmo_assunto(embeddings_falsos):
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    for i in range(20):
+        banco.adicionar_memoria(f'Estudou python no dia {i}.', 'Estudos', False, None)
+    asyncio.run(busca.indexar_pendentes())
+    banco.adicionar_memoria('Gosta de chá.', 'Preferências', False, None)  # ainda sem vetor
+
+    parecidas = asyncio.run(busca.memorias_parecidas('saí da syngenta', 3))
+    assert parecidas[0]['texto'] == 'Trabalha na Syngenta.'
+    todas = asyncio.run(busca.memorias_parecidas('saí da syngenta', 30))
+    assert 'Gosta de chá.' in [m['texto'] for m in todas]  # a sem vetor não some

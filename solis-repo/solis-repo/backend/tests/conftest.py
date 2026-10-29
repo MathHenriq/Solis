@@ -10,10 +10,11 @@ def banco_temporario(tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def sem_embeddings_de_verdade(monkeypatch):
-    """Nenhum teste sai pra rede atrás de embeddings. Por padrão eles estão
-    "indisponíveis" — que é também o caminho de queda que precisa funcionar.
-    Os testes de busca trocam isto por vetores falsos."""
+def sem_ollama_de_verdade(monkeypatch):
+    """Nenhum teste sai pra rede atrás do Ollama. Por padrão as chamadas de fundo
+    (embeddings, extração, resumo) dão "indisponível" — que é também o caminho de
+    queda que precisa funcionar. Cada teste troca a que precisar por uma falsa."""
     async def indisponivel(*_, **__):
         raise ollama.OllamaIndisponivel()
-    monkeypatch.setattr(ollama, 'embeddings', indisponivel)
+    for nome in ('embeddings', 'responder_json', 'responder_texto'):
+        monkeypatch.setattr(ollama, nome, indisponivel)

@@ -1,6 +1,6 @@
 # Escopo do Solis — onde estamos e para onde vamos
 
-Documento vivo. Atualizar ao fechar cada fase. Última revisão: 27 de outubro de 2026.
+Documento vivo. Atualizar ao fechar cada fase. Última revisão: 29 de outubro de 2026.
 
 ## A visão
 
@@ -68,10 +68,12 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 | Memória | Automática (o modelo extrai fatos depois de cada resposta) e garantida quando pedida ("grave", "anote"...) |
 | Busca por significado | Memórias e mensagens viram vetores; cada pedido leva as memórias e os trechos de conversas antigas mais parecidos com a mensagem |
 | Modo privado | Memórias sensíveis são marcadas — pelo modelo, ou à força quando a mensagem diz "privado" |
+| Memória que muda | Fato novo que desmente um antigo o substitui; o antigo fica guardado, fora da tela |
+| Conversa longa | O começo vira resumo; as 20 últimas mensagens vão inteiras |
 | Prompt honesto | O prompt de sistema diz o que o Solis **não** consegue fazer, pra ele não inventar |
 | Erros | Cada falha diz quem falhou: servidor, Ollama ou falta de modelo |
 
-35 testes automáticos no servidor, rodando sem precisar do Ollama.
+45 testes automáticos no servidor, rodando sem precisar do Ollama.
 
 ### O que ainda é provisório
 
@@ -92,10 +94,9 @@ das outras.
 
 - [x] Conversas guardadas; memória automática e pedida.
 - [x] Busca por significado em memórias e conversas antigas (RAG).
-- [x] Janela do histórico (as últimas 20 mensagens vão inteiras).
+- [x] Conversa longa: o começo vira resumo, o fim vai inteiro, sem buraco entre os dois.
 - [x] Marca de privada.
-- [ ] Resumo do começo de conversas longas, em vez de só cortar.
-- [ ] Contradição: "saí da Syngenta" substitui a memória antiga em vez de somar.
+- [x] Contradição: "saí da Syngenta" substitui a memória antiga (que fica guardada, marcada).
 - [ ] Esquecer e corrigir memória pela tela; lista de conversas antigas (precisam de referência visual).
 - [ ] Busca textual (FTS5) na tela de Memória.
 - [ ] Criptografar as memórias privadas (DPAPI do Windows).

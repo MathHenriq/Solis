@@ -11,11 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTasks
 
-from . import banco, busca, memoria, ollama
-
-# Só o fim da conversa aberta vai inteiro pro modelo. O que ficou pra trás não
-# se perde: está no banco, e a busca traz de volta o trecho que importar.
-JANELA = 20
+from . import banco, busca, memoria, ollama, resumo
 
 app = FastAPI(title='Solis')
 
@@ -71,11 +67,13 @@ async def enviar(conversa: int, envio: Envio):
     # disse aconteceu, mesmo que o Ollama esteja fora. O aviso de erro não é
     # guardado — é estado do sistema naquele momento, não fala de ninguém.
     banco.adicionar(conversa, 'pessoa', envio.texto)
-    historico = [{'papel': m['papel'], 'texto': m['texto']} for m in banco.mensagens(conversa)]
-    memorias, trechos = await busca.contexto(envio.texto, conversa)
+    # Só o fim da conversa vai inteiro; o começo vai como resumo. O que ficou de
+    # fora não se perde: está no banco, e a busca traz de volta o trecho exato.
+    resumido, historico, desde = resumo.para_o_modelo(conversa)
+    memorias, trechos = await busca.contexto(envio.texto, conversa, desde)
 
     try:
-        fluxo = await ollama.conversar(envio.modelo, historico[-JANELA:], memorias, trechos)
+        fluxo = await ollama.conversar(envio.modelo, historico, memorias, trechos, resumido)
     except (ollama.OllamaIndisponivel, ollama.ModeloInexistente) as e:
         # Sem modelo não há extração — mas um pedido de guardar não pode se perder
         # porque o Ollama estava fora. Guarda a mensagem como veio.
@@ -101,13 +99,15 @@ async def enviar(conversa: int, envio: Envio):
     # camada de parse pra carregar um campo só.
     #
     # Depois que a resposta terminou de chegar, em segundo plano e nesta ordem:
-    # aprender (extrair memórias da mensagem) e indexar (vetorizar o que entrou,
-    # inclusive a memória que acabou de nascer). A conversa não espera nenhum dos
-    # dois. O contexto do aprendizado são as duas falas antes da mensagem nova
-    # (a pergunta do Solis que ela talvez responda), não o histórico inteiro.
+    # aprender (extrair memórias da mensagem), indexar (vetorizar o que entrou,
+    # inclusive a memória que acabou de nascer) e resumir (se a conversa passou
+    # do lote). A conversa não espera nenhum dos três. O contexto do aprendizado
+    # são as duas falas antes da mensagem nova (a pergunta do Solis que ela
+    # talvez responda), não o histórico inteiro.
     depois = BackgroundTasks()
     depois.add_task(memoria.aprender, envio.modelo, conversa, envio.texto, historico[-3:-1])
     depois.add_task(busca.indexar_pendentes)
+    depois.add_task(resumo.resumir, envio.modelo, conversa)
     return StreamingResponse(repassar_e_guardar(), media_type='text/plain; charset=utf-8', background=depois)
 
 

@@ -51,6 +51,12 @@ pra guardar ("grave", "guarde", "anote", "memorize", "lembre", "registre"), algo
 de qualquer jeito: se o modelo não achar nada, ou o Ollama estiver fora, vai a própria
 mensagem, com o tema "Pedido direto".
 
+**Memória que muda.** O extrator vê as 15 memórias mais ligadas à mensagem, numeradas, e pode
+dizer que a nova substitui uma delas ("saí da Syngenta, agora trabalho na Vale"). A antiga não
+é apagada: fica no banco com `substituida_por` apontando pra nova, e sai da tela e do prompt.
+Se o modelo errar a substituição, nada se perdeu. Só vale número que o modelo viu na lista; e
+o que era privado continua privado depois de atualizado.
+
 **Privada.** O modelo marca como privada o que for saúde, senha, finanças ou documento
 pessoal; e se a mensagem disser "privado", "confidencial", "sigiloso" ou "segredo", tudo que
 sair dela é privado, concorde o modelo ou não. Hoje todo modelo é local, então nada sai de
@@ -65,7 +71,13 @@ no Ollama). A cada mensagem nova, entram no pedido ao modelo:
 - as memórias: todas, até 30; acima disso, as 12 mais parecidas com a mensagem mais as 5
   mais recentes;
 - até 5 trechos de conversas antigas parecidos com a mensagem;
-- as últimas 20 mensagens da conversa aberta.
+- da conversa aberta: o resumo do começo, se ela for longa, mais todas as mensagens depois
+  dele.
+
+**Conversa longa.** Quando as mensagens depois do resumo passam de 30, as mais velhas entram no
+resumo e ficam as 20 últimas inteiras. Resumir em lote, e não a cada mensagem, evita uma
+terceira chamada ao modelo em toda resposta. O que virou resumo ainda pode voltar como trecho
+exato pela busca.
 
 Sem o modelo de embeddings, volta pro comportamento anterior (as memórias mais recentes, sem
 trechos antigos) e o que não foi vetorizado fica pendente pra próxima vez. O piso de

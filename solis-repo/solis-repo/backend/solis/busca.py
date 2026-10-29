@@ -78,21 +78,54 @@ async def indexar_pendentes() -> int:
     return total
 
 
-async def contexto(mensagem: str, conversa: int) -> tuple[list[dict], list[dict]]:
-    """(memórias, trechos de conversas antigas) que vão no pedido desta mensagem."""
-    todas = banco.memorias()
+async def _consulta(texto: str) -> np.ndarray | None:
     try:
-        [consulta] = await ollama.embeddings(MODELO, [PERGUNTA + mensagem])
+        [v] = await ollama.embeddings(MODELO, [PERGUNTA + texto])
     except (ollama.OllamaIndisponivel, ollama.ModeloInexistente):
+        return None
+    return np.frombuffer(_bytes(v), dtype=np.float32)
+
+
+def _ordenar(q: np.ndarray, ativas: list[dict]) -> list[dict]:
+    """As memórias que valem, da mais parecida com `q` pra menos. As
+    substituídas ainda têm vetor no banco, mas não entram."""
+    por_id = {m['id']: m for m in ativas}
+    ids, m = _matriz([(r, b) for r, b in banco.vetores('memoria') if r in por_id])
+    if not ids:
+        return []
+    return [por_id[ids[i]] for i in np.argsort(m @ q)[::-1]]
+
+
+async def memorias_parecidas(texto: str, quantas: int) -> list[dict]:
+    """As `quantas` memórias mais ligadas a `texto` — pra o extrator saber o que
+    já existe sobre o assunto e poder dizer o que mudou. Sem embeddings, as
+    mais recentes."""
+    ativas = banco.memorias()
+    q = await _consulta(texto)
+    if q is None:
+        return ativas[:quantas]
+    ordenadas = _ordenar(q, ativas)
+    # Memória que ainda não foi vetorizada (acabou de nascer) entra pela data.
+    vistas = {m['id'] for m in ordenadas}
+    return (ordenadas + [m for m in ativas if m['id'] not in vistas])[:quantas]
+
+
+async def contexto(mensagem: str, conversa: int, desde: int = 0) -> tuple[list[dict], list[dict]]:
+    """(memórias, trechos de conversas antigas) que vão no pedido desta mensagem.
+
+    Da conversa aberta, só ficam de fora as mensagens depois de `desde` — essas
+    já vão inteiras no histórico. As de antes viraram resumo, e um trecho exato
+    delas ainda pode ser o que a pergunta precisa."""
+    todas = banco.memorias()
+    q = await _consulta(mensagem)
+    if q is None:
         return todas[: TODAS_ATE + MEMORIAS_RECENTES], []
-    q = np.frombuffer(_bytes(consulta), dtype=np.float32)
 
     if len(todas) <= TODAS_ATE:
         memorias = todas
     else:
-        ids, m = _matriz(banco.vetores('memoria'))
-        parecidas = [ids[i] for i in np.argsort(m @ q)[::-1][:MEMORIAS_PARECIDAS]] if ids else []
-        escolhidas = set(parecidas) | {x['id'] for x in todas[:MEMORIAS_RECENTES]}
+        escolhidas = {x['id'] for x in _ordenar(q, todas)[:MEMORIAS_PARECIDAS]}
+        escolhidas |= {x['id'] for x in todas[:MEMORIAS_RECENTES]}
         memorias = [x for x in todas if x['id'] in escolhidas]
 
     ids, m = _matriz(banco.vetores('mensagem'))
@@ -102,9 +135,8 @@ async def contexto(mensagem: str, conversa: int) -> tuple[list[dict], list[dict]
         candidatos = [(ids[i], float(sims[i])) for i in np.argsort(sims)[::-1] if sims[i] >= PISO_TRECHO]
         por_id = {x['id']: x for x in banco.mensagens_por_id([i for i, _ in candidatos[: TRECHOS * 4]])}
         for ref, _ in candidatos:
-            # A conversa aberta já vai inteira no histórico; repetir é desperdício.
             msg = por_id.get(ref)
-            if msg and msg['conversa'] != conversa:
+            if msg and not (msg['conversa'] == conversa and msg['id'] > desde):
                 trechos.append({**msg, 'texto': msg['texto'][:TRECHO_MAX]})
             if len(trechos) == TRECHOS:
                 break

@@ -41,12 +41,17 @@ SISTEMA = (
 )
 
 
-def sistema(memorias: list[dict], trechos: list[dict] | None = None) -> str:
+def sistema(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
     partes = [SISTEMA]
     if memorias:
         partes.append('Memórias sobre o Matheus:\n' + '\n'.join(f'- {m["texto"]}' for m in memorias))
     else:
         partes.append('Ainda não há memórias guardadas.')
+    if resumo:
+        partes.append(
+            'Resumo do começo desta conversa (essas mensagens não estão mais abaixo, '
+            'só este resumo delas):\n' + resumo
+        )
     if trechos:
         # Com data e autor: "o Solis disse" e "o Matheus disse" pesam diferente,
         # e "em março" responde "quando a gente falou disso?". O texto vai numa
@@ -136,6 +141,7 @@ async def conversar(
     mensagens: list[dict],
     memorias: list[dict] | None = None,
     trechos: list[dict] | None = None,
+    resumo: str | None = None,
     transporte: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
@@ -147,7 +153,7 @@ async def conversar(
     corpo = {
         'model': modelo,
         'stream': True,
-        'messages': [{'role': 'system', 'content': sistema(memorias or [], trechos)}]
+        'messages': [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo)}]
         + [{'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens],
     }
     cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte)
@@ -190,26 +196,23 @@ async def conversar(
     return pedacos()
 
 
-async def responder_json(
+async def _perguntar(
     modelo: str,
     instrucao: str,
     texto: str,
-    esquema: dict,
-    transporte: httpx.AsyncBaseTransport | None = None,
-) -> dict:
-    """Uma pergunta só, sem streaming, com a resposta presa a um JSON Schema.
-
-    `format` com esquema obriga o Ollama a gerar JSON válido nesse formato —
-    sem isso um modelo pequeno devolve "Claro! Aqui está o JSON:" antes do JSON.
-    Temperatura 0: extração não é lugar de criatividade.
-    """
+    formato: dict | None,
+    transporte: httpx.AsyncBaseTransport | None,
+) -> str:
+    """Uma pergunta só, sem streaming. Temperatura 0: extração e resumo não são
+    lugar de criatividade — a mesma conversa tem que dar o mesmo resultado."""
     corpo = {
         'model': modelo,
         'stream': False,
-        'format': esquema,
         'options': {'temperature': 0},
         'messages': [{'role': 'system', 'content': instrucao}, {'role': 'user', 'content': texto}],
     }
+    if formato:
+        corpo['format'] = formato
     try:
         async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
             r = await c.post('/api/chat', json=corpo)
@@ -219,7 +222,29 @@ async def responder_json(
         raise ModeloInexistente()
     if not r.is_success:
         raise OllamaIndisponivel()
-    return json.loads(r.json()['message']['content'])
+    return r.json()['message']['content']
+
+
+async def responder_json(
+    modelo: str,
+    instrucao: str,
+    texto: str,
+    esquema: dict,
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> dict:
+    """Resposta presa a um JSON Schema. `format` com esquema obriga o Ollama a
+    gerar JSON válido nesse formato — sem isso um modelo pequeno devolve
+    "Claro! Aqui está o JSON:" antes do JSON."""
+    return json.loads(await _perguntar(modelo, instrucao, texto, esquema, transporte))
+
+
+async def responder_texto(
+    modelo: str,
+    instrucao: str,
+    texto: str,
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> str:
+    return await _perguntar(modelo, instrucao, texto, None, transporte)
 
 
 async def embeddings(

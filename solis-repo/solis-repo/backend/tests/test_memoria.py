@@ -124,3 +124,35 @@ def test_o_que_conta_como_pedido_de_sigilo():
     assert memoria.eh_privado('Isso é confidencial')
     assert memoria.eh_privado('guarda como privada')
     assert not memoria.eh_privado('o carro é prateado')
+
+
+def test_memoria_que_mudou_substitui_a_antiga_sem_apagar(monkeypatch):
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    [antiga] = banco.memorias()
+    perguntas = responde(monkeypatch, [
+        {'texto': 'Trabalha na Vale.', 'tema': 'Trabalho', 'privada': False, 'substitui': antiga['id']},
+    ])
+    asyncio.run(memoria.aprender('m', None, 'saí da Syngenta, agora trabalho na Vale', []))
+
+    assert [m['texto'] for m in banco.memorias()] == ['Trabalha na Vale.']
+    # O modelo viu a antiga com o número dela.
+    assert f'{antiga["id"]}: Trabalha na Syngenta.' in perguntas[0]
+    # E ela continua no banco, marcada — se a substituição foi engano, dá pra voltar.
+    linha = banco._con().execute('SELECT substituida_por FROM memorias WHERE id = ?', (antiga['id'],)).fetchone()
+    assert linha['substituida_por'] is not None
+
+
+def test_numero_que_o_modelo_nao_viu_nao_substitui_nada(monkeypatch):
+    banco.adicionar_memoria('Gosta de chá.', 'Preferências', False, None)
+    responde(monkeypatch, [{'texto': 'Mora em Campinas.', 'tema': 'Casa', 'privada': False, 'substitui': 999}])
+    asyncio.run(memoria.aprender('m', None, 'moro em Campinas', []))
+    assert {m['texto'] for m in banco.memorias()} == {'Gosta de chá.', 'Mora em Campinas.'}
+
+
+def test_atualizar_memoria_privada_continua_privada(monkeypatch):
+    banco.adicionar_memoria('Toma remédio X.', 'Saúde', False, None, privada=True)
+    [antiga] = banco.memorias()
+    responde(monkeypatch, [{'texto': 'Toma remédio Y.', 'tema': 'Saúde', 'privada': False, 'substitui': antiga['id']}])
+    asyncio.run(memoria.aprender('m', None, 'troquei o remédio pelo Y', []))
+    [nova] = banco.memorias()
+    assert nova['texto'] == 'Toma remédio Y.' and nova['privada']
