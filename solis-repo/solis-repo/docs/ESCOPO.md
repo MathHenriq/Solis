@@ -1,6 +1,6 @@
 # Escopo do Solis — onde estamos e para onde vamos
 
-Documento vivo. Atualizar ao fechar cada fase. Última revisão: 29 de outubro de 2026.
+Documento vivo. Atualizar ao fechar cada fase. Última revisão: 30 de outubro de 2026.
 
 ## A visão
 
@@ -70,10 +70,13 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 | Modo privado | Memórias sensíveis são marcadas — pelo modelo, ou à força quando a mensagem diz "privado" |
 | Memória que muda | Fato novo que desmente um antigo o substitui; o antigo fica guardado, fora da tela |
 | Conversa longa | O começo vira resumo; as 20 últimas mensagens vão inteiras |
+| Cérebros | Claude Code e Codex respondem pelo Solis com a assinatura; o modelo local é a reserva e o guardião do que é privado |
+| MCP | O Claude Code e o Codex consultam a memória do Solis mesmo fora dele |
+| Importação | O histórico do ChatGPT e do Claude entra na busca e na memória |
 | Prompt honesto | O prompt de sistema diz o que o Solis **não** consegue fazer, pra ele não inventar |
 | Erros | Cada falha diz quem falhou: servidor, Ollama ou falta de modelo |
 
-45 testes automáticos no servidor, rodando sem precisar do Ollama.
+73 testes automáticos no servidor, rodando sem precisar do Ollama.
 
 ### O que ainda é provisório
 
@@ -101,24 +104,22 @@ das outras.
 - [ ] Busca textual (FTS5) na tela de Memória.
 - [ ] Criptografar as memórias privadas (DPAPI do Windows).
 
-### Importar o passado
+### Importar o passado — pronto, falta conferir com os arquivos reais
 
-O ChatGPT e o Claude exportam todo o histórico (em JSON, pelas configurações de cada um). Um
-importador lê as conversas, passa pela mesma extração de memória e popula o Solis com anos
-de contexto. Os arquivos reais são necessários pra escrever o leitor de cada formato.
+- [x] Importador do ChatGPT e do Claude (`python -m solis.importar`), sem duplicar ao repetir.
+- [x] Conversas importadas entram na busca, com o autor certo ("ChatGPT disse").
+- [x] Memórias tiradas do histórico, retomáveis, com data, sem substituir o presente.
+- [ ] Conferir o leitor do Claude com uma exportação real (os campos não foram confirmados).
 
-### Cérebros externos
+### Cérebros externos — pronto, falta conferir o Codex no notebook
 
-- **Claude Code e Codex pelo terminal**, com a assinatura do Matheus: o Solis chama o CLI
-  oficial (`claude -p`, e o equivalente do Codex) como um processo. Nunca extrair o login pra
-  chamar a API por fora — viola os termos e quebra a cada atualização.
-- **Servidor MCP de memória.** O Solis expõe `buscar_memoria` e `guardar_memoria` pelo MCP,
-  que o Claude Code e o Codex já entendem. Eles consultam a memória do Solis antes de
-  trabalhar — até quando usados fora do Solis. Memória privada não entra.
-- **Roteador por regras** (código, não LLM): conversa e assuntos pessoais → modelo local;
-  código e tarefas difíceis → Claude ou Codex; cota acabou → o próximo da fila.
-- **APIs gratuitas** (Gemini e outras) como mais opções — lendo os termos: vários planos
-  gratuitos usam os dados pra treinar.
+- [x] Claude Code e Codex pelo CLI oficial, com a assinatura (`/claude`, `/codex`, `/local`).
+- [x] Roteador por regras, com a preferência pelos mais fortes e queda pro próximo.
+- [x] Nada privado vai pra nuvem; extração, vetores e resumo sempre locais.
+- [x] Servidor MCP de memória, testado com o Claude Code de verdade.
+- [ ] Conferir o Codex rodando de verdade (integrado só pela documentação).
+- [ ] APIs gratuitas (Gemini e outras) como mais cérebros.
+- [ ] Escolher a ordem dos cérebros pela tela (hoje é a variável `SOLIS_CEREBROS`).
 
 ### Servidor em casa e acesso de fora
 

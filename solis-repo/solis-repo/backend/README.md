@@ -115,6 +115,30 @@ cwd = 'C:\Users\Matheus\Documents\Solis\Projetos\Solis\solis-repo\solis-repo\bac
 Verificado com o Claude Code de verdade: ele subiu o servidor, chamou `memorias_do_matheus`,
 respondeu com as memórias públicas, e a privada não apareceu.
 
+## Importar o histórico do ChatGPT e do Claude
+
+Peça a exportação em cada serviço (ChatGPT: Configurações → Controles de dados → Exportar;
+Claude: Configurações → Privacidade → Exportar). Chega um .zip por e-mail. Com o `.venv`
+ativado, na pasta `backend`:
+
+```powershell
+python -m solis.importar C:\caminho\da\exportacao.zip
+python -m solis.importar C:\caminho\da\exportacao.zip --aprender --modelo qwen3:8b
+```
+
+- O formato é reconhecido sozinho. Importar o mesmo arquivo de novo não duplica nada.
+- As conversas importadas entram na busca: perguntar ao Solis sobre algo que você conversou
+  com o ChatGPT traz o trecho, marcado como dito pelo ChatGPT. Elas não viram a conversa aberta.
+- `--aprender` tira memórias de cada conversa no modelo local — é lento (uma chamada por
+  conversa). Ctrl+C pra parar; rodar de novo continua de onde parou. Fato antigo vem com a data
+  ("Em 2023, trabalhava na X.") e **nunca substitui** uma memória atual: o passado não apaga o
+  presente.
+- O que foi dito em sigilo lá ("isso é privado...") é privado aqui também.
+
+Formatos lidos de exportações reais por outros projetos — nenhum dos dois serviços publica o
+esquema. O do Claude ainda precisa ser conferido com um arquivo seu: se a importação dele
+disser "0 conversas novas" com o arquivo cheio, é o leitor que precisa de ajuste.
+
 ## Busca por significado
 
 Cada memória e cada mensagem vira um vetor com o `nomic-embed-text` (precisa estar instalado

@@ -94,21 +94,40 @@ def guardar_pedido_cru(texto: str, conversa: int | None) -> None:
 
 
 async def aprender(
-    modelo: str, conversa: int, mensagem: str, contexto: list[dict], mensagem_id: int | None = None
+    modelo: str,
+    conversa: int,
+    mensagem: str,
+    contexto: list[dict],
+    mensagem_id: int | None = None,
+    antiga: str | None = None,
 ) -> None:
     """Extrai e guarda o que houver de novo na `mensagem`. Nunca levanta: roda
-    depois da resposta, e não há mais ninguém pra receber um erro."""
-    pedido = eh_pedido(mensagem)
-    privado = eh_privado(mensagem)
+    depois da resposta, e não há mais ninguém pra receber um erro.
+
+    `antiga` ("ChatGPT, 14/03/2023"): a mensagem são as falas do Matheus numa
+    conversa importada. Aí não há pedido (um "grave isso" dito ao ChatGPT anos
+    atrás não é pedido ao Solis) e não há substituição — o passado não pode
+    apagar o presente: "trabalho na X" de 2023 não derruba "Trabalha na
+    Syngenta" de hoje. O fato vem com a data."""
+    pedido = eh_pedido(mensagem) and antiga is None
+    privado = eh_privado(mensagem) and antiga is None
     guardadas = banco.memorias()
     candidatas = await busca.memorias_parecidas(mensagem, CANDIDATAS)
 
     anteriores = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in contexto)
+    if antiga:
+        fala = (
+            f'\n\nFalas do Matheus numa conversa antiga ({antiga}). Fato que pode ter mudado '
+            'desde então vai com a data ("Em 2023, trabalhava na X."), e nunca substitui '
+            f'uma memória guardada (substitui = 0):\n{mensagem}'
+        )
+    else:
+        fala = f'\n\nÚltima mensagem do Matheus:\n{mensagem}'
     texto = (
         'Memórias já guardadas sobre assuntos parecidos (número: texto):\n'
         + ('\n'.join(f'{m["id"]}: {m["texto"]}' for m in candidatas) or '(nenhuma)')
         + f'\n\nContexto anterior:\n{anteriores or "(nenhum)"}'
-        + f'\n\nÚltima mensagem do Matheus:\n{mensagem}'
+        + fala
     )
     if pedido:
         texto += '\n\nO Matheus PEDIU pra guardar algo nesta mensagem: extraia o que ele pediu.'
@@ -122,7 +141,7 @@ async def aprender(
 
     # Só substitui o que o modelo viu: um número inventado, ou de uma memória que
     # não estava na lista, não pode apagar nada da tela.
-    substituiveis = {m['id']: m for m in candidatas}
+    substituiveis = {} if antiga else {m['id']: m for m in candidatas}
     vistas = {_normal(m['texto']) for m in guardadas}
     guardou = saiu_privada = False
     for m in novas:

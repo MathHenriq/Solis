@@ -79,6 +79,9 @@ MIGRACOES = [
     -- Id da conversa no serviço de origem: importar de novo não duplica.
     ALTER TABLE conversas ADD COLUMN externo TEXT;
     CREATE UNIQUE INDEX conversas_externas ON conversas (externo) WHERE externo IS NOT NULL;
+    -- Conversa importada da qual o Solis já tirou as memórias. Extrair de anos
+    -- de histórico leva horas; isto deixa parar e continuar de onde parou.
+    ALTER TABLE conversas ADD COLUMN aprendida INTEGER NOT NULL DEFAULT 0;
     """,
 ]
 
@@ -276,3 +279,15 @@ def mensagens_por_id(ids: list[int]) -> list[dict]:
         ids,
     )
     return [dict(l) for l in linhas]
+
+
+def importadas_por_aprender() -> list[dict]:
+    linhas = _con().execute(
+        "SELECT id, origem, titulo, criada FROM conversas WHERE origem != 'solis' AND aprendida = 0 ORDER BY id"
+    )
+    return [dict(l) for l in linhas]
+
+
+def marcar_aprendida(conversa: int) -> None:
+    with _con() as c:
+        c.execute('UPDATE conversas SET aprendida = 1 WHERE id = ?', (conversa,))
