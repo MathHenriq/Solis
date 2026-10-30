@@ -65,6 +65,21 @@ MIGRACOES = [
     ALTER TABLE conversas ADD COLUMN resumo TEXT;
     ALTER TABLE conversas ADD COLUMN resumo_ate INTEGER NOT NULL DEFAULT 0;
     """,
+    # 3 — cérebros externos e importação.
+    """
+    -- Mensagem dita em sigilo, ou de onde saiu uma memória privada. Não vai pra
+    -- modelo de nuvem, nem como histórico nem como trecho.
+    ALTER TABLE mensagens ADD COLUMN privada INTEGER NOT NULL DEFAULT 0;
+    -- Quem respondeu: 'local', 'claude', 'codex'. Nulo nas falas da pessoa e nas
+    -- respostas de antes desta coluna.
+    ALTER TABLE mensagens ADD COLUMN cerebro TEXT;
+    -- De onde veio a conversa: 'solis', ou 'chatgpt' e 'claude' quando importada.
+    ALTER TABLE conversas ADD COLUMN origem TEXT NOT NULL DEFAULT 'solis';
+    ALTER TABLE conversas ADD COLUMN titulo TEXT;
+    -- Id da conversa no serviço de origem: importar de novo não duplica.
+    ALTER TABLE conversas ADD COLUMN externo TEXT;
+    CREATE UNIQUE INDEX conversas_externas ON conversas (externo) WHERE externo IS NOT NULL;
+    """,
 ]
 
 
@@ -90,6 +105,9 @@ def usar(caminho: Path) -> None:
     _conexao = sqlite3.connect(caminho, check_same_thread=False)
     _conexao.row_factory = sqlite3.Row
     _conexao.execute('PRAGMA foreign_keys = ON')
+    # WAL: o servidor MCP (outro processo) lê o mesmo arquivo enquanto o
+    # servidor do Solis escreve, sem um travar o outro.
+    _conexao.execute('PRAGMA journal_mode = WAL')
     _conexao.executescript(ESQUEMA)
     _migrar(_conexao)
 
@@ -113,13 +131,25 @@ def _agora() -> str:
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 
-def nova_conversa() -> int:
+def nova_conversa(origem: str = 'solis', titulo: str | None = None, externo: str | None = None,
+                  criada: str | None = None) -> int:
     with _con() as c:
-        return c.execute('INSERT INTO conversas (criada) VALUES (?)', (_agora(),)).lastrowid
+        return c.execute(
+            'INSERT INTO conversas (criada, origem, titulo, externo) VALUES (?, ?, ?, ?)',
+            (criada or _agora(), origem, titulo, externo),
+        ).lastrowid
+
+
+def conversa_externa(externo: str) -> int | None:
+    linha = _con().execute('SELECT id FROM conversas WHERE externo = ?', (externo,)).fetchone()
+    return linha['id'] if linha else None
 
 
 def ultima_conversa() -> int | None:
-    linha = _con().execute('SELECT id FROM conversas ORDER BY id DESC LIMIT 1').fetchone()
+    # Conversa importada não é "a última": o app reabre a última do próprio Solis.
+    linha = _con().execute(
+        "SELECT id FROM conversas WHERE origem = 'solis' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
     return linha['id'] if linha else None
 
 
@@ -129,10 +159,29 @@ def existe(conversa: int) -> bool:
 
 def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
     linhas = _con().execute(
-        'SELECT id, papel, texto, criada FROM mensagens WHERE conversa = ? AND id > ? ORDER BY id',
+        'SELECT id, papel, texto, criada, privada, cerebro FROM mensagens '
+        'WHERE conversa = ? AND id > ? ORDER BY id',
         (conversa, depois_de),
     )
-    return [dict(l) for l in linhas]
+    return [{**dict(l), 'privada': bool(l['privada'])} for l in linhas]
+
+
+def tem_privada(conversa: int) -> bool:
+    return _con().execute(
+        'SELECT 1 FROM mensagens WHERE conversa = ? AND privada = 1 LIMIT 1', (conversa,)
+    ).fetchone() is not None
+
+
+def marcar_privada(mensagem: int) -> None:
+    """A mensagem e a resposta logo depois dela: o que o Solis respondeu a algo
+    dito em sigilo costuma repetir o que foi dito."""
+    with _con() as c:
+        c.execute(
+            'UPDATE mensagens SET privada = 1 WHERE id = ? OR id = ('
+            '  SELECT MIN(id) FROM mensagens WHERE id > ? AND conversa = '
+            '  (SELECT conversa FROM mensagens WHERE id = ?))',
+            (mensagem, mensagem, mensagem),
+        )
 
 
 def resumo(conversa: int) -> tuple[str | None, int]:
@@ -146,12 +195,13 @@ def guardar_resumo(conversa: int, texto: str, ate: int) -> None:
         c.execute('UPDATE conversas SET resumo = ?, resumo_ate = ? WHERE id = ?', (texto, ate, conversa))
 
 
-def adicionar(conversa: int, papel: str, texto: str) -> None:
+def adicionar(conversa: int, papel: str, texto: str, privada: bool = False, cerebro: str | None = None,
+              criada: str | None = None) -> int:
     with _con() as c:
-        c.execute(
-            'INSERT INTO mensagens (conversa, papel, texto, criada) VALUES (?, ?, ?, ?)',
-            (conversa, papel, texto, _agora()),
-        )
+        return c.execute(
+            'INSERT INTO mensagens (conversa, papel, texto, criada, privada, cerebro) VALUES (?, ?, ?, ?, ?, ?)',
+            (conversa, papel, texto, criada or _agora(), int(privada), cerebro),
+        ).lastrowid
 
 
 def memorias() -> list[dict]:
@@ -221,6 +271,8 @@ def mensagens_por_id(ids: list[int]) -> list[dict]:
         return []
     marcas = ','.join('?' * len(ids))
     linhas = _con().execute(
-        f'SELECT id, conversa, papel, texto, criada FROM mensagens WHERE id IN ({marcas})', ids
+        f'SELECT m.id, m.conversa, m.papel, m.texto, m.criada, m.privada, c.origem '
+        f'FROM mensagens m JOIN conversas c ON c.id = m.conversa WHERE m.id IN ({marcas})',
+        ids,
     )
     return [dict(l) for l in linhas]

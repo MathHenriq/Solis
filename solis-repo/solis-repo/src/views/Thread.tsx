@@ -3,6 +3,8 @@ import { Icone } from '../components/icons';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
 
+const NOMES_CEREBRO: Record<string, string> = { claude: 'Claude', codex: 'Codex' };
+
 /** Conversa com thread em andamento — o outro estado da tela de Conversa.
  *  Referência: referencias/telas/18-conversa-thread.png.
  *
@@ -164,7 +166,13 @@ export function Thread({
                 style={{ width: 'var(--th-avatar)', height: 'auto', marginTop: 6 }}
               />
               <div className="flex-1">
-                <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>{t.hora}</div>
+                {/* Quem respondeu, quando foi um modelo de nuvem: o que foi dito
+                    saiu da máquina, e o Matheus precisa saber disso. O local é o
+                    padrão silencioso — não precisa de etiqueta. */}
+                <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>
+                  {t.hora}
+                  {t.cerebro && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
+                </div>
                 <div
                   className="text-text-primary"
                   style={{ fontSize: 'var(--mem-item-texto)', lineHeight: 'var(--mem-item-lh)' }}

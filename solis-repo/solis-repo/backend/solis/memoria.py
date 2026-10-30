@@ -93,7 +93,9 @@ def guardar_pedido_cru(texto: str, conversa: int | None) -> None:
     banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa, privada=eh_privado(texto))
 
 
-async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dict]) -> None:
+async def aprender(
+    modelo: str, conversa: int, mensagem: str, contexto: list[dict], mensagem_id: int | None = None
+) -> None:
     """Extrai e guarda o que houver de novo na `mensagem`. Nunca levanta: roda
     depois da resposta, e não há mais ninguém pra receber um erro."""
     pedido = eh_pedido(mensagem)
@@ -122,7 +124,7 @@ async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dic
     # não estava na lista, não pode apagar nada da tela.
     substituiveis = {m['id']: m for m in candidatas}
     vistas = {_normal(m['texto']) for m in guardadas}
-    guardou = False
+    guardou = saiu_privada = False
     for m in novas:
         conteudo, tema = m.get('texto', '').strip(), m.get('tema', '').strip()
         if not conteudo:
@@ -143,6 +145,12 @@ async def aprender(modelo: str, conversa: int, mensagem: str, contexto: list[dic
         )
         vistas.add(_normal(conteudo))
         guardou = True
+        saiu_privada = saiu_privada or bool(m.get('privada'))
 
     if pedido and not guardou:
         guardar_pedido_cru(mensagem, conversa)
+
+    # Se saiu algo privado desta mensagem, ela (e a resposta) não vai mais pra
+    # nuvem — nem no histórico, nem como trecho antigo.
+    if mensagem_id is not None and (privado or saiu_privada):
+        banco.marcar_privada(mensagem_id)

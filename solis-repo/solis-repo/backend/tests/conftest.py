@@ -1,6 +1,6 @@
 import pytest
 
-from solis import banco, ollama
+from solis import banco, cerebros, ollama
 
 
 @pytest.fixture(autouse=True)
@@ -18,3 +18,12 @@ def sem_ollama_de_verdade(monkeypatch):
         raise ollama.OllamaIndisponivel()
     for nome in ('embeddings', 'responder_json', 'responder_texto'):
         monkeypatch.setattr(ollama, nome, indisponivel)
+
+
+@pytest.fixture(autouse=True)
+def sem_cli_de_verdade(monkeypatch):
+    """Nenhum teste chama o Claude Code ou o Codex de verdade — gastaria a cota
+    do Matheus e dependeria de login. Por padrão nenhum CLI está "instalado";
+    os testes do roteador trocam os executores por falsos."""
+    monkeypatch.setattr(cerebros, 'instalado', lambda nome: False)
+    monkeypatch.setattr(cerebros, '_fora_ate', {})

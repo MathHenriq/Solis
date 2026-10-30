@@ -15,14 +15,27 @@ export type Turno = {
   digitando?: boolean;
   /** No lugar da resposta veio um aviso de erro. Não é guardado no banco. */
   falha?: boolean;
+  /** Quem respondeu: 'local', 'claude', 'codex'. */
+  cerebro?: string | null;
 };
 
 /** ERROR_STATES.md §2: no lugar da resposta, dizendo quem falhou e o que fazer. */
-const AVISOS: Record<Falha, string> = {
-  'sem-servidor': 'Não consegui falar com o servidor do Solis. Iniciar com npm run backend.',
-  'sem-ollama': 'Não consegui acessar o modelo local. Verificar se o Ollama está rodando.',
-  'sem-modelo': 'Nenhum modelo de conversa instalado. Baixar um em Modelos locais.',
-};
+function aviso(falha: Falha): string {
+  switch (falha.tipo) {
+    case 'sem-servidor':
+      return 'Não consegui falar com o servidor do Solis. Iniciar com npm run backend.';
+    case 'sem-ollama':
+      return 'Não consegui acessar o modelo local. Verificar se o Ollama está rodando.';
+    case 'sem-modelo':
+      return 'Nenhum modelo de conversa instalado. Baixar um em Modelos locais.';
+    case 'sem-cerebro':
+      return `O ${falha.cerebro} não respondeu. Verificar o login e a cota dele, ou mandar de novo sem o comando.`;
+  }
+}
+
+/** "/claude explica X" chega na tela como "explica X" — igual ao que o servidor
+ *  guarda. O comando escolhe quem responde; não faz parte do que foi dito. */
+const semComando = (texto: string) => texto.replace(/^\/(claude|codex|local)\s+(?=\S)/i, '');
 
 /** Começa uma conversa nova. Comando digitado e não botão porque a tela não
  *  tem referência visual pra um botão — e sem ele, guardar a conversa tiraria
@@ -42,7 +55,9 @@ export function useConversa() {
     carregarConversa().then((c) => {
       if (!vivo || !c) return;
       definirConversa(c.id);
-      definirTurnos(c.mensagens.map((m) => ({ de: m.papel, texto: m.texto, hora: hora(new Date(m.criada)) })));
+      definirTurnos(
+        c.mensagens.map((m) => ({ de: m.papel, texto: m.texto, hora: hora(new Date(m.criada)), cerebro: m.cerebro })),
+      );
     });
     return () => {
       vivo = false;
@@ -68,7 +83,7 @@ export function useConversa() {
       const agora = hora(new Date());
       definirTurnos((ts) => [
         ...ts,
-        { de: 'pessoa', hora: agora, texto: limpo },
+        { de: 'pessoa', hora: agora, texto: semComando(limpo) },
         { de: 'solis', hora: agora, texto: '', digitando: true },
       ]);
       definirRespondendo(true);
@@ -78,10 +93,11 @@ export function useConversa() {
         limpo,
         (pedaco) => mudarUltimo((t) => ({ ...t, texto: t.texto + pedaco })),
         definirConversa,
+        (cerebro) => mudarUltimo((t) => ({ ...t, cerebro })),
       );
 
       mudarUltimo((t) =>
-        falha ? { ...t, texto: AVISOS[falha], digitando: false, falha: true } : { ...t, digitando: false },
+        falha ? { ...t, texto: aviso(falha), digitando: false, falha: true } : { ...t, digitando: false },
       );
       definirRespondendo(false);
     },

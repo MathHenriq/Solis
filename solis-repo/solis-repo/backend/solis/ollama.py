@@ -41,8 +41,19 @@ SISTEMA = (
 )
 
 
-def sistema(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
-    partes = [SISTEMA]
+# Quem é o "outro lado" num trecho antigo. Conversa importada do ChatGPT tem
+# o ChatGPT respondendo, não o Solis — e o modelo precisa saber quem disse.
+AUTORES = {'solis': 'Solis', 'chatgpt': 'ChatGPT', 'claude': 'Claude'}
+
+
+def autor(trecho: dict) -> str:
+    return 'Matheus' if trecho['papel'] == 'pessoa' else AUTORES.get(trecho.get('origem'), 'Solis')
+
+
+def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
+    """O que o Solis sabe que importa pra esta mensagem — o mesmo bloco serve o
+    prompt do modelo local e o que vai pros cérebros de nuvem."""
+    partes = []
     if memorias:
         partes.append('Memórias sobre o Matheus:\n' + '\n'.join(f'- {m["texto"]}' for m in memorias))
     else:
@@ -57,15 +68,16 @@ def sistema(memorias: list[dict], trechos: list[dict] | None = None, resumo: str
         # e "em março" responde "quando a gente falou disso?". O texto vai numa
         # linha só: uma resposta antiga com lista viraria itens soltos no meio
         # desta lista, misturados com ela.
-        linhas = [
-            f'- [{t["criada"][:10]}] {"Matheus" if t["papel"] == "pessoa" else "Solis"}: {" ".join(t["texto"].split())}'
-            for t in trechos
-        ]
+        linhas = [f'- [{t["criada"][:10]}] {autor(t)}: {" ".join(t["texto"].split())}' for t in trechos]
         partes.append(
             'Trechos de conversas antigas que parecem ligados a esta mensagem '
             '(use se ajudarem; ignore se não):\n' + '\n'.join(linhas)
         )
     return '\n\n'.join(partes)
+
+
+def sistema(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
+    return f'{SISTEMA}\n\n{contexto(memorias, trechos, resumo)}'
 
 
 PAPEIS = {'pessoa': 'user', 'solis': 'assistant'}

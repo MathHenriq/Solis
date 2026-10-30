@@ -33,7 +33,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /modelos` | modelos instalados no Ollama, com tamanho, quantização, contexto e se está carregado. `503` se o Ollama não responder |
 | `GET /conversas/atual` | a conversa mais recente, com as mensagens. `id: null` se ainda não houver nenhuma |
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
-| `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, manda o histórico ao Ollama e devolve a resposta em texto puro, pedaço a pedaço. A resposta é guardada no fim, mesmo se cortada no meio. `503` sem Ollama, `404` se o modelo ou a conversa não existirem |
+| `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, decide quem responde (modelo local, Claude ou Codex) e devolve a resposta em texto puro, pedaço a pedaço; o cabeçalho `X-Solis-Cerebro` diz quem respondeu. A resposta é guardada no fim, mesmo se cortada no meio. `503` sem Ollama, `404` se o modelo ou a conversa não existirem, `502` se o cérebro pedido com `/claude` ou `/codex` falhou |
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga |
 | `DELETE /memorias/{id}` | esquece uma memória |
 
@@ -62,6 +62,58 @@ pessoal; e se a mensagem disser "privado", "confidencial", "sigiloso" ou "segred
 sair dela é privado, concorde o modelo ou não. Hoje todo modelo é local, então nada sai de
 qualquer jeito; a marca vale quando modelos de nuvem entrarem. Atenção: privada não é
 criptografada — está em texto puro no `solis.db`.
+
+## Cérebros: quem responde
+
+O Solis pode responder pelo modelo local (Ollama) ou pelo **Claude Code** e o **Codex**,
+chamados pelo CLI oficial com a assinatura do Matheus — nada de API paga. Os CLIs precisam
+estar instalados e logados no computador onde o servidor roda.
+
+- **Ordem de preferência:** `SOLIS_CEREBROS` (padrão `claude,codex,local`). Quem não está
+  instalado é pulado; quem falha antes da primeira palavra (sem login, cota acabada) também, e
+  fica de lado por um tempo — o Claude diz quando a cota renova; o Codex, 30 minutos.
+- **Comando na mensagem:** `/claude`, `/codex` ou `/local` na frente escolhe quem responde, sem
+  plano B — se falhar, o aviso diz isso em vez de outro responder sem pedir.
+- **Sigilo:** mensagem com "privado", "confidencial", "sigiloso" ou "segredo" só vai pro local.
+- **O que nunca vai pra nuvem:** memória privada, mensagem privada (no histórico ou como trecho
+  antigo) e o resumo de uma conversa que tenha algo privado.
+- **Extração de memória, vetores e resumo rodam sempre no modelo local**, qualquer que seja
+  quem respondeu: leem o que é privado e não podem gastar cota.
+- Os CLIs rodam sem ferramentas (`--tools ""` no Claude, `--sandbox read-only` no Codex), numa
+  pasta vazia do Solis. O prompt vai pela entrada padrão, nunca pela linha de comando.
+- Custo de tempo: cada mensagem sobe um processo do CLI. Medido aqui, o Claude Code levou 7,8 s
+  do pedido à resposta curta — mais que o modelo local quando ele já está carregado.
+
+O Codex foi integrado pela documentação: o CLI não estava instalado onde isto foi escrito.
+Precisa ser conferido no notebook.
+
+## Servidor MCP: a memória do Solis no Claude Code e no Codex
+
+`solis/servidor_mcp.py` deixa o Claude Code e o Codex consultarem a memória do Solis mesmo
+quando usados direto no terminal, fora do Solis. Três ferramentas: `memorias_do_matheus`,
+`buscar_na_memoria` e `guardar_memoria`. Nada privado aparece em nenhuma delas. Lê o
+`solis.db` direto: funciona com o servidor do Solis desligado.
+
+Registrar uma vez (troque o caminho pelo do seu clone):
+
+```powershell
+$backend = "C:\Users\Matheus\Documents\Solis\Projetos\Solis\solis-repo\solis-repo\backend"
+
+# Claude Code
+claude mcp add solis --scope user -e PYTHONPATH=$backend -- "$backend\.venv\Scripts\python.exe" -m solis.servidor_mcp
+```
+
+Codex, em `%USERPROFILE%\.codex\config.toml`:
+
+```toml
+[mcp_servers.solis]
+command = 'C:\Users\Matheus\Documents\Solis\Projetos\Solis\solis-repo\solis-repo\backend\.venv\Scripts\python.exe'
+args = ['-m', 'solis.servidor_mcp']
+cwd = 'C:\Users\Matheus\Documents\Solis\Projetos\Solis\solis-repo\solis-repo\backend'
+```
+
+Verificado com o Claude Code de verdade: ele subiu o servidor, chamou `memorias_do_matheus`,
+respondeu com as memórias públicas, e a privada não apareceu.
 
 ## Busca por significado
 

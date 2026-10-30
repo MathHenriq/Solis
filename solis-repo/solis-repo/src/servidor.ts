@@ -70,8 +70,13 @@ export function modeloEmUso(modelos: Modelo[]): string | null {
   return conversam.find((m) => m.nome === escolhido)?.nome ?? conversam[0]?.nome ?? null;
 }
 
-export type Mensagem = { papel: 'pessoa' | 'solis'; texto: string; criada: string };
-export type Falha = 'sem-servidor' | 'sem-ollama' | 'sem-modelo';
+/** `cerebro`: quem respondeu — 'local', 'claude' ou 'codex'. Nulo nas falas da
+ *  pessoa e nas respostas antigas, de antes de existir mais de um. */
+export type Mensagem = { papel: 'pessoa' | 'solis'; texto: string; criada: string; cerebro: string | null };
+export type Falha =
+  | { tipo: 'sem-servidor' | 'sem-ollama' | 'sem-modelo' }
+  /** Um cérebro escolhido com /claude ou /codex não respondeu. */
+  | { tipo: 'sem-cerebro'; cerebro: string };
 
 /** A conversa mais recente guardada — o app reabre nela. null quando o servidor
  *  não responde: aí a tela começa vazia, que é o que dá pra mostrar. */
@@ -87,45 +92,55 @@ export async function carregarConversa(): Promise<{ id: number | null; mensagens
 /** Manda uma mensagem e entrega a resposta pedaço a pedaço em `aoReceber`.
  *
  *  Só a mensagem nova vai: o histórico mora no banco, do lado do servidor, e é
- *  ele que o monta. `conversa` null cria uma conversa nova antes, e o id dela
- *  volta por `aoCriar`. Devolve null quando deu certo, ou QUEM falhou. Um corte
- *  no meio da resposta não é falha: o texto só termina onde parou. */
+ *  ele que o monta — e é ele que decide quem responde (modelo local, Claude ou
+ *  Codex); `aoCerebro` diz qual foi. `conversa` null cria uma conversa nova
+ *  antes, e o id dela volta por `aoCriar`. Devolve null quando deu certo, ou
+ *  QUEM falhou. Um corte no meio da resposta não é falha: o texto só termina
+ *  onde parou. */
 export async function conversar(
   conversa: number | null,
   texto: string,
   aoReceber: (pedaco: string) => void,
   aoCriar: (id: number) => void,
+  aoCerebro: (cerebro: string) => void = () => {},
 ): Promise<Falha | null> {
   const lista = await listarModelos();
-  if (lista.estado !== 'ok') return lista.estado;
-  const modelo = modeloEmUso(lista.dados);
-  if (!modelo) return 'sem-modelo';
+  if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
+  // Ollama fora não é mais fim de conversa: o Claude ou o Codex ainda podem
+  // responder. Sem modelo local, o servidor simplesmente não tenta o local.
+  const modelo = lista.estado === 'ok' ? modeloEmUso(lista.dados) : null;
+  if (lista.estado === 'ok' && !modelo) return { tipo: 'sem-modelo' };
 
   let r: Response;
   try {
     if (conversa === null) {
       const criada = await fetch(`${BASE}/conversas`, { method: 'POST' });
-      if (!criada.ok) return 'sem-servidor';
+      if (!criada.ok) return { tipo: 'sem-servidor' };
       conversa = ((await criada.json()) as { id: number }).id;
       aoCriar(conversa);
     }
     r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelo, texto }),
+      body: JSON.stringify({ modelo: modelo ?? '', texto }),
     });
   } catch {
-    return 'sem-servidor';
+    return { tipo: 'sem-servidor' };
   }
-  if (r.status === 503) return 'sem-ollama';
+  if (r.status === 503) return { tipo: 'sem-ollama' };
+  if (r.status === 502) {
+    const { cerebro } = (await r.json()) as { cerebro: string };
+    return { tipo: 'sem-cerebro', cerebro };
+  }
   if (r.status === 404) {
     // Dois 404 diferentes. A conversa sumir do banco (o arquivo foi apagado com
     // o app aberto) não é culpa de ninguém: começa outra e manda de novo.
     const { erro } = (await r.json()) as { erro: string };
-    if (erro === 'conversa_inexistente') return conversar(null, texto, aoReceber, aoCriar);
-    return 'sem-modelo';
+    if (erro === 'conversa_inexistente') return conversar(null, texto, aoReceber, aoCriar, aoCerebro);
+    return { tipo: 'sem-modelo' };
   }
-  if (!r.ok || !r.body) return 'sem-servidor';
+  if (!r.ok || !r.body) return { tipo: 'sem-servidor' };
+  aoCerebro(r.headers.get('X-Solis-Cerebro') ?? 'local');
 
   const leitor = r.body.getReader();
   // `stream: true` porque um acento pode chegar partido entre dois pedaços.

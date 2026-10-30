@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTasks
 
-from . import banco, busca, memoria, ollama, resumo
+from . import banco, busca, cerebros, memoria, ollama, resumo, roteador
 
 app = FastAPI(title='Solis')
 
@@ -22,6 +22,8 @@ app.add_middleware(
     allow_origins=['http://localhost:1420', 'tauri://localhost', 'http://tauri.localhost'],
     allow_methods=['GET', 'POST', 'DELETE'],
     allow_headers=['*'],
+    # Sem isto o navegador esconde do front quem respondeu.
+    expose_headers=['X-Solis-Cerebro'],
 )
 
 
@@ -54,7 +56,9 @@ async def criar_conversa():
 
 
 class Envio(BaseModel):
-    modelo: str
+    # O modelo local escolhido em Modelos locais. Vazio quando o Ollama está fora
+    # — a conversa ainda pode ir pra um cérebro de nuvem.
+    modelo: str = ''
     texto: str
 
 
@@ -63,25 +67,28 @@ async def enviar(conversa: int, envio: Envio):
     if not banco.existe(conversa):
         return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
 
+    # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
+    texto, ordem, forcado = roteador.escolher(envio.texto)
+
     # A mensagem da pessoa é guardada antes de perguntar ao modelo: o que ela
-    # disse aconteceu, mesmo que o Ollama esteja fora. O aviso de erro não é
+    # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
     # guardado — é estado do sistema naquele momento, não fala de ninguém.
-    banco.adicionar(conversa, 'pessoa', envio.texto)
+    mensagem_id = banco.adicionar(conversa, 'pessoa', texto, privada=memoria.eh_privado(texto))
     # Só o fim da conversa vai inteiro; o começo vai como resumo. O que ficou de
     # fora não se perde: está no banco, e a busca traz de volta o trecho exato.
     resumido, historico, desde = resumo.para_o_modelo(conversa)
-    memorias, trechos = await busca.contexto(envio.texto, conversa, desde)
+    memorias, trechos = await busca.contexto(texto, conversa, desde)
 
     try:
-        fluxo = await ollama.conversar(envio.modelo, historico, memorias, trechos, resumido)
-    except (ollama.OllamaIndisponivel, ollama.ModeloInexistente) as e:
-        # Sem modelo não há extração — mas um pedido de guardar não pode se perder
-        # porque o Ollama estava fora. Guarda a mensagem como veio.
-        if memoria.eh_pedido(envio.texto):
-            memoria.guardar_pedido_cru(envio.texto, conversa)
-        if isinstance(e, ollama.ModeloInexistente):
-            return JSONResponse({'erro': 'modelo_inexistente'}, status_code=404)
-        return JSONResponse({'erro': 'ollama_indisponivel'}, status_code=503)
+        fluxo, cerebro = await roteador.responder(
+            ordem, envio.modelo, conversa, historico, memorias, trechos, resumido, texto
+        )
+    except roteador.NinguemRespondeu as e:
+        # Sem modelo nenhum não há extração — mas um pedido de guardar não pode
+        # se perder por isso. Guarda a mensagem como veio.
+        if memoria.eh_pedido(texto):
+            memoria.guardar_pedido_cru(texto, conversa)
+        return _ninguem_respondeu(e, forcado)
 
     async def repassar_e_guardar():
         resposta = []
@@ -93,7 +100,7 @@ async def enviar(conversa: int, envio: Envio):
             # finally e não depois do laço: se a janela fechar no meio, o que já
             # chegou é guardado do mesmo jeito que apareceu na tela.
             if resposta:
-                banco.adicionar(conversa, 'solis', ''.join(resposta))
+                banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro)
 
     # Texto puro, pedaço a pedaço: o front só concatena. NDJSON seria mais uma
     # camada de parse pra carregar um campo só.
@@ -104,11 +111,30 @@ async def enviar(conversa: int, envio: Envio):
     # do lote). A conversa não espera nenhum dos três. O contexto do aprendizado
     # são as duas falas antes da mensagem nova (a pergunta do Solis que ela
     # talvez responda), não o histórico inteiro.
+    #
+    # Os três rodam SEMPRE no modelo local, qualquer que seja o cérebro que
+    # respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota.
     depois = BackgroundTasks()
-    depois.add_task(memoria.aprender, envio.modelo, conversa, envio.texto, historico[-3:-1])
+    depois.add_task(memoria.aprender, envio.modelo, conversa, texto, historico[-3:-1], mensagem_id)
     depois.add_task(busca.indexar_pendentes)
     depois.add_task(resumo.resumir, envio.modelo, conversa)
-    return StreamingResponse(repassar_e_guardar(), media_type='text/plain; charset=utf-8', background=depois)
+    return StreamingResponse(
+        repassar_e_guardar(),
+        media_type='text/plain; charset=utf-8',
+        headers={'X-Solis-Cerebro': cerebro},
+        background=depois,
+    )
+
+
+def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> JSONResponse:
+    """O erro diz QUEM falhou, porque o conserto muda: ligar o Ollama, instalar
+    um modelo, ou olhar o login e a cota de um CLI."""
+    if forcado and e.ordem != ['local']:
+        [nome] = e.ordem
+        return JSONResponse({'erro': 'cerebro_indisponivel', 'cerebro': cerebros.NOMES[nome]}, status_code=502)
+    if isinstance(e.erros.get('local'), ollama.ModeloInexistente):
+        return JSONResponse({'erro': 'modelo_inexistente'}, status_code=404)
+    return JSONResponse({'erro': 'ollama_indisponivel'}, status_code=503)
 
 
 @app.get('/memorias')
