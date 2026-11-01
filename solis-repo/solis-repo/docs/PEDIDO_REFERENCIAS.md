@@ -94,6 +94,25 @@ valem as mesmas 6 regras do topo, mais o "estado cheio".
 
 ---
 
+## 5. Lista de conversas e "Nova conversa" — pedido em 1º/11/2026
+
+Problema 3 de `docs/ESCOPO.md` → "Próximas tarefas". Padrão pedido pelo Matheus: a interface
+do Claude (lista de recentes + nova conversa), adaptada à identidade do Solis. Decisão de
+desenho: a lista vive num painel dentro da tela de Conversa, e não na sidebar — a sidebar já
+tem os 8 itens de navegação, e um painel próprio funciona igual nos dois modos de navegação.
+
+Prompt entregue ao Matheus pra gerar no GPT (anexando `telas/18-conversa-thread.png` e
+`telas/tema-dark.png`): ver o histórico da conversa de 1º/11 ou a resposta do Claude daquele
+dia. O que a imagem tem que mostrar: painel com "Nova conversa", busca, grupos por data (Hoje,
+Ontem, Últimos 7 dias), a conversa aberta destacada, um item em hover, e a thread à direita.
+
+## 6. Etapas do pensamento — pedido em 1º/11/2026
+
+Problema 2 de `docs/ESCOPO.md` → "Próximas tarefas". A thread no meio de uma resposta: o
+símbolo do Solis no estado "pensando" e uma lista de etapas reais (memória buscada, cérebro
+escolhido, o modelo pensando com o tempo correndo), mais uma resposta anterior já concluída
+com as etapas recolhidas e a confirmação "Memória guardada".
+
 ## O que eu NÃO preciso
 
 - Lockups da marca — já são gerados do vetor (`design/gerar-lockups.py`).
