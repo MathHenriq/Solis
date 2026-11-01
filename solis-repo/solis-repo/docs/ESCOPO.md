@@ -120,22 +120,23 @@ próximo; o MCP `node_repl` do Codex, que depende do app desktop do Codex e acei
 subir; atualização do CLI no primeiro uso. **Para flagrar a próxima demora**, cada resposta
 agora registra as etapas com os tempos no `solis.log` (ver `backend/README.md` → Etapas).
 
-### 2. Enquanto o modelo pensa, a tela não diz nada
+### 2. Enquanto o modelo pensa, a tela não diz nada — resolvido
 
-O Matheus quer ver o que está acontecendo de verdade, passo a passo — não uma animação
-genérica. O servidor sabe cada etapa e hoje não conta nenhuma:
-
-- buscando memórias (quantas memórias e trechos achou);
-- qual cérebro foi escolhido, e se um falhou e passou pro próximo;
-- o CLI subindo, o modelo pensando (o stream do Claude manda o raciocínio quando há), a
-  primeira palavra;
-- depois da resposta: memória guardada, conversa resumida.
-
-Técnica: **feito** — o stream virou eventos (NDJSON: `{"etapa": ...}`, `{"texto": ...}`,
+O servidor conta cada etapa com o tempo dela (NDJSON: `{"etapa": ...}`, `{"texto": ...}`,
 `{"erro": ...}`), e o que acontece depois da resposta chega pelo mesmo stream, que só fecha
-depois do aprendizado e do resumo. Visual (a fazer, contra `telas/20-conversa-etapas.png`): os cinco estados do símbolo já existem nos tokens e no `SolisEstado`
-(repouso/escutando/pensando/respondendo/executando) — usar o símbolo da thread com o estado
-real, mais uma linha de etapa. Precisa de referência visual ou de aval do Matheus.
+depois do aprendizado e do resumo. A tela, construída contra `telas/20-conversa-etapas.png`
+(medidas em `layout.thread.etapas`):
+
+- enquanto não há texto: o símbolo com glow no estado real (pensando, depois respondendo) e a
+  lista de etapas — feitas com check, a atual com ponto e o tempo correndo ("O Claude está
+  pensando… 4 s", ou "Abrindo o Codex…" enquanto o CLI sobe), as futuras esmaecidas;
+- com a resposta pronta: a linha recolhida "4 etapas · 3,1 s" acima do cabeçalho, que abre a
+  lista, e o chip "Memória guardada: ..." embaixo do texto. As etapas ficam no banco: a linha
+  aparece também depois de reabrir o app.
+
+Provisório, sem referência: o cérebro que falhou (anel e texto secundário, sem check) e o chip
+"Conversa resumida". O glow do avatar foi ajustado contra a referência (`states.glow.avatar`):
+o da folha de 190px sumia em 34px.
 
 ### 3. Lista de conversas e botão de nova conversa
 
