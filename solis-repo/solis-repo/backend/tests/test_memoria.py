@@ -26,14 +26,15 @@ def textos():
 
 def test_guarda_o_que_o_modelo_extraiu(monkeypatch):
     responde(monkeypatch, [{'texto': 'Trabalha na Syngenta.', 'tema': 'Trabalho'}])
-    asyncio.run(memoria.aprender('m', None, 'Trabalho na Syngenta faz dois anos', []))
+    # Devolve o que guardou: é o texto do "Memória guardada" na tela.
+    assert asyncio.run(memoria.aprender('m', None, 'Trabalho na Syngenta faz dois anos', [])) == ['Trabalha na Syngenta.']
     assert textos() == [('Trabalha na Syngenta.', 'Trabalho', False)]
 
 
 def test_nao_duplica_o_que_ja_sabe(monkeypatch):
     banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
     perguntas = responde(monkeypatch, [{'texto': 'trabalha na syngenta', 'tema': 'Trabalho'}])
-    asyncio.run(memoria.aprender('m', None, 'na Syngenta, como eu disse', []))
+    assert asyncio.run(memoria.aprender('m', None, 'na Syngenta, como eu disse', [])) == []
     assert len(banco.memorias()) == 1
     # E o modelo foi avisado do que já existe.
     assert 'Trabalha na Syngenta.' in perguntas[0]
@@ -48,7 +49,9 @@ def test_pedido_e_marcado_como_pedido(monkeypatch):
 
 def test_pedido_sobrevive_ao_modelo_nao_achar_nada(monkeypatch):
     responde(monkeypatch, [])
-    asyncio.run(memoria.aprender('m', None, 'Anote: minha cor preferida é verde', []))
+    assert asyncio.run(memoria.aprender('m', None, 'Anote: minha cor preferida é verde', [])) == [
+        'Anote: minha cor preferida é verde'
+    ]
     assert textos() == [('Anote: minha cor preferida é verde', memoria.TEMA_PEDIDO, True)]
 
 

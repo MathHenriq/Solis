@@ -208,7 +208,7 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     Os três rodam SEMPRE no modelo local, qualquer que seja o cérebro que
     respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota."""
     novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id)
-    etapas.marcar('aprendizado', novas=novas or 0)
+    etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [])
     etapas.marcar('indexacao', vetores=await busca.indexar_pendentes())
     etapas.marcar('resumo', resumiu=bool(await resumo.resumir(modelo, conversa)))
 
