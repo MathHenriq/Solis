@@ -10,7 +10,7 @@ interface sem passar pela fonte de verdade primeiro.
 """
 import json
 
-T = json.load(open('docs/solis-tokens.json'))
+T = json.load(open('docs/solis-tokens.json', encoding='utf-8'))
 PAPEIS = [('canvas', '--canvas'), ('divider', '--divider'), ('erro', '--erro'),
           ('textPrimary', '--text-primary'), ('textSecondary', '--text-secondary'),
           ('textPlaceholder', '--text-placeholder'), ('accent', '--accent')]
@@ -245,5 +245,7 @@ w('  /* PERFORMANCE.md: todas as duracoes vao a ~0 */')
 w('  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }')
 w('}')
 
-open('src/styles/tokens.css', 'w').write('\n'.join(L) + '\n')
+# utf-8 e quebra de linha LF explícitos: no Windows o padrão é cp1252 com CRLF,
+# e o arquivo deixaria de bater com o commitado (o checar-regras lê em utf-8).
+open('src/styles/tokens.css', 'w', encoding='utf-8', newline='\n').write('\n'.join(L) + '\n')
 print('src/styles/tokens.css — %d temas (%s), padrao %s' % (len(TEMAS), ', '.join(TEMAS), PADRAO))
