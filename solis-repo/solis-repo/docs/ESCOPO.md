@@ -1,6 +1,6 @@
 # Escopo do Solis — onde estamos e para onde vamos
 
-Documento vivo. Atualizar ao fechar cada fase. Última revisão: 30 de outubro de 2026.
+Documento vivo. Atualizar ao fechar cada fase. Última revisão: 1º de novembro de 2026.
 
 ## A visão
 
@@ -85,6 +85,53 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 - A memória privada está em texto puro no `solis.db` (sem criptografia).
 - O servidor precisa ser ligado à mão (`npm run backend`).
 - Não há controle na tela pra esquecer uma memória nem pra voltar a conversas antigas.
+
+## Próximas tarefas — do primeiro teste real (1º de novembro de 2026)
+
+No notebook, com o Ollama, o Claude Code e o Codex de verdade, tudo funcionou: as respostas
+pelo Claude e pelo Codex, a memória guardada e lembrada numa conversa nova, e o MCP conectado
+nos dois CLIs. Três problemas, em ordem de prioridade:
+
+### 1. Claude e Codex levam quase um minuto pra responder — inadmissível
+
+O modelo não é o gargalo. Numa chamada medida na nuvem, o Claude Code levou 2,5 s do pedido
+à primeira palavra, mas **69 s do início do processo até o pedido sair**. O custo é subir o
+CLI a cada mensagem (atualização, plugins, hooks, servidores MCP). No Codex, cada `exec` sobe
+todos os servidores MCP dele — inclusive o do próprio Solis, registrado no passo 4.
+
+Plano, nesta ordem e medindo cada passo no notebook (`Measure-Command { ... }`):
+1. Medir onde vai o tempo: `claude -p "ok" --tools ""` com e sem `--bare` (que pula hooks,
+   plugins e LSP); `codex exec` com e sem os servidores MCP.
+2. Ganho rápido: `--bare` no Claude; desligar os MCP no `codex exec` chamado pelo Solis.
+3. Se ainda for lento: um processo que **fica aberto** entre mensagens em vez de subir um por
+   mensagem — o Claude Code aceita `--input-format stream-json` no `-p`; o Codex tem modo de
+   servidor. Conferir os dois antes de escolher.
+4. Revisar a ordem padrão dos cérebros: se a nuvem não ficar rápida, o local vai primeiro e a
+   nuvem fica pro que precisa de força (decisão do Matheus).
+
+### 2. Enquanto o modelo pensa, a tela não diz nada
+
+O Matheus quer ver o que está acontecendo de verdade, passo a passo — não uma animação
+genérica. O servidor sabe cada etapa e hoje não conta nenhuma:
+
+- buscando memórias (quantas memórias e trechos achou);
+- qual cérebro foi escolhido, e se um falhou e passou pro próximo;
+- o CLI subindo, o modelo pensando (o stream do Claude manda o raciocínio quando há), a
+  primeira palavra;
+- depois da resposta: memória guardada, conversa resumida.
+
+Técnica: trocar o texto puro do stream por eventos (NDJSON: `{"etapa": ...}` e
+`{"texto": ...}`), e um canal pro que acontece depois da resposta (as tarefas de fundo).
+Visual: os cinco estados do símbolo já existem nos tokens e no `SolisEstado`
+(repouso/escutando/pensando/respondendo/executando) — usar o símbolo da thread com o estado
+real, mais uma linha de etapa. Precisa de referência visual ou de aval do Matheus.
+
+### 3. Lista de conversas e botão de nova conversa
+
+Não dá pra voltar a uma conversa antiga, saber em qual se está, nem começar outra sem digitar
+`/nova`. Referência pedida pelo Matheus: a interface do Claude (lista de conversas recentes e
+"Nova conversa"). O servidor já guarda tudo; falta a rota de listar e a tela. Precisa de
+referência visual (Regra 1) — o padrão do Claude adaptado à identidade do Solis.
 
 ## Para onde vamos
 
