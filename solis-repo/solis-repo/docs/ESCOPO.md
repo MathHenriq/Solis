@@ -76,7 +76,7 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 | Prompt honesto | O prompt de sistema diz o que o Solis **não** consegue fazer, pra ele não inventar |
 | Erros | Cada falha diz quem falhou: servidor, Ollama ou falta de modelo |
 
-73 testes automáticos no servidor, rodando sem precisar do Ollama.
+78 testes automáticos no servidor, rodando sem precisar do Ollama.
 
 ### O que ainda é provisório
 
@@ -92,22 +92,33 @@ No notebook, com o Ollama, o Claude Code e o Codex de verdade, tudo funcionou: a
 pelo Claude e pelo Codex, a memória guardada e lembrada numa conversa nova, e o MCP conectado
 nos dois CLIs. Três problemas, em ordem de prioridade:
 
-### 1. Claude e Codex levam quase um minuto pra responder — inadmissível
+### 1. Claude e Codex levaram quase um minuto pra responder — não se repetiu
 
-O modelo não é o gargalo. Numa chamada medida na nuvem, o Claude Code levou 2,5 s do pedido
-à primeira palavra, mas **69 s do início do processo até o pedido sair**. O custo é subir o
-CLI a cada mensagem (atualização, plugins, hooks, servidores MCP). No Codex, cada `exec` sobe
-todos os servidores MCP dele — inclusive o do próprio Solis, registrado no passo 4.
+No primeiro teste, logo depois de instalar os CLIs, duas mensagens levaram perto de um minuto:
+"grave: trabalho na Syngenta..." (pelo roteador, foi pro Claude) e "/codex qual a capital da
+França?". O modelo local era o padrão (llama3.2:3b).
 
-Plano, nesta ordem e medindo cada passo no notebook (`Measure-Command { ... }`):
-1. Medir onde vai o tempo: `claude -p "ok" --tools ""` com e sem `--bare` (que pula hooks,
-   plugins e LSP); `codex exec` com e sem os servidores MCP.
-2. Ganho rápido: `--bare` no Claude; desligar os MCP no `codex exec` chamado pelo Solis.
-3. Se ainda for lento: um processo que **fica aberto** entre mensagens em vez de subir um por
-   mensagem — o Claude Code aceita `--input-format stream-json` no `-p`; o Codex tem modo de
-   servidor. Conferir os dois antes de escolher.
-4. Revisar a ordem padrão dos cérebros: se a nuvem não ficar rápida, o local vai primeiro e a
-   nuvem fica pro que precisa de força (decisão do Matheus).
+**Medido no notebook depois, o minuto não voltou.** Os 69 s que estavam aqui foram medidos na
+nuvem, não no notebook. Números reais (1º/11/2026):
+
+| Medição | Tempo |
+|---|---|
+| CLIs chamados direto, sem o Solis | 2 a 5 s |
+| Servidor do Solis inteiro, pedido → resposta | 2 a 11 s (o pico foi o qwen3:8b subindo pra GPU pro aprendizado enquanto o Codex respondia) |
+| Claude pelo Solis, pedido → primeira palavra | 4,5 a 5,3 s (o CLI sobe em 0,6 a 1,2 s; o resto é o modelo) |
+| Claude, primeira palavra → fim de uma resposta de uma palavra | 2,5 a 3,6 s — o CLI demora pra fechar depois de responder |
+| Codex pelo Solis, pedido → resposta (chega de uma vez) | 3,9 a 7,1 s |
+| Modelo local carregado (llama3.2:3b), pedido → primeira palavra | 0,1 s |
+| Busca na memória com o nomic-embed-text frio / quente | 2,0 s / 0,02 a 0,16 s |
+
+O `--bare` do Claude Code não serve: na versão 2.1.316 ele só aceita `ANTHROPIC_API_KEY` e ignora
+o login da assinatura. Desligar os MCP no `codex exec` economiza ~1 s.
+
+Suspeitos do minuto: a espera pela primeira palavra (`PRIMEIRO_PEDACO_S`, 90 s em
+`solis/cerebros.py`), que faz um cérebro travado custar quase um minuto e meio antes de cair pro
+próximo; o MCP `node_repl` do Codex, que depende do app desktop do Codex e aceita até 120 s pra
+subir; atualização do CLI no primeiro uso. **Para flagrar a próxima demora**, cada resposta
+agora registra as etapas com os tempos no `solis.log` (ver `backend/README.md` → Etapas).
 
 ### 2. Enquanto o modelo pensa, a tela não diz nada
 
@@ -120,9 +131,9 @@ genérica. O servidor sabe cada etapa e hoje não conta nenhuma:
   primeira palavra;
 - depois da resposta: memória guardada, conversa resumida.
 
-Técnica: trocar o texto puro do stream por eventos (NDJSON: `{"etapa": ...}` e
-`{"texto": ...}`), e um canal pro que acontece depois da resposta (as tarefas de fundo).
-Visual: os cinco estados do símbolo já existem nos tokens e no `SolisEstado`
+Técnica: **feito** — o stream virou eventos (NDJSON: `{"etapa": ...}`, `{"texto": ...}`,
+`{"erro": ...}`), e o que acontece depois da resposta chega pelo mesmo stream, que só fecha
+depois do aprendizado e do resumo. Visual (a fazer, contra `telas/20-conversa-etapas.png`): os cinco estados do símbolo já existem nos tokens e no `SolisEstado`
 (repouso/escutando/pensando/respondendo/executando) — usar o símbolo da thread com o estado
 real, mais uma linha de etapa. Precisa de referência visual ou de aval do Matheus.
 
