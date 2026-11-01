@@ -27,6 +27,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 from . import banco
+from .etapas import MUDA
 
 log = logging.getLogger('solis.cerebros')
 
@@ -77,8 +78,11 @@ def _comando(executavel: str, *args: str) -> list[str]:
     return [caminho, *args]
 
 
-async def _linhas(comando: list[str], entrada: str) -> AsyncIterator[str]:
+async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = '') -> AsyncIterator[str]:
     """As linhas da saída do processo, conforme saem.
+
+    Marca duas etapas, porque é entre elas que o CLI gasta o tempo de subir:
+    `processo` (o processo existe) e `primeira_linha` (ele já escreveu algo).
 
     Popen numa thread, e não asyncio.create_subprocess_exec: no Windows o uvicorn
     pode rodar num loop de eventos sem suporte a subprocesso, e o erro só
@@ -95,6 +99,7 @@ async def _linhas(comando: list[str], entrada: str) -> AsyncIterator[str]:
         encoding='utf-8',
         errors='replace',
     )
+    etapas.marcar('processo', cerebro=cerebro)
 
     erros: list[str] = []
 
@@ -119,7 +124,11 @@ async def _linhas(comando: list[str], entrada: str) -> AsyncIterator[str]:
     threading.Thread(target=ler, daemon=True).start()
     threading.Thread(target=drenar, daemon=True).start()
     try:
+        primeira = True
         while (linha := await fila.get()) is not None:
+            if primeira:
+                etapas.marcar('primeira_linha', cerebro=cerebro)
+                primeira = False
             yield linha
     finally:
         if proc.poll() is None:
@@ -129,7 +138,7 @@ async def _linhas(comando: list[str], entrada: str) -> AsyncIterator[str]:
             log.info('%s saiu com %s: %s', comando[0], proc.returncode, ''.join(erros)[-500:])
 
 
-async def claude(sistema: str, prompt: str) -> AsyncIterator[str]:
+async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8', dir=_pasta()) as f:
         f.write(sistema)
     try:
@@ -143,7 +152,8 @@ async def claude(sistema: str, prompt: str) -> AsyncIterator[str]:
             '--no-session-persistence',
             '--output-format', 'stream-json', '--include-partial-messages', '--verbose',
         )
-        async for linha in _linhas(comando, prompt):
+        pensou = False
+        async for linha in _linhas(comando, prompt, etapas, 'claude'):
             try:
                 evento = json.loads(linha)
             except json.JSONDecodeError:
@@ -153,6 +163,10 @@ async def claude(sistema: str, prompt: str) -> AsyncIterator[str]:
                 delta = evento.get('event', {}).get('delta', {})
                 if delta.get('type') == 'text_delta' and delta.get('text'):
                     yield delta['text']
+                elif delta.get('type') == 'thinking_delta' and not pensou:
+                    # O raciocínio não vai pra tela, só o fato de que está pensando.
+                    etapas.marcar('pensando', cerebro='claude')
+                    pensou = True
             elif tipo == 'rate_limit_event':
                 # Não documentado: lido com cuidado. Status diferente de
                 # "allowed" é cota acabando; o resetsAt diz quando volta.
@@ -165,13 +179,13 @@ async def claude(sistema: str, prompt: str) -> AsyncIterator[str]:
         Path(f.name).unlink(missing_ok=True)
 
 
-async def codex(sistema: str, prompt: str) -> AsyncIterator[str]:
+async def codex(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     # O exec não documenta prompt de sistema: as instruções vão no começo do
     # próprio prompt. O texto chega de uma vez, sem pedaços — o Codex não manda
     # deltas; vale a última agent_message do turno.
     comando = _comando('codex', 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'read-only', '-')
     ultima = None
-    async for linha in _linhas(comando, f'{sistema}\n\n{prompt}'):
+    async for linha in _linhas(comando, f'{sistema}\n\n{prompt}', etapas, 'codex'):
         try:
             evento = json.loads(linha)
         except json.JSONDecodeError:
@@ -189,23 +203,28 @@ async def codex(sistema: str, prompt: str) -> AsyncIterator[str]:
 EXECUTORES = {'claude': claude, 'codex': codex}
 
 
-async def abrir(nome: str, sistema: str, prompt: str) -> AsyncIterator[str]:
+async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     """Começa a resposta e só devolve depois da primeira palavra.
 
     É aqui que a falha aparece — CLI sem login, cota acabada, erro — enquanto
     ainda dá pra tentar o próximo cérebro. Depois que o texto começa a ir pra
     tela, não dá mais pra trocar de quem responde."""
-    fluxo = EXECUTORES[nome](sistema, prompt)
+    fluxo = EXECUTORES[nome](sistema, prompt, etapas)
     try:
         primeiro = await asyncio.wait_for(anext(fluxo), PRIMEIRO_PEDACO_S)
     except StopAsyncIteration:
         await fluxo.aclose()
         pausar(nome)
-        raise CerebroFalhou(f'{nome} não respondeu nada')
-    except (CerebroFalhou, OSError, asyncio.TimeoutError) as e:
+        raise CerebroFalhou('não respondeu nada')
+    except asyncio.TimeoutError as e:
         await fluxo.aclose()
         pausar(nome)
-        raise CerebroFalhou(f'{nome}: {e}') from e
+        raise CerebroFalhou(f'sem a primeira palavra em {PRIMEIRO_PEDACO_S} s') from e
+    except (CerebroFalhou, OSError) as e:
+        await fluxo.aclose()
+        pausar(nome)
+        raise CerebroFalhou(str(e) or type(e).__name__) from e
+    etapas.marcar('primeira_palavra', cerebro=nome)
 
     async def resto():
         yield primeiro

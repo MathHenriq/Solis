@@ -43,13 +43,14 @@ def para_o_modelo(conversa: int) -> tuple[str | None, list[dict], int]:
     return texto, depois[-(JANELA + LOTE):], ate
 
 
-async def resumir(modelo: str, conversa: int) -> None:
-    """Junta ao resumo as mensagens que saíram da janela, se já forem um lote.
-    Nunca levanta: roda depois da resposta, sem ninguém pra receber o erro."""
+async def resumir(modelo: str, conversa: int) -> bool:
+    """Junta ao resumo as mensagens que saíram da janela, se já forem um lote;
+    devolve se resumiu. Nunca levanta: roda depois da resposta, sem ninguém pra
+    receber o erro."""
     texto, ate = banco.resumo(conversa)
     depois = banco.mensagens(conversa, depois_de=ate)
     if len(depois) <= JANELA + LOTE:
-        return
+        return False
     velhas = depois[:-JANELA]
     linhas = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in velhas)
     pedido = f'Resumo anterior:\n{texto or "(nenhum)"}\n\nMensagens a incluir:\n{linhas}'
@@ -57,6 +58,7 @@ async def resumir(modelo: str, conversa: int) -> None:
         novo = (await ollama.responder_texto(modelo, INSTRUCAO, pedido)).strip()
     except Exception:
         log.exception('resumo da conversa %s falhou', conversa)
-        return
+        return False
     if novo:
         banco.guardar_resumo(conversa, novo, velhas[-1]['id'])
+    return bool(novo)

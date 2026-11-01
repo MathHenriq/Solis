@@ -100,9 +100,10 @@ async def aprender(
     contexto: list[dict],
     mensagem_id: int | None = None,
     antiga: str | None = None,
-) -> None:
-    """Extrai e guarda o que houver de novo na `mensagem`. Nunca levanta: roda
-    depois da resposta, e não há mais ninguém pra receber um erro.
+) -> int:
+    """Extrai e guarda o que houver de novo na `mensagem`; devolve quantas
+    memórias guardou. Nunca levanta: roda depois da resposta, e não há mais
+    ninguém pra receber um erro.
 
     `antiga` ("ChatGPT, 14/03/2023"): a mensagem são as falas do Matheus numa
     conversa importada. Aí não há pedido (um "grave isso" dito ao ChatGPT anos
@@ -144,6 +145,7 @@ async def aprender(
     substituiveis = {} if antiga else {m['id']: m for m in candidatas}
     vistas = {_normal(m['texto']) for m in guardadas}
     guardou = saiu_privada = False
+    guardadas_agora = 0
     for m in novas:
         conteudo, tema = m.get('texto', '').strip(), m.get('tema', '').strip()
         if not conteudo:
@@ -164,12 +166,15 @@ async def aprender(
         )
         vistas.add(_normal(conteudo))
         guardou = True
+        guardadas_agora += 1
         saiu_privada = saiu_privada or bool(m.get('privada'))
 
     if pedido and not guardou:
         guardar_pedido_cru(mensagem, conversa)
+        guardadas_agora += 1
 
     # Se saiu algo privado desta mensagem, ela (e a resposta) não vai mais pra
     # nuvem — nem no histórico, nem como trecho antigo.
     if mensagem_id is not None and (privado or saiu_privada):
         banco.marcar_privada(mensagem_id)
+    return guardadas_agora

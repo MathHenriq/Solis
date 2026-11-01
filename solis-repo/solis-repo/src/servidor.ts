@@ -70,9 +70,33 @@ export function modeloEmUso(modelos: Modelo[]): string | null {
   return conversam.find((m) => m.nome === escolhido)?.nome ?? conversam[0]?.nome ?? null;
 }
 
+/** Uma etapa do que o servidor fez pra responder, com `t` em segundos desde o
+ *  pedido (backend/solis/etapas.py). Nomes: memoria, cerebro, processo,
+ *  primeira_linha, pensando, primeira_palavra, queda, fim, e depois da
+ *  resposta aprendizado, indexacao, resumo. */
+export type Etapa = {
+  etapa: string;
+  t: number;
+  cerebro?: string;
+  motivo?: string;
+  memorias?: number;
+  trechos?: number;
+  novas?: number;
+  vetores?: number;
+  resumiu?: boolean;
+  cortada?: boolean;
+};
+
 /** `cerebro`: quem respondeu — 'local', 'claude' ou 'codex'. Nulo nas falas da
- *  pessoa e nas respostas antigas, de antes de existir mais de um. */
-export type Mensagem = { papel: 'pessoa' | 'solis'; texto: string; criada: string; cerebro: string | null };
+ *  pessoa e nas respostas antigas, de antes de existir mais de um. `etapas`:
+ *  nulo nas falas da pessoa e nas respostas de antes das etapas existirem. */
+export type Mensagem = {
+  papel: 'pessoa' | 'solis';
+  texto: string;
+  criada: string;
+  cerebro: string | null;
+  etapas: Etapa[] | null;
+};
 export type Falha =
   | { tipo: 'sem-servidor' | 'sem-ollama' | 'sem-modelo' }
   /** Um cérebro escolhido com /claude ou /codex não respondeu. */
@@ -89,21 +113,33 @@ export async function carregarConversa(): Promise<{ id: number | null; mensagens
   }
 }
 
-/** Manda uma mensagem e entrega a resposta pedaço a pedaço em `aoReceber`.
+export type Ouvintes = {
+  aoReceber: (pedaco: string) => void;
+  aoEtapa: (etapa: Etapa) => void;
+  aoCriar: (id: number) => void;
+};
+
+/** O erro que o servidor manda dentro do stream, já aberto, no lugar da
+ *  resposta. Mesmos nomes do JSON de erro das outras rotas. */
+function falhaDoStream(e: { erro: string; cerebro?: string }): Falha {
+  if (e.erro === 'cerebro_indisponivel') return { tipo: 'sem-cerebro', cerebro: e.cerebro ?? 'cérebro' };
+  if (e.erro === 'modelo_inexistente') return { tipo: 'sem-modelo' };
+  if (e.erro === 'ollama_indisponivel') return { tipo: 'sem-ollama' };
+  return { tipo: 'sem-servidor' };
+}
+
+/** Manda uma mensagem e entrega a resposta pedaço a pedaço em `aoReceber`, e
+ *  cada etapa do que o servidor está fazendo em `aoEtapa`.
  *
  *  Só a mensagem nova vai: o histórico mora no banco, do lado do servidor, e é
  *  ele que o monta — e é ele que decide quem responde (modelo local, Claude ou
- *  Codex); `aoCerebro` diz qual foi. `conversa` null cria uma conversa nova
- *  antes, e o id dela volta por `aoCriar`. Devolve null quando deu certo, ou
+ *  Codex); a etapa `primeira_palavra` diz qual foi. `conversa` null cria uma
+ *  conversa nova antes, e o id dela volta por `aoCriar`. A resposta termina na
+ *  etapa `fim`, mas a promessa só resolve quando o stream fecha, depois das
+ *  etapas de fundo (aprendizado, resumo). Devolve null quando deu certo, ou
  *  QUEM falhou. Um corte no meio da resposta não é falha: o texto só termina
  *  onde parou. */
-export async function conversar(
-  conversa: number | null,
-  texto: string,
-  aoReceber: (pedaco: string) => void,
-  aoCriar: (id: number) => void,
-  aoCerebro: (cerebro: string) => void = () => {},
-): Promise<Falha | null> {
+export async function conversar(conversa: number | null, texto: string, ouvintes: Ouvintes): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
   // Ollama fora não é mais fim de conversa: o Claude ou o Codex ainda podem
@@ -117,7 +153,7 @@ export async function conversar(
       const criada = await fetch(`${BASE}/conversas`, { method: 'POST' });
       if (!criada.ok) return { tipo: 'sem-servidor' };
       conversa = ((await criada.json()) as { id: number }).id;
-      aoCriar(conversa);
+      ouvintes.aoCriar(conversa);
     }
     r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
@@ -127,32 +163,36 @@ export async function conversar(
   } catch {
     return { tipo: 'sem-servidor' };
   }
-  if (r.status === 503) return { tipo: 'sem-ollama' };
-  if (r.status === 502) {
-    const { cerebro } = (await r.json()) as { cerebro: string };
-    return { tipo: 'sem-cerebro', cerebro };
-  }
-  if (r.status === 404) {
-    // Dois 404 diferentes. A conversa sumir do banco (o arquivo foi apagado com
-    // o app aberto) não é culpa de ninguém: começa outra e manda de novo.
-    const { erro } = (await r.json()) as { erro: string };
-    if (erro === 'conversa_inexistente') return conversar(null, texto, aoReceber, aoCriar, aoCerebro);
-    return { tipo: 'sem-modelo' };
-  }
+  // A conversa sumir do banco (o arquivo foi apagado com o app aberto) não é
+  // culpa de ninguém: começa outra e manda de novo.
+  if (r.status === 404) return conversar(null, texto, ouvintes);
   if (!r.ok || !r.body) return { tipo: 'sem-servidor' };
-  aoCerebro(r.headers.get('X-Solis-Cerebro') ?? 'local');
 
+  // NDJSON: um evento por linha — {"texto"}, {"etapa"} ou {"erro"}. Uma linha
+  // pode chegar partida entre dois pedaços da rede; o resto espera o próximo.
   const leitor = r.body.getReader();
   // `stream: true` porque um acento pode chegar partido entre dois pedaços.
   const decodificador = new TextDecoder();
+  let resto = '';
+  let falha: Falha | null = null;
+  const tratar = (linha: string) => {
+    if (!linha.trim()) return;
+    const e = JSON.parse(linha) as { texto?: string; etapa?: string; erro?: string };
+    if (e.texto !== undefined) ouvintes.aoReceber(e.texto);
+    else if (e.erro !== undefined) falha = falhaDoStream(e as { erro: string });
+    else if (e.etapa !== undefined) ouvintes.aoEtapa(e as Etapa);
+  };
   try {
     for (;;) {
       const { done, value } = await leitor.read();
       if (done) break;
-      aoReceber(decodificador.decode(value, { stream: true }));
+      const linhas = (resto + decodificador.decode(value, { stream: true })).split('\n');
+      resto = linhas.pop() ?? '';
+      linhas.forEach(tratar);
     }
+    tratar(resto);
   } catch {
     /* conexão caiu no meio: fica o que chegou */
   }
-  return null;
+  return falha;
 }

@@ -5,15 +5,53 @@ com ele por HTTP tanto no `npm run dev` quanto dentro do Tauri.
 
     npm run backend        # a partir da raiz do app
 """
+import asyncio
+import json
+import logging
+from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
-from starlette.background import BackgroundTasks
 
 from . import banco, busca, cerebros, memoria, ollama, resumo, roteador
+from .etapas import Etapas
 
-app = FastAPI(title='Solis')
+log = logging.getLogger('solis.main')
+
+
+def _ligar_log() -> None:
+    """O log do Solis no terminal do servidor e num arquivo ao lado do banco
+    (solis.log): as etapas de cada resposta, com os tempos, ficam guardadas pra
+    flagrar a próxima demora mesmo com o terminal fechado. Sem isto o uvicorn
+    só mostra os avisos — os INFO do Solis sumiam."""
+    raiz = logging.getLogger('solis')
+    if raiz.handlers:
+        return
+    formato = logging.Formatter('%(asctime)s %(name)s %(message)s', '%H:%M:%S')
+    arquivo = banco.caminho_padrao().parent / 'solis.log'
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    for saida in (
+        logging.StreamHandler(),
+        RotatingFileHandler(arquivo, maxBytes=1_000_000, backupCount=3, encoding='utf-8'),
+    ):
+        saida.setFormatter(formato)
+        raiz.addHandler(saida)
+    raiz.setLevel(logging.INFO)
+    raiz.propagate = False
+
+
+@asynccontextmanager
+async def _vida(_app):
+    # Na subida do servidor, e não na importação: os testes importam o app sem
+    # subir, e não podem escrever log no %APPDATA% de verdade.
+    _ligar_log()
+    yield
+
+
+app = FastAPI(title='Solis', lifespan=_vida)
 
 # As origens de onde o front é servido: o Vite em dev, e o WebView do Tauri
 # (tauri://localhost no macOS/Linux, http://tauri.localhost no Windows).
@@ -22,8 +60,6 @@ app.add_middleware(
     allow_origins=['http://localhost:1420', 'tauri://localhost', 'http://tauri.localhost'],
     allow_methods=['GET', 'POST', 'DELETE'],
     allow_headers=['*'],
-    # Sem isto o navegador esconde do front quem respondeu.
-    expose_headers=['X-Solis-Cerebro'],
 )
 
 
@@ -62,6 +98,11 @@ class Envio(BaseModel):
     texto: str
 
 
+# Referência forte às respostas em andamento: sem ela o coletor de lixo pode
+# levar uma tarefa no meio.
+_tarefas: set[asyncio.Task] = set()
+
+
 @app.post('/conversas/{conversa}/mensagens')
 async def enviar(conversa: int, envio: Envio):
     if not banco.existe(conversa):
@@ -74,67 +115,113 @@ async def enviar(conversa: int, envio: Envio):
     # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
     # guardado — é estado do sistema naquele momento, não fala de ninguém.
     mensagem_id = banco.adicionar(conversa, 'pessoa', texto, privada=memoria.eh_privado(texto))
-    # Só o fim da conversa vai inteiro; o começo vai como resumo. O que ficou de
-    # fora não se perde: está no banco, e a busca traz de volta o trecho exato.
-    resumido, historico, desde = resumo.para_o_modelo(conversa)
-    memorias, trechos = await busca.contexto(texto, conversa, desde)
 
+    # O trabalho roda numa tarefa própria e o stream só repassa as etapas que
+    # ela marca. Duas razões: a tela vê cada etapa ENQUANTO acontece (a busca,
+    # o CLI subindo), e não só quando chega a primeira palavra; e fechar a
+    # janela não corta nada — a resposta termina e é guardada inteira, e o
+    # aprendizado roda do mesmo jeito.
+    etapas = Etapas(conversa)
+    tarefa = asyncio.create_task(_responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id))
+    _tarefas.add(tarefa)
+    tarefa.add_done_callback(_tarefas.discard)
+
+    async def ndjson():
+        async for evento in etapas.eventos():
+            yield json.dumps(evento, ensure_ascii=False) + '\n'
+
+    # NDJSON e não texto puro: junto do texto vão as etapas e o erro — que agora
+    # chega com o stream já aberto, quando não dá mais pra mudar o status HTTP.
+    return StreamingResponse(ndjson(), media_type='application/x-ndjson')
+
+
+async def _responder(
+    etapas: Etapas,
+    modelo: str,
+    conversa: int,
+    texto: str,
+    ordem: list[str],
+    forcado: bool,
+    mensagem_id: int,
+) -> None:
+    resposta_id = None
     try:
-        fluxo, cerebro = await roteador.responder(
-            ordem, envio.modelo, conversa, historico, memorias, trechos, resumido, texto
-        )
-    except roteador.NinguemRespondeu as e:
-        # Sem modelo nenhum não há extração — mas um pedido de guardar não pode
-        # se perder por isso. Guarda a mensagem como veio.
-        if memoria.eh_pedido(texto):
-            memoria.guardar_pedido_cru(texto, conversa)
-        return _ninguem_respondeu(e, forcado)
+        # Só o fim da conversa vai inteiro; o começo vai como resumo. O que ficou
+        # de fora não se perde: está no banco, e a busca traz de volta o trecho.
+        resumido, historico, desde = resumo.para_o_modelo(conversa)
+        memorias, trechos = await busca.contexto(texto, conversa, desde)
+        etapas.marcar('memoria', memorias=len(memorias), trechos=len(trechos))
 
-    async def repassar_e_guardar():
+        try:
+            fluxo, cerebro = await roteador.responder(
+                ordem, modelo, conversa, historico, memorias, trechos, resumido, texto, etapas
+            )
+        except roteador.NinguemRespondeu as e:
+            # Sem modelo nenhum não há extração — mas um pedido de guardar não
+            # pode se perder por isso. Guarda a mensagem como veio.
+            if memoria.eh_pedido(texto):
+                memoria.guardar_pedido_cru(texto, conversa)
+            etapas.erro(**_ninguem_respondeu(e, forcado))
+            return
+
         resposta = []
+        cortada = False
         try:
             async for pedaco in fluxo:
                 resposta.append(pedaco)
-                yield pedaco
+                etapas.texto(pedaco)
+        except Exception:
+            log.exception('a resposta da conversa %s caiu no meio', conversa)
+            cortada = True
         finally:
-            # finally e não depois do laço: se a janela fechar no meio, o que já
-            # chegou é guardado do mesmo jeito que apareceu na tela.
+            # finally: nem o servidor desligando no meio perde o que já chegou.
             if resposta:
-                banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro)
+                resposta_id = banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro)
+        etapas.marcar('fim', cerebro=cerebro, **({'cortada': True} if cortada else {}))
 
-    # Texto puro, pedaço a pedaço: o front só concatena. NDJSON seria mais uma
-    # camada de parse pra carregar um campo só.
-    #
-    # Depois que a resposta terminou de chegar, em segundo plano e nesta ordem:
-    # aprender (extrair memórias da mensagem), indexar (vetorizar o que entrou,
-    # inclusive a memória que acabou de nascer) e resumir (se a conversa passou
-    # do lote). A conversa não espera nenhum dos três. O contexto do aprendizado
-    # são as duas falas antes da mensagem nova (a pergunta do Solis que ela
-    # talvez responda), não o histórico inteiro.
-    #
-    # Os três rodam SEMPRE no modelo local, qualquer que seja o cérebro que
-    # respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota.
-    depois = BackgroundTasks()
-    depois.add_task(memoria.aprender, envio.modelo, conversa, texto, historico[-3:-1], mensagem_id)
-    depois.add_task(busca.indexar_pendentes)
-    depois.add_task(resumo.resumir, envio.modelo, conversa)
-    return StreamingResponse(
-        repassar_e_guardar(),
-        media_type='text/plain; charset=utf-8',
-        headers={'X-Solis-Cerebro': cerebro},
-        background=depois,
-    )
+        try:
+            await _depois(etapas, modelo, conversa, texto, historico, mensagem_id)
+        except Exception:
+            # Sem evento de erro: a resposta já está na tela, inteira, e um
+            # aviso agora a trocaria pelo erro de uma etapa de fundo.
+            log.exception('conversa %s: etapa depois da resposta falhou', conversa)
+    except Exception:
+        log.exception('conversa %s: erro no servidor', conversa)
+        etapas.erro('servidor')
+    finally:
+        # As etapas vão pro banco com as de depois da resposta: a tela recolhida
+        # conta todas, inclusive "memória guardada".
+        if resposta_id is not None:
+            banco.guardar_etapas(resposta_id, etapas.lista)
+        etapas.encerrar()
 
 
-def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> JSONResponse:
+async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, historico: list[dict], mensagem_id: int):
+    """Depois que a resposta terminou de chegar, nesta ordem: aprender (extrair
+    memórias da mensagem), indexar (vetorizar o que entrou, inclusive a memória
+    que acabou de nascer) e resumir (se a conversa passou do lote). A tela já
+    liberou a conversa no `fim`; estas etapas chegam pelo mesmo stream, que só
+    fecha depois delas. O contexto do aprendizado são as duas falas antes da
+    mensagem nova (a pergunta do Solis que ela talvez responda), não o histórico
+    inteiro.
+
+    Os três rodam SEMPRE no modelo local, qualquer que seja o cérebro que
+    respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota."""
+    novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id)
+    etapas.marcar('aprendizado', novas=novas or 0)
+    etapas.marcar('indexacao', vetores=await busca.indexar_pendentes())
+    etapas.marcar('resumo', resumiu=bool(await resumo.resumir(modelo, conversa)))
+
+
+def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> dict:
     """O erro diz QUEM falhou, porque o conserto muda: ligar o Ollama, instalar
     um modelo, ou olhar o login e a cota de um CLI."""
     if forcado and e.ordem != ['local']:
         [nome] = e.ordem
-        return JSONResponse({'erro': 'cerebro_indisponivel', 'cerebro': cerebros.NOMES[nome]}, status_code=502)
+        return {'erro': 'cerebro_indisponivel', 'cerebro': cerebros.NOMES[nome]}
     if isinstance(e.erros.get('local'), ollama.ModeloInexistente):
-        return JSONResponse({'erro': 'modelo_inexistente'}, status_code=404)
-    return JSONResponse({'erro': 'ollama_indisponivel'}, status_code=503)
+        return {'erro': 'modelo_inexistente'}
+    return {'erro': 'ollama_indisponivel'}
 
 
 @app.get('/memorias')

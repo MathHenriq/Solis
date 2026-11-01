@@ -33,7 +33,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /modelos` | modelos instalados no Ollama, com tamanho, quantização, contexto e se está carregado. `503` se o Ollama não responder |
 | `GET /conversas/atual` | a conversa mais recente, com as mensagens. `id: null` se ainda não houver nenhuma |
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
-| `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, decide quem responde (modelo local, Claude ou Codex) e devolve a resposta em texto puro, pedaço a pedaço; o cabeçalho `X-Solis-Cerebro` diz quem respondeu. A resposta é guardada no fim, mesmo se cortada no meio. `503` sem Ollama, `404` se o modelo ou a conversa não existirem, `502` se o cérebro pedido com `/claude` ou `/codex` falhou |
+| `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, decide quem responde (modelo local, Claude ou Codex) e devolve eventos em NDJSON, um por linha: as etapas (ver abaixo), os pedaços do texto e, se ninguém responder, o erro. A resposta é guardada inteira mesmo se a janela fechar no meio. `404` se a conversa não existir; os outros erros chegam como o último evento: `{"erro": "ollama_indisponivel"}`, `{"erro": "modelo_inexistente"}` ou `{"erro": "cerebro_indisponivel", "cerebro": "Claude"}` (o cérebro pedido com `/claude` ou `/codex` falhou) |
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga |
 | `DELETE /memorias/{id}` | esquece uma memória |
 
@@ -81,8 +81,36 @@ estar instalados e logados no computador onde o servidor roda.
   quem respondeu: leem o que é privado e não podem gastar cota.
 - Os CLIs rodam sem ferramentas (`--tools ""` no Claude, `--sandbox read-only` no Codex), numa
   pasta vazia do Solis. O prompt vai pela entrada padrão, nunca pela linha de comando.
-- Custo de tempo: cada mensagem sobe um processo do CLI. Medido aqui, o Claude Code levou 7,8 s
-  do pedido à resposta curta — mais que o modelo local quando ele já está carregado.
+- Custo de tempo: cada mensagem sobe um processo do CLI. Medido no notebook (1º/11/2026), do
+  pedido à primeira palavra: Claude 4,5 a 5,3 s, Codex 3,9 a 7,1 s, modelo local carregado 0,1 s.
+  As etapas de cada resposta ficam no log (abaixo) — é lá que se vê onde foi o tempo.
+
+## Etapas da resposta
+
+Cada resposta conta o que está fazendo, com o tempo desde o pedido (`t`, em segundos). Os
+mesmos eventos vão pra tela (no stream) e pro log do servidor — no terminal e em
+`%APPDATA%\Solis\solis.log`, que guarda até 4 MB — e ficam guardados com a resposta no banco.
+
+| Etapa | Quando | Dados |
+|---|---|---|
+| `memoria` | a busca na memória terminou | `memorias`, `trechos` |
+| `cerebro` | vai tentar este cérebro | `cerebro` |
+| `processo` | o CLI foi iniciado (só Claude e Codex) | `cerebro` |
+| `primeira_linha` | o CLI escreveu a primeira linha — já subiu | `cerebro` |
+| `pensando` | o modelo começou a raciocinar (Claude, qwen3) | `cerebro` |
+| `primeira_palavra` | a primeira palavra da resposta chegou | `cerebro` |
+| `queda` | este cérebro falhou; vai o próximo | `cerebro`, `motivo` |
+| `fim` | a resposta terminou; a tela libera o campo | `cerebro`, `cortada` se caiu no meio |
+| `aprendizado` | depois da resposta: memórias tiradas da mensagem | `novas` |
+| `indexacao` | depois da resposta: vetores calculados | `vetores` |
+| `resumo` | depois da resposta: se a conversa foi resumida | `resumiu` |
+
+O stream só fecha depois das três últimas: é por ele que a tela fica sabendo que a memória foi
+guardada. No log, cada resposta termina numa linha só com todas as etapas:
+
+```
+13:04:58 solis.etapas conversa 3  resumo: memoria 0.16s · cerebro 0.16s · processo 0.18s · primeira_linha 0.81s · primeira_palavra 4.68s · fim 7.18s · aprendizado 8.37s · indexacao 8.41s · resumo 8.41s
+```
 
 O Codex foi integrado pela documentação: o CLI não estava instalado onde isto foi escrito.
 Precisa ser conferido no notebook.

@@ -11,6 +11,8 @@ from collections.abc import AsyncIterator
 
 import httpx
 
+from .etapas import MUDA
+
 OLLAMA = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')
 
 # ERROR_STATES.md §2 pede timeout de 8–10s antes de desistir do modelo local.
@@ -155,6 +157,7 @@ async def conversar(
     trechos: list[dict] | None = None,
     resumo: str | None = None,
     transporte: httpx.AsyncBaseTransport | None = None,
+    etapas=MUDA,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
 
@@ -185,6 +188,7 @@ async def conversar(
         raise OllamaIndisponivel()
 
     async def pedacos() -> AsyncIterator[str]:
+        pensou = False
         try:
             # Um JSON por linha. Modelos que "pensam" (qwen3) mandam o raciocínio
             # em `message.thinking`; só `content` é resposta, o resto fica de fora.
@@ -195,6 +199,9 @@ async def conversar(
                 if 'error' in parte:
                     break
                 texto = parte.get('message', {}).get('content', '')
+                if parte.get('message', {}).get('thinking') and not pensou:
+                    etapas.marcar('pensando', cerebro='local')
+                    pensou = True
                 if texto:
                     yield texto
                 if parte.get('done'):

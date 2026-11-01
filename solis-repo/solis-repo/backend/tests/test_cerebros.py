@@ -31,7 +31,7 @@ CODEX_DOC = [
 
 def saida(monkeypatch, eventos, recebido=None):
     """Troca o processo pelo que ele teria escrito, uma linha JSON por evento."""
-    async def falso(comando, entrada):
+    async def falso(comando, entrada, *_):
         if recebido is not None:
             recebido.append((comando, entrada))
         for e in eventos:
@@ -42,6 +42,14 @@ def saida(monkeypatch, eventos, recebido=None):
 
 async def juntar(fluxo):
     return ''.join([p async for p in fluxo])
+
+
+def eventos(r) -> list[dict]:
+    return [json.loads(linha) for linha in r.text.splitlines()]
+
+
+def texto(r) -> str:
+    return ''.join(e.get('texto', '') for e in eventos(r))
 
 
 def test_claude_le_os_pedacos_do_stream(monkeypatch):
@@ -116,7 +124,7 @@ def test_ordem_pula_quem_nao_esta_instalado(monkeypatch):
 
 def cerebro_falso(monkeypatch, respostas: dict, recebido: list):
     """`respostas`: nome → texto, ou None pra falhar."""
-    async def abrir(nome, sistema, prompt):
+    async def abrir(nome, sistema, prompt, etapas=None):
         recebido.append((nome, prompt))
         if respostas.get(nome) is None:
             raise cerebros.CerebroFalhou(nome)
@@ -129,7 +137,7 @@ def cerebro_falso(monkeypatch, respostas: dict, recebido: list):
 
 
 def local_falso(monkeypatch, texto='resposta local'):
-    async def conversar(modelo, mensagens, memorias=None, trechos=None, resumo=None):
+    async def conversar(modelo, mensagens, memorias=None, trechos=None, resumo=None, **_):
         async def gen():
             yield texto
         return gen()
@@ -149,7 +157,13 @@ def test_cai_pro_proximo_e_diz_quem_respondeu(monkeypatch):
     cid = cliente.post('/conversas').json()['id']
 
     r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
-    assert r.text == 'resposta do codex' and r.headers['x-solis-cerebro'] == 'codex'
+    assert texto(r) == 'resposta do codex'
+    # As etapas dizem quem tentou, quem caiu e por quê, e quem respondeu.
+    etapas = [(e['etapa'], e.get('cerebro')) for e in eventos(r) if 'etapa' in e]
+    assert etapas[:5] == [
+        ('memoria', None), ('cerebro', 'claude'), ('queda', 'claude'), ('cerebro', 'codex'), ('fim', 'codex'),
+    ]
+    assert [e['motivo'] for e in eventos(r) if e.get('etapa') == 'queda'] == ['claude']
     assert [n for n, _ in recebido] == ['claude', 'codex']
     assert banco.mensagens(cid)[-1]['cerebro'] == 'codex'
 
@@ -161,7 +175,8 @@ def test_forcado_que_falha_nao_cai_pra_outro(monkeypatch):
     cid = cliente.post('/conversas').json()['id']
 
     r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': '/claude oi'})
-    assert (r.status_code, r.json()) == (502, {'erro': 'cerebro_indisponivel', 'cerebro': 'Claude'})
+    ultimo = eventos(r)[-1]
+    assert (ultimo['erro'], ultimo['cerebro']) == ('cerebro_indisponivel', 'Claude')
     # O que foi dito fica guardado, sem o comando.
     assert [m['texto'] for m in banco.mensagens(cid)] == ['oi']
 
@@ -172,7 +187,7 @@ def test_ollama_fora_nao_impede_a_nuvem(monkeypatch):
     cliente = TestClient(main.app)
     cid = cliente.post('/conversas').json()['id']
     r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': '', 'texto': 'oi'})
-    assert r.text == 'da nuvem'
+    assert texto(r) == 'da nuvem'
 
 
 def test_nada_privado_vai_pra_nuvem(monkeypatch):
@@ -205,3 +220,58 @@ def test_aprender_privado_marca_a_mensagem_e_a_resposta(monkeypatch):
 
     asyncio.run(memoria.aprender('m', cid, 'tenho asma', [], pergunta))
     assert [m['privada'] for m in banco.mensagens(cid)] == [True, True, False]
+
+
+# — Etapas ——————————————————————————————————————————————————————————————————————
+
+class Gravador:
+    def __init__(self):
+        self.vistas = []
+
+    def marcar(self, etapa, **dados):
+        self.vistas.append((etapa, dados))
+
+
+def test_processo_de_verdade_marca_quando_sobe_e_quando_escreve(monkeypatch, tmp_path):
+    monkeypatch.setattr(banco, 'caminho_padrao', lambda: tmp_path / 'solis.db')
+    g = Gravador()
+
+    async def rodar():
+        return [l async for l in cerebros._linhas([sys.executable, '-c', 'print("oi")'], '', g, 'claude')]
+    asyncio.run(rodar())
+    assert g.vistas == [('processo', {'cerebro': 'claude'}), ('primeira_linha', {'cerebro': 'claude'})]
+
+
+def test_claude_pensando_e_primeira_palavra(monkeypatch):
+    pensa = {'type': 'stream_event', 'event': {'delta': {'type': 'thinking_delta', 'thinking': 'hmm'}}}
+    saida(monkeypatch, [CLAUDE_REAL[0], pensa, pensa, *CLAUDE_REAL[1:]])
+    g = Gravador()
+
+    async def rodar():
+        return await juntar(await cerebros.abrir('claude', 's', 'p', g))
+    # O raciocínio não vaza pro texto, e "pensando" é marcado uma vez só.
+    assert asyncio.run(rodar()) == 'ok, funcionou'
+    assert [e for e, _ in g.vistas] == ['pensando', 'primeira_palavra']
+
+
+def test_cerebro_travado_cai_com_o_motivo(monkeypatch):
+    async def travado(comando, entrada, *_):
+        await asyncio.sleep(10)
+        yield ''
+    monkeypatch.setattr(cerebros, '_linhas', travado)
+    monkeypatch.setattr(cerebros.shutil, 'which', lambda nome: f'/bin/{nome}')
+    monkeypatch.setattr(cerebros, 'PRIMEIRO_PEDACO_S', 0.05)
+    with pytest.raises(cerebros.CerebroFalhou, match='sem a primeira palavra em 0.05 s'):
+        asyncio.run(cerebros.abrir('codex', 's', 'p'))
+
+
+def test_local_marca_pensando_e_primeira_palavra():
+    import httpx
+    from test_conversa import chat_falso
+    g = Gravador()
+
+    async def rodar():
+        fluxo = await ollama.conversar('m', [], transporte=httpx.MockTransport(chat_falso([])), etapas=g)
+        return await juntar(await roteador._primeira_palavra(fluxo, g))
+    assert asyncio.run(rodar()) == 'Olá, Matheus.'
+    assert [e for e, _ in g.vistas] == ['pensando', 'primeira_palavra']

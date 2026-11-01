@@ -1,5 +1,6 @@
 """Extração e uso das memórias, com o Ollama trocado por respostas fixas."""
 import asyncio
+import json
 
 from fastapi.testclient import TestClient
 
@@ -94,7 +95,7 @@ def test_pedido_com_ollama_fora_na_conversa(monkeypatch):
     cliente = TestClient(main.app)
     cid = cliente.post('/conversas').json()['id']
     r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'grave que eu moro em Campinas'})
-    assert r.status_code == 503
+    assert json.loads(r.text.splitlines()[-1])['erro'] == 'ollama_indisponivel'
     assert [t for t, *_ in textos()] == ['grave que eu moro em Campinas']
 
 

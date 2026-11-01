@@ -26,6 +26,14 @@ async def juntar(fluxo):
     return ''.join([p async for p in fluxo])
 
 
+def eventos(r) -> list[dict]:
+    return [json.loads(linha) for linha in r.text.splitlines()]
+
+
+def texto(r) -> str:
+    return ''.join(e.get('texto', '') for e in eventos(r))
+
+
 def test_junta_os_pedacos_e_monta_o_pedido():
     recebido = []
 
@@ -56,7 +64,7 @@ def falso_que_responde(monkeypatch, pedacos=PEDACOS, quebra_no=None):
     """Troca o Ollama por um gerador; `quebra_no` simula a conexão caindo."""
     recebido = []
 
-    async def falso(modelo, mensagens, memorias=None, trechos=None, resumo=None):
+    async def falso(modelo, mensagens, memorias=None, trechos=None, resumo=None, **_):
         recebido.append(mensagens)
 
         async def gen():
@@ -80,7 +88,7 @@ def test_conversa_e_guardada_e_volta_inteira(monkeypatch):
 
     cid = cliente.post('/conversas').json()['id']
     r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
-    assert r.status_code == 200 and r.text == 'Olá, Matheus.'
+    assert r.status_code == 200 and texto(r) == 'Olá, Matheus.'
     cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'e aí?'})
 
     # O histórico que vai ao modelo sai do banco, com a resposta anterior junto.
@@ -119,15 +127,17 @@ def test_resposta_cortada_guarda_o_que_chegou(monkeypatch):
 def test_rota_diz_quem_falhou_e_nao_guarda_o_aviso(monkeypatch):
     cliente = TestClient(main.app)
     cid = cliente.post('/conversas').json()['id']
-    for erro, status, chave in [
-        (ollama.OllamaIndisponivel, 503, 'ollama_indisponivel'),
-        (ollama.ModeloInexistente, 404, 'modelo_inexistente'),
+    for erro, chave in [
+        (ollama.OllamaIndisponivel, 'ollama_indisponivel'),
+        (ollama.ModeloInexistente, 'modelo_inexistente'),
     ]:
-        async def falha(*_, erro=erro):
+        async def falha(*_, erro=erro, **__):
             raise erro()
         monkeypatch.setattr(ollama, 'conversar', falha)
         r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
-        assert (r.status_code, r.json()) == (status, {'erro': chave})
+        # O erro chega como o último evento: o stream já estava aberto.
+        ultimo = eventos(r)[-1]
+        assert (ultimo['erro'], 'texto' in ultimo) == (chave, False)
     # A fala da pessoa fica; nenhuma resposta do Solis foi inventada.
     papeis = [m['papel'] for m in cliente.get('/conversas/atual').json()['mensagens']]
     assert papeis == ['pessoa', 'pessoa']
@@ -136,3 +146,26 @@ def test_rota_diz_quem_falhou_e_nao_guarda_o_aviso(monkeypatch):
 def test_conversa_inexistente():
     r = TestClient(main.app).post('/conversas/999/mensagens', json={'modelo': 'm', 'texto': 'oi'})
     assert (r.status_code, r.json()) == (404, {'erro': 'conversa_inexistente'})
+
+
+def test_etapas_da_resposta_inteira_em_ordem(monkeypatch):
+    falso_que_responde(monkeypatch)
+    cliente = TestClient(main.app)
+    cid = cliente.post('/conversas').json()['id']
+    r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
+    assert r.headers['content-type'] == 'application/x-ndjson'
+    lista = eventos(r)
+    etapas = [e['etapa'] for e in lista if 'etapa' in e]
+    # Antes da resposta, a resposta, e depois dela — as de depois chegam pelo
+    # mesmo stream, que só fecha quando o aprendizado e o resumo terminam.
+    assert etapas == ['memoria', 'cerebro', 'primeira_palavra', 'fim', 'aprendizado', 'indexacao', 'resumo']
+    assert lista[0] == {'etapa': 'memoria', 't': lista[0]['t'], 'memorias': 0, 'trechos': 0}
+    tempos = [e['t'] for e in lista if 't' in e]
+    assert tempos == sorted(tempos)
+    # O texto chega entre a primeira palavra e o fim.
+    i, f = [n for n, e in enumerate(lista) if e.get('etapa') in ('primeira_palavra', 'fim')]
+    assert ''.join(e['texto'] for e in lista[i + 1:f]) == 'Olá, Matheus.'
+    # E ficam guardadas com a resposta, sem o texto, pra a tela reabrir com elas.
+    [pessoa, solis] = cliente.get('/conversas/atual').json()['mensagens']
+    assert pessoa['etapas'] is None
+    assert solis['etapas'] == [e for e in lista if 'etapa' in e]

@@ -8,6 +8,7 @@ O esquema base é criado na primeira conexão (CREATE ... IF NOT EXISTS). O que
 mudou depois entra por MIGRACOES, guiadas por PRAGMA user_version: um banco que
 já existe no notebook não ganha coluna nova com IF NOT EXISTS.
 """
+import json
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -82,6 +83,13 @@ MIGRACOES = [
     -- Conversa importada da qual o Solis já tirou as memórias. Extrair de anos
     -- de histórico leva horas; isto deixa parar e continuar de onde parou.
     ALTER TABLE conversas ADD COLUMN aprendida INTEGER NOT NULL DEFAULT 0;
+    """,
+    # 4 — etapas da resposta.
+    """
+    -- O que o Solis fez pra chegar na resposta, com o tempo de cada etapa (JSON,
+    -- a lista de eventos do stream sem o texto). A tela mostra "5 etapas · 3,2 s"
+    -- também nas respostas de antes de reabrir o app.
+    ALTER TABLE mensagens ADD COLUMN etapas TEXT;
     """,
 ]
 
@@ -162,11 +170,19 @@ def existe(conversa: int) -> bool:
 
 def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
     linhas = _con().execute(
-        'SELECT id, papel, texto, criada, privada, cerebro FROM mensagens '
+        'SELECT id, papel, texto, criada, privada, cerebro, etapas FROM mensagens '
         'WHERE conversa = ? AND id > ? ORDER BY id',
         (conversa, depois_de),
     )
-    return [{**dict(l), 'privada': bool(l['privada'])} for l in linhas]
+    return [
+        {**dict(l), 'privada': bool(l['privada']), 'etapas': json.loads(l['etapas']) if l['etapas'] else None}
+        for l in linhas
+    ]
+
+
+def guardar_etapas(mensagem: int, etapas: list[dict]) -> None:
+    with _con() as c:
+        c.execute('UPDATE mensagens SET etapas = ? WHERE id = ?', (json.dumps(etapas, ensure_ascii=False), mensagem))
 
 
 def tem_privada(conversa: int) -> bool:

@@ -20,6 +20,7 @@ import os
 from collections.abc import AsyncIterator
 
 from . import banco, cerebros, memoria, ollama
+from .etapas import MUDA
 
 # Preferência do Matheus: os modelos mais fortes primeiro; o local quando a cota
 # acabar. Mudar a ordem não precisa de código: SOLIS_CEREBROS=local,claude
@@ -82,16 +83,21 @@ async def responder(
     trechos: list[dict],
     resumo: str | None,
     mensagem: str,
+    etapas=MUDA,
 ) -> tuple[AsyncIterator[str], str]:
     """(texto em pedaços, quem está respondendo). Tenta na ordem até alguém
     começar a responder."""
     erros: dict[str, Exception] = {}
     for nome in ordem:
+        etapas.marcar('cerebro', cerebro=nome)
         try:
             if nome == 'local':
                 if not modelo_local:
                     raise ollama.OllamaIndisponivel()
-                fluxo = await ollama.conversar(modelo_local, historico, memorias, trechos, resumo)
+                fluxo = await _primeira_palavra(
+                    await ollama.conversar(modelo_local, historico, memorias, trechos, resumo, etapas=etapas),
+                    etapas,
+                )
             else:
                 fluxo = await cerebros.abrir(
                     nome,
@@ -103,8 +109,36 @@ async def responder(
                         [m for m in historico if not m['privada']],
                         mensagem,
                     ),
+                    etapas,
                 )
             return fluxo, nome
         except (ollama.OllamaIndisponivel, ollama.ModeloInexistente, cerebros.CerebroFalhou) as e:
             erros[nome] = e
+            etapas.marcar('queda', cerebro=nome, motivo=_motivo(e))
     raise NinguemRespondeu(ordem, erros)
+
+
+def _motivo(e: Exception) -> str:
+    if isinstance(e, ollama.ModeloInexistente):
+        return 'modelo não instalado'
+    if isinstance(e, ollama.OllamaIndisponivel):
+        return 'Ollama fora do ar'
+    return str(e)
+
+
+async def _primeira_palavra(fluxo: AsyncIterator[str], etapas) -> AsyncIterator[str]:
+    """O modelo local só marca a primeira palavra quando ela chega — é ali que
+    se vê o tempo de carregar o modelo na placa. Sem prazo, como antes: o limite
+    do local é o do próprio Ollama."""
+    try:
+        primeiro = await anext(fluxo)
+    except StopAsyncIteration:
+        primeiro = None
+    etapas.marcar('primeira_palavra', cerebro='local')
+
+    async def resto():
+        if primeiro is not None:
+            yield primeiro
+        async for pedaco in fluxo:
+            yield pedaco
+    return resto()

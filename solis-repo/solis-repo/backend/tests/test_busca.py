@@ -138,7 +138,7 @@ def test_trechos_vao_no_prompt_com_data_e_autor():
 def test_so_o_fim_da_conversa_vai_inteiro(monkeypatch):
     recebido = []
 
-    async def falso(modelo, mensagens, memorias=None, trechos=None, resumo=None):
+    async def falso(modelo, mensagens, memorias=None, trechos=None, resumo=None, **_):
         recebido.append(mensagens)
 
         async def gen():

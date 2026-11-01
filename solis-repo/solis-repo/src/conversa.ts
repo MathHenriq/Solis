@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { carregarConversa, conversar, type Falha } from './servidor';
+import { carregarConversa, conversar, type Etapa, type Falha } from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
  *  à troca de tela: ir a Modelos e voltar não pode apagar o que foi dito.
@@ -8,6 +8,10 @@ import { carregarConversa, conversar, type Falha } from './servidor';
  *  que a tela desenha. Ao abrir, o app reabre a conversa mais recente. */
 
 export type Turno = {
+  /** Identidade local do turno: as etapas de fundo de uma resposta chegam
+   *  depois que a próxima mensagem já pode ter saído, e têm que cair na
+   *  resposta certa, não na última. */
+  id: number;
   de: 'pessoa' | 'solis';
   hora: string;
   texto: string;
@@ -17,6 +21,8 @@ export type Turno = {
   falha?: boolean;
   /** Quem respondeu: 'local', 'claude', 'codex'. */
   cerebro?: string | null;
+  /** O que o servidor fez pra responder, em ordem, com os tempos. */
+  etapas?: Etapa[];
 };
 
 /** ERROR_STATES.md §2: no lugar da resposta, dizendo quem falhou e o que fazer. */
@@ -44,6 +50,9 @@ const COMANDO_NOVA = '/nova';
 
 const hora = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+let proximoId = 0;
+const novoId = () => ++proximoId;
+
 export function useConversa() {
   const [turnos, definirTurnos] = useState<Turno[]>([]);
   // null = a próxima mensagem cria uma conversa nova.
@@ -56,7 +65,14 @@ export function useConversa() {
       if (!vivo || !c) return;
       definirConversa(c.id);
       definirTurnos(
-        c.mensagens.map((m) => ({ de: m.papel, texto: m.texto, hora: hora(new Date(m.criada)), cerebro: m.cerebro })),
+        c.mensagens.map((m) => ({
+          id: novoId(),
+          de: m.papel,
+          texto: m.texto,
+          hora: hora(new Date(m.criada)),
+          cerebro: m.cerebro,
+          etapas: m.etapas ?? undefined,
+        })),
       );
     });
     return () => {
@@ -64,9 +80,8 @@ export function useConversa() {
     };
   }, []);
 
-  // Só a última fala muda durante o stream; as anteriores ficam intactas.
-  const mudarUltimo = (mudar: (t: Turno) => Turno) =>
-    definirTurnos((ts) => [...ts.slice(0, -1), mudar(ts[ts.length - 1])]);
+  const mudar = (id: number, mudar: (t: Turno) => Turno) =>
+    definirTurnos((ts) => ts.map((t) => (t.id === id ? mudar(t) : t)));
 
   const enviar = useCallback(
     async (texto: string) => {
@@ -81,22 +96,38 @@ export function useConversa() {
       }
 
       const agora = hora(new Date());
+      const id = novoId();
       definirTurnos((ts) => [
         ...ts,
-        { de: 'pessoa', hora: agora, texto: semComando(limpo) },
-        { de: 'solis', hora: agora, texto: '', digitando: true },
+        { id: novoId(), de: 'pessoa', hora: agora, texto: semComando(limpo) },
+        { id, de: 'solis', hora: agora, texto: '', digitando: true, etapas: [] },
       ]);
       definirRespondendo(true);
+      let terminou = false;
 
-      const falha = await conversar(
-        conversa,
-        limpo,
-        (pedaco) => mudarUltimo((t) => ({ ...t, texto: t.texto + pedaco })),
-        definirConversa,
-        (cerebro) => mudarUltimo((t) => ({ ...t, cerebro })),
-      );
+      const falha = await conversar(conversa, limpo, {
+        aoReceber: (pedaco) => mudar(id, (t) => ({ ...t, texto: t.texto + pedaco })),
+        aoCriar: definirConversa,
+        aoEtapa: (etapa) => {
+          mudar(id, (t) => ({
+            ...t,
+            etapas: [...(t.etapas ?? []), etapa],
+            cerebro: etapa.etapa === 'primeira_palavra' ? etapa.cerebro : t.cerebro,
+            digitando: etapa.etapa === 'fim' ? false : t.digitando,
+          }));
+          // A conversa libera no fim da resposta; o aprendizado e o resumo
+          // seguem chegando no mesmo stream sem prender o campo.
+          if (etapa.etapa === 'fim') {
+            terminou = true;
+            definirRespondendo(false);
+          }
+        },
+      });
 
-      mudarUltimo((t) =>
+      // Depois do `fim` a próxima mensagem já pode estar respondendo: liberar o
+      // campo de novo aqui o soltaria no meio dela.
+      if (terminou) return;
+      mudar(id, (t) =>
         falha ? { ...t, texto: aviso(falha), digitando: false, falha: true } : { ...t, digitando: false },
       );
       definirRespondendo(false);
