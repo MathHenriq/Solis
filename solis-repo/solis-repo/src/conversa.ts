@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { carregarConversa, conversar, type Etapa, type Falha } from './servidor';
+import type { EtapaRecebida } from './etapas';
+import { carregarConversa, conversar, type Falha } from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
  *  à troca de tela: ir a Modelos e voltar não pode apagar o que foi dito.
@@ -22,7 +23,7 @@ export type Turno = {
   /** Quem respondeu: 'local', 'claude', 'codex'. */
   cerebro?: string | null;
   /** O que o servidor fez pra responder, em ordem, com os tempos. */
-  etapas?: Etapa[];
+  etapas?: EtapaRecebida[];
 };
 
 /** ERROR_STATES.md §2: no lugar da resposta, dizendo quem falhou e o que fazer. */
@@ -111,7 +112,7 @@ export function useConversa() {
         aoEtapa: (etapa) => {
           mudar(id, (t) => ({
             ...t,
-            etapas: [...(t.etapas ?? []), etapa],
+            etapas: [...(t.etapas ?? []), { ...etapa, recebida: Date.now() }],
             cerebro: etapa.etapa === 'primeira_palavra' ? etapa.cerebro : t.cerebro,
             digitando: etapa.etapa === 'fim' ? false : t.digitando,
           }));

@@ -138,6 +138,26 @@
   --th-composer-base: 35px;
   --th-hora: 14px;
   --th-texto-max: 540px;
+  /* Etapas da resposta. Ver layout.thread.etapas no JSON. */
+  --et-texto: 14px;
+  --et-passo: 30px;
+  --et-recuo: 36px;
+  --et-icone: 16px;
+  --et-ponto: 9px;
+  --et-anel: 11px;
+  --et-futura: 0.55;
+  --et-dobra-texto: 13px;
+  --et-dobra-recuo: 16px;
+  --et-dobra-gap: 29px;
+  --et-cabecalho: 4px;
+  --et-chip-h: 28px;
+  --et-chip-texto: 12px;
+  --et-chip-px: 12px;
+  --et-chip-icone-gap: 11px;
+  --et-chip-raio: 6px;
+  --et-chip-top: 12px;
+  --et-chip-borda: 53%;
+  --et-chip-fundo: 6%;
   --composer-radius: 13px;
 
   /* Barra de rolagem. Ver appearance.scrollbar no JSON. */

@@ -192,6 +192,17 @@ for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-bala
                    ('composerHeight','--th-composer-h'), ('composerBottom','--th-composer-base'),
                    ('timeSize','--th-hora'), ('textMaxWidth','--th-texto-max')]:
     w('  %s: %s;' % (var, th[chave]))
+w('  /* Etapas da resposta. Ver layout.thread.etapas no JSON. */')
+et = th['etapas']
+for chave, var in [('textSize','--et-texto'), ('rowPitch','--et-passo'), ('textIndent','--et-recuo'),
+                   ('iconSize','--et-icone'), ('dotSize','--et-ponto'), ('ringSize','--et-anel'),
+                   ('futureOpacity','--et-futura'), ('foldTextSize','--et-dobra-texto'),
+                   ('foldIndent','--et-dobra-recuo'), ('foldGap','--et-dobra-gap'), ('afterHeader','--et-cabecalho'),
+                   ('chipHeight','--et-chip-h'), ('chipTextSize','--et-chip-texto'),
+                   ('chipPadX','--et-chip-px'), ('chipIconGap','--et-chip-icone-gap'),
+                   ('chipRadius','--et-chip-raio'), ('chipTop','--et-chip-top'),
+                   ('chipBorderMix','--et-chip-borda'), ('chipFillMix','--et-chip-fundo')]:
+    w('  %s: %s;' % (var, et[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
 w('')
 w('  /* Barra de rolagem. Ver appearance.scrollbar no JSON. */')

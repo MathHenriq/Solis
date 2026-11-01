@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AvisosDepois, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
 import { Icone } from '../components/icons';
+import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
 
@@ -104,6 +106,71 @@ function Paragrafo({ bloco, fim }: { bloco: ReactNode; fim?: ReactNode }) {
   );
 }
 
+/** Uma resposta do Solis. Enquanto não há texto, o símbolo pensa (glow no
+ *  estado real) e as etapas aparecem embaixo do cabeçalho; quando o texto
+ *  começa, elas recolhem numa linha acima dele, e o que veio depois da resposta
+ *  (memória guardada) aparece embaixo do texto. Ref. 20-conversa-etapas.png. */
+function RespostaSolis({ t }: { t: Turno }) {
+  const [aberta, definirAberta] = useState(false);
+  const etapas = t.etapas ?? [];
+  const vivo = !!t.digitando;
+  const pensando = vivo && !t.texto;
+  // Fora disto, a coluna do texto: avatar + respiro, a mesma da resposta.
+  const coluna = 'calc(var(--th-avatar) + var(--th-avatar-gap))';
+  return (
+    <div style={{ marginTop: 'var(--th-turno-gap)' }}>
+      {!pensando && etapas.length > 0 && (
+        <div style={{ paddingLeft: coluna }}>
+          <DobraEtapas etapas={etapas} vivo={vivo} aberta={aberta} aoAlternar={() => definirAberta((a) => !a)} />
+          {aberta && <ListaEtapas etapas={etapas} vivo={vivo} />}
+        </div>
+      )}
+      <div className="flex items-start" style={{ gap: 'var(--th-avatar-gap)' }}>
+        {/* Só o símbolo, sem o wordmark: no tamanho de avatar a palavra SOLIS
+            vira borrão, e wordmark ilegível é pior que nenhum. Ao vivo, o
+            símbolo com glow no estado real (pensando, respondendo); pronto,
+            o símbolo parado — na cor validada da thread (accent), e não no
+            creme da referência 20. */}
+        {vivo ? (
+          <SolisEstado
+            estado={pensando ? 'thinking' : 'responding'}
+            halo="avatar"
+            className="shrink-0 [&_.solis-arte]:text-accent"
+            style={{ width: 'var(--th-avatar)', marginTop: 6 }}
+          />
+        ) : (
+          <SolisSimbolo className="text-accent shrink-0" style={{ width: 'var(--th-avatar)', height: 'auto', marginTop: 6 }} />
+        )}
+        <div className="flex-1">
+          {/* Quem respondeu, quando foi um modelo de nuvem: o que foi dito saiu
+              da máquina, e o Matheus precisa saber disso. O local é o padrão
+              silencioso — não precisa de etiqueta. */}
+          <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>
+            {t.hora}
+            {t.cerebro && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
+          </div>
+          {pensando ? (
+            <div style={{ marginTop: 'var(--et-cabecalho)' }}>
+              <ListaEtapas etapas={etapas} vivo />
+            </div>
+          ) : (
+            <div className="text-text-primary" style={{ fontSize: 'var(--mem-item-texto)', lineHeight: 'var(--mem-item-lh)' }}>
+              {/* Aviso de erro em texto secundário: é o Solis falando do
+                  sistema, não respondendo à pergunta. */}
+              <div className={t.falha ? 'text-text-secondary' : undefined} style={{ maxWidth: 'var(--th-texto-max)' }}>
+                {(t.texto ? blocosDe(t.texto) : ['']).map((b, j, todos) => (
+                  <Paragrafo key={j} bloco={b} fim={t.digitando && j === todos.length - 1 ? CURSOR : null} />
+                ))}
+              </div>
+            </div>
+          )}
+          <AvisosDepois etapas={etapas} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Thread({
   turnos,
   respondendo,
@@ -137,9 +204,9 @@ export function Thread({
         className="flex-1 overflow-y-auto"
         style={{ paddingLeft: 'var(--mem-pad-l)', paddingRight: 'var(--mem-pad-r)', paddingTop: 'var(--th-turno-gap)' }}
       >
-        {turnos.map((t, i) =>
+        {turnos.map((t) =>
           t.de === 'pessoa' ? (
-            <div key={i} className="flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
+            <div key={t.id} className="flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
               <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
                 {t.hora}
               </span>
@@ -158,40 +225,7 @@ export function Thread({
               </div>
             </div>
           ) : (
-            <div key={i} className="flex items-start" style={{ marginTop: 'var(--th-turno-gap)', gap: 'var(--th-avatar-gap)' }}>
-              {/* Só o símbolo, sem o wordmark: no tamanho de avatar a palavra
-                  SOLIS vira borrão, e wordmark ilegível é pior que nenhum. */}
-              <SolisSimbolo
-                className="text-accent shrink-0"
-                style={{ width: 'var(--th-avatar)', height: 'auto', marginTop: 6 }}
-              />
-              <div className="flex-1">
-                {/* Quem respondeu, quando foi um modelo de nuvem: o que foi dito
-                    saiu da máquina, e o Matheus precisa saber disso. O local é o
-                    padrão silencioso — não precisa de etiqueta. */}
-                <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>
-                  {t.hora}
-                  {t.cerebro && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
-                </div>
-                <div
-                  className="text-text-primary"
-                  style={{ fontSize: 'var(--mem-item-texto)', lineHeight: 'var(--mem-item-lh)' }}
-                >
-                  {/* Aviso de erro em texto secundário: é o Solis falando do
-                      sistema, não respondendo à pergunta. */}
-                  <div
-                    className={t.falha ? 'text-text-secondary' : undefined}
-                    style={{ maxWidth: 'var(--th-texto-max)' }}
-                  >
-                    {/* Antes do primeiro pedaço não há bloco onde pôr o cursor:
-                        ele ocupa um parágrafo vazio sozinho. */}
-                    {(t.texto ? blocosDe(t.texto) : ['']).map((b, j, todos) => (
-                      <Paragrafo key={j} bloco={b} fim={t.digitando && j === todos.length - 1 ? CURSOR : null} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <RespostaSolis key={t.id} t={t} />
           ),
         )}
         <div style={{ height: 'var(--th-turno-gap)' }} />

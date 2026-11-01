@@ -77,6 +77,11 @@ const CAMINHOS = {
     'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 12.4a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z M5.8 19.4a6.6 6.6 0 0 1 12.4 0',
   'chevron':
     'M6 9l6 6 6-6',
+  // Check das etapas, contra o mapa de pixels de 20-conversa-etapas.png: tinta
+  // de 22x15px, braço curto descendo de (382,624) ao vértice (388,630) e o
+  // longo subindo até (402,617). O traço vai quase de borda a borda do grid.
+  'feito':
+    'M2 12.7l6.2 6.4L22.9 4.7',
 } as const;
 
 export type NomeIcone = keyof typeof CAMINHOS;

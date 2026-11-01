@@ -82,6 +82,8 @@ export type Etapa = {
   memorias?: number;
   trechos?: number;
   novas?: number;
+  /** As memórias guardadas depois da resposta. */
+  textos?: string[];
   vetores?: number;
   resumiu?: boolean;
   cortada?: boolean;
