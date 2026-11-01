@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
 /** Camada 3 da assinatura (SOLIS_SIGNATURE.md): o símbolo com glow reativo.
  *
@@ -35,20 +35,56 @@ const CAMINHO =
 
 export type EstadoSolis = 'idle' | 'listening' | 'thinking' | 'responding' | 'executing';
 
+/** Largura em que o halo foi medido (o símbolo da folha de estados). */
+const LARGURA_MEDIDA = 190;
+
+/** Os dois desfoques e ganhos, em unidades do desenho a 190px de largura.
+ *  `folha`: states.glow, medido em brand/states/solis-state-listening.png.
+ *  `avatar`: states.glow.avatar, ajustado contra o símbolo pensando de
+ *  20-conversa-etapas.png. Pequeno, o símbolo tem traço de ~1px: o brilho
+ *  perto embaçava o vão entre o arco e o sol, e o halo da folha não chegava
+ *  a 8px. Na referência a arte fica nítida e o halo é largo, suave e dourado
+ *  (R:G:B 1 : 0,67 : 0,37 a 6px do arco — o laranja de longe da folha é
+ *  vermelho demais pra ele). */
+const HALO = {
+  folha: { pertoBlur: 2.0, pertoGanho: 2.2, longeBlur: 9.0, longeGanho: 0.6, longeCor: '#E85F0A' },
+  avatar: { pertoBlur: 2.0, pertoGanho: 0, longeBlur: 31.5, longeGanho: 1.08, longeCor: '#FFA733' },
+};
+
 export function SolisEstado({
   estado = 'idle',
   tamanho,
   className = '',
   style,
+  halo = 'folha',
 }: {
   estado?: EstadoSolis;
   tamanho?: number | string;
   className?: string;
   style?: CSSProperties;
+  halo?: keyof typeof HALO;
 }) {
-  const id = `brilho-${estado}`;
+  // useId e não o nome do estado: cada instância tem o desfoque da própria
+  // largura, e dois filtros com o mesmo id fariam um usar o do outro.
+  // Só letras e números: o React gera ids com ":" ou "«»", e um url(#...) com
+  // eles não acha o filtro — o brilho virava uma cópia nítida, sem halo.
+  const id = `brilho-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  // O halo é medido em px de TELA, e o filtro anda em unidades do desenho:
+  // num avatar de 34px os valores de 190px virariam menos de 1px e o glow
+  // sumiria. Então o desfoque cresce na proporção inversa da largura real — e
+  // o ganho também, porque o traço afina na mesma proporção e o mesmo
+  // desfoque espalha menos luz.
+  const caixa = useRef<HTMLDivElement>(null);
+  const [largura, definirLargura] = useState(LARGURA_MEDIDA);
+  useLayoutEffect(() => {
+    const w = caixa.current?.getBoundingClientRect().width;
+    if (w) definirLargura(w);
+  }, []);
+  const k = LARGURA_MEDIDA / largura;
+  const h = HALO[halo];
   return (
     <div
+      ref={caixa}
       className={`solis-estado ${className}`}
       style={{ width: tamanho, ...style }}
       role="img"
@@ -57,19 +93,21 @@ export function SolisEstado({
       <svg className="solis-brilho" data-estado={estado} viewBox="0 0 384.91 220.85" fillRule="evenodd" aria-hidden>
         <defs>
           {/* x/y/width/height generosos: o halo largo passa MUITO do bounding box
-              do caminho, e a região padrão do filtro (-10%/120%) o corta seco. */}
-          <filter id={id} x="-140%" y="-140%" width="380%" height="380%" colorInterpolationFilters="sRGB">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.0" result="perto" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="9.0" result="longe" />
+              do caminho, e a região padrão do filtro (-10%/120%) o corta seco.
+              Em y mais ainda: o símbolo é baixo, e o halo do avatar (3 desvios =
+              ~2,4 alturas dele) aparecia cortado num disco. */}
+          <filter id={id} x="-140%" y="-300%" width="380%" height="700%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation={h.pertoBlur * k} result="perto" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation={h.longeBlur * k} result="longe" />
             <feFlood floodColor="#FFA733" result="corPerto" />
             <feComposite in="corPerto" in2="perto" operator="in" result="pertoTingido" />
-            <feFlood floodColor="#E85F0A" result="corLonge" />
+            <feFlood floodColor={h.longeCor} result="corLonge" />
             <feComposite in="corLonge" in2="longe" operator="in" result="longeTingido" />
             <feComponentTransfer in="pertoTingido" result="pertoGanho">
-              <feFuncA type="linear" slope="2.2" />
+              <feFuncA type="linear" slope={h.pertoGanho * k} />
             </feComponentTransfer>
             <feComponentTransfer in="longeTingido" result="longeGanho">
-              <feFuncA type="linear" slope="0.6" />
+              <feFuncA type="linear" slope={h.longeGanho * k} />
             </feComponentTransfer>
             <feMerge>
               <feMergeNode in="longeGanho" />

@@ -452,7 +452,17 @@
       "farBlur": "9.0",
       "farColor": "#E85F0A",
       "farGain": "0.6",
-      "artColor": "#FFF0D6"
+      "artColor": "#FFF0D6",
+      "avatar": {
+        "_fonte": "O simbolo pensando no tamanho de avatar (34px), ajustado contra referencias/telas/20-conversa-etapas.png. Os valores acima sao do simbolo de 190px; no avatar o traco tem ~1px e o mesmo filtro embacava o vao entre o arco e o sol e nao passava de 8px. Ajuste por busca em grade (design/_ajustar-brilho.mjs, rascunho fora do repositorio), comparando o perfil de luminancia abaixo da base e acima do topo, de 1 a 23px, com o da referencia na escala do app: erro medio de 5 niveis.",
+        "_unidades": "Como os de cima: unidades do desenho a 190px de largura. O SolisEstado multiplica desfoque E ganho por 190/largura real - o ganho porque o traco afina na mesma proporcao.",
+        "nearGain": "0",
+        "farBlur": "31.5",
+        "farGain": "1.08",
+        "farColor": "#FFA733",
+        "_farColor": "Halo da referencia a 6px do arco: (43,29,16), R:G:B 1 : 0,67 : 0,37. O farColor da folha (#E85F0A, 1 : 0,41 : 0,04) sai vermelho; o nearColor (#FFA733, 1 : 0,65 : 0,20) bate. Com ele o ganho cai de 1,56 pra 1,08 pra manter a luminancia (erro medio 5, vao 38 contra 41).",
+        "_opacidade": "Ajustado com a camada no pico do estado thinking (opacity 0.7, states.motion.thinking)."
+      }
     },
     "motion": {
       "_regra": "So opacity e transform. O SCALE e minimo de proposito: o halo acompanha o desenho, e o simbolo tem 190px de largura por 109 de altura — escalar a camada de brilho em 6% desloca o halo em ~11px nas pontas e ele descola da arte, virando um fantasma laranja ao lado do traco. Na referencia o brilho pulsa em INTENSIDADE, nao em tamanho. Quem carrega a respiracao aqui e o opacity; o scale entra so pra tirar o ar de pisca-pisca.",
