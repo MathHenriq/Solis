@@ -254,15 +254,26 @@ def test_claude_pensando_e_primeira_palavra(monkeypatch):
     assert [e for e, _ in g.vistas] == ['pensando', 'primeira_palavra']
 
 
-def test_cerebro_travado_cai_com_o_motivo(monkeypatch):
-    async def travado(comando, entrada, *_):
-        await asyncio.sleep(10)
-        yield ''
-    monkeypatch.setattr(cerebros, '_linhas', travado)
-    monkeypatch.setattr(cerebros.shutil, 'which', lambda nome: f'/bin/{nome}')
-    monkeypatch.setattr(cerebros, 'PRIMEIRO_PEDACO_S', 0.05)
-    with pytest.raises(cerebros.CerebroFalhou, match='sem a primeira palavra em 0.05 s'):
-        asyncio.run(cerebros.abrir('codex', 's', 'p'))
+def test_cli_que_nao_sobe_cai_com_o_motivo(monkeypatch, tmp_path):
+    """Processo de verdade que nunca escreve: travado subindo (MCP, login...)."""
+    monkeypatch.setattr(banco, 'caminho_padrao', lambda: tmp_path / 'solis.db')
+    monkeypatch.setattr(cerebros, 'PRIMEIRA_LINHA_S', 0.3)
+
+    async def rodar():
+        return [l async for l in cerebros._linhas([sys.executable, '-c', 'import time; time.sleep(30)'], '')]
+    with pytest.raises(cerebros.CerebroFalhou, match='não escreveu nada em 0.3 s'):
+        asyncio.run(rodar())
+
+
+def test_cli_que_cala_no_meio_cai_com_o_motivo(monkeypatch, tmp_path):
+    monkeypatch.setattr(banco, 'caminho_padrao', lambda: tmp_path / 'solis.db')
+    monkeypatch.setattr(cerebros, 'SILENCIO_S', {'claude': 0.3})
+    script = 'import time; print("oi", flush=True); time.sleep(30)'
+
+    async def rodar():
+        return [l async for l in cerebros._linhas([sys.executable, '-c', script], '', cerebro='claude')]
+    with pytest.raises(cerebros.CerebroFalhou, match='ficou 0.3 s calado'):
+        asyncio.run(rodar())
 
 
 def test_local_marca_pensando_e_primeira_palavra():

@@ -33,9 +33,22 @@ log = logging.getLogger('solis.cerebros')
 
 NOMES = {'local': 'Modelo local', 'claude': 'Claude', 'codex': 'Codex'}
 
-# Quanto esperar a primeira palavra. O CLI tem que subir e o modelo tem que
-# começar a responder; depois disso o texto flui.
-PRIMEIRO_PEDACO_S = 90
+# Quanto esperar o CLI dar sinal de vida. Não há um prazo pra primeira palavra,
+# e sim dois, porque as duas demoras têm causas diferentes (medido no notebook,
+# 1º/11/2026, ver docs/ESCOPO.md):
+#
+# - Subir: do processo à primeira linha. Medido de 0,35 a 1,2 s, e 8,7 s no
+#   Codex frio (ele sobe os servidores MCP antes de escrever qualquer coisa). É
+#   aqui que um CLI trava — o MCP node_repl do Codex aceita até 120 s pra subir,
+#   uma atualização no primeiro uso, um pedido de login. 20 s cobrem o Codex
+#   frio com folga e cortam o travado: antes, um cérebro travado custava 90 s
+#   até cair pro próximo.
+# - Silêncio: o maior intervalo entre duas linhas depois disso. O Claude escreve
+#   o tempo todo, inclusive pensando (medido: no máximo 3,9 s calado). O Codex
+#   não manda pedaços: fica calado enquanto gera e entrega a resposta inteira
+#   (8,5 s pra 500 palavras) — por isso o limite dele é maior.
+PRIMEIRA_LINHA_S = 20
+SILENCIO_S = {'claude': 20, 'codex': 60}
 
 # Cérebro que falhou (cota, login, fora do ar) fica de lado por um tempo, pra o
 # Solis não pagar a espera do erro em toda mensagem. O Claude diz quando a cota
@@ -83,6 +96,9 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
 
     Marca duas etapas, porque é entre elas que o CLI gasta o tempo de subir:
     `processo` (o processo existe) e `primeira_linha` (ele já escreveu algo).
+    CLI que não escreve a primeira linha em PRIMEIRA_LINHA_S, ou fica calado
+    mais que o SILENCIO_S dele, é dado como travado: o processo é morto e a
+    falha sobe — antes da primeira palavra, o próximo cérebro tenta.
 
     Popen numa thread, e não asyncio.create_subprocess_exec: no Windows o uvicorn
     pode rodar num loop de eventos sem suporte a subprocesso, e o erro só
@@ -103,16 +119,22 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
 
     erros: list[str] = []
 
+    def entregar(linha: str | None) -> None:
+        try:
+            loop.call_soon_threadsafe(fila.put_nowait, linha)
+        except RuntimeError:
+            pass  # o loop já fechou: ninguém mais espera estas linhas
+
     def ler():
         try:
             proc.stdin.write(entrada)
             proc.stdin.close()
             for linha in proc.stdout:
-                loop.call_soon_threadsafe(fila.put_nowait, linha)
+                entregar(linha)
         except OSError:
             pass  # o processo morreu antes de ler a entrada; o código de saída conta
         finally:
-            loop.call_soon_threadsafe(fila.put_nowait, None)
+            entregar(None)
 
     def drenar():
         # stderr lido à parte: se ninguém o lesse e ele enchesse o buffer do
@@ -125,7 +147,16 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
     threading.Thread(target=drenar, daemon=True).start()
     try:
         primeira = True
-        while (linha := await fila.get()) is not None:
+        while True:
+            limite = PRIMEIRA_LINHA_S if primeira else SILENCIO_S.get(cerebro, max(SILENCIO_S.values()))
+            try:
+                linha = await asyncio.wait_for(fila.get(), limite)
+            except asyncio.TimeoutError:
+                raise CerebroFalhou(
+                    f'não escreveu nada em {limite} s' if primeira else f'ficou {limite} s calado'
+                ) from None
+            if linha is None:
+                break
             if primeira:
                 etapas.marcar('primeira_linha', cerebro=cerebro)
                 primeira = False
@@ -211,15 +242,14 @@ async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncItera
     tela, não dá mais pra trocar de quem responde."""
     fluxo = EXECUTORES[nome](sistema, prompt, etapas)
     try:
-        primeiro = await asyncio.wait_for(anext(fluxo), PRIMEIRO_PEDACO_S)
+        # Sem prazo aqui: quem decide que o CLI travou é o _linhas, pela
+        # primeira linha e pelo silêncio — uma resposta longa que está saindo
+        # não pode ser cortada por demorar.
+        primeiro = await anext(fluxo)
     except StopAsyncIteration:
         await fluxo.aclose()
         pausar(nome)
         raise CerebroFalhou('não respondeu nada')
-    except asyncio.TimeoutError as e:
-        await fluxo.aclose()
-        pausar(nome)
-        raise CerebroFalhou(f'sem a primeira palavra em {PRIMEIRO_PEDACO_S} s') from e
     except (CerebroFalhou, OSError) as e:
         await fluxo.aclose()
         pausar(nome)
@@ -227,10 +257,9 @@ async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncItera
     etapas.marcar('primeira_palavra', cerebro=nome)
 
     async def resto():
+        # Um corte no meio (o CLI calado depois de começar) sobe até a rota, que
+        # guarda o que chegou e marca a resposta como cortada.
         yield primeiro
-        try:
-            async for pedaco in fluxo:
-                yield pedaco
-        except CerebroFalhou:
-            pass  # corte no meio: fica o que chegou, como no modelo local
+        async for pedaco in fluxo:
+            yield pedaco
     return resto()
