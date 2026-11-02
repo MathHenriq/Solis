@@ -276,6 +276,15 @@ def test_cli_que_cala_no_meio_cai_com_o_motivo(monkeypatch, tmp_path):
         asyncio.run(rodar())
 
 
+def test_claude_termina_no_fim_da_mensagem(monkeypatch):
+    """O que vem depois do message_stop (o result, uns segundos depois) nem é
+    lido: a resposta acabou ali."""
+    fim = {'type': 'stream_event', 'event': {'type': 'message_stop'}}
+    depois = {'type': 'result', 'is_error': True, 'result': 'nunca lido'}
+    saida(monkeypatch, [*CLAUDE_REAL[:3], fim, depois])
+    assert asyncio.run(juntar(cerebros.claude('s', 'p'))) == 'ok, funcionou'
+
+
 def test_local_marca_pensando_e_primeira_palavra():
     import httpx
     from test_conversa import chat_falso

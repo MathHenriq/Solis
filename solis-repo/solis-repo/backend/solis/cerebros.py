@@ -172,6 +172,7 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
 async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8', dir=_pasta()) as f:
         f.write(sistema)
+    linhas = None
     try:
         comando = _comando(
             'claude', '-p',
@@ -184,13 +185,19 @@ async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
             '--output-format', 'stream-json', '--include-partial-messages', '--verbose',
         )
         pensou = False
-        async for linha in _linhas(comando, prompt, etapas, 'claude'):
+        linhas = _linhas(comando, prompt, etapas, 'claude')
+        async for linha in linhas:
             try:
                 evento = json.loads(linha)
             except json.JSONDecodeError:
                 continue
             tipo = evento.get('type')
             if tipo == 'stream_event':
+                if evento.get('event', {}).get('type') == 'message_stop':
+                    # Fim da resposta. Sem ferramentas há uma mensagem só, e o
+                    # CLI ainda leva de 2 a 3,9 s pra mandar o `result` e sair
+                    # (medido) — tempo que a tela passava esperando à toa.
+                    return
                 delta = evento.get('event', {}).get('delta', {})
                 if delta.get('type') == 'text_delta' and delta.get('text'):
                     yield delta['text']
@@ -207,6 +214,10 @@ async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
             elif tipo == 'result' and evento.get('is_error'):
                 raise CerebroFalhou(str(evento.get('result', ''))[:200])
     finally:
+        # Fechar explicitamente: sair do laço no fim da mensagem deixaria o
+        # _linhas aberto, e o processo só seria morto pelo coletor de lixo.
+        if linhas is not None:
+            await linhas.aclose()
         Path(f.name).unlink(missing_ok=True)
 
 
