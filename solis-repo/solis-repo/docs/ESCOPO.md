@@ -106,18 +106,22 @@ nuvem, não no notebook. Números reais (1º/11/2026):
 | CLIs chamados direto, sem o Solis | 2 a 5 s |
 | Servidor do Solis inteiro, pedido → resposta | 2 a 11 s (o pico foi o qwen3:8b subindo pra GPU pro aprendizado enquanto o Codex respondia) |
 | Claude pelo Solis, pedido → primeira palavra | 4,5 a 5,3 s (o CLI sobe em 0,6 a 1,2 s; o resto é o modelo) |
-| Claude, primeira palavra → fim de uma resposta de uma palavra | 2,5 a 3,6 s — o CLI demora pra fechar depois de responder |
+| Claude, primeira palavra → fim de uma resposta de uma palavra | era 2,5 a 3,6 s (o CLI demora pra fechar); agora 0,08 a 0,11 s — a resposta acaba no `message_stop` |
 | Codex pelo Solis, pedido → resposta (chega de uma vez) | 3,9 a 7,1 s |
 | Modelo local carregado (llama3.2:3b), pedido → primeira palavra | 0,1 s |
 | Busca na memória com o nomic-embed-text frio / quente | 2,0 s / 0,02 a 0,16 s |
+| Com o Ollama fora: busca / aprendizado / indexação | 2 s / 4 s / 2 s — o Windows leva 2 s pra recusar a conexão, e o front espera mais 2 s no `/modelos` antes de mandar |
+| Maior silêncio entre linhas do CLI (resposta de 500 palavras e uma que pensa) | Claude 3,9 s; Codex 8,5 s (gera calado e entrega tudo de uma vez) |
 
 O `--bare` do Claude Code não serve: na versão 2.1.316 ele só aceita `ANTHROPIC_API_KEY` e ignora
 o login da assinatura. Desligar os MCP no `codex exec` economiza ~1 s.
 
-Suspeitos do minuto: a espera pela primeira palavra (`PRIMEIRO_PEDACO_S`, 90 s em
-`solis/cerebros.py`), que faz um cérebro travado custar quase um minuto e meio antes de cair pro
-próximo; o MCP `node_repl` do Codex, que depende do app desktop do Codex e aceita até 120 s pra
-subir; atualização do CLI no primeiro uso. **Para flagrar a próxima demora**, cada resposta
+Suspeitos do minuto: o MCP `node_repl` do Codex, que depende do app desktop do Codex e aceita até
+120 s pra subir (o Codex sobe os MCP antes de escrever a primeira linha: 8,7 s frio, 0,45 s
+quente); atualização do CLI no primeiro uso; e a espera de 90 s pela primeira palavra, que fazia um
+cérebro travado custar um minuto e meio antes de cair pro próximo. **Trocada** por dois limites
+medidos (`solis/cerebros.py`): a primeira linha em 20 s (é ali que um CLI trava) e o silêncio entre
+linhas — 20 s no Claude, 60 s no Codex. Um CLI travado agora custa 20 s. **Para flagrar a próxima demora**, cada resposta
 agora registra as etapas com os tempos no `solis.log` (ver `backend/README.md` → Etapas).
 
 ### 2. Enquanto o modelo pensa, a tela não diz nada — resolvido

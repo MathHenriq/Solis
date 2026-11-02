@@ -70,8 +70,11 @@ chamados pelo CLI oficial com a assinatura do Matheus — nada de API paga. Os C
 estar instalados e logados no computador onde o servidor roda.
 
 - **Ordem de preferência:** `SOLIS_CEREBROS` (padrão `claude,codex,local`). Quem não está
-  instalado é pulado; quem falha antes da primeira palavra (sem login, cota acabada) também, e
-  fica de lado por um tempo — o Claude diz quando a cota renova; o Codex, 30 minutos.
+  instalado é pulado; quem falha antes da primeira palavra (sem login, cota acabada, travado)
+  também, e fica de lado por um tempo — o Claude diz quando a cota renova; o Codex, 30 minutos.
+- **Travado:** o CLI que não escreve a primeira linha em 20 s, ou fica calado entre duas linhas
+  mais de 20 s (Claude) ou 60 s (Codex, que gera calado e entrega tudo de uma vez), é morto. Antes
+  da primeira palavra o próximo cérebro tenta; depois, a resposta fica cortada onde parou.
 - **Comando na mensagem:** `/claude`, `/codex` ou `/local` na frente escolhe quem responde, sem
   plano B — se falhar, o aviso diz isso em vez de outro responder sem pedir.
 - **Sigilo:** mensagem com "privado", "confidencial", "sigiloso" ou "segredo" só vai pro local.
