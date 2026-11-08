@@ -92,9 +92,23 @@ o que era privado continua privado depois de atualizado.
 
 **Privada.** O modelo marca como privada o que for saúde, senha, finanças ou documento
 pessoal; e se a mensagem disser "privado", "confidencial", "sigiloso" ou "segredo", tudo que
-sair dela é privado, concorde o modelo ou não. Hoje todo modelo é local, então nada sai de
-qualquer jeito; a marca vale quando modelos de nuvem entrarem. Atenção: privada não é
-criptografada — está em texto puro no `solis.db`.
+sair dela é privado, concorde o modelo ou não. Nada privado vai pros cérebros de nuvem.
+
+**Criptografada** (`solis/cofre.py`). O que é privado fica selado no `solis.db` com a DPAPI do
+Windows, amarrada à sua conta: a memória, a mensagem que o disse e a resposta a ela, e — numa
+conversa com algo privado — o título, o resumo e as etapas guardadas com as respostas (o chip
+de memória guardada leva o texto). O Solis abre na leitura; a tela, os modelos locais e a busca
+veem o texto normal. A memória privada sai do índice de busca e é procurada abrindo uma a uma.
+Quando o sigilo só é descoberto pelo aprendizado, o que já tinha sido gravado legível é selado
+ali, e o texto antigo é apagado do arquivo (`secure_delete`) e do `-wal` (checkpoint).
+
+O que isso protege: o `solis.db` copiado pra outro computador ou outra conta — um backup que
+vaza, um disco lido por fora. O que não protege: um programa rodando na sua própria conta, com
+você logado, consegue pedir ao Windows pra abrir (é o mesmo nível das senhas salvas do Chrome).
+E o que fica de fora: o tema da memória ("Saúde"), os vetores da busca por significado, e a
+busca de conversas pelo texto, que não acha mensagem selada. **Atenção ao reinstalar o
+Windows:** sem a mesma conta, o que é privado não abre mais (aparece "privado — não abre neste
+computador"); o resto do banco continua legível. Fora do Windows não há DPAPI e fica como antes.
 
 ## Cérebros: quem responde
 

@@ -82,7 +82,6 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 
 - Tarefas, Agenda, Conhecimento e Ferramentas mostram dados de exemplo.
 - O piso de similaridade da busca foi escolhido sem dados reais; precisa calibrar no notebook.
-- A memória privada está em texto puro no `solis.db` (sem criptografia).
 - O servidor precisa ser ligado à mão (`npm run backend`).
 - Não há controle na tela pra esquecer uma memória.
 
@@ -185,7 +184,8 @@ das outras.
 - [x] Lista de conversas antigas e "Nova conversa" (com a thread aberta).
 - [ ] Esquecer e corrigir memória pela tela (precisa de referência visual).
 - [x] Busca textual (FTS5) na tela de Memória: por palavra, por prefixo, sem diferença de acento.
-- [ ] Criptografar as memórias privadas (DPAPI do Windows).
+- [x] Criptografar o que é privado (DPAPI do Windows): memória, mensagem, e o título, o resumo e
+  as etapas de conversa com segredo. O que protege e o que não, em `backend/README.md` → Memória.
 
 ### Importar o passado — pronto, falta conferir com os arquivos reais
 
@@ -313,8 +313,9 @@ O que se sabe até aqui, sem solução escolhida:
 
 ## Pontos de atenção
 
-- **Privacidade:** tudo fica num arquivo só, sem criptografia. Quem tiver acesso ao notebook
-  tem acesso ao Solis inteiro. Backup é copiar o `solis.db`.
+- **Privacidade:** tudo fica num arquivo só. O que é privado vai criptografado (DPAPI, amarrado
+  à conta do Windows); o resto é texto puro. Backup é copiar o `solis.db` — mas o que é privado
+  só abre na mesma conta do Windows: reinstalar o Windows sem ela perde o que é privado.
 - **Peso em disco:** texto pesa pouco (estimativa de ~20 MB por ano de uso diário). Os
   modelos é que ocupam gigabytes.
 - **Qualidade da extração:** um modelo pequeno guarda coisas inúteis e deixa passar fatos.
