@@ -55,6 +55,7 @@ SILENCIO_S = {'claude': 20, 'codex': 60}
 # renova; o Codex não documenta isso, então vale o padrão.
 PAUSA_PADRAO_S = 30 * 60
 _fora_ate: dict[str, float] = {}
+_motivo_pausa: dict[str, str] = {}
 
 
 class CerebroFalhou(Exception):
@@ -69,8 +70,24 @@ def disponivel(nome: str) -> bool:
     return instalado(nome) and time.time() >= _fora_ate.get(nome, 0)
 
 
-def pausar(nome: str, ate: float | None = None) -> None:
+def pausar(nome: str, ate: float | None = None, motivo: str = '') -> None:
     _fora_ate[nome] = ate or time.time() + PAUSA_PADRAO_S
+    _motivo_pausa[nome] = motivo
+
+
+def pausa(nome: str) -> dict | None:
+    """Até quando (epoch, em s) e por quê o cérebro está de lado — a tela de
+    Configurações mostra, pra que ele não pareça sumido sem razão."""
+    ate = _fora_ate.get(nome, 0)
+    if time.time() >= ate:
+        return None
+    return {'ate': ate, 'motivo': _motivo_pausa.get(nome, '')}
+
+
+def retomar(nome: str) -> None:
+    """O Matheus resolveu (renovou a cota, fez login) e não quer esperar a pausa."""
+    _fora_ate.pop(nome, None)
+    _motivo_pausa.pop(nome, None)
 
 
 def _pasta() -> Path:
@@ -210,7 +227,7 @@ async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
                 # "allowed" é cota acabando; o resetsAt diz quando volta.
                 info = evento.get('rate_limit_info', {})
                 if info.get('status') not in (None, 'allowed'):
-                    pausar('claude', info.get('resetsAt'))
+                    pausar('claude', info.get('resetsAt'), 'a cota acabou')
             elif tipo == 'result' and evento.get('is_error'):
                 raise CerebroFalhou(str(evento.get('result', ''))[:200])
     finally:
@@ -259,11 +276,11 @@ async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncItera
         primeiro = await anext(fluxo)
     except StopAsyncIteration:
         await fluxo.aclose()
-        pausar(nome)
+        pausar(nome, motivo='não respondeu nada')
         raise CerebroFalhou('não respondeu nada')
     except (CerebroFalhou, OSError) as e:
         await fluxo.aclose()
-        pausar(nome)
+        pausar(nome, motivo=str(e) or type(e).__name__)
         raise CerebroFalhou(str(e) or type(e).__name__) from e
     etapas.marcar('primeira_palavra', cerebro=nome)
 

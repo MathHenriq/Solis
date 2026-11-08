@@ -142,6 +142,16 @@ MIGRACOES = [
     END;
     INSERT INTO memorias_fts(rowid, texto, tema) SELECT id, texto, tema FROM memorias WHERE privada = 0;
     """,
+    # 7 — ajustes escolhidos pela tela (a ordem dos cérebros, por enquanto).
+    """
+    -- Chave e valor em JSON: cada ajuste novo não pede migração própria. Fica
+    -- no banco e não num arquivo à parte porque o banco já é o que se copia
+    -- pra levar o Solis pra outra máquina.
+    CREATE TABLE ajustes (
+        chave TEXT PRIMARY KEY,
+        valor TEXT NOT NULL
+    );
+    """,
 ]
 
 
@@ -232,6 +242,21 @@ def _con() -> sqlite3.Connection:
     if _conexao is None:
         usar(caminho_padrao())
     return _conexao
+
+
+def ajuste(chave: str):
+    """O valor guardado, ou None se nunca foi escolhido pela tela."""
+    l = _con().execute('SELECT valor FROM ajustes WHERE chave = ?', (chave,)).fetchone()
+    return json.loads(l['valor']) if l else None
+
+
+def guardar_ajuste(chave: str, valor) -> None:
+    with _con() as c:
+        c.execute(
+            'INSERT INTO ajustes (chave, valor) VALUES (?, ?) '
+            'ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor',
+            (chave, json.dumps(valor)),
+        )
 
 
 def _agora() -> str:

@@ -23,8 +23,43 @@ from . import banco, cerebros, memoria, ollama
 from .etapas import MUDA
 
 # Preferência do Matheus: os modelos mais fortes primeiro; o local quando a cota
-# acabar. Mudar a ordem não precisa de código: SOLIS_CEREBROS=local,claude
+# acabar. É o padrão até ele escolher pela tela (Configurações → Cérebros), que
+# vence; SOLIS_CEREBROS=local,claude muda o padrão sem código.
 ORDEM = [c.strip() for c in os.environ.get('SOLIS_CEREBROS', 'claude,codex,local').split(',') if c.strip()]
+
+
+def preferencia() -> list[dict]:
+    """Todos os cérebros, na ordem escolhida, cada um ligado ou não.
+
+    O que a tela guardou vence o ORDEM. Cérebro que não está em nenhum dos dois
+    (um que entrou depois da escolha) vai pro fim, desligado: ligar um cérebro
+    de nuvem é decisão do Matheus, não do Solis. O local nunca desliga — é por
+    ele que passa o que é privado."""
+    guardada = banco.ajuste('cerebros')
+    if guardada is None:
+        guardada = [{'nome': c, 'ligado': True} for c in ORDEM if c in cerebros.NOMES]
+        guardada += [{'nome': c, 'ligado': False} for c in cerebros.NOMES if c not in ORDEM]
+    vistos = {p['nome'] for p in guardada}
+    novos = [{'nome': c, 'ligado': c == 'local'} for c in cerebros.NOMES if c not in vistos]
+    return [
+        {'nome': p['nome'], 'ligado': p['nome'] == 'local' or p['ligado']}
+        for p in guardada + novos
+        if p['nome'] in cerebros.NOMES
+    ]
+
+
+def guardar_preferencia(ordem: list[dict]) -> list[dict]:
+    """Valida e guarda. ValueError quando a lista não é uma ordem de todos os
+    cérebros, cada um uma vez."""
+    nomes = [p['nome'] for p in ordem]
+    if sorted(nomes) != sorted(cerebros.NOMES):
+        raise ValueError('a ordem precisa ter cada cérebro uma vez')
+    banco.guardar_ajuste('cerebros', [{'nome': p['nome'], 'ligado': bool(p['ligado'])} for p in ordem])
+    return preferencia()
+
+
+def _ordem() -> list[str]:
+    return [p['nome'] for p in preferencia() if p['ligado']]
 
 COMANDOS = {'/claude': 'claude', '/codex': 'codex', '/local': 'local'}
 
@@ -58,7 +93,7 @@ def escolher(texto: str) -> tuple[str, list[str], bool]:
         return resto.strip(), [COMANDOS[primeira.lower()]], True
     if memoria.eh_privado(texto):
         return texto, ['local'], False
-    return texto, [c for c in ORDEM if c == 'local' or cerebros.disponivel(c)], False
+    return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 
 def prompt_nuvem(memorias, trechos, resumo, historico, mensagem) -> str:

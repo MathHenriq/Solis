@@ -27,3 +27,4 @@ def sem_cli_de_verdade(monkeypatch):
     os testes do roteador trocam os executores por falsos."""
     monkeypatch.setattr(cerebros, 'instalado', lambda nome: False)
     monkeypatch.setattr(cerebros, '_fora_ate', {})
+    monkeypatch.setattr(cerebros, '_motivo_pausa', {})

@@ -59,7 +59,7 @@ app = FastAPI(title='Solis', lifespan=_vida)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['http://localhost:1420', 'tauri://localhost', 'http://tauri.localhost'],
-    allow_methods=['GET', 'POST', 'PATCH', 'DELETE'],
+    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allow_headers=['*'],
 )
 
@@ -77,6 +77,54 @@ async def modelos():
         # 503 e não 500: o servidor do Solis está bem, quem falta é a dependência.
         # O front usa essa diferença pra dizer QUEM está fora do ar.
         return JSONResponse({'erro': 'ollama_indisponivel'}, status_code=503)
+
+
+def _cerebros() -> dict:
+    """A lista de Configurações → Cérebros: a ordem, quem está ligado, e o que
+    impede cada um de responder agora (CLI ausente, pausa depois de falhar)."""
+    return {
+        'cerebros': [
+            {
+                **p,
+                'rotulo': cerebros.NOMES[p['nome']],
+                # O local depende do Ollama, que a tela de Modelos já mostra.
+                'instalado': p['nome'] == 'local' or cerebros.instalado(p['nome']),
+                'pausa': None if p['nome'] == 'local' else cerebros.pausa(p['nome']),
+            }
+            for p in roteador.preferencia()
+        ]
+    }
+
+
+@app.get('/cerebros')
+async def listar_cerebros():
+    return _cerebros()
+
+
+class Preferencia(BaseModel):
+    nome: str
+    ligado: bool
+
+
+class Ordem(BaseModel):
+    ordem: list[Preferencia]
+
+
+@app.put('/cerebros')
+async def ordenar_cerebros(ordem: Ordem):
+    try:
+        roteador.guardar_preferencia([p.model_dump() for p in ordem.ordem])
+    except ValueError:
+        return JSONResponse({'erro': 'ordem_invalida'}, status_code=400)
+    return _cerebros()
+
+
+@app.post('/cerebros/{nome}/retomar')
+async def retomar_cerebro(nome: str):
+    if nome not in cerebros.NOMES:
+        return JSONResponse({'erro': 'cerebro_inexistente'}, status_code=404)
+    cerebros.retomar(nome)
+    return _cerebros()
 
 
 @app.get('/conversas/atual')
