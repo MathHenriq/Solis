@@ -126,7 +126,7 @@
   --mov-toque: 90ms;
   --mov-hover: 140ms;
 
-  --th-balao-max: 66%;
+  --th-balao-max: 85%;
   --th-balao-px: 24px;
   --th-balao-py: 16px;
   --th-balao-raio: 14px;
@@ -137,7 +137,8 @@
   --th-composer-h: 98px;
   --th-composer-base: 35px;
   --th-hora: 14px;
-  --th-texto-max: 540px;
+  --th-texto-max: none;
+  --th-coluna: 768px;
   /* Etapas da resposta. Ver layout.thread.etapas no JSON. */
   --et-texto: 14px;
   --et-passo: 30px;

@@ -10,6 +10,13 @@ const NOMES_CEREBRO: Record<string, string> = { claude: 'Claude', codex: 'Codex'
 /** Conversa com thread em andamento — o outro estado da tela de Conversa.
  *  Referência: referencias/telas/18-conversa-thread.png.
  *
+ *  A conversa vive numa COLUNA CENTRAL de até --th-coluna (768px), na
+ *  proporção do Claude, e tudo se alinha a ela: a mensagem da pessoa à direita
+ *  da coluna, a resposta ocupando a largura dela, o campo de digitar com a
+ *  mesma largura. Antes a resposta ficava num teto de 540px encostada à
+ *  esquerda e o balão ia pra borda direita da janela — numa janela larga
+ *  sobrava um vazio no meio (pedido do Matheus, 08/11/2026).
+ *
  *  A diferença entre quem fala é deliberadamente SUTIL, e não dois balões
  *  coloridos de aplicativo de mensagem:
  *
@@ -28,11 +35,29 @@ const NOMES_CEREBRO: Record<string, string> = { claude: 'Claude', codex: 'Codex'
  *
  *  A resposta chega em pedaços e o cursor fica no fim enquanto ela chega. */
 
-/** Negrito em markdown (`**assim**`) vira <strong>. Fragmento e não array:
- *  `Paragrafo` lê array como lista. */
+/** Negrito em markdown (`**assim**`) vira <strong>, e `assim` vira código.
+ *  Fragmento e não array: `Paragrafo` lê array como lista. */
 function negrito(texto: string): ReactNode {
-  const partes = texto.split(/\*\*(.+?)\*\*/g);
-  return <>{partes.map((p, i) => (i % 2 ? <strong key={i}>{p}</strong> : p))}</>;
+  // O código entre crases (`pytest`) também: aparecia cru, com as crases.
+  const partes = texto.split(/(\*\*.+?\*\*|`[^`\n]+`)/g);
+  return (
+    <>
+      {partes.map((p, i) => {
+        if (p.startsWith('**') && p.endsWith('**') && p.length > 4) return <strong key={i}>{p.slice(2, -2)}</strong>;
+        if (p.startsWith('`') && p.endsWith('`') && p.length > 2)
+          return (
+            <code
+              key={i}
+              className="font-mono"
+              style={{ fontSize: '0.9em', background: 'var(--mem-hover-forte)', padding: '1px 5px', borderRadius: 4 }}
+            >
+              {p.slice(1, -1)}
+            </code>
+          );
+        return p;
+      })}
+    </>
+  );
 }
 
 /** O texto do modelo vem em markdown. Daqui sai só o que a thread já sabe
@@ -85,7 +110,7 @@ function Paragrafo({ bloco, fim }: { bloco: ReactNode; fim?: ReactNode }) {
     return (
       <ul style={{ marginTop: 'var(--th-par-gap)' }}>
         {bloco.map((li, i) => (
-          <li key={i} className="text-text-secondary flex gap-md" style={{ marginTop: i ? 8 : 0 }}>
+          <li key={i} className="flex gap-md" style={{ marginTop: i ? 8 : 0 }}>
             <span aria-hidden className="text-accent">•</span>
             <span>
               {li}
@@ -204,31 +229,33 @@ export function Thread({
         className="flex-1 overflow-y-auto"
         style={{ paddingLeft: 'var(--mem-pad-l)', paddingRight: 'var(--mem-pad-r)', paddingTop: 'var(--th-turno-gap)' }}
       >
-        {turnos.map((t) =>
-          t.de === 'pessoa' ? (
-            <div key={t.id} className="flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
-              <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
-                {t.hora}
-              </span>
-              <div
-                className="text-text-primary"
-                style={{
-                  maxWidth: 'var(--th-balao-max)',
-                  background: 'var(--mem-hover)',
-                  borderRadius: 'var(--th-balao-raio)',
-                  padding: 'var(--th-balao-py) var(--th-balao-px)',
-                  fontSize: 'var(--mem-item-texto)',
-                  lineHeight: 'var(--mem-item-lh)',
-                }}
-              >
-                {t.texto}
+        <div style={{ maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}>
+          {turnos.map((t) =>
+            t.de === 'pessoa' ? (
+              <div key={t.id} className="flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
+                <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
+                  {t.hora}
+                </span>
+                <div
+                  className="text-text-primary whitespace-pre-wrap"
+                  style={{
+                    maxWidth: 'var(--th-balao-max)',
+                    background: 'var(--mem-hover)',
+                    borderRadius: 'var(--th-balao-raio)',
+                    padding: 'var(--th-balao-py) var(--th-balao-px)',
+                    fontSize: 'var(--mem-item-texto)',
+                    lineHeight: 'var(--mem-item-lh)',
+                  }}
+                >
+                  {t.texto}
+                </div>
               </div>
-            </div>
-          ) : (
-            <RespostaSolis key={t.id} t={t} />
-          ),
-        )}
-        <div style={{ height: 'var(--th-turno-gap)' }} />
+            ) : (
+              <RespostaSolis key={t.id} t={t} />
+            ),
+          )}
+          <div style={{ height: 'var(--th-turno-gap)' }} />
+        </div>
       </div>
 
       <div
@@ -241,7 +268,7 @@ export function Thread({
       >
         <form
           className="flex items-center border border-divider rounded-composer"
-          style={{ height: 'var(--th-composer-h)', width: 'var(--composer-width)', maxWidth: '100%', marginInline: 'auto' }}
+          style={{ height: 'var(--th-composer-h)', width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
           onSubmit={(e) => {
             e.preventDefault();
             // O rascunho continua editável enquanto o Solis responde; só o
