@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
 import { Horizonte } from './components/Horizonte';
+import { PainelConversas } from './components/PainelConversas';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
 import { useConversa } from './conversa';
@@ -34,9 +35,20 @@ export default function App() {
   const comSidebar = nav === 'sidebar';
 
   const TELAS: Record<string, () => ReactElement> = {
+    // O painel de conversas acompanha a thread, como na referência 19. Na
+    // tela vazia (a saudação) ele ainda não entra: não há referência dela com
+    // o painel, e ela é uma composição já validada.
     conversa: () =>
       conversa.turnos.length ? (
-        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} />
+        <>
+          <PainelConversas
+            aberta={conversa.conversa}
+            versao={conversa.versao}
+            aoAbrir={conversa.abrir}
+            aoNova={conversa.nova}
+          />
+          <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} />
+        </>
       ) : (
         <Conversa aoEnviar={conversa.enviar} />
       ),

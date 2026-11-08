@@ -82,6 +82,12 @@ const CAMINHOS = {
   // longo subindo até (402,617). O traço vai quase de borda a borda do grid.
   'feito':
     'M2 12.7l6.2 6.4L22.9 4.7',
+  // Lápis do "Nova conversa", contra o mapa de pixels de 19-conversa-lista.png:
+  // tinta de 25x25px, corpo na diagonal com a ponta embaixo à esquerda
+  // (343,95), a tampa arredondada em cima à direita e o anel da ponteira
+  // cruzando o corpo logo abaixo dela.
+  'lapis':
+    'M2.4 16.3L15.9 2.5A3.6 3.6 0 0 1 22.3 5.6L9.1 18.2 7.2 21.6 1.5 22.8Z M14.7 4l5.1 4.6',
 } as const;
 
 export type NomeIcone = keyof typeof CAMINHOS;

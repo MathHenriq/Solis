@@ -115,6 +115,30 @@ export async function carregarConversa(): Promise<{ id: number | null; mensagens
   }
 }
 
+/** Uma conversa na lista do painel. `atualizada`: a hora da última mensagem. */
+export type ResumoConversa = { id: number; titulo: string; atualizada: string };
+
+/** As conversas do painel, da mais recente pra mais antiga. `busca` procura no
+ *  título e no texto. Servidor fora: lista vazia — o painel não tem o que
+ *  mostrar, e o aviso de servidor desligado já aparece na própria conversa. */
+export async function listarConversas(busca = ''): Promise<ResumoConversa[]> {
+  try {
+    const r = await fetch(`${BASE}/conversas?q=${encodeURIComponent(busca)}`);
+    return r.ok ? ((await r.json()) as { conversas: ResumoConversa[] }).conversas : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function abrirConversa(id: number): Promise<{ id: number; mensagens: Mensagem[] } | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${id}`);
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 export type Ouvintes = {
   aoReceber: (pedaco: string) => void;
   aoEtapa: (etapa: Etapa) => void;

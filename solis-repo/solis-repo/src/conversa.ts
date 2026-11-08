@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { EtapaRecebida } from './etapas';
-import { carregarConversa, conversar, type Falha } from './servidor';
+import { abrirConversa, carregarConversa, conversar, type Falha, type Mensagem } from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
  *  à troca de tela: ir a Modelos e voltar não pode apagar o que foi dito.
@@ -44,9 +44,8 @@ function aviso(falha: Falha): string {
  *  guarda. O comando escolhe quem responde; não faz parte do que foi dito. */
 const semComando = (texto: string) => texto.replace(/^\/(claude|codex|local)\s+(?=\S)/i, '');
 
-/** Começa uma conversa nova. Comando digitado e não botão porque a tela não
- *  tem referência visual pra um botão — e sem ele, guardar a conversa tiraria
- *  o único jeito que existia de recomeçar (recarregar a página). */
+/** Começa uma conversa nova, como o botão do painel. Ficou de quando não
+ *  havia o botão — e continua valendo pra quem prefere o teclado. */
 const COMANDO_NOVA = '/nova';
 
 const hora = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -54,27 +53,31 @@ const hora = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minut
 let proximoId = 0;
 const novoId = () => ++proximoId;
 
+const turnosDe = (mensagens: Mensagem[]): Turno[] =>
+  mensagens.map((m) => ({
+    id: novoId(),
+    de: m.papel,
+    texto: m.texto,
+    hora: hora(new Date(m.criada)),
+    cerebro: m.cerebro,
+    etapas: m.etapas ?? undefined,
+  }));
+
 export function useConversa() {
   const [turnos, definirTurnos] = useState<Turno[]>([]);
   // null = a próxima mensagem cria uma conversa nova.
   const [conversa, definirConversa] = useState<number | null>(null);
   const [respondendo, definirRespondendo] = useState(false);
+  // Muda quando a lista de conversas do painel ficou velha: uma conversa nova
+  // nasceu, ou uma antiga ganhou mensagem e sobe pro topo.
+  const [versao, definirVersao] = useState(0);
 
   useEffect(() => {
     let vivo = true;
     carregarConversa().then((c) => {
       if (!vivo || !c) return;
       definirConversa(c.id);
-      definirTurnos(
-        c.mensagens.map((m) => ({
-          id: novoId(),
-          de: m.papel,
-          texto: m.texto,
-          hora: hora(new Date(m.criada)),
-          cerebro: m.cerebro,
-          etapas: m.etapas ?? undefined,
-        })),
-      );
+      definirTurnos(turnosDe(c.mensagens));
     });
     return () => {
       vivo = false;
@@ -84,15 +87,29 @@ export function useConversa() {
   const mudar = (id: number, mudar: (t: Turno) => Turno) =>
     definirTurnos((ts) => ts.map((t) => (t.id === id ? mudar(t) : t)));
 
+  /** A anterior continua no banco; só deixa de ser a aberta. */
+  const nova = useCallback(() => {
+    definirConversa(null);
+    definirTurnos([]);
+  }, []);
+
+  /** Volta a uma conversa antiga. Uma resposta ainda chegando na que estava
+   *  aberta não se perde: o servidor a termina e guarda, e ela aparece ao
+   *  voltar pra lá. */
+  const abrir = useCallback(async (id: number) => {
+    const c = await abrirConversa(id);
+    if (!c) return;
+    definirConversa(c.id);
+    definirTurnos(turnosDe(c.mensagens));
+  }, []);
+
   const enviar = useCallback(
     async (texto: string) => {
       const limpo = texto.trim();
       if (!limpo || respondendo) return;
 
       if (limpo === COMANDO_NOVA) {
-        // A anterior continua no banco; só deixa de ser a aberta.
-        definirConversa(null);
-        definirTurnos([]);
+        nova();
         return;
       }
 
@@ -116,6 +133,9 @@ export function useConversa() {
             cerebro: etapa.etapa === 'primeira_palavra' ? etapa.cerebro : t.cerebro,
             digitando: etapa.etapa === 'fim' ? false : t.digitando,
           }));
+          // A mensagem já está no banco quando a busca na memória termina: a
+          // conversa entra (ou sobe) na lista do painel.
+          if (etapa.etapa === 'memoria') definirVersao((v) => v + 1);
           // A conversa libera no fim da resposta; o aprendizado e o resumo
           // seguem chegando no mesmo stream sem prender o campo.
           if (etapa.etapa === 'fim') {
@@ -133,8 +153,8 @@ export function useConversa() {
       );
       definirRespondendo(false);
     },
-    [conversa, respondendo],
+    [conversa, respondendo, nova],
   );
 
-  return { turnos, respondendo, enviar };
+  return { turnos, respondendo, enviar, conversa, abrir, nova, versao };
 }
