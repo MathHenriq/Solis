@@ -18,9 +18,13 @@ Três coisas rodando, cada uma no seu terminal:
 
 ```powershell
 ollama serve                         # se o Ollama já não abriu sozinho na bandeja
-npm run backend                      # na raiz do app, com o .venv ativado
+npm run backend                      # na raiz do app; usa o Python do .venv sozinho
 npm run dev                          # o front, em http://localhost:1420
 ```
+
+O `npm run backend` (`backend/subir.mjs`) acha o Python do `.venv` sem precisar ativá-lo, e sem
+`.venv` ele não sobe — diz como criar, em vez de rodar com o Python do sistema, que tem outras
+bibliotecas. Outra porta: `npm run backend -- --port 8766`.
 
 A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" é o
 `npm run backend`; "Ollama fora do ar" é o `ollama serve`.
