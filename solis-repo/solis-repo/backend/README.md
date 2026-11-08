@@ -171,8 +171,8 @@ guardada. No log, cada resposta termina numa linha só com todas as etapas:
 13:04:58 solis.etapas conversa 3  resumo: memoria 0.16s · cerebro 0.16s · processo 0.18s · primeira_linha 0.81s · primeira_palavra 4.68s · fim 7.18s · aprendizado 8.37s · indexacao 8.41s · resumo 8.41s
 ```
 
-O Codex foi integrado pela documentação: o CLI não estava instalado onde isto foi escrito.
-Precisa ser conferido no notebook.
+O Codex foi integrado pela documentação e conferido rodando no notebook em 1º/11/2026: respondeu
+pelo Solis (3,9 a 7,1 s do pedido à resposta) e o MCP de memória conectou.
 
 ## Servidor MCP: a memória do Solis no Claude Code e no Codex
 

@@ -11,9 +11,9 @@ que nenhum dos dois leia ou mexa em projeto nenhum por engano.
 Flags conferidas:
 - Claude Code 2.1: verificadas rodando o CLI (`-p`, `--system-prompt-file`,
   `--tools ""`, stream-json com `--include-partial-messages`).
-- Codex: pela documentação (`exec --json`, `--sandbox read-only`,
-  `--skip-git-repo-check`, prompt pela entrada padrão). PROVISÓRIO até rodar
-  no notebook: o CLI não está instalado onde isto foi escrito.
+- Codex: integradas pela documentação (`exec --json`, `--sandbox read-only`,
+  `--skip-git-repo-check`, prompt pela entrada padrão) e conferidas rodando o
+  CLI no notebook em 1º/11/2026 (resposta pelo Solis, tempos medidos).
 """
 import asyncio
 import json
