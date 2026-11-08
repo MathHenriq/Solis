@@ -12,7 +12,7 @@ import os
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -59,7 +59,7 @@ app = FastAPI(title='Solis', lifespan=_vida)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['http://localhost:1420', 'tauri://localhost', 'http://tauri.localhost'],
-    allow_methods=['GET', 'POST', 'DELETE'],
+    allow_methods=['GET', 'POST', 'PATCH', 'DELETE'],
     allow_headers=['*'],
 )
 
@@ -271,6 +271,23 @@ def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> dict:
 async def listar_memorias(q: str = ''):
     """Todas as que valem, ou as que batem com a busca `q` (texto e tema)."""
     return {'memorias': banco.buscar_memorias(q) if q.strip() else banco.memorias()}
+
+
+class Correcao(BaseModel):
+    texto: str
+
+
+@app.patch('/memorias/{id_}')
+async def corrigir(id_: int, correcao: Correcao, fundo: BackgroundTasks):
+    texto = ' '.join(correcao.texto.split())
+    if not texto:
+        return JSONResponse({'erro': 'texto_vazio'}, status_code=400)
+    memoria = banco.corrigir_memoria(id_, texto)
+    if memoria is None:
+        return JSONResponse({'erro': 'memoria_inexistente'}, status_code=404)
+    # O vetor novo, pra busca por significado achar o texto corrigido.
+    fundo.add_task(busca.indexar_pendentes)
+    return {'memoria': memoria}
 
 
 @app.delete('/memorias/{id_}')

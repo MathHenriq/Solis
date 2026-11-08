@@ -244,3 +244,32 @@ def test_esquecer_a_nova_devolve_a_antiga():
     assert [m['id'] for m in banco.memorias()] == [nova]
     assert TestClient(main.app).delete(f'/memorias/{nova}').json() == {'ok': True}
     assert [m['id'] for m in banco.memorias()] == [velha]
+
+
+def test_corrigir_memoria_pela_rota():
+    mid = banco.adicionar_memoria('Trabalha melhor de manhã.', 'Rotina', False, None)
+    banco.guardar_vetores('memoria', [(mid, b'\x00' * 8)])
+    cliente = TestClient(main.app)
+    r = cliente.patch(f'/memorias/{mid}', json={'texto': '  Trabalha melhor\nde madrugada. '})
+    assert r.json()['memoria']['texto'] == 'Trabalha melhor de madrugada.'
+    assert [m['id'] for m in banco.buscar_memorias('madrugada')] == [mid]
+    assert banco.buscar_memorias('manha') == []
+    # O vetor do texto antigo saiu: a memória volta pra fila da busca.
+    assert mid in [p['id'] for p in banco.sem_vetor('memoria', 10)]
+    assert cliente.patch(f'/memorias/{mid}', json={'texto': '   '}).status_code == 400
+    assert cliente.patch('/memorias/999', json={'texto': 'x'}).status_code == 404
+
+
+def test_corrigir_privada_continua_selada():
+    from solis import cofre
+    mid = banco.adicionar_memoria('Tem asma.', 'Saúde', False, None, privada=True)
+    banco.corrigir_memoria(mid, 'Tem asma leve.')
+    gravado = banco._con().execute('SELECT texto FROM memorias WHERE id = ?', (mid,)).fetchone()[0]
+    assert cofre.selado(gravado) or not cofre.DISPONIVEL
+    assert banco.memorias()[0]['texto'] == 'Tem asma leve.'
+
+
+def test_nao_corrige_a_substituida():
+    velha = banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    banco.adicionar_memoria('Trabalha na Vale.', 'Trabalho', False, None, substitui=velha)
+    assert banco.corrigir_memoria(velha, 'x') is None

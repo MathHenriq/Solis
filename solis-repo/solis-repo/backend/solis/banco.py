@@ -476,6 +476,28 @@ def adicionar_memoria(
         return nova
 
 
+def corrigir_memoria(memoria: int, texto: str) -> dict | None:
+    """Troca o texto de uma memória que vale (o Matheus corrigindo pela tela).
+    Privada continua selada. O vetor velho sai — ele descrevia o texto antigo
+    — e a memória volta pra fila da busca por significado. O índice de busca
+    textual acompanha sozinho (gatilho). None se a memória não existe ou já
+    foi substituída."""
+    with _con() as c:
+        linha = c.execute(
+            'SELECT privada FROM memorias WHERE id = ? AND substituida_por IS NULL', (memoria,)
+        ).fetchone()
+        if not linha:
+            return None
+        c.execute(
+            'UPDATE memorias SET texto = ? WHERE id = ?',
+            (cofre.selar(texto) if linha['privada'] else texto, memoria),
+        )
+        c.execute("DELETE FROM vetores WHERE tipo = 'memoria' AND ref = ?", (memoria,))
+    if linha['privada']:
+        _limpar_rastros(_con())  # o texto antigo não pode sobrar no -wal
+    return next((m for m in memorias() if m['id'] == memoria), None)
+
+
 def apagar_memoria(memoria: int) -> bool:
     """Esquece uma memória. Se ela tinha substituído outra ("Trabalha na Vale"
     no lugar de "Trabalha na Syngenta"), a antiga volta a valer: era a verdade
