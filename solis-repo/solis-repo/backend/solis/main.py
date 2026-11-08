@@ -86,6 +86,19 @@ async def conversa_atual():
     return {'id': conversa, 'mensagens': banco.mensagens(conversa) if conversa else []}
 
 
+@app.get('/conversas')
+async def listar_conversas(q: str = ''):
+    """A lista do painel de conversas; `q` filtra pelo título e pelo texto."""
+    return {'conversas': banco.conversas(q)}
+
+
+@app.get('/conversas/{conversa}')
+async def abrir_conversa(conversa: int):
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    return {'id': conversa, 'mensagens': banco.mensagens(conversa)}
+
+
 @app.post('/conversas')
 async def criar_conversa():
     return {'id': banco.nova_conversa(), 'mensagens': []}

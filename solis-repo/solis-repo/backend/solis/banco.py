@@ -158,10 +158,55 @@ def conversa_externa(externo: str) -> int | None:
 
 def ultima_conversa() -> int | None:
     # Conversa importada não é "a última": o app reabre a última do próprio Solis.
+    # E "última" é a da mensagem mais recente, não a criada por último: com a
+    # lista de conversas dá pra voltar a uma antiga e continuar nela.
     linha = _con().execute(
-        "SELECT id FROM conversas WHERE origem = 'solis' ORDER BY id DESC LIMIT 1"
+        "SELECT c.id FROM conversas c WHERE c.origem = 'solis' "
+        'ORDER BY COALESCE((SELECT MAX(m.id) FROM mensagens m WHERE m.conversa = c.id), 0) DESC, c.id DESC '
+        'LIMIT 1'
     ).fetchone()
     return linha['id'] if linha else None
+
+
+# Título de conversa sem título: a primeira fala, numa linha só, até aqui.
+TITULO_MAX = 80
+
+
+def conversas(busca: str = '', limite: int = 200) -> list[dict]:
+    """As conversas do Solis com alguma mensagem, da mais recente pra mais
+    antiga — a lista do painel. As importadas ficam de fora: são arquivo, e
+    voltam pela busca na memória. `busca` procura no título e no texto das
+    mensagens, sem diferença de maiúscula (só nas letras sem acento — é o LIKE
+    do SQLite)."""
+    filtro, args = '', []
+    if busca.strip():
+        # "!" escapa os curingas do LIKE: buscar "50%" acha "50%", não tudo.
+        padrao = '%' + busca.strip().replace('!', '!!').replace('%', '!%').replace('_', '!_') + '%'
+        filtro = (
+            "AND (c.titulo LIKE ? ESCAPE '!' OR EXISTS "
+            "(SELECT 1 FROM mensagens x WHERE x.conversa = c.id AND x.texto LIKE ? ESCAPE '!'))"
+        )
+        args = [padrao, padrao]
+    linhas = _con().execute(
+        'SELECT c.id, c.titulo, MAX(m.criada) AS atualizada, '
+        "(SELECT texto FROM mensagens p WHERE p.conversa = c.id AND p.papel = 'pessoa' ORDER BY p.id LIMIT 1) AS primeira "
+        "FROM conversas c JOIN mensagens m ON m.conversa = c.id WHERE c.origem = 'solis' "
+        f'{filtro} GROUP BY c.id ORDER BY MAX(m.id) DESC LIMIT ?',
+        [*args, limite],
+    )
+    return [
+        {'id': l['id'], 'titulo': l['titulo'] or _titulo(l['primeira'] or ''), 'atualizada': l['atualizada']}
+        for l in linhas
+    ]
+
+
+def _titulo(texto: str) -> str:
+    """A primeira fala vira título: numa linha só e cortada no fim de uma
+    palavra. As reticências ficam com a tela, que corta pela largura."""
+    linha = ' '.join(texto.split())
+    if len(linha) <= TITULO_MAX:
+        return linha
+    return linha[:TITULO_MAX].rsplit(' ', 1)[0]
 
 
 def existe(conversa: int) -> bool:
