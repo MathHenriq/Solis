@@ -124,12 +124,38 @@ async def listar(nome: str, chave: str, transporte: httpx.AsyncBaseTransport | N
             r = await c.get(f"{PROVEDORES[nome]['base']}/models", headers={'Authorization': f'Bearer {chave}'})
     except httpx.HTTPError as e:
         raise ProvedorFora(str(e) or type(e).__name__) from e
+    if nome == 'gemini' and r.status_code in (401, 403, 404):
+        # Há relato de o /models do formato OpenAI do Gemini dar 401 com chave
+        # boa (o chat funcionando). Antes de recusar, pergunta pela API nativa.
+        return await _listar_gemini_nativo(chave, transporte)
     if r.status_code in (401, 403):
         raise ChaveRecusada()
     if r.status_code >= 400:
         raise ProvedorFora(f'{PROVEDORES[nome]["rotulo"]} respondeu {r.status_code}')
     # O Gemini devolve "models/gemini-...", e o chat aceita sem o prefixo.
     return [m['id'].removeprefix('models/') for m in r.json().get('data', []) if m.get('id')]
+
+
+async def _listar_gemini_nativo(chave: str, transporte: httpx.AsyncBaseTransport | None) -> list[str]:
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_LISTA, transport=transporte) as c:
+            r = await c.get(
+                'https://generativelanguage.googleapis.com/v1beta/models',
+                headers={'x-goog-api-key': chave},
+                params={'pageSize': 1000},
+            )
+    except httpx.HTTPError as e:
+        raise ProvedorFora(str(e) or type(e).__name__) from e
+    # A API nativa responde 400 ("API key not valid") pra chave errada.
+    if r.status_code in (400, 401, 403):
+        raise ChaveRecusada()
+    if r.status_code >= 400:
+        raise ProvedorFora(f'Gemini respondeu {r.status_code}')
+    return [
+        m['name'].removeprefix('models/')
+        for m in r.json().get('models', [])
+        if 'generateContent' in m.get('supportedGenerationMethods', ['generateContent'])
+    ]
 
 
 async def guardar_chave(nome: str, chave: str, transporte: httpx.AsyncBaseTransport | None = None) -> str:

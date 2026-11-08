@@ -67,6 +67,23 @@ def test_chave_recusada_nao_e_guardada():
     assert not apis.tem_chave('groq')
 
 
+def test_gemini_cai_pra_lista_nativa_quando_o_formato_openai_recusa():
+    def rota(req):
+        if req.url.path.endswith('/openai/models'):
+            return httpx.Response(401)
+        assert req.headers['x-goog-api-key'] == 'AIza_boa'
+        return httpx.Response(200, json={'models': [
+            {'name': 'models/gemini-2.5-flash', 'supportedGenerationMethods': ['generateContent']},
+            {'name': 'models/text-embedding-004', 'supportedGenerationMethods': ['embedContent']},
+        ]})
+    assert asyncio.run(apis.guardar_chave('gemini', 'AIza_boa', servico(rota))) == 'gemini-2.5-flash'
+
+    def recusa(req):
+        return httpx.Response(401) if 'openai' in req.url.path else httpx.Response(400)
+    with pytest.raises(apis.ChaveRecusada):
+        asyncio.run(apis.guardar_chave('gemini', 'errada', servico(recusa)))
+
+
 def test_chave_boa_fica_selada_com_o_modelo(tmp_path):
     vistos = []
 
