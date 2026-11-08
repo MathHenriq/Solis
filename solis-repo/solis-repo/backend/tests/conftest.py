@@ -16,7 +16,7 @@ def sem_ollama_de_verdade(monkeypatch):
     queda que precisa funcionar. Cada teste troca a que precisar por uma falsa."""
     async def indisponivel(*_, **__):
         raise ollama.OllamaIndisponivel()
-    for nome in ('embeddings', 'responder_json', 'responder_texto'):
+    for nome in ('embeddings', 'responder_json', 'responder_texto', 'instalados'):
         monkeypatch.setattr(ollama, nome, indisponivel)
 
 

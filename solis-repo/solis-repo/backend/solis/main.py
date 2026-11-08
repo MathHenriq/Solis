@@ -8,6 +8,7 @@ com ele por HTTP tanto no `npm run dev` quanto dentro do Tauri.
 import asyncio
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
@@ -221,13 +222,38 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     inteiro.
 
     Todos rodam SEMPRE no modelo local, qualquer que seja o cérebro que
-    respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota."""
+    respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota.
+    E no modelo de fundo (MODELO_FUNDO), não no da conversa."""
+    modelo = await _modelo_de_fundo(modelo)
     if titulo := await resumo.titular(modelo, conversa):
         etapas.marcar('titulo', titulo=titulo)
     novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id)
-    etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [])
+    etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [], modelo=modelo)
     etapas.marcar('indexacao', vetores=await busca.indexar_pendentes())
     etapas.marcar('resumo', resumiu=bool(await resumo.resumir(modelo, conversa)))
+
+
+# O modelo das tarefas de fundo: título, aprendizado e resumo. Fixo, e não o da
+# conversa, porque elas pedem um modelo que siga instrução — medido em
+# 08/11/2026: no aprendizado o qwen3:8b acertou 12 de 12 casos e o
+# llama3.2:3b, 6; no resumo o llama copiou a conversa em vez de resumir (ver
+# backend/README.md → Raciocínio). Trocar não precisa de código:
+# SOLIS_MODELO_FUNDO=outro:modelo.
+#
+# PROVISÓRIO: o qwen3:8b ocupa 5,2 GB dos 8 da placa, e sobe pra GPU a cada
+# mensagem — com um jogo aberto, estoura a VRAM. Questão em aberto em
+# docs/ESCOPO.md → "Questões pra depois do Solis completo".
+MODELO_FUNDO = os.environ.get('SOLIS_MODELO_FUNDO', 'qwen3:8b')
+
+
+async def _modelo_de_fundo(modelo_da_conversa: str) -> str:
+    """O MODELO_FUNDO se estiver instalado; senão o da conversa, que é o que
+    havia antes — melhor uma tarefa de fundo fraca que nenhuma."""
+    try:
+        instalados = await ollama.instalados()
+    except ollama.OllamaIndisponivel:
+        return modelo_da_conversa
+    return MODELO_FUNDO if MODELO_FUNDO in instalados else modelo_da_conversa
 
 
 def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> dict:

@@ -184,3 +184,29 @@ def test_titulo_e_uma_etapa_depois_da_resposta(monkeypatch):
     assert [e['etapa'] for e in etapas][-4:] == ['titulo', 'aprendizado', 'indexacao', 'resumo']
     assert next(e for e in etapas if e['etapa'] == 'titulo')['titulo'] == 'Cumprimento'
     assert cliente.get('/conversas').json()['conversas'][0]['titulo'] == 'Cumprimento'
+
+
+def test_tarefas_de_fundo_usam_o_modelo_de_fundo(monkeypatch):
+    """O título, o aprendizado e o resumo vão pro MODELO_FUNDO, não pro modelo
+    da conversa; sem ele instalado (ou sem Ollama), voltam pro da conversa."""
+    falso_que_responde(monkeypatch)
+    usados = []
+
+    async def aprender(modelo, *_):
+        usados.append(modelo)
+        return []
+    monkeypatch.setattr(memoria, 'aprender', aprender)
+    cliente = TestClient(main.app)
+    cid = cliente.post('/conversas').json()['id']
+
+    async def com_qwen():
+        return {'llama3.2:3b', main.MODELO_FUNDO}
+    monkeypatch.setattr(ollama, 'instalados', com_qwen)
+    r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'llama3.2:3b', 'texto': 'oi'})
+    assert next(e for e in eventos(r) if e.get('etapa') == 'aprendizado')['modelo'] == main.MODELO_FUNDO
+
+    async def sem_qwen():
+        return {'llama3.2:3b'}
+    monkeypatch.setattr(ollama, 'instalados', sem_qwen)
+    cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'llama3.2:3b', 'texto': 'e aí'})
+    assert usados == [main.MODELO_FUNDO, 'llama3.2:3b']

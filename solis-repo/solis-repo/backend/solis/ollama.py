@@ -111,6 +111,18 @@ def _embeddings(nome: str, detalhes: dict) -> bool:
     return 'embed' in nome
 
 
+async def instalados(transporte: httpx.AsyncBaseTransport | None = None) -> set[str]:
+    """Só os nomes, numa chamada só: pra decidir qual modelo usar não precisa
+    dos detalhes de cada um que o listar_modelos busca."""
+    try:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT, transport=transporte) as c:
+            r = await c.get('/api/tags')
+            r.raise_for_status()
+    except httpx.HTTPError as e:
+        raise OllamaIndisponivel() from e
+    return {m['name'] for m in r.json().get('models', [])}
+
+
 async def listar_modelos(transporte: httpx.AsyncBaseTransport | None = None) -> list[dict]:
     async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT, transport=transporte) as c:
         try:
