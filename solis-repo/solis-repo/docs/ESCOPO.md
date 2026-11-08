@@ -194,7 +194,7 @@ das outras.
 - [x] Memórias tiradas do histórico, retomáveis, com data, sem substituir o presente.
 - [ ] Conferir o leitor do Claude com uma exportação real (os campos não foram confirmados).
 
-### Cérebros externos — pronto, faltam as APIs gratuitas
+### Cérebros externos — pronto, falta conferir as APIs com chaves de verdade
 
 - [x] Claude Code e Codex pelo CLI oficial, com a assinatura (`/claude`, `/codex`, `/local`).
 - [x] Roteador por regras, com a preferência pelos mais fortes e queda pro próximo.
@@ -202,7 +202,12 @@ das outras.
 - [x] Servidor MCP de memória, testado com o Claude Code de verdade.
 - [x] Conferir o Codex rodando de verdade: no notebook, em 1º/11/2026, respondeu pelo Solis
   (3,9 a 7,1 s) e conectou o MCP de memória (ver "Próximas tarefas", problema 1).
-- [ ] APIs gratuitas (Gemini e outras) como mais cérebros.
+- [x] APIs gratuitas como mais cérebros (08/11/2026): Groq, Gemini, Mistral e OpenRouter, por
+  chave colada em Configurações → Cérebros. Decisão do Matheus: o Solis tem todos os modelos
+  grátis que der, que é também o que o Laboratório de modelos vai comparar.
+- [ ] Conferir cada API com uma chave de verdade (testadas só com o serviço simulado). Um relato
+  antigo diz que o `/models` do Gemini pelo formato OpenAI dava `401` com chave boa; por isso,
+  antes de recusar, o Solis pergunta pela API nativa do Gemini.
 - [x] Escolher a ordem dos cérebros pela tela: Configurações → Cérebros (08/11/2026), com
   liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
   aprovado pelo Matheus pelos prints (`design/cerebros-validacao.png`).

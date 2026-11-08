@@ -43,8 +43,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |
 | `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
-| `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `ligado`, `instalado` (o CLI existe) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
-| `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Cada cérebro uma vez, senão `400`. O local fica sempre ligado |
+| `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
+| `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
+| `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
+| `DELETE /cerebros/{nome}/chave` | apaga a chave e o modelo e desliga o cérebro |
 | `POST /cerebros/{nome}/retomar` | tira o cérebro da pausa antes da hora (a cota renovou, o login foi feito). `404` se o nome não existe |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
@@ -116,9 +118,22 @@ computador"); o resto do banco continua legível. Fora do Windows não há DPAPI
 
 ## Cérebros: quem responde
 
-O Solis pode responder pelo modelo local (Ollama) ou pelo **Claude Code** e o **Codex**,
-chamados pelo CLI oficial com a assinatura do Matheus — nada de API paga. Os CLIs precisam
-estar instalados e logados no computador onde o servidor roda.
+O Solis pode responder pelo modelo local (Ollama), pelo **Claude Code** e o **Codex** (CLI
+oficial, com a assinatura do Matheus) e pelo **Groq**, **Gemini**, **Mistral** e **OpenRouter**
+(API, no plano grátis de cada um) — nada pago por uso. Os CLIs precisam estar instalados e
+logados no computador onde o servidor roda; as APIs, de uma chave colada em Configurações →
+Cérebros.
+
+- **Por API (`solis/apis.py`):** os quatro falam o formato `chat/completions` da OpenAI, então é
+  um código só — cada serviço é um endereço, uma chave e um modelo. O modelo **não é fixado no
+  código**: ao guardar a chave, o Solis lista os modelos do serviço e escolhe pela preferência
+  (Groq: `openai/gpt-oss-120b`; Gemini: o Flash estável mais novo; Mistral:
+  `mistral-medium-latest`; OpenRouter: um `:free`). A chave fica no banco selada pelo cofre
+  (DPAPI) e nunca volta pro front. Limite grátis (`429`) pausa o cérebro até o `retry-after`;
+  chave recusada, por um dia.
+- **O preço do grátis**, que a tela mostra em cada um: o Gemini grátis pode usar o que recebe pra
+  melhorar os produtos do Google; o Mistral treina até ser desligado no console; no OpenRouter
+  quem roda o modelo grátis pode guardar o pedido. O que é privado não chega a nenhum deles.
 
 - **Ordem de preferência:** escolhida em Configurações → Cérebros (ordem e liga/desliga,
   guardados no banco, tabela `ajustes`). Até a primeira escolha vale `SOLIS_CEREBROS` (padrão
@@ -130,7 +145,8 @@ estar instalados e logados no computador onde o servidor roda.
 - **Travado:** o CLI que não escreve a primeira linha em 20 s, ou fica calado entre duas linhas
   mais de 20 s (Claude) ou 60 s (Codex, que gera calado e entrega tudo de uma vez), é morto. Antes
   da primeira palavra o próximo cérebro tenta; depois, a resposta fica cortada onde parou.
-- **Comando na mensagem:** `/claude`, `/codex` ou `/local` na frente escolhe quem responde, sem
+- **Comando na mensagem:** `/claude`, `/codex`, `/local`, `/groq`, `/gemini`, `/mistral` ou
+  `/openrouter` na frente escolhe quem responde (mesmo desligado), sem
   plano B — se falhar, o aviso diz isso em vez de outro responder sem pedir.
 - **Sigilo:** mensagem com "privado", "confidencial", "sigiloso" ou "segredo" só vai pro local.
 - **O que nunca vai pra nuvem:** memória privada, mensagem privada (no histórico ou como trecho
