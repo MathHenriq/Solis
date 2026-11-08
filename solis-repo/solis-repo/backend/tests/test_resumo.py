@@ -121,3 +121,18 @@ def test_titulo_pede_sem_raciocinio():
     # Quem não pede não manda o campo: o aprendizado e o resumo seguem iguais.
     asyncio.run(ollama._perguntar('m', 'i', 'x', None, httpx.MockTransport(chat)))
     assert 'think' not in pedido[1]
+
+
+def test_resumo_e_titulo_sem_raciocinio(monkeypatch):
+    """Medido: sem raciocínio, o resumo guardou os mesmos fatos 8x mais rápido.
+    O aprendizado, ao contrário, pensa (ver o comentário em memoria.aprender)."""
+    pedidos = []
+
+    async def falso(modelo, instrucao, texto, **kw):
+        pedidos.append(kw.get('pensar'))
+        return 'ok'
+    monkeypatch.setattr(ollama, 'responder_texto', falso)
+    cid = conversa_de(resumo.JANELA + resumo.LOTE + 2)
+    asyncio.run(resumo.resumir('m', cid))
+    asyncio.run(resumo.titular('m', cid))
+    assert pedidos == [False, False]

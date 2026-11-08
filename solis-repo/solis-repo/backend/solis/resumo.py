@@ -109,7 +109,10 @@ async def resumir(modelo: str, conversa: int) -> bool:
     linhas = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in velhas)
     pedido = f'Resumo anterior:\n{texto or "(nenhum)"}\n\nMensagens a incluir:\n{linhas}'
     try:
-        novo = (await ollama.responder_texto(modelo, INSTRUCAO, pedido)).strip()
+        # Sem raciocínio, como o título: medido no qwen3:8b com 6 fatos-chave
+        # numa conversa de 34 mensagens, os dois jeitos guardaram os 6, mas
+        # pensando levou 20,5 s e sem pensar 2,4 s (08/11/2026).
+        novo = (await ollama.responder_texto(modelo, INSTRUCAO, pedido, pensar=False)).strip()
     except Exception:
         log.exception('resumo da conversa %s falhou', conversa)
         return False

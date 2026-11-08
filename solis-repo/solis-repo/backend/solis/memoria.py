@@ -134,6 +134,12 @@ async def aprender(
         texto += '\n\nO Matheus PEDIU pra guardar algo nesta mensagem: extraia o que ele pediu.'
 
     try:
+        # COM raciocínio, de propósito — o contrário do título e do resumo.
+        # Medido no qwen3:8b em 12 casos (fatos, perguntas, pedidos, sigilo,
+        # mudança de emprego e de cidade): pensando acertou 12, em ~11 s; sem
+        # pensar acertou 10, em ~1 s, e deixou de guardar uma preferência dita
+        # com todas as letras e a senha do wifi. Guardar é a razão de o Solis
+        # existir, e isto roda depois da resposta, sem prender a conversa.
         resposta = await ollama.responder_json(modelo, INSTRUCAO, texto, ESQUEMA)
         novas = resposta.get('memorias', [])
     except Exception:
