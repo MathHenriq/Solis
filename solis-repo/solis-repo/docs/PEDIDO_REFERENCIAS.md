@@ -100,6 +100,8 @@ Problema 3 de `docs/ESCOPO.md` → "Próximas tarefas". Padrão pedido pelo Math
 do Claude (lista de recentes + nova conversa), adaptada à identidade do Solis. Decisão de
 desenho: a lista vive num painel dentro da tela de Conversa, e não na sidebar — a sidebar já
 tem os 8 itens de navegação, e um painel próprio funciona igual nos dois modos de navegação.
+**Revisto em 08/11/2026:** construída por esta referência, ficou pesada; a lista foi refeita no
+padrão do próprio Claude, dentro da sidebar (ver `docs/ESCOPO.md`, problema 3).
 
 Prompt entregue ao Matheus pra gerar no GPT (anexando `telas/18-conversa-thread.png` e
 `telas/tema-dark.png`): ver o histórico da conversa de 1º/11 ou a resposta do Claude daquele

@@ -142,17 +142,24 @@ Provisório, sem referência: o cérebro que falhou (anel e texto secundário, s
 "Conversa resumida". O glow do avatar foi ajustado contra a referência (`states.glow.avatar`):
 o da folha de 190px sumia em 34px.
 
-### 3. Lista de conversas e botão de nova conversa — feito com a thread aberta
+### 3. Lista de conversas e botão de nova conversa — feito, no padrão do Claude
 
-O painel de `telas/19-conversa-lista.png` (medidas em `layout.painelConversas`): "Nova
-conversa", busca no título e no texto, grupos por data (Hoje, Ontem, Últimos 7 dias, e no mesmo
-desenho Últimos 30 dias e Mais antigas), a aberta com barra de accent. Dá pra voltar a uma
-conversa antiga e continuar nela; o app reabre na da mensagem mais recente.
+A primeira versão seguiu `telas/19-conversa-lista.png`: um painel numa segunda coluna, com
+divisória própria e botão e busca em caixas com borda. O Matheus achou pesado (as duas
+divisórias lado a lado, o botão e a busca "forçados") e pediu o próprio Claude como base
+(08/11/2026). Agora, como no Claude:
+- **Modo sidebar:** "Nova conversa" (o + num círculo de accent), a busca e os "Recentes" vivem
+  dentro da sidebar, abaixo da navegação, em linhas sem caixa e sem borda; a aberta só ganha
+  um fundo. Aparecem em qualquer tela, inclusive na saudação.
+- **Modo barra de ícones:** dois botões no canto esquerdo do topo, espelhando os da direita —
+  o painel (abre a mesma lista numa gaveta) e o "+" (Nova conversa).
+
+Busca no título e no texto; dá pra voltar a uma conversa antiga e continuar nela; o app reabre
+na da mensagem mais recente. **PROVISÓRIO:** não há imagem do Claude em `referencias/` (o app do
+Claude não pode ser capturado daqui, e o claude.ai pede login); as medidas seguem a grade da
+sidebar validada (`layout.recentes`) e precisam do aval do Matheus.
 
 Em aberto:
-- **A tela vazia (a saudação) ainda não tem o painel**: não há referência dela com ele, e ela é
-  uma composição validada. Depois de "Nova conversa", a lista só volta quando a primeira
-  mensagem sai.
 - **Títulos**: o modelo local dá um título curto depois da primeira resposta, como etapa de
   fundo, sem o modo de raciocínio. Conferido no notebook (08/11/2026) nas 9 conversas da cópia
   do banco: o qwen3:8b acerta quase todos ("Plano da semana", "Emissão de NF-e") em 0,2 a 0,4 s;

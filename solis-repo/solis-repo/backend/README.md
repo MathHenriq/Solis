@@ -52,7 +52,7 @@ digitar `/nova` na Conversa começa outra (a anterior continua guardada).
 ## Título da conversa
 
 Depois da primeira resposta, o modelo local lê o começo da conversa e dá a ela um título de 2 a 6
-palavras ("Sistema de NF-e da loja"), que a lista do painel mostra no lugar da primeira fala. É a
+palavras ("Sistema de NF-e da loja"), que a lista de conversas mostra no lugar da primeira fala. É a
 primeira das etapas de depois da resposta (`titulo`), e roda uma vez só por conversa. Sem o
 Ollama a conversa fica sem título, com a primeira fala na lista, e a próxima mensagem tenta de
 novo.
@@ -236,7 +236,6 @@ Não precisam do Ollama instalado — as respostas dele são simuladas.
 ## O que ainda não existe
 
 - Esquecer uma memória pela tela: a rota existe, o controle visual ainda não (sem referência).
-- O painel de conversas ainda não aparece na tela vazia (a saudação): sem referência dela com ele.
 - O Tauri não sobe este servidor sozinho. Hoje é `npm run backend` à mão; empacotar como
   sidecar fica pra quando o app for instalado de verdade.
 - O preview na Vercel não tem servidor — lá a tela de Modelos mostra "Servidor do Solis
