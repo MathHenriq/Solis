@@ -12,8 +12,11 @@ import json
 import os
 import re
 import sqlite3
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
+
+from . import cofre
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS conversas (
@@ -116,6 +119,29 @@ MIGRACOES = [
     -- As memórias de antes desta versão entram no índice agora.
     INSERT INTO memorias_fts(memorias_fts) VALUES ('rebuild');
     """,
+    # 6 — o índice de busca sem as memórias privadas.
+    """
+    -- A memória privada passa a ficar criptografada (solis/cofre.py), e o
+    -- índice da 5 guardava o texto legível de todas. Ele vira um índice com
+    -- conteúdo próprio, só das que não são privadas; as privadas são buscadas
+    -- abrindo uma a uma (buscar_memorias), que são poucas.
+    DROP TRIGGER memorias_fts_inclui;
+    DROP TRIGGER memorias_fts_apaga;
+    DROP TRIGGER memorias_fts_muda;
+    DROP TABLE memorias_fts;
+    CREATE VIRTUAL TABLE memorias_fts USING fts5(texto, tema, tokenize='unicode61 remove_diacritics 2');
+    CREATE TRIGGER memorias_fts_inclui AFTER INSERT ON memorias WHEN new.privada = 0 BEGIN
+        INSERT INTO memorias_fts(rowid, texto, tema) VALUES (new.id, new.texto, new.tema);
+    END;
+    CREATE TRIGGER memorias_fts_apaga AFTER DELETE ON memorias BEGIN
+        DELETE FROM memorias_fts WHERE rowid = old.id;
+    END;
+    CREATE TRIGGER memorias_fts_muda AFTER UPDATE OF texto, tema, privada ON memorias BEGIN
+        DELETE FROM memorias_fts WHERE rowid = old.id;
+        INSERT INTO memorias_fts(rowid, texto, tema) SELECT new.id, new.texto, new.tema WHERE new.privada = 0;
+    END;
+    INSERT INTO memorias_fts(rowid, texto, tema) SELECT id, texto, tema FROM memorias WHERE privada = 0;
+    """,
 ]
 
 
@@ -144,8 +170,13 @@ def usar(caminho: Path) -> None:
     # WAL: o servidor MCP (outro processo) lê o mesmo arquivo enquanto o
     # servidor do Solis escreve, sem um travar o outro.
     _conexao.execute('PRAGMA journal_mode = WAL')
+    # O SQLite não apaga o que é sobrescrito: o texto antigo sobra no espaço
+    # livre das páginas. Com isto ele é zerado — sem isso, o segredo selado
+    # depois de descoberto (ver _limpar_rastros) continuava legível no arquivo.
+    _conexao.execute('PRAGMA secure_delete = ON')
     _conexao.executescript(ESQUEMA)
     _migrar(_conexao)
+    _selar_o_que_falta(_conexao)
 
 
 def _migrar(c: sqlite3.Connection) -> None:
@@ -154,6 +185,47 @@ def _migrar(c: sqlite3.Connection) -> None:
         # executescript faz COMMIT antes de rodar, então a migração e a versão
         # vão juntas num script só: ou as duas ficam, ou nenhuma.
         c.executescript(f'BEGIN; {sql} PRAGMA user_version = {numero}; COMMIT;')
+
+
+def _selar_o_que_falta(c: sqlite3.Connection) -> None:
+    """Sela o que é privado e ainda está legível: o que veio de antes do cofre,
+    e o que ficou pra trás se o servidor caiu no meio. Roda toda vez que o
+    banco abre; o que já está selado é pulado, então custa uma consulta."""
+    if not cofre.DISPONIVEL:
+        return
+    falta = f"NOT LIKE '{cofre.PREFIXO}%'"
+    with c:
+        for l in c.execute(f'SELECT id, texto FROM memorias WHERE privada = 1 AND texto {falta}').fetchall():
+            c.execute('UPDATE memorias SET texto = ? WHERE id = ?', (cofre.selar(l['texto']), l['id']))
+        conversas = [l['conversa'] for l in c.execute('SELECT DISTINCT conversa FROM mensagens WHERE privada = 1')]
+    for conversa in conversas:
+        _selar_conversa(c, conversa)
+    _limpar_rastros(c)
+
+
+def _limpar_rastros(c: sqlite3.Connection) -> None:
+    """Passa o -wal pro banco e o esvazia. As versões antigas das páginas — com
+    o texto de antes de ser selado — ficam no -wal até ele ser reaproveitado;
+    truncar tira de lá. (O que o disco guarda por baixo do arquivo, depois de
+    apagado, já é com o Windows.)"""
+    c.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+
+
+def _selar_conversa(c: sqlite3.Connection, conversa: int) -> None:
+    """Numa conversa com algo privado, sela o texto das mensagens privadas e
+    tudo que pode repetir o segredo: o título, o resumo e as etapas guardadas
+    com as respostas (o chip de memória guardada leva o texto dela)."""
+    with c:
+        for l in c.execute('SELECT id, texto FROM mensagens WHERE conversa = ? AND privada = 1', (conversa,)).fetchall():
+            c.execute('UPDATE mensagens SET texto = ? WHERE id = ?', (cofre.selar(l['texto']), l['id']))
+        for l in c.execute('SELECT id, etapas FROM mensagens WHERE conversa = ? AND etapas IS NOT NULL', (conversa,)).fetchall():
+            c.execute('UPDATE mensagens SET etapas = ? WHERE id = ?', (cofre.selar(l['etapas']), l['id']))
+        l = c.execute('SELECT titulo, resumo FROM conversas WHERE id = ?', (conversa,)).fetchone()
+        if l:
+            c.execute(
+                'UPDATE conversas SET titulo = ?, resumo = ? WHERE id = ?',
+                (cofre.selar(l['titulo']), cofre.selar(l['resumo']), conversa),
+            )
 
 
 def _con() -> sqlite3.Connection:
@@ -202,7 +274,8 @@ def conversas(busca: str = '', limite: int = 200) -> list[dict]:
     antiga — a lista do painel. As importadas ficam de fora: são arquivo, e
     voltam pela busca na memória. `busca` procura no título e no texto das
     mensagens, sem diferença de maiúscula (só nas letras sem acento — é o LIKE
-    do SQLite)."""
+    do SQLite). O que está selado (conversa com algo privado) não é achado
+    pelo texto, só pelo título — que também fica selado nessas."""
     filtro, args = '', []
     if busca.strip():
         # "!" escapa os curingas do LIKE: buscar "50%" acha "50%", não tudo.
@@ -220,7 +293,11 @@ def conversas(busca: str = '', limite: int = 200) -> list[dict]:
         [*args, limite],
     )
     return [
-        {'id': l['id'], 'titulo': l['titulo'] or _titulo(l['primeira'] or ''), 'atualizada': l['atualizada']}
+        {
+            'id': l['id'],
+            'titulo': cofre.abrir(l['titulo']) or _titulo(cofre.abrir(l['primeira']) or ''),
+            'atualizada': l['atualizada'],
+        }
         for l in linhas
     ]
 
@@ -245,14 +322,32 @@ def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
         (conversa, depois_de),
     )
     return [
-        {**dict(l), 'privada': bool(l['privada']), 'etapas': json.loads(l['etapas']) if l['etapas'] else None}
+        {
+            **dict(l),
+            'texto': cofre.abrir(l['texto']),
+            'privada': bool(l['privada']),
+            'etapas': _etapas(cofre.abrir(l['etapas'])),
+        }
         for l in linhas
     ]
 
 
+def _etapas(valor: str | None) -> list[dict] | None:
+    if not valor:
+        return None
+    try:
+        return json.loads(valor)
+    except json.JSONDecodeError:
+        return None  # selado e ilegível neste computador
+
+
 def guardar_etapas(mensagem: int, etapas: list[dict]) -> None:
+    valor = json.dumps(etapas, ensure_ascii=False)
+    conversa = _con().execute('SELECT conversa FROM mensagens WHERE id = ?', (mensagem,)).fetchone()
+    if conversa and tem_privada(conversa['conversa']):
+        valor = cofre.selar(valor)
     with _con() as c:
-        c.execute('UPDATE mensagens SET etapas = ? WHERE id = ?', (json.dumps(etapas, ensure_ascii=False), mensagem))
+        c.execute('UPDATE mensagens SET etapas = ? WHERE id = ?', (valor, mensagem))
 
 
 def tem_privada(conversa: int) -> bool:
@@ -271,27 +366,41 @@ def marcar_privada(mensagem: int) -> None:
             '  (SELECT conversa FROM mensagens WHERE id = ?))',
             (mensagem, mensagem, mensagem),
         )
+        conversa = c.execute('SELECT conversa FROM mensagens WHERE id = ?', (mensagem,)).fetchone()
+    # O que já foi escrito em claro nesta conversa (o título dado antes do
+    # aprendizado descobrir o sigilo, por exemplo) é selado agora.
+    if conversa:
+        _selar_conversa(_con(), conversa['conversa'])
+        _limpar_rastros(_con())
 
 
 def resumo(conversa: int) -> tuple[str | None, int]:
     """(resumo, id da última mensagem que ele cobre). Sem resumo: (None, 0)."""
     linha = _con().execute('SELECT resumo, resumo_ate FROM conversas WHERE id = ?', (conversa,)).fetchone()
-    return (linha['resumo'], linha['resumo_ate']) if linha else (None, 0)
+    return (cofre.abrir(linha['resumo']), linha['resumo_ate']) if linha else (None, 0)
 
 
 def titulo(conversa: int) -> str | None:
     linha = _con().execute('SELECT titulo FROM conversas WHERE id = ?', (conversa,)).fetchone()
-    return linha['titulo'] if linha else None
+    return cofre.abrir(linha['titulo']) if linha else None
+
+
+def _talvez_selar(conversa: int, texto: str | None) -> str | None:
+    """Título e resumo de conversa com algo privado podem repetir o segredo."""
+    return cofre.selar(texto) if tem_privada(conversa) else texto
 
 
 def guardar_titulo(conversa: int, titulo: str) -> None:
     with _con() as c:
-        c.execute('UPDATE conversas SET titulo = ? WHERE id = ?', (titulo, conversa))
+        c.execute('UPDATE conversas SET titulo = ? WHERE id = ?', (_talvez_selar(conversa, titulo), conversa))
 
 
 def guardar_resumo(conversa: int, texto: str, ate: int) -> None:
     with _con() as c:
-        c.execute('UPDATE conversas SET resumo = ?, resumo_ate = ? WHERE id = ?', (texto, ate, conversa))
+        c.execute(
+            'UPDATE conversas SET resumo = ?, resumo_ate = ? WHERE id = ?',
+            (_talvez_selar(conversa, texto), ate, conversa),
+        )
 
 
 def adicionar(conversa: int, papel: str, texto: str, privada: bool = False, cerebro: str | None = None,
@@ -299,7 +408,7 @@ def adicionar(conversa: int, papel: str, texto: str, privada: bool = False, cere
     with _con() as c:
         return c.execute(
             'INSERT INTO mensagens (conversa, papel, texto, criada, privada, cerebro) VALUES (?, ?, ?, ?, ?, ?)',
-            (conversa, papel, texto, criada or _agora(), int(privada), cerebro),
+            (conversa, papel, cofre.selar(texto) if privada else texto, criada or _agora(), int(privada), cerebro),
         ).lastrowid
 
 
@@ -310,13 +419,24 @@ def memorias() -> list[dict]:
         'SELECT id, texto, tema, pedido, privada, criada FROM memorias '
         'WHERE substituida_por IS NULL ORDER BY id DESC'
     )
-    return [{**dict(l), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])} for l in linhas]
+    return [_memoria(l) for l in linhas]
+
+
+def _memoria(l: sqlite3.Row) -> dict:
+    return {**dict(l), 'texto': cofre.abrir(l['texto']), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])}
+
+
+def _sem_acento(texto: str) -> str:
+    return ''.join(c for c in unicodedata.normalize('NFKD', texto.lower()) if not unicodedata.combining(c))
 
 
 def buscar_memorias(busca: str, limite: int = 200) -> list[dict]:
     """As memórias que valem com todas as palavras da busca, por prefixo e sem
     diferença de acento, da mais ligada à busca pra menos (bm25). Busca sem
-    palavra nenhuma devolve todas, como memorias()."""
+    palavra nenhuma devolve todas, como memorias().
+
+    As privadas não estão no índice (estão seladas): são abertas e conferidas
+    aqui, com a mesma regra, e vêm depois das do índice."""
     palavras = re.findall(r'\w+', busca)
     if not palavras:
         return memorias()
@@ -330,7 +450,14 @@ def buscar_memorias(busca: str, limite: int = 200) -> list[dict]:
         'ORDER BY bm25(memorias_fts) LIMIT ?',
         (consulta, limite),
     )
-    return [{**dict(l), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])} for l in linhas]
+    publicas = [_memoria(l) for l in linhas]
+    procuradas = [_sem_acento(p) for p in palavras]
+    privadas = []
+    for m in (m for m in memorias() if m['privada']):
+        tem = re.findall(r'\w+', _sem_acento(f'{m["texto"]} {m["tema"]}'))
+        if all(any(t.startswith(p) for t in tem) for p in procuradas):
+            privadas.append(m)
+    return (publicas + privadas)[:limite]
 
 
 def adicionar_memoria(
@@ -339,7 +466,7 @@ def adicionar_memoria(
     with _con() as c:
         nova = c.execute(
             'INSERT INTO memorias (texto, tema, pedido, privada, conversa, criada) VALUES (?, ?, ?, ?, ?, ?)',
-            (texto, tema, int(pedido), int(privada), conversa, _agora()),
+            (cofre.selar(texto) if privada else texto, tema, int(pedido), int(privada), conversa, _agora()),
         ).lastrowid
         if substitui is not None:
             c.execute(
@@ -379,7 +506,7 @@ def sem_vetor(tipo: str, limite: int) -> list[dict]:
         f"WHERE v.ref IS NULL AND o.texto != '' ORDER BY o.id LIMIT ?",
         (tipo, limite),
     )
-    return [dict(l) for l in linhas]
+    return [{**dict(l), 'texto': cofre.abrir(l['texto'])} for l in linhas]
 
 
 def guardar_vetores(tipo: str, pares: list[tuple[int, bytes]]) -> None:
@@ -403,7 +530,7 @@ def mensagens_por_id(ids: list[int]) -> list[dict]:
         f'FROM mensagens m JOIN conversas c ON c.id = m.conversa WHERE m.id IN ({marcas})',
         ids,
     )
-    return [dict(l) for l in linhas]
+    return [{**dict(l), 'texto': cofre.abrir(l['texto'])} for l in linhas]
 
 
 def importadas_por_aprender() -> list[dict]:
