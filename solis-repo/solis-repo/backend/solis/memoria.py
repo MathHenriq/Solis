@@ -88,6 +88,25 @@ def _normal(texto: str) -> str:
     return re.sub(r'\W+', ' ', texto).strip().lower()
 
 
+# O que não diz de que assunto é: os verbos de pedido e as palavras vazias.
+VAZIAS = {
+    'grave', 'guarde', 'anote', 'memorize', 'lembre', 'registre', 'isso', 'isto', 'essa', 'esse',
+    'minha', 'minhas', 'meus', 'para', 'sobre', 'tenho', 'estou', 'está', 'agora', 'ainda', 'também',
+    'quero', 'favor', 'pode', 'aqui', 'então', 'como', 'mais', 'muito', 'sempre', 'nunca', 'quando',
+}
+
+
+def _palavras(texto: str) -> set[str]:
+    return {p for p in _normal(texto).split() if len(p) >= 4 and p not in VAZIAS}
+
+
+def _fala_de(memoria: str, mensagem: str) -> bool:
+    """A memória e a mensagem têm alguma palavra de conteúdo em comum.
+    Estrito de propósito: errar pra "não fala" guarda o pedido cru (uma
+    memória a mais); errar pra "fala" perde o que foi pedido."""
+    return bool(_palavras(memoria) & _palavras(mensagem))
+
+
 def guardar_pedido_cru(texto: str, conversa: int | None) -> None:
     """O pedido sem modelo nenhum: guarda a própria mensagem. Feio, mas fica."""
     banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa, privada=eh_privado(texto))
@@ -157,8 +176,12 @@ async def aprender(
         if not conteudo:
             continue
         if _normal(conteudo) in vistas:
-            # Já sabia. Se foi um pedido, está atendido do mesmo jeito.
-            guardou = guardou or pedido
+            # Já sabia. Se foi um pedido, está atendido do mesmo jeito — mas só
+            # se a repetida fala do que foi pedido. Modelo pequeno devolve uma
+            # memória guardada qualquer: "grave: minha cor preferida é verde"
+            # voltava como "Tem uma loja e quer emitir NF-e.", e o pedido se
+            # perdia (visto com o llama3.2:3b, 08/11/2026).
+            guardou = guardou or (pedido and _fala_de(conteudo, mensagem))
             continue
         antiga = substituiveis.pop(m.get('substitui') or 0, None)
         banco.adicionar_memoria(

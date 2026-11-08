@@ -160,3 +160,26 @@ def test_atualizar_memoria_privada_continua_privada(monkeypatch):
     asyncio.run(memoria.aprender('m', None, 'troquei o remédio pelo Y', []))
     [nova] = banco.memorias()
     assert nova['texto'] == 'Toma remédio Y.' and nova['privada']
+
+
+def test_pedido_nao_e_atendido_por_memoria_repetida_de_outro_assunto(monkeypatch):
+    """O llama3.2:3b devolvia uma memória guardada qualquer, e o pedido se perdia."""
+    banco.adicionar_memoria('Tem uma loja e quer emitir NF-e.', 'Trabalho', False, None)
+    responde(monkeypatch, [{'texto': 'Tem uma loja e quer emitir NF-e.', 'tema': 'Trabalho'}])
+    novas = asyncio.run(memoria.aprender('m', None, 'grave: minha cor preferida é verde', []))
+    assert novas == ['grave: minha cor preferida é verde']
+    assert ('grave: minha cor preferida é verde', memoria.TEMA_PEDIDO, True) in textos()
+
+
+def test_pedido_de_algo_que_ja_sabia_esta_atendido(monkeypatch):
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    responde(monkeypatch, [{'texto': 'Trabalha na Syngenta.', 'tema': 'Trabalho'}])
+    assert asyncio.run(memoria.aprender('m', None, 'grave que eu trabalho na Syngenta', [])) == []
+    assert len(banco.memorias()) == 1
+
+
+def test_o_que_conta_como_falar_do_pedido():
+    assert memoria._fala_de('Trabalha na Syngenta.', 'anote: entrei na Syngenta')
+    assert not memoria._fala_de('Prefere respostas curtas.', 'grave: minha cor preferida é verde')
+    # Verbo de pedido e palavra vazia não contam como assunto.
+    assert not memoria._fala_de('Grave isso sobre a loja.', 'grave isso sobre o carro')
