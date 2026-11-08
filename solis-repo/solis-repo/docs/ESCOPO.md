@@ -184,7 +184,7 @@ das outras.
 - [x] Contradição: "saí da Syngenta" substitui a memória antiga (que fica guardada, marcada).
 - [x] Lista de conversas antigas e "Nova conversa" (com a thread aberta).
 - [ ] Esquecer e corrigir memória pela tela (precisa de referência visual).
-- [ ] Busca textual (FTS5) na tela de Memória.
+- [x] Busca textual (FTS5) na tela de Memória: por palavra, por prefixo, sem diferença de acento.
 - [ ] Criptografar as memórias privadas (DPAPI do Windows).
 
 ### Importar o passado — pronto, falta conferir com os arquivos reais

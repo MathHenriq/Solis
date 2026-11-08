@@ -40,8 +40,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /conversas/{id}` | uma conversa, com as mensagens. `404` se não existir |
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
 | `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, decide quem responde (modelo local, Claude ou Codex) e devolve eventos em NDJSON, um por linha: as etapas (ver abaixo), os pedaços do texto e, se ninguém responder, o erro. A resposta é guardada inteira mesmo se a janela fechar no meio. `404` se a conversa não existir; os outros erros chegam como o último evento: `{"erro": "ollama_indisponivel"}`, `{"erro": "modelo_inexistente"}` ou `{"erro": "cerebro_indisponivel", "cerebro": "Claude"}` (o cérebro pedido com `/claude` ou `/codex` falhou) |
-| `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga |
-| `DELETE /memorias/{id}` | esquece uma memória |
+| `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
+| `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
