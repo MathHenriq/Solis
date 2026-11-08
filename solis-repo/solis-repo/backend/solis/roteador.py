@@ -4,7 +4,7 @@ Regras em código, não um modelo decidindo: decidir não pode gastar VRAM nem
 cota, e regra escrita é previsível — dá pra saber por que cada mensagem foi pra
 onde foi.
 
-1. Comando na frente da mensagem manda: /claude, /codex, /local. Sem plano B —
+1. Comando na frente da mensagem manda: /claude, /codex, /local, /groq... Sem plano B —
    se o escolhido falhar, o Matheus fica sabendo em vez de receber resposta de
    outro sem pedir.
 2. Mensagem dita em sigilo ("isso é privado...") só vai pro local.
@@ -49,19 +49,26 @@ def preferencia() -> list[dict]:
 
 
 def guardar_preferencia(ordem: list[dict]) -> list[dict]:
-    """Valida e guarda. ValueError quando a lista não é uma ordem de todos os
-    cérebros, cada um uma vez."""
+    """Valida e guarda. ValueError com nome repetido ou desconhecido. Quem
+    ficou de fora entra no fim pelo preferencia() (desligado, menos o local) —
+    assim uma tela mais velha que um cérebro novo não quebra."""
     nomes = [p['nome'] for p in ordem]
-    if sorted(nomes) != sorted(cerebros.NOMES):
-        raise ValueError('a ordem precisa ter cada cérebro uma vez')
+    if len(set(nomes)) != len(nomes) or not set(nomes) <= set(cerebros.NOMES):
+        raise ValueError('cada cérebro uma vez, só os que existem')
     banco.guardar_ajuste('cerebros', [{'nome': p['nome'], 'ligado': bool(p['ligado'])} for p in ordem])
     return preferencia()
+
+
+def ligar(nome: str, ligado: bool) -> None:
+    """Liga ou desliga um cérebro sem mexer na ordem."""
+    guardar_preferencia([{**p, 'ligado': ligado} if p['nome'] == nome else p for p in preferencia()])
 
 
 def _ordem() -> list[str]:
     return [p['nome'] for p in preferencia() if p['ligado']]
 
-COMANDOS = {'/claude': 'claude', '/codex': 'codex', '/local': 'local'}
+# /claude, /codex, /local, /groq, /gemini... — um por cérebro.
+COMANDOS = {f'/{nome}': nome for nome in cerebros.NOMES}
 
 SISTEMA_NUVEM = (
     'Você é o Solis, o assistente pessoal do Matheus. Nesta mensagem quem pensa é '

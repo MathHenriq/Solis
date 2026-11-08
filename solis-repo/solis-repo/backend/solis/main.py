@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import banco, busca, cerebros, memoria, ollama, resumo, roteador
+from . import apis, banco, busca, cerebros, memoria, ollama, resumo, roteador
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -82,18 +82,24 @@ async def modelos():
 def _cerebros() -> dict:
     """A lista de Configurações → Cérebros: a ordem, quem está ligado, e o que
     impede cada um de responder agora (CLI ausente, pausa depois de falhar)."""
-    return {
-        'cerebros': [
-            {
-                **p,
-                'rotulo': cerebros.NOMES[p['nome']],
-                # O local depende do Ollama, que a tela de Modelos já mostra.
-                'instalado': p['nome'] == 'local' or cerebros.instalado(p['nome']),
-                'pausa': None if p['nome'] == 'local' else cerebros.pausa(p['nome']),
-            }
-            for p in roteador.preferencia()
-        ]
-    }
+    def um(p: dict) -> dict:
+        nome = p['nome']
+        tipo = 'local' if nome == 'local' else 'cli' if nome in cerebros.CLIS else 'api'
+        item = {
+            **p,
+            'rotulo': cerebros.NOMES[nome],
+            'tipo': tipo,
+            # O local depende do Ollama, que a tela de Modelos já mostra. Pra
+            # API, "instalado" é ter uma chave guardada.
+            'instalado': tipo == 'local' or cerebros.instalado(nome),
+            'pausa': None if tipo == 'local' else cerebros.pausa(nome),
+        }
+        if tipo == 'api':
+            # A chave nunca sai daqui: a tela só sabe que ela existe.
+            item.update(modelo=apis.modelo(nome), site=apis.PROVEDORES[nome]['site'], nota=apis.PROVEDORES[nome]['nota'])
+        return item
+
+    return {'cerebros': [um(p) for p in roteador.preferencia()]}
 
 
 @app.get('/cerebros')
@@ -124,6 +130,39 @@ async def retomar_cerebro(nome: str):
     if nome not in cerebros.NOMES:
         return JSONResponse({'erro': 'cerebro_inexistente'}, status_code=404)
     cerebros.retomar(nome)
+    return _cerebros()
+
+
+class Chave(BaseModel):
+    chave: str
+
+
+@app.put('/cerebros/{nome}/chave')
+async def guardar_chave(nome: str, corpo: Chave):
+    """Confere a chave no serviço, escolhe o modelo, guarda selado e liga o
+    cérebro — quem colou uma chave quer usar."""
+    if nome not in apis.PROVEDORES:
+        return JSONResponse({'erro': 'cerebro_inexistente'}, status_code=404)
+    chave = corpo.chave.strip()
+    if not chave:
+        return JSONResponse({'erro': 'chave_vazia'}, status_code=400)
+    try:
+        await apis.guardar_chave(nome, chave)
+    except apis.ChaveRecusada:
+        return JSONResponse({'erro': 'chave_recusada'}, status_code=400)
+    except apis.ProvedorFora as e:
+        return JSONResponse({'erro': 'provedor_fora', 'detalhe': str(e)}, status_code=502)
+    cerebros.retomar(nome)
+    roteador.ligar(nome, True)
+    return _cerebros()
+
+
+@app.delete('/cerebros/{nome}/chave')
+async def apagar_chave(nome: str):
+    if nome not in apis.PROVEDORES:
+        return JSONResponse({'erro': 'cerebro_inexistente'}, status_code=404)
+    apis.apagar_chave(nome)
+    roteador.ligar(nome, False)
     return _cerebros()
 
 

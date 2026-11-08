@@ -259,6 +259,11 @@ def guardar_ajuste(chave: str, valor) -> None:
         )
 
 
+def apagar_ajuste(chave: str) -> None:
+    with _con() as c:
+        c.execute('DELETE FROM ajustes WHERE chave = ?', (chave,))
+
+
 def _agora() -> str:
     # UTC no banco; quem converte pra hora local é o front, que sabe o fuso.
     return datetime.now(timezone.utc).isoformat(timespec='seconds')

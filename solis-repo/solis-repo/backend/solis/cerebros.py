@@ -31,7 +31,17 @@ from .etapas import MUDA
 
 log = logging.getLogger('solis.cerebros')
 
-NOMES = {'local': 'Modelo local', 'claude': 'Claude', 'codex': 'Codex'}
+NOMES = {
+    'local': 'Modelo local',
+    'claude': 'Claude',
+    'codex': 'Codex',
+    # Por API, no plano grátis (solis/apis.py).
+    'groq': 'Groq',
+    'gemini': 'Gemini',
+    'mistral': 'Mistral',
+    'openrouter': 'OpenRouter',
+}
+CLIS = ('claude', 'codex')
 
 # Quanto esperar o CLI dar sinal de vida. Não há um prazo pra primeira palavra,
 # e sim dois, porque as duas demoras têm causas diferentes (medido no notebook,
@@ -63,7 +73,11 @@ class CerebroFalhou(Exception):
 
 
 def instalado(nome: str) -> bool:
-    return shutil.which(nome) is not None
+    """CLI: o executável existe. API: há uma chave guardada."""
+    if nome in CLIS:
+        return shutil.which(nome) is not None
+    from . import apis  # aqui dentro: apis importa este módulo
+    return apis.tem_chave(nome)
 
 
 def disponivel(nome: str) -> bool:
@@ -268,7 +282,11 @@ async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncItera
     É aqui que a falha aparece — CLI sem login, cota acabada, erro — enquanto
     ainda dá pra tentar o próximo cérebro. Depois que o texto começa a ir pra
     tela, não dá mais pra trocar de quem responde."""
-    fluxo = EXECUTORES[nome](sistema, prompt, etapas)
+    if nome in EXECUTORES:
+        fluxo = EXECUTORES[nome](sistema, prompt, etapas)
+    else:
+        from . import apis
+        fluxo = apis.responder(nome, sistema, prompt, etapas)
     try:
         # Sem prazo aqui: quem decide que o CLI travou é o _linhas, pela
         # primeira linha e pelo silêncio — uma resposta longa que está saindo
@@ -280,7 +298,10 @@ async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncItera
         raise CerebroFalhou('não respondeu nada')
     except (CerebroFalhou, OSError) as e:
         await fluxo.aclose()
-        pausar(nome, motivo=str(e) or type(e).__name__)
+        # Quem já se pausou com a hora certa (a cota do Claude, o retry-after
+        # de uma API) não tem a pausa trocada pelo padrão de 30 min.
+        if pausa(nome) is None:
+            pausar(nome, motivo=str(e) or type(e).__name__)
         raise CerebroFalhou(str(e) or type(e).__name__) from e
     etapas.marcar('primeira_palavra', cerebro=nome)
 
