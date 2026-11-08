@@ -283,6 +283,27 @@ cabe inteiro vai em parte pra RAM (offload) e fica várias vezes mais lento:
 | Transcrição | faster-whisper (Whisper otimizado), whisper.cpp | O tamanho do modelo é a troca entre precisão e velocidade |
 | Voz | Kokoro (82M, tem vozes pt-BR), Piper (mais leve) | Testar os dois em português antes de escolher |
 
+## Questões pra depois do Solis completo
+
+Anotadas pra não se perderem. Não são pra agora: ficam pra quando o Solis estiver inteiro.
+
+### A GPU disputada: o Solis enquanto o Matheus joga
+
+Levantada pelo Matheus em 08/11/2026. As tarefas de fundo (título, aprendizado, resumo) rodam no
+qwen3:8b, que sobe pra GPU a cada mensagem: medido, ficam **5,6 GB de VRAM** ocupados depois de
+uma mensagem só. Com um jogo aberto no notebook (8 GB), pedir pro Solis gravar uma coisa ou
+anotar uma tarefa estoura a VRAM — o jogo ou o Solis perde.
+
+O que se sabe até aqui, sem solução escolhida:
+- **Ponte temporária:** o PC de casa (GTX 1650, 4 GB) atender as tarefas de fundo. Resolve o
+  notebook, mas só enquanto o PC estiver ligado, e 4 GB não cabem o qwen3:8b.
+- **A solução tem que ser definitiva**, e servir também quando o Solis for usado de outras
+  máquinas, que não o notebook nem o PC de casa.
+- Peças que já existem pra pensar nisso: o Ollama descarrega o modelo depois de alguns minutos
+  parado; as tarefas de fundo não precisam ser na hora (dá pra guardar o pedido e aprender
+  depois); o modelo de fundo é uma variável (`SOLIS_MODELO_FUNDO`); e a ideia de cada máquina
+  com um papel (seção "Servidor em casa e acesso de fora").
+
 ## Pontos de atenção
 
 - **Privacidade:** tudo fica num arquivo só, sem criptografia. Quem tiver acesso ao notebook
@@ -293,8 +314,9 @@ cabe inteiro vai em parte pra RAM (offload) e fica várias vezes mais lento:
   O pedido explícito ("grave") existe por isso. Medido em 12 casos (08/11/2026, números em
   `backend/README.md` → Raciocínio): qwen3:8b pensando acerta 12; llama3.2:3b acerta 6, troca a
   memória errada numa mudança ("me mudei pra Sorocaba" apagou "Trabalha na Syngenta") e uma vez
-  ficou 120 s sem responder. As tarefas de fundo usam o modelo da conversa, e o padrão, quando
-  nada foi escolhido, é o primeiro da lista do Ollama — no notebook, o llama3.2:3b.
+  ficou 120 s sem responder. Por isso as tarefas de fundo usam o qwen3:8b (`SOLIS_MODELO_FUNDO`),
+  e não o modelo da conversa — com o custo de VRAM anotado em "Questões pra depois do Solis
+  completo".
 - **Pedido atendido por engano:** se o modelo devolve, num "grave: ...", uma memória que já
   existia (o llama3.2:3b repete as guardadas), o pedido conta como atendido e nada novo é
   guardado — visto com "grave: minha cor preferida é verde".

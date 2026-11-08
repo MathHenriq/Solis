@@ -65,8 +65,12 @@ tempo de GPU. Cada tarefa foi medida com e sem raciocínio no qwen3:8b (08/11/20
 | Aprendizado (12 casos) | 12 de 12, ~11 s | 10 de 12, ~1 s: perdeu uma preferência e a senha do wifi | **pensando** |
 
 No mesmo teste o llama3.2:3b acertou 6 dos 12 casos do aprendizado — e trocou "Trabalha na
-Syngenta" por "Mora em Sorocaba" —, e no resumo copiou a conversa em vez de resumir. As tarefas
-de fundo usam o modelo escolhido em Modelos locais; com o llama3.2:3b elas ficam fracas.
+Syngenta" por "Mora em Sorocaba" —, e no resumo copiou a conversa em vez de resumir.
+
+Por isso as tarefas de fundo têm modelo próprio, e não o da conversa: `SOLIS_MODELO_FUNDO`
+(padrão `qwen3:8b`). Se ele não estiver instalado, ou o Ollama não responder à lista, vale o
+modelo da conversa. Custo: o qwen3:8b ocupa ~5,6 GB de VRAM depois de cada mensagem (medido) —
+questão em aberto em `docs/ESCOPO.md`.
 
 ## Memória
 
