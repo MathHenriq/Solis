@@ -181,7 +181,7 @@ for chave, var in [('cardTop','--cfg-card-top'), ('cardPadding','--cfg-card-pad'
                    ('switchHeight','--cfg-sw-h')]:
     w('  %s: %s;' % (var, cfg[chave]))
 w('  --cfg-mini-razao: %s;' % cfg['thumbRatio'])
-w('  /* Cartao Cerebros - desenho proprio, PROVISORIO. Ver layout.configuracoes.cerebros. */')
+w('  /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */')
 for chave, var in [('cardGap','--cer-cartao-gap'), ('orderIcon','--cer-seta'), ('orderHit','--cer-seta-alvo'),
                    ('controlsGap','--cer-controles-gap'), ('positionWidth','--cer-posicao'),
                    ('textMax','--cer-texto-max')]:

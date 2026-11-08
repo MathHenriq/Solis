@@ -232,8 +232,8 @@ function Interruptor({
 }
 
 /* ── Cérebros ─────────────────────────────────────────────────────────────
- * PROVISÓRIO: desenho próprio, sem referência (layout.configuracoes.cerebros).
- * Precisa da aprovação do Matheus pelos prints. */
+ * Desenho próprio, sem referência (layout.configuracoes.cerebros), aprovado
+ * pelo Matheus pelos prints em 08/11/2026 (design/cerebros-validacao.png). */
 
 const HORA = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const DIA_HORA = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

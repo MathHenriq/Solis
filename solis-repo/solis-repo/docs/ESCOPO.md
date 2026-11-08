@@ -204,7 +204,7 @@ das outras.
 - [ ] APIs gratuitas (Gemini e outras) como mais cérebros.
 - [x] Escolher a ordem dos cérebros pela tela: Configurações → Cérebros (08/11/2026), com
   liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
-  PROVISÓRIO até o Matheus aprovar os prints (`design/cerebros-validacao.png`).
+  aprovado pelo Matheus pelos prints (`design/cerebros-validacao.png`).
 
 ### Servidor em casa e acesso de fora
 

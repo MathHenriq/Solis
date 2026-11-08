@@ -331,7 +331,7 @@
       "switchWidth": "79px",
       "switchHeight": "41px",
       "cerebros": {
-        "_status": "PROVISORIO - desenho proprio, sem referencia (08/11/2026; o Matheus liberou o front). Segundo cartao de Configuracoes, no padrao do Aparencia ja medido (mesmo cartao, mesma linha, mesmo interruptor). Ordem por setas e nao por arrastar: arrastar nao funciona no teclado, e sao 3 itens.",
+        "_status": "Desenho proprio, sem referencia (08/11/2026; o Matheus liberou o front), aprovado por ele pelos prints no mesmo dia (design/cerebros-validacao.png). Segundo cartao de Configuracoes, no padrao do Aparencia ja medido (mesmo cartao, mesma linha, mesmo interruptor). Ordem por setas e nao por arrastar: arrastar nao funciona no teclado, e sao 3 itens.",
         "cardGap": "30px",
         "_cardGap": "Igual ao rowPadY: o ritmo vertical do cartao continua entre um cartao e o outro.",
         "orderIcon": "16px",
