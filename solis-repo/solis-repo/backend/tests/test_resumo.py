@@ -65,3 +65,41 @@ def test_resumo_falhando_nao_deixa_o_historico_crescer_sem_fim():
 def test_resumo_vai_no_prompt():
     s = ollama.sistema([], None, '- decidiram usar SQLite')
     assert 'Resumo do começo desta conversa' in s and '- decidiram usar SQLite' in s
+
+
+# — Título ——————————————————————————————————————————————————————————————————————
+
+def test_titulo_curto_sai_da_primeira_troca_e_fica(monkeypatch):
+    pedidos = resume_com(monkeypatch, 'Título: "Sistema de NF-e da loja."\nEscolhi esse porque...')
+    cid = banco.nova_conversa()
+    banco.adicionar(cid, 'pessoa', 'Quais documentos eu preciso pra emitir NF-e na loja?')
+    banco.adicionar(cid, 'solis', 'Certificado A1, inscrição estadual e credenciamento na SEFAZ.')
+    assert asyncio.run(resumo.titular('m', cid)) == 'Sistema de NF-e da loja'
+    assert banco.conversas()[0]['titulo'] == 'Sistema de NF-e da loja'
+    assert 'emitir NF-e' in pedidos[0]
+    # Com título, não pergunta de novo.
+    assert asyncio.run(resumo.titular('m', cid)) is None and len(pedidos) == 1
+
+
+def test_sem_resposta_ainda_nao_ha_titulo(monkeypatch):
+    pedidos = resume_com(monkeypatch, 'Qualquer')
+    cid = banco.nova_conversa()
+    banco.adicionar(cid, 'pessoa', 'oi')
+    assert asyncio.run(resumo.titular('m', cid)) is None and pedidos == []
+
+
+def test_ollama_fora_fica_a_primeira_fala_e_tenta_de_novo_depois(monkeypatch):
+    cid = banco.nova_conversa()
+    banco.adicionar(cid, 'pessoa', 'Me ajuda com o plano da semana')
+    banco.adicionar(cid, 'solis', 'Claro.')
+    # O conftest já deixa o Ollama "fora".
+    assert asyncio.run(resumo.titular('m', cid)) is None
+    assert banco.conversas()[0]['titulo'] == 'Me ajuda com o plano da semana'
+    resume_com(monkeypatch, 'Plano da semana')
+    assert asyncio.run(resumo.titular('m', cid)) == 'Plano da semana'
+
+
+def test_titulo_longo_e_cortado_numa_palavra():
+    longo = 'Uma conversa muito comprida sobre ' + 'assuntos variados ' * 6
+    t = resumo._limpar_titulo(longo)
+    assert len(t) <= resumo.TITULO_MAX and longo.startswith(t) and not t.endswith(' ')

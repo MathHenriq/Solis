@@ -169,3 +169,18 @@ def test_etapas_da_resposta_inteira_em_ordem(monkeypatch):
     [pessoa, solis] = cliente.get('/conversas/atual').json()['mensagens']
     assert pessoa['etapas'] is None
     assert solis['etapas'] == [e for e in lista if 'etapa' in e]
+
+
+def test_titulo_e_uma_etapa_depois_da_resposta(monkeypatch):
+    falso_que_responde(monkeypatch)
+
+    async def titulo(modelo, instrucao, texto):
+        return 'Cumprimento'
+    monkeypatch.setattr(ollama, 'responder_texto', titulo)
+    cliente = TestClient(main.app)
+    cid = cliente.post('/conversas').json()['id']
+    r = cliente.post(f'/conversas/{cid}/mensagens', json={'modelo': 'm', 'texto': 'oi'})
+    etapas = [e for e in eventos(r) if 'etapa' in e]
+    assert [e['etapa'] for e in etapas][-4:] == ['titulo', 'aprendizado', 'indexacao', 'resumo']
+    assert next(e for e in etapas if e['etapa'] == 'titulo')['titulo'] == 'Cumprimento'
+    assert cliente.get('/conversas').json()['conversas'][0]['titulo'] == 'Cumprimento'

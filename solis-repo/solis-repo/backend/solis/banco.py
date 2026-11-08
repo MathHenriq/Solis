@@ -254,6 +254,16 @@ def resumo(conversa: int) -> tuple[str | None, int]:
     return (linha['resumo'], linha['resumo_ate']) if linha else (None, 0)
 
 
+def titulo(conversa: int) -> str | None:
+    linha = _con().execute('SELECT titulo FROM conversas WHERE id = ?', (conversa,)).fetchone()
+    return linha['titulo'] if linha else None
+
+
+def guardar_titulo(conversa: int, titulo: str) -> None:
+    with _con() as c:
+        c.execute('UPDATE conversas SET titulo = ? WHERE id = ?', (titulo, conversa))
+
+
 def guardar_resumo(conversa: int, texto: str, ate: int) -> None:
     with _con() as c:
         c.execute('UPDATE conversas SET resumo = ?, resumo_ate = ? WHERE id = ?', (texto, ate, conversa))

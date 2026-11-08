@@ -73,7 +73,7 @@ export function modeloEmUso(modelos: Modelo[]): string | null {
 /** Uma etapa do que o servidor fez pra responder, com `t` em segundos desde o
  *  pedido (backend/solis/etapas.py). Nomes: memoria, cerebro, processo,
  *  primeira_linha, pensando, primeira_palavra, queda, fim, e depois da
- *  resposta aprendizado, indexacao, resumo. */
+ *  resposta titulo, aprendizado, indexacao, resumo. */
 export type Etapa = {
   etapa: string;
   t: number;
@@ -86,6 +86,8 @@ export type Etapa = {
   textos?: string[];
   vetores?: number;
   resumiu?: boolean;
+  /** O título que a conversa ganhou. */
+  titulo?: string;
   cortada?: boolean;
 };
 

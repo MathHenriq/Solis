@@ -134,8 +134,9 @@ export function useConversa() {
             digitando: etapa.etapa === 'fim' ? false : t.digitando,
           }));
           // A mensagem já está no banco quando a busca na memória termina: a
-          // conversa entra (ou sobe) na lista do painel.
-          if (etapa.etapa === 'memoria') definirVersao((v) => v + 1);
+          // conversa entra (ou sobe) na lista do painel. E o título, quando o
+          // modelo local o dá depois da resposta, troca a primeira fala nela.
+          if (etapa.etapa === 'memoria' || etapa.etapa === 'titulo') definirVersao((v) => v + 1);
           // A conversa libera no fim da resposta; o aprendizado e o resumo
           // seguem chegando no mesmo stream sem prender o campo.
           if (etapa.etapa === 'fim') {

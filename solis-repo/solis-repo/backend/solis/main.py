@@ -210,16 +210,20 @@ async def _responder(
 
 
 async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, historico: list[dict], mensagem_id: int):
-    """Depois que a resposta terminou de chegar, nesta ordem: aprender (extrair
-    memórias da mensagem), indexar (vetorizar o que entrou, inclusive a memória
-    que acabou de nascer) e resumir (se a conversa passou do lote). A tela já
+    """Depois que a resposta terminou de chegar, nesta ordem: dar título (se a
+    conversa ainda não tem — é rápido, e a lista do painel troca a primeira
+    fala por ele), aprender (extrair memórias da mensagem), indexar (vetorizar
+    o que entrou, inclusive a memória que acabou de nascer) e resumir (se a
+    conversa passou do lote). A tela já
     liberou a conversa no `fim`; estas etapas chegam pelo mesmo stream, que só
     fecha depois delas. O contexto do aprendizado são as duas falas antes da
     mensagem nova (a pergunta do Solis que ela talvez responda), não o histórico
     inteiro.
 
-    Os três rodam SEMPRE no modelo local, qualquer que seja o cérebro que
+    Todos rodam SEMPRE no modelo local, qualquer que seja o cérebro que
     respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota."""
+    if titulo := await resumo.titular(modelo, conversa):
+        etapas.marcar('titulo', titulo=titulo)
     novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id)
     etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [])
     etapas.marcar('indexacao', vetores=await busca.indexar_pendentes())

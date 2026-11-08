@@ -43,6 +43,53 @@ def para_o_modelo(conversa: int) -> tuple[str | None, list[dict], int]:
     return texto, depois[-(JANELA + LOTE):], ate
 
 
+INSTRUCAO_TITULO = (
+    'Você dá título a uma conversa entre o Matheus e o Solis, o assistente dele, '
+    'pra ela aparecer numa lista de conversas.\n'
+    'Responda só o título: de 2 a 6 palavras, em português do Brasil, dizendo o '
+    'assunto ("Sistema de NF-e da loja", "Estudos de pandas e SQL"). Sem aspas, '
+    'sem ponto final, sem "Título:".'
+)
+
+# Teto do título, e quanto da conversa o modelo lê pra dar o título.
+TITULO_MAX = 60
+TITULO_LE = 1500
+
+
+def _limpar_titulo(bruto: str) -> str:
+    """O modelo pequeno às vezes enfeita: aspas, "Título:", ponto final, uma
+    explicação na linha de baixo. Fica a primeira linha, limpa."""
+    linha = next((l for l in bruto.strip().splitlines() if l.strip()), '')
+    linha = linha.strip().strip('*#').strip()
+    if linha.lower().startswith('título:'):
+        linha = linha[len('título:'):]
+    linha = linha.strip().strip('"\'“”‘’').strip().rstrip('.').strip()
+    return linha[:TITULO_MAX].rsplit(' ', 1)[0] if len(linha) > TITULO_MAX else linha
+
+
+async def titular(modelo: str, conversa: int) -> str | None:
+    """Dá um título curto à conversa que ainda não tem, lendo o começo dela.
+    Devolve o título novo, ou None quando já havia um ou o modelo não respondeu
+    — aí a lista mostra a primeira fala, e a próxima mensagem tenta de novo.
+    Nunca levanta: roda depois da resposta."""
+    if banco.titulo(conversa):
+        return None
+    falas = banco.mensagens(conversa)[:4]
+    if not any(m['papel'] == 'solis' for m in falas):
+        return None
+    linhas = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in falas)
+    try:
+        bruto = await ollama.responder_texto(modelo, INSTRUCAO_TITULO, linhas[:TITULO_LE])
+    except Exception:
+        log.info('título da conversa %s ficou pra próxima', conversa)
+        return None
+    titulo = _limpar_titulo(bruto)
+    if not titulo:
+        return None
+    banco.guardar_titulo(conversa, titulo)
+    return titulo
+
+
 async def resumir(modelo: str, conversa: int) -> bool:
     """Junta ao resumo as mensagens que saíram da janela, se já forem um lote;
     devolve se resumiu. Nunca levanta: roda depois da resposta, sem ninguém pra
