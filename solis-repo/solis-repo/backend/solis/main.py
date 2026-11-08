@@ -268,8 +268,9 @@ def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> dict:
 
 
 @app.get('/memorias')
-async def listar_memorias():
-    return {'memorias': banco.memorias()}
+async def listar_memorias(q: str = ''):
+    """Todas as que valem, ou as que batem com a busca `q` (texto e tema)."""
+    return {'memorias': banco.buscar_memorias(q) if q.strip() else banco.memorias()}
 
 
 @app.delete('/memorias/{id_}')

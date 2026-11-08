@@ -185,6 +185,59 @@ def test_o_que_conta_como_falar_do_pedido():
     assert not memoria._fala_de('Grave isso sobre a loja.', 'grave isso sobre o carro')
 
 
+# — Busca textual (FTS5) ————————————————————————————————————————————————————————
+
+def test_busca_sem_acento_por_prefixo_e_todas_as_palavras():
+    a = banco.adicionar_memoria('Trabalha na Syngenta como analista.', 'Trabalho', False, None)
+    b = banco.adicionar_memoria('Prefere respostas curtas, em tópicos.', 'Preferências de comunicação', False, None)
+    banco.adicionar_memoria('Mora em Campinas.', 'Moradia', False, None)
+    ids = lambda q: [m['id'] for m in banco.buscar_memorias(q)]
+    assert ids('synge') == [a]
+    assert ids('TOPICOS') == [b]                 # sem acento e sem caixa
+    assert ids('comunicacao') == [b]             # o tema também conta
+    assert ids('analista syngenta') == [a]       # todas as palavras
+    assert ids('analista campinas') == []
+    assert len(ids('')) == 3                     # sem palavra: todas
+
+
+def test_busca_deixa_de_fora_a_substituida_e_a_apagada():
+    velha = banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    nova = banco.adicionar_memoria('Trabalha na Vale.', 'Trabalho', False, None, substitui=velha)
+    assert [m['id'] for m in banco.buscar_memorias('trabalha')] == [nova]
+    banco.apagar_memoria(nova)
+    assert banco.buscar_memorias('vale') == []
+    # Esquecida a nova, a antiga volta a valer.
+    assert [m['id'] for m in banco.buscar_memorias('trabalha')] == [velha]
+
+
+def test_busca_com_aspas_e_simbolos_nao_quebra():
+    banco.adicionar_memoria('Estuda C++ e "Python".', 'Estudos', False, None)
+    assert len(banco.buscar_memorias('"python')) == 1
+    assert len(banco.buscar_memorias('c++ AND OR NOT')) == 0  # operadores viram texto
+    assert banco.buscar_memorias('***') == banco.memorias()
+
+
+def test_memoria_de_antes_da_migracao_entra_no_indice(tmp_path):
+    import sqlite3
+    caminho = tmp_path / 'antigo.db'
+    with sqlite3.connect(caminho) as c:
+        c.executescript(banco.ESQUEMA)
+        for sql in banco.MIGRACOES[:4]:
+            c.executescript(sql)
+        c.execute("INSERT INTO memorias (texto, tema, criada) VALUES ('Mora em Sorocaba.', 'Moradia', '2026-11-01')")
+        c.execute('PRAGMA user_version = 4')
+    banco.usar(caminho)
+    assert [m['texto'] for m in banco.buscar_memorias('sorocaba')] == ['Mora em Sorocaba.']
+
+
+def test_rota_busca_memorias():
+    banco.adicionar_memoria('Mora em Campinas.', 'Moradia', False, None)
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    cliente = TestClient(main.app)
+    assert [m['texto'] for m in cliente.get('/memorias', params={'q': 'campi'}).json()['memorias']] == ['Mora em Campinas.']
+    assert len(cliente.get('/memorias').json()['memorias']) == 2
+
+
 def test_esquecer_a_nova_devolve_a_antiga():
     velha = banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
     nova = banco.adicionar_memoria('Trabalha na Vale.', 'Trabalho', False, None, substitui=velha)

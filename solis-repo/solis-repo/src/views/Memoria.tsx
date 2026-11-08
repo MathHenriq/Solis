@@ -40,6 +40,7 @@ function quando(iso: string): string {
 export function Memoria() {
   const [busca, definirBusca] = useState('');
   const [resultado, definirResultado] = useState<Resultado<MemoriaGuardada[]> | null>(null);
+  const [achadas, definirAchadas] = useState<MemoriaGuardada[] | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -49,12 +50,28 @@ export function Memoria() {
     };
   }, []);
 
+  // A busca vai pro servidor (índice FTS5): por palavra, por prefixo e sem
+  // diferença de acento — "memoria synge" acha "memória" e "Syngenta", o que
+  // o filtro por trecho exato que havia aqui não achava. Espera a pessoa parar
+  // de digitar, pra não ir ao banco a cada letra.
+  useEffect(() => {
+    if (!busca.trim()) {
+      definirAchadas(null);
+      return;
+    }
+    let vivo = true;
+    const espera = setTimeout(
+      () => listarMemorias(busca).then((r) => vivo && definirAchadas(r.estado === 'ok' ? r.dados : [])),
+      200,
+    );
+    return () => {
+      vivo = false;
+      clearTimeout(espera);
+    };
+  }, [busca]);
+
   const todas = resultado?.estado === 'ok' ? resultado.dados : [];
-  // PROVISÓRIO: busca por trecho, no front. O FTS5 do SQLite entra quando a
-  // lista crescer a ponto de não caber inteira na tela de uma vez.
-  const filtradas = busca
-    ? todas.filter((m) => (m.texto + m.tema).toLowerCase().includes(busca.toLowerCase()))
-    : todas;
+  const filtradas = achadas ?? todas;
 
   // Antes da resposta, nem contagem nem vazio: piscaria "Nenhuma memória"
   // por um instante numa lista que tem memórias.

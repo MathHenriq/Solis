@@ -10,6 +10,7 @@ já existe no notebook não ganha coluna nova com IF NOT EXISTS.
 """
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,6 +91,30 @@ MIGRACOES = [
     -- a lista de eventos do stream sem o texto). A tela mostra "5 etapas · 3,2 s"
     -- também nas respostas de antes de reabrir o app.
     ALTER TABLE mensagens ADD COLUMN etapas TEXT;
+    """,
+    # 5 — busca textual nas memórias.
+    """
+    -- Índice de texto das memórias pra busca da tela de Memória: sem diferença
+    -- de acento ("memoria" acha "memória") e por prefixo. Conteúdo externo: o
+    -- texto mora só em `memorias`, e os gatilhos mantêm o índice junto.
+    -- ATENÇÃO quando a memória privada for criptografada: este índice guarda o
+    -- texto legível, e a privada vai ter que sair dele.
+    CREATE VIRTUAL TABLE memorias_fts USING fts5(
+        texto, tema, content='memorias', content_rowid='id',
+        tokenize='unicode61 remove_diacritics 2'
+    );
+    CREATE TRIGGER memorias_fts_inclui AFTER INSERT ON memorias BEGIN
+        INSERT INTO memorias_fts(rowid, texto, tema) VALUES (new.id, new.texto, new.tema);
+    END;
+    CREATE TRIGGER memorias_fts_apaga AFTER DELETE ON memorias BEGIN
+        INSERT INTO memorias_fts(memorias_fts, rowid, texto, tema) VALUES ('delete', old.id, old.texto, old.tema);
+    END;
+    CREATE TRIGGER memorias_fts_muda AFTER UPDATE OF texto, tema ON memorias BEGIN
+        INSERT INTO memorias_fts(memorias_fts, rowid, texto, tema) VALUES ('delete', old.id, old.texto, old.tema);
+        INSERT INTO memorias_fts(rowid, texto, tema) VALUES (new.id, new.texto, new.tema);
+    END;
+    -- As memórias de antes desta versão entram no índice agora.
+    INSERT INTO memorias_fts(memorias_fts) VALUES ('rebuild');
     """,
 ]
 
@@ -284,6 +309,26 @@ def memorias() -> list[dict]:
     linhas = _con().execute(
         'SELECT id, texto, tema, pedido, privada, criada FROM memorias '
         'WHERE substituida_por IS NULL ORDER BY id DESC'
+    )
+    return [{**dict(l), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])} for l in linhas]
+
+
+def buscar_memorias(busca: str, limite: int = 200) -> list[dict]:
+    """As memórias que valem com todas as palavras da busca, por prefixo e sem
+    diferença de acento, da mais ligada à busca pra menos (bm25). Busca sem
+    palavra nenhuma devolve todas, como memorias()."""
+    palavras = re.findall(r'\w+', busca)
+    if not palavras:
+        return memorias()
+    # Cada palavra entre aspas (o que o FTS5 lê como operador vira texto) e com
+    # * no fim: "synge" acha "Syngenta". Separadas por espaço = todas precisam.
+    consulta = ' '.join(f'"{p}"*' for p in palavras)
+    linhas = _con().execute(
+        'SELECT m.id, m.texto, m.tema, m.pedido, m.privada, m.criada '
+        'FROM memorias_fts JOIN memorias m ON m.id = memorias_fts.rowid '
+        'WHERE memorias_fts MATCH ? AND m.substituida_por IS NULL '
+        'ORDER BY bm25(memorias_fts) LIMIT ?',
+        (consulta, limite),
     )
     return [{**dict(l), 'pedido': bool(l['pedido']), 'privada': bool(l['privada'])} for l in linhas]
 

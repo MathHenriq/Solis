@@ -42,9 +42,11 @@ export async function listarModelos(): Promise<Resultado<Modelo[]>> {
  *  de fora do que eles veem. */
 export type Memoria = { id: number; texto: string; tema: string; pedido: boolean; privada: boolean; criada: string };
 
-export async function listarMemorias(): Promise<Resultado<Memoria[]>> {
+/** `busca`: só as que batem — por palavra, por prefixo e sem diferença de
+ *  acento (o índice FTS5 do servidor). */
+export async function listarMemorias(busca = ''): Promise<Resultado<Memoria[]>> {
   try {
-    const r = await fetch(`${BASE}/memorias`);
+    const r = await fetch(`${BASE}/memorias${busca.trim() ? `?q=${encodeURIComponent(busca)}` : ''}`);
     if (!r.ok) return { estado: 'sem-servidor' };
     return { estado: 'ok', dados: ((await r.json()) as { memorias: Memoria[] }).memorias };
   } catch {
