@@ -183,3 +183,11 @@ def test_o_que_conta_como_falar_do_pedido():
     assert not memoria._fala_de('Prefere respostas curtas.', 'grave: minha cor preferida é verde')
     # Verbo de pedido e palavra vazia não contam como assunto.
     assert not memoria._fala_de('Grave isso sobre a loja.', 'grave isso sobre o carro')
+
+
+def test_esquecer_a_nova_devolve_a_antiga():
+    velha = banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    nova = banco.adicionar_memoria('Trabalha na Vale.', 'Trabalho', False, None, substitui=velha)
+    assert [m['id'] for m in banco.memorias()] == [nova]
+    assert TestClient(main.app).delete(f'/memorias/{nova}').json() == {'ok': True}
+    assert [m['id'] for m in banco.memorias()] == [velha]

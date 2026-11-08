@@ -305,7 +305,16 @@ def adicionar_memoria(
 
 
 def apagar_memoria(memoria: int) -> bool:
+    """Esquece uma memória. Se ela tinha substituído outra ("Trabalha na Vale"
+    no lugar de "Trabalha na Syngenta"), a antiga volta a valer: era a verdade
+    antes dela. Sem isto, a antiga apontava pra uma memória que não existe mais
+    e o banco recusava apagar (visto num teste, 08/11/2026)."""
     with _con() as c:
+        c.execute(
+            'UPDATE memorias SET substituida_por = (SELECT substituida_por FROM memorias WHERE id = ?) '
+            'WHERE substituida_por = ?',
+            (memoria, memoria),
+        )
         c.execute("DELETE FROM vetores WHERE tipo = 'memoria' AND ref = ?", (memoria,))
         return c.execute('DELETE FROM memorias WHERE id = ?', (memoria,)).rowcount > 0
 
