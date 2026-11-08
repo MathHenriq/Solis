@@ -84,7 +84,7 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 - O piso de similaridade da busca foi escolhido sem dados reais; precisa calibrar no notebook.
 - A memória privada está em texto puro no `solis.db` (sem criptografia).
 - O servidor precisa ser ligado à mão (`npm run backend`).
-- Não há controle na tela pra esquecer uma memória nem pra voltar a conversas antigas.
+- Não há controle na tela pra esquecer uma memória.
 
 ## Próximas tarefas — do primeiro teste real (1º de novembro de 2026)
 
@@ -142,12 +142,20 @@ Provisório, sem referência: o cérebro que falhou (anel e texto secundário, s
 "Conversa resumida". O glow do avatar foi ajustado contra a referência (`states.glow.avatar`):
 o da folha de 190px sumia em 34px.
 
-### 3. Lista de conversas e botão de nova conversa
+### 3. Lista de conversas e botão de nova conversa — feito com a thread aberta
 
-Não dá pra voltar a uma conversa antiga, saber em qual se está, nem começar outra sem digitar
-`/nova`. Referência pedida pelo Matheus: a interface do Claude (lista de conversas recentes e
-"Nova conversa"). O servidor já guarda tudo; falta a rota de listar e a tela. Precisa de
-referência visual (Regra 1) — o padrão do Claude adaptado à identidade do Solis.
+O painel de `telas/19-conversa-lista.png` (medidas em `layout.painelConversas`): "Nova
+conversa", busca no título e no texto, grupos por data (Hoje, Ontem, Últimos 7 dias, e no mesmo
+desenho Últimos 30 dias e Mais antigas), a aberta com barra de accent. Dá pra voltar a uma
+conversa antiga e continuar nela; o app reabre na da mensagem mais recente.
+
+Em aberto:
+- **A tela vazia (a saudação) ainda não tem o painel**: não há referência dela com ele, e ela é
+  uma composição validada. Depois de "Nova conversa", a lista só volta quando a primeira
+  mensagem sai.
+- **Títulos**: sem título guardado, vale a primeira fala, cortada pela largura ("Quais
+  documentos eu pr…"). Títulos curtos como os da referência pedem o modelo local resumindo a
+  conversa depois da primeira resposta.
 
 ## Para onde vamos
 
@@ -163,7 +171,8 @@ das outras.
 - [x] Conversa longa: o começo vira resumo, o fim vai inteiro, sem buraco entre os dois.
 - [x] Marca de privada.
 - [x] Contradição: "saí da Syngenta" substitui a memória antiga (que fica guardada, marcada).
-- [ ] Esquecer e corrigir memória pela tela; lista de conversas antigas (precisam de referência visual).
+- [x] Lista de conversas antigas e "Nova conversa" (com a thread aberta).
+- [ ] Esquecer e corrigir memória pela tela (precisa de referência visual).
 - [ ] Busca textual (FTS5) na tela de Memória.
 - [ ] Criptografar as memórias privadas (DPAPI do Windows).
 
