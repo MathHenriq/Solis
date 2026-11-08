@@ -313,13 +313,15 @@ O que se sabe até aqui, sem solução escolhida:
 - **Qualidade da extração:** um modelo pequeno guarda coisas inúteis e deixa passar fatos.
   O pedido explícito ("grave") existe por isso. Medido em 12 casos (08/11/2026, números em
   `backend/README.md` → Raciocínio): qwen3:8b pensando acerta 12; llama3.2:3b acerta 6, troca a
-  memória errada numa mudança ("me mudei pra Sorocaba" apagou "Trabalha na Syngenta") e uma vez
-  ficou 120 s sem responder. Por isso as tarefas de fundo usam o qwen3:8b (`SOLIS_MODELO_FUNDO`),
+  memória errada numa mudança ("me mudei pra Sorocaba" apagou "Trabalha na Syngenta") e, com
+  "isso é privado: tenho asma desde criança", fica 120 s sem responder até o limite cortar —
+  reproduzível, nas duas medições. Por isso as tarefas de fundo usam o qwen3:8b (`SOLIS_MODELO_FUNDO`),
   e não o modelo da conversa — com o custo de VRAM anotado em "Questões pra depois do Solis
   completo".
-- **Pedido atendido por engano:** se o modelo devolve, num "grave: ...", uma memória que já
-  existia (o llama3.2:3b repete as guardadas), o pedido conta como atendido e nada novo é
-  guardado — visto com "grave: minha cor preferida é verde".
+- **Pedido atendido por engano — corrigido:** num "grave: ...", o llama3.2:3b devolvia uma
+  memória já guardada de outro assunto, e o pedido contava como atendido sem guardar nada. Agora
+  a repetida só atende o pedido se tiver palavra de conteúdo em comum com a mensagem; senão vai a
+  mensagem crua.
 
 ## Como o trabalho acontece
 
