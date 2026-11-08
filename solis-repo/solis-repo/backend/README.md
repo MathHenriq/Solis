@@ -43,6 +43,9 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |
 | `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
+| `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `ligado`, `instalado` (o CLI existe) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
+| `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Cada cérebro uma vez, senão `400`. O local fica sempre ligado |
+| `POST /cerebros/{nome}/retomar` | tira o cérebro da pausa antes da hora (a cota renovou, o login foi feito). `404` se o nome não existe |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
@@ -117,9 +120,13 @@ O Solis pode responder pelo modelo local (Ollama) ou pelo **Claude Code** e o **
 chamados pelo CLI oficial com a assinatura do Matheus — nada de API paga. Os CLIs precisam
 estar instalados e logados no computador onde o servidor roda.
 
-- **Ordem de preferência:** `SOLIS_CEREBROS` (padrão `claude,codex,local`). Quem não está
-  instalado é pulado; quem falha antes da primeira palavra (sem login, cota acabada, travado)
-  também, e fica de lado por um tempo — o Claude diz quando a cota renova; o Codex, 30 minutos.
+- **Ordem de preferência:** escolhida em Configurações → Cérebros (ordem e liga/desliga,
+  guardados no banco, tabela `ajustes`). Até a primeira escolha vale `SOLIS_CEREBROS` (padrão
+  `claude,codex,local`). O local nunca desliga: é por ele que passa o que é privado. Cérebro
+  desligado só responde chamado pelo comando. Quem não está instalado é pulado; quem falha antes
+  da primeira palavra (sem login, cota acabada, travado) também, e fica de lado por um tempo — o
+  Claude diz quando a cota renova; o Codex, 30 minutos. A tela mostra até quando e por quê, e
+  "Tentar agora" encerra a pausa.
 - **Travado:** o CLI que não escreve a primeira linha em 20 s, ou fica calado entre duas linhas
   mais de 20 s (Claude) ou 60 s (Codex, que gera calado e entrega tudo de uma vez), é morto. Antes
   da primeira palavra o próximo cérebro tenta; depois, a resposta fica cortada onde parou.

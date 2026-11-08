@@ -202,7 +202,9 @@ das outras.
 - [x] Servidor MCP de memória, testado com o Claude Code de verdade.
 - [ ] Conferir o Codex rodando de verdade (integrado só pela documentação).
 - [ ] APIs gratuitas (Gemini e outras) como mais cérebros.
-- [ ] Escolher a ordem dos cérebros pela tela (hoje é a variável `SOLIS_CEREBROS`).
+- [x] Escolher a ordem dos cérebros pela tela: Configurações → Cérebros (08/11/2026), com
+  liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
+  PROVISÓRIO até o Matheus aprovar os prints (`design/cerebros-validacao.png`).
 
 ### Servidor em casa e acesso de fora
 
