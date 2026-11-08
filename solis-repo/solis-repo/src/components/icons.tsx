@@ -91,6 +91,18 @@ const CAMINHOS = {
   // no modo barra de ícones, abre a lista.
   'adicionar':
     'M12 6v12 M6 12h12',
+  // Lápis, contra o mapa de pixels de 19-conversa-lista.png: tinta de 25x25px,
+  // corpo na diagonal com a ponta embaixo à esquerda, a tampa arredondada em
+  // cima à direita e o anel da ponteira cruzando o corpo. Hoje: o Corrigir da
+  // Memória.
+  'lapis':
+    'M2.4 16.3L15.9 2.5A3.6 3.6 0 0 1 22.3 5.6L9.1 18.2 7.2 21.6 1.5 22.8Z M14.7 4l5.1 4.6',
+  // Desenho próprio (Memória: esquecer e marcar o que é privado), no traço e
+  // no grid dos outros.
+  'lixeira':
+    'M4 7h16 M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12 M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7',
+  'cadeado':
+    'M6.5 10.5h11a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5V12a1.5 1.5 0 0 1 1.5-1.5z M8 10.5V7.5a4 4 0 0 1 8 0v3',
   'painel':
     'M4.5 3.5h15a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V5a1.5 1.5 0 0 1 1.5-1.5z M9.5 3.5v17',
 } as const;

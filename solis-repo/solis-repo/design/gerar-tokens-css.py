@@ -139,6 +139,15 @@ for chave, var in [('padLeft','--mem-pad-l'), ('padRight','--mem-pad-r'),
                    ('originSize','--mem-origem'), ('dateSize','--mem-data'),
                    ('textMaxWidth','--mem-texto-max')]:
     w('  %s: %s;' % (var, mem[chave]))
+w('  /* Acoes da Memoria (corrigir, esquecer). Ver layout.memoria.acoes - desenho proprio. */')
+ma = T['layout']['memoria']['acoes']
+for chave, var in [('iconSize','--mac-icone'), ('iconHit','--mac-alvo'), ('dateGap','--mac-data-gap'),
+                   ('editRadius','--mac-campo-raio'), ('editPadX','--mac-campo-px'), ('editPadY','--mac-campo-py'),
+                   ('buttonHeight','--mac-botao-h'), ('buttonPadX','--mac-botao-px'), ('buttonRadius','--mac-botao-raio'),
+                   ('buttonGap','--mac-botao-gap'), ('buttonTop','--mac-botao-top'), ('buttonTextSize','--mac-botao-texto'),
+                   ('lockSize','--mac-cadeado'), ('toastBottom','--mac-aviso-base'), ('toastHeight','--mac-aviso-h'),
+                   ('toastPadX','--mac-aviso-px'), ('toastRadius','--mac-aviso-raio')]:
+    w('  %s: %s;' % (var, ma[chave]))
 w('')
 w('  /* Estado vazio/erro — medido em 10-memoria-vazio.png. Ver layout.estadoVazio. */')
 ev = T['layout']['estadoVazio']

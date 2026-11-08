@@ -68,6 +68,24 @@
   --mem-origem: 14px;
   --mem-data: 15px;
   --mem-texto-max: 540px;
+  /* Acoes da Memoria (corrigir, esquecer). Ver layout.memoria.acoes - desenho proprio. */
+  --mac-icone: 16px;
+  --mac-alvo: 28px;
+  --mac-data-gap: 8px;
+  --mac-campo-raio: 8px;
+  --mac-campo-px: 10px;
+  --mac-campo-py: 8px;
+  --mac-botao-h: 30px;
+  --mac-botao-px: 14px;
+  --mac-botao-raio: 8px;
+  --mac-botao-gap: 8px;
+  --mac-botao-top: 10px;
+  --mac-botao-texto: 14px;
+  --mac-cadeado: 13px;
+  --mac-aviso-base: 28px;
+  --mac-aviso-h: 44px;
+  --mac-aviso-px: 18px;
+  --mac-aviso-raio: 12px;
 
   /* Estado vazio/erro — medido em 10-memoria-vazio.png. Ver layout.estadoVazio. */
   --vazio-icone: 90px;

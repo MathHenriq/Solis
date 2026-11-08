@@ -54,6 +54,29 @@ export async function listarMemorias(busca = ''): Promise<Resultado<Memoria[]>> 
   }
 }
 
+/** Troca o texto de uma memória. A memória como ficou, ou null se não deu. */
+export async function corrigirMemoria(id: number, texto: string): Promise<Memoria | null> {
+  try {
+    const r = await fetch(`${BASE}/memorias/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto }),
+    });
+    return r.ok ? ((await r.json()) as { memoria: Memoria }).memoria : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Esquece uma memória (a que ela substituiu, se houver, volta a valer). */
+export async function esquecerMemoria(id: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/memorias/${id}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
 const CHAVE_MODELO = 'solis.modelo';
 
 export function escolherModelo(nome: string): void {
