@@ -10,7 +10,7 @@ import { SolisSimbolo } from './SolisSimbolo';
  *
  *  `fixed` e não no fluxo: a Conversa centraliza o conteúdo na altura da janela
  *  neste modo, e um cabeçalho no fluxo empurraria esse centro pra baixo. */
-export function TopoIcones() {
+export function TopoIcones({ aoNova, aoAlternarLista }: { aoNova?: () => void; aoAlternarLista?: () => void } = {}) {
   return (
     <header
       aria-label="Marca e atalhos"
@@ -42,6 +42,19 @@ export function TopoIcones() {
           SOLIS
         </span>
       </div>
+      {/* PROVISÓRIO, sem referência (a 12 não tem nada à esquerda): sem sidebar,
+          a lista de conversas e a Nova conversa ficam aqui, espelhando os
+          atalhos da direita — mesmo tamanho, mesma cor, mesmo vão. */}
+      {aoNova && aoAlternarLista && (
+        <div className="absolute left-2xl flex items-center gap-xl text-text-secondary pointer-events-auto">
+          <button type="button" aria-label="Conversas" title="Conversas" onClick={aoAlternarLista}>
+            <Icone nome="painel" tamanho={22} />
+          </button>
+          <button type="button" aria-label="Nova conversa" title="Nova conversa" onClick={aoNova}>
+            <Icone nome="adicionar" tamanho={22} />
+          </button>
+        </div>
+      )}
       <div className="absolute right-2xl flex items-center gap-xl text-text-secondary pointer-events-auto">
         <button type="button" aria-label="Notificações"><Icone nome="sino" tamanho={22} /></button>
         <button type="button" aria-label="Perfil"><Icone nome="perfil" tamanho={22} /></button>

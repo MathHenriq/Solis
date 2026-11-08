@@ -86,8 +86,13 @@ const CAMINHOS = {
   // tinta de 25x25px, corpo na diagonal com a ponta embaixo à esquerda
   // (343,95), a tampa arredondada em cima à direita e o anel da ponteira
   // cruzando o corpo logo abaixo dela.
-  'lapis':
-    'M2.4 16.3L15.9 2.5A3.6 3.6 0 0 1 22.3 5.6L9.1 18.2 7.2 21.6 1.5 22.8Z M14.7 4l5.1 4.6',
+  // PROVISÓRIOS, sem referência: os dois da lista de conversas no padrão do
+  // Claude (layout.recentes). O + da "Nova conversa" e o painel lateral que,
+  // no modo barra de ícones, abre a lista.
+  'adicionar':
+    'M12 6v12 M6 12h12',
+  'painel':
+    'M4.5 3.5h15a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V5a1.5 1.5 0 0 1 1.5-1.5z M9.5 3.5v17',
 } as const;
 
 export type NomeIcone = keyof typeof CAMINHOS;

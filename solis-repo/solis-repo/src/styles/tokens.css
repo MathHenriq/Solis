@@ -158,36 +158,20 @@
   --et-chip-top: 12px;
   --et-chip-borda: 53%;
   --et-chip-fundo: 6%;
-  /* Painel de conversas. Ver layout.painelConversas no JSON. */
-  --cv-largura: 236px;
-  --cv-px: 14px;
-  --cv-topo: 42px;
-  --cv-botao-h: 38px;
-  --cv-botao-raio: 7px;
-  --cv-botao-texto: 15px;
-  --cv-botao-icone: 18px;
-  --cv-botao-icone-x: 23px;
-  --cv-botao-texto-x: 56px;
-  --cv-botao-borda: 43%;
-  --cv-busca-gap: 15px;
-  --cv-busca-h: 33px;
-  --cv-busca-raio: 7px;
-  --cv-busca-texto: 15px;
-  --cv-busca-icone: 18px;
-  --cv-busca-icone-x: 13px;
-  --cv-busca-texto-x: 42px;
-  --cv-busca-borda: 31%;
-  --cv-grupos-top: 20px;
-  --cv-grupo-gap: 19px;
-  --cv-rotulo: 14px;
-  --cv-rotulo-x: 5px;
-  --cv-rotulo-h: 30px;
-  --cv-item-h: 33px;
-  --cv-item-raio: 5px;
-  --cv-item-px: 14px;
-  --cv-item-texto: 15px;
-  --cv-barra: 3px;
-  --cv-barra-recuo: 3px;
+  /* Lista de conversas na sidebar. Ver layout.recentes no JSON (PROVISORIO). */
+  --rc-topo: 18px;
+  --rc-recuo: 12px;
+  --rc-px: 17px;
+  --rc-linha-h: 32px;
+  --rc-raio: 8px;
+  --rc-texto: 14px;
+  --rc-rotulo: 12px;
+  --rc-rotulo-top: 14px;
+  --rc-rotulo-h: 26px;
+  --rc-mais: 18px;
+  --rc-icone: 16px;
+  --rc-icone-gap: 10px;
+  --rc-gaveta: 264px;
   --composer-radius: 13px;
 
   /* Barra de rolagem. Ver appearance.scrollbar no JSON. */
@@ -229,7 +213,7 @@
   --solis-horizon-image: url('/fundos/bg-espacial.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
   --mem-hover-forte: rgb(0 0 0 / 0.065);
-  --cv-ativo: rgb(0 0 0 / 0.076);
+  --rc-ativo: rgb(0 0 0 / 0.076);
 }
 
 [data-theme="claro"] {
@@ -243,7 +227,7 @@
   --solis-horizon-image: url('/fundos/bg-claro.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
   --mem-hover-forte: rgb(0 0 0 / 0.065);
-  --cv-ativo: rgb(0 0 0 / 0.076);
+  --rc-ativo: rgb(0 0 0 / 0.076);
 }
 
 [data-theme="dark"] {
@@ -257,7 +241,7 @@
   --solis-horizon-image: url('/fundos/bg-dark.webp');
   --mem-hover: rgb(255 255 255 / 0.045);
   --mem-hover-forte: rgb(255 255 255 / 0.085);
-  --cv-ativo: rgb(255 255 255 / 0.10);
+  --rc-ativo: rgb(255 255 255 / 0.10);
 }
 
 /* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem

@@ -203,22 +203,14 @@ for chave, var in [('textSize','--et-texto'), ('rowPitch','--et-passo'), ('textI
                    ('chipRadius','--et-chip-raio'), ('chipTop','--et-chip-top'),
                    ('chipBorderMix','--et-chip-borda'), ('chipFillMix','--et-chip-fundo')]:
     w('  %s: %s;' % (var, et[chave]))
-w('  /* Painel de conversas. Ver layout.painelConversas no JSON. */')
-pc = T['layout']['painelConversas']
-for chave, var in [('width','--cv-largura'), ('padX','--cv-px'), ('padTop','--cv-topo'),
-                   ('buttonHeight','--cv-botao-h'), ('buttonRadius','--cv-botao-raio'),
-                   ('buttonTextSize','--cv-botao-texto'), ('buttonIconSize','--cv-botao-icone'),
-                   ('buttonIconLeft','--cv-botao-icone-x'), ('buttonTextLeft','--cv-botao-texto-x'),
-                   ('buttonBorderMix','--cv-botao-borda'), ('searchGap','--cv-busca-gap'),
-                   ('searchHeight','--cv-busca-h'), ('searchRadius','--cv-busca-raio'),
-                   ('searchTextSize','--cv-busca-texto'), ('searchIconSize','--cv-busca-icone'),
-                   ('searchIconLeft','--cv-busca-icone-x'), ('searchTextLeft','--cv-busca-texto-x'),
-                   ('searchBorderMix','--cv-busca-borda'), ('groupsTop','--cv-grupos-top'),
-                   ('groupGap','--cv-grupo-gap'), ('labelSize','--cv-rotulo'), ('labelLeft','--cv-rotulo-x'),
-                   ('labelHeight','--cv-rotulo-h'), ('itemHeight','--cv-item-h'), ('itemRadius','--cv-item-raio'),
-                   ('itemPadX','--cv-item-px'), ('itemTextSize','--cv-item-texto'),
-                   ('barWidth','--cv-barra'), ('barInset','--cv-barra-recuo')]:
-    w('  %s: %s;' % (var, pc[chave]))
+w('  /* Lista de conversas na sidebar. Ver layout.recentes no JSON (PROVISORIO). */')
+rc = T['layout']['recentes']
+for chave, var in [('sectionTop','--rc-topo'), ('rowInset','--rc-recuo'), ('rowPadX','--rc-px'),
+                   ('rowHeight','--rc-linha-h'), ('rowRadius','--rc-raio'), ('textSize','--rc-texto'),
+                   ('labelSize','--rc-rotulo'), ('labelTop','--rc-rotulo-top'), ('labelHeight','--rc-rotulo-h'),
+                   ('plusSize','--rc-mais'), ('iconSize','--rc-icone'), ('iconGap','--rc-icone-gap'),
+                   ('drawerWidth','--rc-gaveta')]:
+    w('  %s: %s;' % (var, rc[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
 w('')
 w('  /* Barra de rolagem. Ver appearance.scrollbar no JSON. */')
@@ -256,8 +248,8 @@ for nome in TEMAS:
     mem = T['layout']['memoria']
     w('  --mem-hover: %s;' % (mem['hoverTint'] if nome == 'dark' else mem['hoverTintClaro']))
     w('  --mem-hover-forte: %s;' % (mem['hoverTintStrong'] if nome == 'dark' else mem['hoverTintClaroStrong']))
-    pc = T['layout']['painelConversas']
-    w('  --cv-ativo: %s;' % (pc['activeTint'] if nome == 'dark' else pc['activeTintClaro']))
+    rc = T['layout']['recentes']
+    w('  --rc-ativo: %s;' % (rc['activeTint'] if nome == 'dark' else rc['activeTintClaro']))
     w('}')
 w('')
 w('/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem')

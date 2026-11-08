@@ -1,5 +1,6 @@
 import { ITENS_NAV } from '../nav-items';
 import { Icone } from './icons';
+import { ListaConversas, type PropsLista } from './ListaConversas';
 import { SolisSimbolo } from './SolisSimbolo';
 
 /** Sidebar compacta da Fase 2.
@@ -13,9 +14,12 @@ import { SolisSimbolo } from './SolisSimbolo';
 export function Sidebar({
   ativo = 'conversa',
   aoTrocar,
+  conversas,
 }: {
   ativo?: string;
   aoTrocar?: (id: string) => void;
+  /** A lista de conversas, que vive aqui dentro como no Claude. */
+  conversas?: PropsLista;
 }) {
   return (
     <nav
@@ -124,6 +128,21 @@ export function Sidebar({
           );
         })}
       </ul>
+
+      {/* Nova conversa, busca e Recentes, abaixo da navegação — no Claude elas
+          moram na própria barra lateral, e foi o pedido do Matheus. Ocupam o
+          que sobra até o perfil e rolam sozinhas; numa janela curta, quem
+          encolhe primeiro são elas (base 0), até sobrarem só "Nova conversa"
+          e a busca; dali pra baixo quem rola é a navegação. Sem esse piso, a
+          lista vazava por cima do perfil numa janela de 693px (visto). */}
+      {conversas && (
+        <div
+          className="flex flex-col overflow-hidden"
+          style={{ flex: '1 1 0', minHeight: 'calc(var(--rc-linha-h) * 2)', marginTop: 'var(--rc-topo)' }}
+        >
+          <ListaConversas {...conversas} />
+        </div>
+      )}
 
       {/* Perfil. Todas as medidas vêm da referência espacial, normalizadas pela
           LARGURA da janela e com o vertical contado a partir da BASE — a referência

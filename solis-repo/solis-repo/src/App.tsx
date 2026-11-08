@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
 import { Horizonte } from './components/Horizonte';
-import { PainelConversas } from './components/PainelConversas';
+import { GavetaConversas, type PropsLista } from './components/ListaConversas';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
 import { useConversa } from './conversa';
@@ -33,22 +33,28 @@ export default function App() {
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
   const comSidebar = nav === 'sidebar';
+  const [gaveta, definirGaveta] = useState(false);
+
+  // A lista de conversas aparece em qualquer tela (na sidebar, ou na gaveta do
+  // modo ícones), como no Claude: abrir uma conversa ou começar outra leva pra
+  // tela de Conversa.
+  const lista: PropsLista = {
+    aberta: conversa.conversa,
+    versao: conversa.versao,
+    aoAbrir: (id) => {
+      definirTela('conversa');
+      conversa.abrir(id);
+    },
+    aoNova: () => {
+      definirTela('conversa');
+      conversa.nova();
+    },
+  };
 
   const TELAS: Record<string, () => ReactElement> = {
-    // O painel de conversas acompanha a thread, como na referência 19. Na
-    // tela vazia (a saudação) ele ainda não entra: não há referência dela com
-    // o painel, e ela é uma composição já validada.
     conversa: () =>
       conversa.turnos.length ? (
-        <>
-          <PainelConversas
-            aberta={conversa.conversa}
-            versao={conversa.versao}
-            aoAbrir={conversa.abrir}
-            aoNova={conversa.nova}
-          />
-          <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} />
-        </>
+        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} />
       ) : (
         <Conversa aoEnviar={conversa.enviar} />
       ),
@@ -74,8 +80,9 @@ export default function App() {
   return (
     <div className="relative flex h-full bg-canvas text-text-primary font-sans">
       <Horizonte />
-      {comSidebar && <Sidebar ativo={tela} aoTrocar={definirTela} />}
-      {!comSidebar && <TopoIcones />}
+      {comSidebar && <Sidebar ativo={tela} aoTrocar={definirTela} conversas={lista} />}
+      {!comSidebar && <TopoIcones aoNova={lista.aoNova} aoAlternarLista={() => definirGaveta((g) => !g)} />}
+      {!comSidebar && <GavetaConversas {...lista} visivel={gaveta} aoFechar={() => definirGaveta(false)} />}
       {(TELAS[tela] ?? TELAS.conversa)()}
       {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
     </div>
