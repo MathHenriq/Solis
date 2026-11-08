@@ -1,4 +1,4 @@
-import type { Etapa } from './servidor';
+import { NOMES_CEREBRO, type Etapa } from './servidor';
 
 /** Das etapas cruas do servidor (backend/solis/etapas.py) pras frases da tela.
  *
@@ -13,8 +13,8 @@ export type Passo = {
   texto: string;
 };
 
-const QUEM: Record<string, string> = { claude: 'o Claude', codex: 'o Codex', local: 'o modelo local' };
-const quem = (c?: string) => QUEM[c ?? ''] ?? 'o modelo';
+const quem = (c?: string) =>
+  c === 'local' ? 'o modelo local' : NOMES_CEREBRO[c ?? ''] ? `o ${NOMES_CEREBRO[c ?? '']}` : 'o modelo';
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const plural = (n: number, um: string, varios: string, nenhum: string) =>

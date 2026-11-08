@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { EtapaRecebida } from './etapas';
-import { abrirConversa, carregarConversa, conversar, type Falha, type Mensagem } from './servidor';
+import { NOMES_CEREBRO, abrirConversa, carregarConversa, conversar, type Falha, type Mensagem } from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
  *  à troca de tela: ir a Modelos e voltar não pode apagar o que foi dito.
@@ -20,7 +20,7 @@ export type Turno = {
   digitando?: boolean;
   /** No lugar da resposta veio um aviso de erro. Não é guardado no banco. */
   falha?: boolean;
-  /** Quem respondeu: 'local', 'claude', 'codex'. */
+  /** Quem respondeu: uma chave de NOMES_CEREBRO ('local', 'claude', 'groq'...). */
   cerebro?: string | null;
   /** O que o servidor fez pra responder, em ordem, com os tempos. */
   etapas?: EtapaRecebida[];
@@ -42,7 +42,8 @@ function aviso(falha: Falha): string {
 
 /** "/claude explica X" chega na tela como "explica X" — igual ao que o servidor
  *  guarda. O comando escolhe quem responde; não faz parte do que foi dito. */
-const semComando = (texto: string) => texto.replace(/^\/(claude|codex|local)\s+(?=\S)/i, '');
+const COMANDO_CEREBRO = new RegExp(`^/(${Object.keys(NOMES_CEREBRO).join('|')})\\s+(?=\\S)`, 'i');
+const semComando = (texto: string) => texto.replace(COMANDO_CEREBRO, '');
 
 /** Começa uma conversa nova, como o botão do painel. Ficou de quando não
  *  havia o botão — e continua valendo pra quem prefere o teclado. */

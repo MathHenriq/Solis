@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Botao } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { EstadoVazio } from '../components/Tela';
 import {
@@ -51,30 +52,6 @@ function quando(iso: string): string {
 const DESFAZER_MS = 6000;
 
 /** Botão de texto das ações (Salvar, Cancelar, Esquecer). */
-function Botao({
-  tipo = 'texto',
-  ...resto
-}: ButtonHTMLAttributes<HTMLButtonElement> & { tipo?: 'destaque' | 'perigo' | 'texto' }) {
-  const cor = {
-    destaque: 'bg-accent text-canvas',
-    perigo: 'text-[var(--erro)] bg-[color-mix(in_srgb,var(--erro)_14%,transparent)]',
-    texto: 'text-text-secondary hover:text-text-primary',
-  }[tipo];
-  return (
-    <button
-      type="button"
-      {...resto}
-      className={`${cor} disabled:opacity-50`}
-      style={{
-        height: 'var(--mac-botao-h)',
-        padding: '0 var(--mac-botao-px)',
-        borderRadius: 'var(--mac-botao-raio)',
-        fontSize: 'var(--mac-botao-texto)',
-      }}
-    />
-  );
-}
-
 function ItemMemoria({
   m,
   editando,

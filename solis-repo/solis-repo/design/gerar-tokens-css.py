@@ -184,7 +184,7 @@ w('  --cfg-mini-razao: %s;' % cfg['thumbRatio'])
 w('  /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */')
 for chave, var in [('cardGap','--cer-cartao-gap'), ('orderIcon','--cer-seta'), ('orderHit','--cer-seta-alvo'),
                    ('controlsGap','--cer-controles-gap'), ('positionWidth','--cer-posicao'),
-                   ('textMax','--cer-texto-max')]:
+                   ('textMax','--cer-texto-max'), ('rowPadY','--cer-linha-pad')]:
     w('  %s: %s;' % (var, cfg['cerebros'][chave]))
 for chave, var in [('width','--barra-l'), ('height','--barra-h'), ('bottom','--barra-base'),
                    ('radius','--barra-raio'), ('iconSize','--barra-icone'),

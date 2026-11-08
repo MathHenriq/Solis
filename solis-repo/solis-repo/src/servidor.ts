@@ -77,15 +77,35 @@ export async function esquecerMemoria(id: number): Promise<boolean> {
   }
 }
 
+/** Os nomes dos cérebros, num lugar só (o servidor tem o mesmo em
+ *  cerebros.NOMES). Daqui saem o "· Groq" embaixo da resposta, o "o Gemini" das
+ *  etapas e os comandos /groq, /gemini... que o campo de digitar reconhece. */
+export const NOMES_CEREBRO: Record<string, string> = {
+  local: 'Modelo local',
+  claude: 'Claude',
+  codex: 'Codex',
+  groq: 'Groq',
+  gemini: 'Gemini',
+  mistral: 'Mistral',
+  openrouter: 'OpenRouter',
+};
+
 /** Um cérebro em Configurações → Cérebros, na ordem em que é tentado.
- *  `pausa.ate` é epoch em segundos: depois de falhar (cota, login), o cérebro
- *  fica de lado até lá. O local nunca desliga nem pausa. */
+ *  `pausa.ate` é epoch em segundos: depois de falhar (cota, login, limite
+ *  grátis), o cérebro fica de lado até lá. O local nunca desliga nem pausa.
+ *  `tipo` api: `instalado` quer dizer que há uma chave guardada (ela mesma
+ *  nunca vem pra cá); `modelo` é o que o Solis escolheu entre os do serviço,
+ *  `nota` o preço do grátis, `site` onde criar a chave. */
 export type Cerebro = {
-  nome: 'claude' | 'codex' | 'local';
+  nome: string;
   rotulo: string;
+  tipo: 'local' | 'cli' | 'api';
   ligado: boolean;
   instalado: boolean;
   pausa: { ate: number; motivo: string } | null;
+  modelo?: string | null;
+  nota?: string;
+  site?: string;
 };
 
 async function cerebros(caminho: string, init?: RequestInit): Promise<Cerebro[] | null> {
@@ -108,7 +128,32 @@ export const ordenarCerebros = (ordem: Pick<Cerebro, 'nome' | 'ligado'>[]) =>
     body: JSON.stringify({ ordem: ordem.map(({ nome, ligado }) => ({ nome, ligado })) }),
   });
 
-export const retomarCerebro = (nome: Cerebro['nome']) => cerebros(`/cerebros/${nome}/retomar`, { method: 'POST' });
+export const retomarCerebro = (nome: string) => cerebros(`/cerebros/${nome}/retomar`, { method: 'POST' });
+
+/** O servidor confere a chave no próprio serviço antes de guardar. */
+export type ResultadoChave =
+  | { estado: 'ok'; cerebros: Cerebro[] }
+  | { estado: 'recusada' | 'vazia' | 'servico-fora' | 'sem-servidor' };
+
+export async function guardarChave(nome: string, chave: string): Promise<ResultadoChave> {
+  try {
+    const r = await fetch(`${BASE}/cerebros/${nome}/chave`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chave }),
+    });
+    if (r.ok) return { estado: 'ok', cerebros: ((await r.json()) as { cerebros: Cerebro[] }).cerebros };
+    const erro = ((await r.json().catch(() => ({}))) as { erro?: string }).erro;
+    if (erro === 'chave_recusada') return { estado: 'recusada' };
+    if (erro === 'chave_vazia') return { estado: 'vazia' };
+    if (erro === 'provedor_fora') return { estado: 'servico-fora' };
+    return { estado: 'sem-servidor' };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
+export const apagarChave = (nome: string) => cerebros(`/cerebros/${nome}/chave`, { method: 'DELETE' });
 
 const CHAVE_MODELO = 'solis.modelo';
 
@@ -149,7 +194,7 @@ export type Etapa = {
   cortada?: boolean;
 };
 
-/** `cerebro`: quem respondeu — 'local', 'claude' ou 'codex'. Nulo nas falas da
+/** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
  *  pessoa e nas respostas antigas, de antes de existir mais de um. `etapas`:
  *  nulo nas falas da pessoa e nas respostas de antes das etapas existirem. */
 export type Mensagem = {
@@ -161,7 +206,7 @@ export type Mensagem = {
 };
 export type Falha =
   | { tipo: 'sem-servidor' | 'sem-ollama' | 'sem-modelo' }
-  /** Um cérebro escolhido com /claude ou /codex não respondeu. */
+  /** Um cérebro escolhido com /claude, /groq... não respondeu. */
   | { tipo: 'sem-cerebro'; cerebro: string };
 
 /** A conversa mais recente guardada — o app reabre nela. null quando o servidor

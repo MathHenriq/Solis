@@ -4,8 +4,8 @@ import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
+import { NOMES_CEREBRO } from '../servidor';
 
-const NOMES_CEREBRO: Record<string, string> = { claude: 'Claude', codex: 'Codex' };
 
 /** Conversa com thread em andamento — o outro estado da tela de Conversa.
  *  Referência: referencias/telas/18-conversa-thread.png.
@@ -172,7 +172,8 @@ function RespostaSolis({ t }: { t: Turno }) {
               silencioso — não precisa de etiqueta. */}
           <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>
             {t.hora}
-            {t.cerebro && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
+            {/* Só quem não é o local: o local é o normal, não precisa de nome. */}
+            {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
           </div>
           {pensando ? (
             <div style={{ marginTop: 'var(--et-cabecalho)' }}>
