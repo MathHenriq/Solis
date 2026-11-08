@@ -30,4 +30,10 @@ if (!python) {
 const args = ['-m', 'uvicorn', 'solis.main:app', '--host', '127.0.0.1', '--port', '8765', '--reload', ...process.argv.slice(2)];
 const servidor = spawn(python, args, { cwd: pasta, stdio: 'inherit' });
 servidor.on('exit', (codigo, sinal) => process.exit(sinal ? 1 : (codigo ?? 0)));
-for (const sinal of ['SIGINT', 'SIGTERM']) process.on(sinal, () => servidor.kill(sinal));
+// Ctrl+C NÃO é repassado: ele já chega sozinho a todos os processos do
+// console (e do grupo, no Linux). Repassar matava o servidor a cada
+// recarregamento — no Windows o --reload reinicia o processo mandando um
+// Ctrl+C pro console inteiro, e este script o tomava como "pare" (visto em
+// 08/11/2026). Aqui ele só é ignorado, e o script sai quando o servidor sair.
+process.on('SIGINT', () => {});
+process.on('SIGTERM', () => servidor.kill('SIGTERM'));
