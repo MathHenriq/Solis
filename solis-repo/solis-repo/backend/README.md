@@ -32,7 +32,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /saude` | `{"ok": true}` |
 | `GET /modelos` | modelos instalados no Ollama, com tamanho, quantização, contexto e se está carregado. `503` se o Ollama não responder |
 | `GET /conversas/atual` | a conversa da mensagem mais recente, com as mensagens. `id: null` se ainda não houver nenhuma |
-| `GET /conversas` | as conversas do Solis com mensagem, da mais recente pra mais antiga: `id`, `titulo` (o guardado, ou a primeira fala numa linha) e `atualizada`. `?q=` busca no título e no texto. As importadas ficam de fora |
+| `GET /conversas` | as conversas do Solis com mensagem, da mais recente pra mais antiga: `id`, `titulo` (o que o modelo local deu, ou a primeira fala numa linha) e `atualizada`. `?q=` busca no título e no texto. As importadas ficam de fora |
 | `GET /conversas/{id}` | uma conversa, com as mensagens. `404` se não existir |
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
 | `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, decide quem responde (modelo local, Claude ou Codex) e devolve eventos em NDJSON, um por linha: as etapas (ver abaixo), os pedaços do texto e, se ninguém responder, o erro. A resposta é guardada inteira mesmo se a janela fechar no meio. `404` se a conversa não existir; os outros erros chegam como o último evento: `{"erro": "ollama_indisponivel"}`, `{"erro": "modelo_inexistente"}` ou `{"erro": "cerebro_indisponivel", "cerebro": "Claude"}` (o cérebro pedido com `/claude` ou `/codex` falhou) |
@@ -44,6 +44,14 @@ escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
 
 As conversas ficam num SQLite em `%APPDATA%\Solis\solis.db`. O app reabre a mais recente;
 digitar `/nova` na Conversa começa outra (a anterior continua guardada).
+
+## Título da conversa
+
+Depois da primeira resposta, o modelo local lê o começo da conversa e dá a ela um título de 2 a 6
+palavras ("Sistema de NF-e da loja"), que a lista do painel mostra no lugar da primeira fala. É a
+primeira das etapas de depois da resposta (`titulo`), e roda uma vez só por conversa. Sem o
+Ollama a conversa fica sem título, com a primeira fala na lista, e a próxima mensagem tenta de
+novo.
 
 ## Memória
 
@@ -106,11 +114,12 @@ mesmos eventos vão pra tela (no stream) e pro log do servidor — no terminal e
 | `primeira_palavra` | a primeira palavra da resposta chegou | `cerebro` |
 | `queda` | este cérebro falhou; vai o próximo | `cerebro`, `motivo` |
 | `fim` | a resposta terminou; a tela libera o campo | `cerebro`, `cortada` se caiu no meio |
-| `aprendizado` | depois da resposta: memórias tiradas da mensagem | `novas` |
+| `titulo` | depois da resposta, só na primeira vez: o título que a conversa ganhou | `titulo` |
+| `aprendizado` | depois da resposta: memórias tiradas da mensagem | `novas`, `textos` |
 | `indexacao` | depois da resposta: vetores calculados | `vetores` |
 | `resumo` | depois da resposta: se a conversa foi resumida | `resumiu` |
 
-O stream só fecha depois das três últimas: é por ele que a tela fica sabendo que a memória foi
+O stream só fecha depois das etapas de depois da resposta: é por ele que a tela fica sabendo que a memória foi
 guardada. No log, cada resposta termina numa linha só com todas as etapas:
 
 ```

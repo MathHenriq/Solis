@@ -153,9 +153,10 @@ Em aberto:
 - **A tela vazia (a saudação) ainda não tem o painel**: não há referência dela com ele, e ela é
   uma composição validada. Depois de "Nova conversa", a lista só volta quando a primeira
   mensagem sai.
-- **Títulos**: sem título guardado, vale a primeira fala, cortada pela largura ("Quais
-  documentos eu pr…"). Títulos curtos como os da referência pedem o modelo local resumindo a
-  conversa depois da primeira resposta.
+- **Títulos**: o modelo local dá um título curto ("Sistema de NF-e da loja") depois da
+  primeira resposta, como etapa de fundo. Testado com o Ollama simulado; falta ver com o modelo
+  de verdade como ele se sai. Sem o Ollama vale a primeira fala, e a próxima mensagem tenta de
+  novo. As conversas de antes disso ganham título na próxima mensagem que receberem.
 
 ## Para onde vamos
 
