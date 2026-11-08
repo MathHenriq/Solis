@@ -83,7 +83,6 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 - Tarefas, Agenda, Conhecimento e Ferramentas mostram dados de exemplo.
 - O piso de similaridade da busca foi escolhido sem dados reais; precisa calibrar no notebook.
 - O servidor precisa ser ligado à mão (`npm run backend`).
-- Não há controle na tela pra esquecer uma memória.
 
 ## Próximas tarefas — do primeiro teste real (1º de novembro de 2026)
 
@@ -174,7 +173,7 @@ sobre um assistente que esquece as coisas é só um assistente que esquece as co
 falando. As fases não têm ordem rígida (decisão do Matheus), mas as primeiras são a base
 das outras.
 
-### Memória completa — em andamento
+### Memória completa — feito (08/11/2026)
 
 - [x] Conversas guardadas; memória automática e pedida.
 - [x] Busca por significado em memórias e conversas antigas (RAG).
@@ -182,7 +181,8 @@ das outras.
 - [x] Marca de privada.
 - [x] Contradição: "saí da Syngenta" substitui a memória antiga (que fica guardada, marcada).
 - [x] Lista de conversas antigas e "Nova conversa" (com a thread aberta).
-- [ ] Esquecer e corrigir memória pela tela (precisa de referência visual).
+- [x] Esquecer e corrigir memória pela tela — desenho próprio, sem referência (o Matheus liberou o
+  front): ações no hover, edição e confirmação no próprio item, Desfazer, cadeado na privada.
 - [x] Busca textual (FTS5) na tela de Memória: por palavra, por prefixo, sem diferença de acento.
 - [x] Criptografar o que é privado (DPAPI do Windows): memória, mensagem, e o título, o resumo e
   as etapas de conversa com segredo. O que protege e o que não, em `backend/README.md` → Memória.

@@ -117,6 +117,9 @@ com as etapas recolhidas e a confirmação "Memória guardada".
 
 ## 7. Memória: esquecer e corrigir — pedido em 08/11/2026
 
+**Não precisa mais:** no mesmo dia o Matheus liberou o front sem referência, e a tela foi feita
+com desenho próprio (`layout.memoria.acoes`). O pedido fica como registro.
+
 O último item da fase "Memória completa" (`docs/ESCOPO.md`). Hoje a tela de Memória só lista e
 busca: não dá pra apagar uma memória errada nem consertar uma meio certa. O servidor já
 esquece (`DELETE /memorias/{id}`, e a memória que ela tinha substituído volta a valer); corrigir
