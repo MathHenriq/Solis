@@ -14,7 +14,7 @@ Documentos de apoio no repositório (ler quando a tarefa tocar cada um):
 - `docs/SOLIS_SIGNATURE.md` — assinatura visual (horizonte, ciclo do dia, glow reativo).
 - `docs/PERFORMANCE.md` — regras de animação leve.
 - `docs/ERROR_STATES.md` — estados de erro/vazio/permissão.
-- `referencias/` — **as imagens de referência oficiais. A fonte visual da verdade.**
+- `referencias/` — as imagens de referência oficiais: a verdade das telas que foram construídas e aprovadas por elas.
 
 ---
 
@@ -22,11 +22,11 @@ Documentos de apoio no repositório (ler quando a tarefa tocar cada um):
 
 Vêm antes de qualquer instrução específica. Nenhuma exceção técnica, criativa ou de conveniência as sobrepõe. Se cumprir uma tarefa exigir quebrar uma destas, a tarefa PARA e o conflito é reportado — nunca se resolve desviando.
 
-**Regra 1 — As imagens em `referencias/` são a fonte da verdade.**
-Antes de criar, editar ou estilizar QUALQUER coisa visual, olhar as imagens de referência. Nada é feito de memória ou por aproximação. Pergunta obrigatória antes de escrever CSS: "isso bate exatamente com a imagem?"
+**Regra 1 — Referência aprovada manda; o que é novo é desenhado com o Claude como base.**
+Onde uma tela foi construída e aprovada contra uma imagem de `referencias/`, a imagem continua sendo a verdade dela: não se muda sem o Matheus pedir. Para o que é novo (tela, estado, componente) não é preciso esperar imagem: desde 08/11/2026 o Matheus liberou o front, porque as referências geradas não estavam saindo boas. A base é o próprio Claude (claude.ai e o app): proporção e estilo discretos, sem caixas e bordas pesadas, a conversa numa coluna central. Quando o Matheus pede um ajuste ("use o Claude como base", "ficou forçado"), o pedido dele vale sobre a referência antiga.
 
-**Regra 2 — Divergência da referência é rejeitada.**
-Qualquer cor, espaçamento, tamanho, ícone, tipografia, posição ou detalhe diferente da referência é RECUSADO. Não "parecido", não "inspirado" — idêntico. Cores por amostra de pixel, espaçamentos medidos em px. Nunca estimados no olho.
+**Regra 2 — Medida, não olho.**
+Com referência ou sem, nada é estimado. Contra uma referência: cores por amostra de pixel, espaçamentos medidos em px, e divergência sem pedido é RECUSADA. Em desenho próprio: os valores saem do design system já construído (tokens, a grade das telas validadas) e vão pro `docs/solis-tokens.json` com a razão, marcados como desenho próprio/PROVISÓRIO; depois de construir, os prints do app são medidos, conferidos nos 3 temas e nos 2 modos de navegação, e mostrados ao Matheus antes de seguir.
 
 **Regra 3 — Qualidade não se negocia com atalho técnico.**
 Onde a fidelidade exigir recurso melhor (asset maior, biblioteca específica), usa-se o recurso. Não se entrega versão pior "porque foi o que deu". Limitação real é dita ANTES de entregar, com caminho de solução — nunca disfarçada como resultado final.
@@ -37,7 +37,7 @@ Onde a fidelidade exigir recurso melhor (asset maior, biblioteca específica), u
 
 1. **Nunca construir várias telas de uma vez.** Uma tela por vez, validada contra a imagem de referência, antes de passar pra próxima. Gerar tudo junto causa inconsistência (já aconteceu com as telas do GPT).
 2. **Ordem das telas:** Conversa primeiro (mais importante e com mais referência), depois Memória, Modelos locais, Ferramentas, Tarefas, Agenda, Conhecimento, Configurações.
-3. **Antes de escrever código numa tela nova:** abrir a imagem de referência correspondente, extrair as cores por pixel e medir espaçamentos. Só então codar.
+3. **Antes de escrever código numa tela nova:** se houver referência, abrir a imagem, extrair as cores por pixel e medir espaçamentos; se não houver, partir do Claude e da grade das telas já validadas, e registrar as medidas nos tokens. Nos dois casos: print do app, medição, os 3 temas e os 2 modos de navegação antes do commit.
 4. **Navegação:** lista única de itens (`nav-items`, fonte única), consumida tanto pela Sidebar quanto pela barra de ícones (as duas são configuráveis pelo usuário). Nunca hardcodar a lista em dois lugares.
 5. **Animação:** só `transform` e `opacity` em loop. Nunca `filter`/`box-shadow` animado. Ver `docs/PERFORMANCE.md`.
 6. **Onde algo estiver marcado `PROVISÓRIO` nos tokens:** implementar, mas deixar comentário no código sinalizando que precisa validação.
@@ -50,4 +50,4 @@ Onde a fidelidade exigir recurso melhor (asset maior, biblioteca específica), u
 
 ## Lembrete de fluxo para o Matheus (o Claude Code deve reforçar isto)
 
-Se o Matheus pedir para construir várias telas de uma vez, ou pedir algo sem referência visual clara, o Claude Code deve lembrá-lo do fluxo (uma tela por vez, sempre contra a referência) antes de executar — não apenas obedecer.
+Se o Matheus pedir para construir várias telas de uma vez, o Claude Code deve lembrá-lo do fluxo (uma tela por vez, validada antes da próxima) antes de executar — não apenas obedecer. Pedido sem referência visual não bloqueia mais: desenha-se com o Claude como base (Regra 1) e os prints vão pra aprovação dele.
