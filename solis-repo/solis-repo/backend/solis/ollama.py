@@ -221,15 +221,22 @@ async def _perguntar(
     texto: str,
     formato: dict | None,
     transporte: httpx.AsyncBaseTransport | None,
+    pensar: bool | None = None,
 ) -> str:
     """Uma pergunta só, sem streaming. Temperatura 0: extração e resumo não são
-    lugar de criatividade — a mesma conversa tem que dar o mesmo resultado."""
+    lugar de criatividade — a mesma conversa tem que dar o mesmo resultado.
+
+    `pensar=False` desliga o raciocínio dos modelos que pensam (qwen3): pra uma
+    tarefa curta ele só custa tempo — o título levava de 5 a 22 s com ele e
+    0,2 a 0,4 s sem (medido). Nos que não pensam, não muda nada."""
     corpo = {
         'model': modelo,
         'stream': False,
         'options': {'temperature': 0},
         'messages': [{'role': 'system', 'content': instrucao}, {'role': 'user', 'content': texto}],
     }
+    if pensar is not None:
+        corpo['think'] = pensar
     if formato:
         corpo['format'] = formato
     try:
@@ -262,8 +269,9 @@ async def responder_texto(
     instrucao: str,
     texto: str,
     transporte: httpx.AsyncBaseTransport | None = None,
+    pensar: bool | None = None,
 ) -> str:
-    return await _perguntar(modelo, instrucao, texto, None, transporte)
+    return await _perguntar(modelo, instrucao, texto, None, transporte, pensar)
 
 
 async def embeddings(

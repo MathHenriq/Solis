@@ -14,7 +14,7 @@ def conversa_de(n: int) -> int:
 def resume_com(monkeypatch, texto='- resumo'):
     pedidos = []
 
-    async def falso(modelo, instrucao, pedido):
+    async def falso(modelo, instrucao, pedido, **_):
         pedidos.append(pedido)
         return texto
     monkeypatch.setattr(ollama, 'responder_texto', falso)
@@ -103,3 +103,21 @@ def test_titulo_longo_e_cortado_numa_palavra():
     longo = 'Uma conversa muito comprida sobre ' + 'assuntos variados ' * 6
     t = resumo._limpar_titulo(longo)
     assert len(t) <= resumo.TITULO_MAX and longo.startswith(t) and not t.endswith(' ')
+    assert resumo._limpar_titulo('trabalho na syngenta') == 'Trabalho na syngenta'
+
+
+def test_titulo_pede_sem_raciocinio():
+    # _perguntar e não responder_texto: o conftest troca o responder_texto.
+    import json
+
+    import httpx
+    pedido = []
+
+    def chat(req):
+        pedido.append(json.loads(req.content))
+        return httpx.Response(200, json={'message': {'content': 'Plano da semana'}})
+    t = asyncio.run(ollama._perguntar('qwen3:8b', 'i', 'x', None, httpx.MockTransport(chat), pensar=False))
+    assert t == 'Plano da semana' and pedido[0]['think'] is False
+    # Quem não pede não manda o campo: o aprendizado e o resumo seguem iguais.
+    asyncio.run(ollama._perguntar('m', 'i', 'x', None, httpx.MockTransport(chat)))
+    assert 'think' not in pedido[1]

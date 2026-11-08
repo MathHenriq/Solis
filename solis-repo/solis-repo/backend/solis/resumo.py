@@ -43,12 +43,16 @@ def para_o_modelo(conversa: int) -> tuple[str | None, list[dict], int]:
     return texto, depois[-(JANELA + LOTE):], ate
 
 
+# Sem exemplos de título, de propósito: com "Sistema de NF-e da loja" na
+# instrução, o llama3.2:3b deu "Ajudar com sistema NF-e" a uma conversa sobre
+# qual modelo estava respondendo — modelo pequeno copia o exemplo (visto no
+# notebook, 08/11/2026).
 INSTRUCAO_TITULO = (
     'Você dá título a uma conversa entre o Matheus e o Solis, o assistente dele, '
     'pra ela aparecer numa lista de conversas.\n'
-    'Responda só o título: de 2 a 6 palavras, em português do Brasil, dizendo o '
-    'assunto ("Sistema de NF-e da loja", "Estudos de pandas e SQL"). Sem aspas, '
-    'sem ponto final, sem "Título:".'
+    'Responda só o título: o assunto principal da conversa em no máximo 5 palavras, '
+    'em português do Brasil. Use só o que está na conversa. Sem aspas, sem ponto '
+    'final, sem "Título:".'
 )
 
 # Teto do título, e quanto da conversa o modelo lê pra dar o título.
@@ -64,6 +68,9 @@ def _limpar_titulo(bruto: str) -> str:
     if linha.lower().startswith('título:'):
         linha = linha[len('título:'):]
     linha = linha.strip().strip('"\'“”‘’').strip().rstrip('.').strip()
+    # Lista de conversas começa em maiúscula: o qwen3 às vezes manda
+    # "trabalho na syngenta".
+    linha = linha[:1].upper() + linha[1:]
     return linha[:TITULO_MAX].rsplit(' ', 1)[0] if len(linha) > TITULO_MAX else linha
 
 
@@ -79,7 +86,7 @@ async def titular(modelo: str, conversa: int) -> str | None:
         return None
     linhas = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in falas)
     try:
-        bruto = await ollama.responder_texto(modelo, INSTRUCAO_TITULO, linhas[:TITULO_LE])
+        bruto = await ollama.responder_texto(modelo, INSTRUCAO_TITULO, linhas[:TITULO_LE], pensar=False)
     except Exception:
         log.info('título da conversa %s ficou pra próxima', conversa)
         return None

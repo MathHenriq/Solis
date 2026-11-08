@@ -174,7 +174,7 @@ def test_etapas_da_resposta_inteira_em_ordem(monkeypatch):
 def test_titulo_e_uma_etapa_depois_da_resposta(monkeypatch):
     falso_que_responde(monkeypatch)
 
-    async def titulo(modelo, instrucao, texto):
+    async def titulo(modelo, instrucao, texto, **_):
         return 'Cumprimento'
     monkeypatch.setattr(ollama, 'responder_texto', titulo)
     cliente = TestClient(main.app)
