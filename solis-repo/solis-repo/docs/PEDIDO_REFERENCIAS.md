@@ -115,6 +115,57 @@ símbolo do Solis no estado "pensando" e uma lista de etapas reais (memória bus
 escolhido, o modelo pensando com o tempo correndo), mais uma resposta anterior já concluída
 com as etapas recolhidas e a confirmação "Memória guardada".
 
+## 7. Memória: esquecer e corrigir — pedido em 08/11/2026
+
+O último item da fase "Memória completa" (`docs/ESCOPO.md`). Hoje a tela de Memória só lista e
+busca: não dá pra apagar uma memória errada nem consertar uma meio certa. O servidor já
+esquece (`DELETE /memorias/{id}`, e a memória que ela tinha substituído volta a valer); corrigir
+entra junto com a tela. Também falta marcar na lista o que é privado (criptografado desde
+08/11), que hoje aparece igual às outras.
+
+**Base pra gerar:** `telas/_bases/memoria-atual-dark.png` — o print da tela como ela está hoje
+no app (com os dados de exemplo da 09, a sidebar nova com os Recentes e um item em hover). É
+melhor o gerador **editar** este print do que desenhar do zero: foi quando as gerações saíram
+com a geometria certa. Valem as 6 regras do topo.
+
+**Três imagens, no tema dark** (os outros dois temas depois, como sempre):
+
+1. `21-memoria-acoes.png` — a lista com:
+   - um item em hover mostrando as duas ações, **Corrigir** (lápis) e **Esquecer** (lixeira),
+     à direita do item;
+   - outro item **em edição**: o texto virou um campo editável, com o cursor, e os botões
+     **Salvar** e **Cancelar** embaixo;
+   - a memória "Tem alergia a frutos do mar." marcada como **privada** (um cadeado pequeno, ou
+     "privada" junto de "de: Saúde e bem-estar").
+2. `22-memoria-esquecer.png` — a confirmação de esquecer **no próprio item** (nada de janela
+   no meio da tela): "Esquecer esta memória? O Solis deixa de usar isso." com **Esquecer** e
+   **Cancelar**.
+3. `23-memoria-esquecida.png` — logo depois: a lista sem aquele item e um aviso discreto
+   embaixo, "Memória esquecida", com **Desfazer**.
+
+**Prompt pro GPT** (anexando `telas/_bases/memoria-atual-dark.png`; um por imagem, trocando só
+a lista de mudanças):
+
+> Edite a imagem anexada, que é a tela de Memória de um app desktop chamado Solis. Mantenha
+> TUDO idêntico — tamanho da imagem (1536×1024), sidebar inteira, cores, fontes, tamanhos de
+> texto, espaçamentos, a lista e os textos das memórias. Não mude nada que não esteja na lista
+> abaixo. Mude só:
+> [para a 21] (1) no item "Está construindo o Solis…", que está em hover, mostre à direita do
+> texto duas ações pequenas, um lápis com "Corrigir" e uma lixeira com "Esquecer", no mesmo
+> cinza da data; (2) o item "Prefere ser chamado de Matheus, não de Mateus." está sendo
+> editado: o texto virou um campo de texto com borda fina e o cursor no fim, e embaixo dele
+> há dois botões, "Salvar" (destaque na cor dourada do app) e "Cancelar" (só texto); (3) no
+> item "Tem alergia a frutos do mar.", ponha um cadeado pequeno antes de "de: Saúde e
+> bem-estar", no mesmo cinza.
+> [para a 22] no item "Trabalha melhor de manhã cedo, entre 6h e 10h.", troque a linha de
+> baixo por uma confirmação na própria linha: "Esquecer esta memória? O Solis deixa de usar
+> isso." e dois botões à direita, "Esquecer" (vermelho discreto) e "Cancelar" (só texto).
+> [para a 23] tire o item "Trabalha melhor de manhã cedo, entre 6h e 10h." da lista (os de
+> baixo sobem) e mostre, centralizado na parte de baixo da área da lista, um aviso pequeno e
+> discreto, com fundo um pouco mais claro que o da tela e cantos arredondados: "Memória
+> esquecida" e, à direita, "Desfazer" na cor dourada.
+> Português do Brasil, com acentos corretos. Saída em PNG.
+
 ## O que eu NÃO preciso
 
 - Lockups da marca — já são gerados do vetor (`design/gerar-lockups.py`).
