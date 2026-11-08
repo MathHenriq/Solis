@@ -128,6 +128,13 @@
   --cfg-sw-l: 79px;
   --cfg-sw-h: 41px;
   --cfg-mini-razao: 1.53;
+  /* Cartao Cerebros - desenho proprio, PROVISORIO. Ver layout.configuracoes.cerebros. */
+  --cer-cartao-gap: 30px;
+  --cer-seta: 16px;
+  --cer-seta-alvo: 28px;
+  --cer-controles-gap: 16px;
+  --cer-posicao: 28px;
+  --cer-texto-max: 600px;
   --barra-l: 620px;
   --barra-h: 76px;
   --barra-base: 26px;

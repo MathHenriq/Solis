@@ -77,6 +77,39 @@ export async function esquecerMemoria(id: number): Promise<boolean> {
   }
 }
 
+/** Um cérebro em Configurações → Cérebros, na ordem em que é tentado.
+ *  `pausa.ate` é epoch em segundos: depois de falhar (cota, login), o cérebro
+ *  fica de lado até lá. O local nunca desliga nem pausa. */
+export type Cerebro = {
+  nome: 'claude' | 'codex' | 'local';
+  rotulo: string;
+  ligado: boolean;
+  instalado: boolean;
+  pausa: { ate: number; motivo: string } | null;
+};
+
+async function cerebros(caminho: string, init?: RequestInit): Promise<Cerebro[] | null> {
+  try {
+    const r = await fetch(`${BASE}${caminho}`, init);
+    return r.ok ? ((await r.json()) as { cerebros: Cerebro[] }).cerebros : null;
+  } catch {
+    return null;
+  }
+}
+
+/** null: servidor desligado. */
+export const listarCerebros = () => cerebros('/cerebros');
+
+/** Guarda a ordem e o liga/desliga; devolve a lista como o servidor ficou. */
+export const ordenarCerebros = (ordem: Pick<Cerebro, 'nome' | 'ligado'>[]) =>
+  cerebros('/cerebros', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ordem: ordem.map(({ nome, ligado }) => ({ nome, ligado })) }),
+  });
+
+export const retomarCerebro = (nome: Cerebro['nome']) => cerebros(`/cerebros/${nome}/retomar`, { method: 'POST' });
+
 const CHAVE_MODELO = 'solis.modelo';
 
 export function escolherModelo(nome: string): void {
