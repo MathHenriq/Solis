@@ -53,6 +53,21 @@ primeira das etapas de depois da resposta (`titulo`), e roda uma vez só por con
 Ollama a conversa fica sem título, com a primeira fala na lista, e a próxima mensagem tenta de
 novo.
 
+## Raciocínio nas tarefas de fundo
+
+Modelos que pensam antes de responder (qwen3) pensam também nas tarefas de fundo, e isso custa
+tempo de GPU. Cada tarefa foi medida com e sem raciocínio no qwen3:8b (08/11/2026):
+
+| Tarefa | Pensando | Sem pensar | Escolha |
+|---|---|---|---|
+| Título | 5 a 22 s | 0,2 a 0,4 s, títulos tão bons | sem pensar |
+| Resumo (6 fatos-chave, 34 mensagens) | 6 de 6 em 20,5 s | 6 de 6 em 2,4 s | sem pensar |
+| Aprendizado (12 casos) | 12 de 12, ~11 s | 10 de 12, ~1 s: perdeu uma preferência e a senha do wifi | **pensando** |
+
+No mesmo teste o llama3.2:3b acertou 6 dos 12 casos do aprendizado — e trocou "Trabalha na
+Syngenta" por "Mora em Sorocaba" —, e no resumo copiou a conversa em vez de resumir. As tarefas
+de fundo usam o modelo escolhido em Modelos locais; com o llama3.2:3b elas ficam fracas.
+
 ## Memória
 
 Depois de cada resposta, o servidor pergunta ao mesmo modelo, em segundo plano, o que a

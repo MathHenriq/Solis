@@ -290,7 +290,14 @@ cabe inteiro vai em parte pra RAM (offload) e fica várias vezes mais lento:
 - **Peso em disco:** texto pesa pouco (estimativa de ~20 MB por ano de uso diário). Os
   modelos é que ocupam gigabytes.
 - **Qualidade da extração:** um modelo pequeno guarda coisas inúteis e deixa passar fatos.
-  O pedido explícito ("grave") existe por isso.
+  O pedido explícito ("grave") existe por isso. Medido em 12 casos (08/11/2026, números em
+  `backend/README.md` → Raciocínio): qwen3:8b pensando acerta 12; llama3.2:3b acerta 6, troca a
+  memória errada numa mudança ("me mudei pra Sorocaba" apagou "Trabalha na Syngenta") e uma vez
+  ficou 120 s sem responder. As tarefas de fundo usam o modelo da conversa, e o padrão, quando
+  nada foi escolhido, é o primeiro da lista do Ollama — no notebook, o llama3.2:3b.
+- **Pedido atendido por engano:** se o modelo devolve, num "grave: ...", uma memória que já
+  existia (o llama3.2:3b repete as guardadas), o pedido conta como atendido e nada novo é
+  guardado — visto com "grave: minha cor preferida é verde".
 
 ## Como o trabalho acontece
 
