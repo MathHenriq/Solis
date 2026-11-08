@@ -153,10 +153,13 @@ Em aberto:
 - **A tela vazia (a saudação) ainda não tem o painel**: não há referência dela com ele, e ela é
   uma composição validada. Depois de "Nova conversa", a lista só volta quando a primeira
   mensagem sai.
-- **Títulos**: o modelo local dá um título curto ("Sistema de NF-e da loja") depois da
-  primeira resposta, como etapa de fundo. Testado com o Ollama simulado; falta ver com o modelo
-  de verdade como ele se sai. Sem o Ollama vale a primeira fala, e a próxima mensagem tenta de
-  novo. As conversas de antes disso ganham título na próxima mensagem que receberem.
+- **Títulos**: o modelo local dá um título curto depois da primeira resposta, como etapa de
+  fundo, sem o modo de raciocínio. Conferido no notebook (08/11/2026) nas 9 conversas da cópia
+  do banco: o qwen3:8b acerta quase todos ("Plano da semana", "Emissão de NF-e") em 0,2 a 0,4 s;
+  o llama3.2:3b é igualmente rápido mas erra mais ("O que está de mais urgente"). Com um exemplo
+  de título na instrução, o llama copiava o exemplo — a instrução ficou sem exemplos. Sem o
+  Ollama vale a primeira fala, e a próxima mensagem tenta de novo. As conversas de antes disso
+  ganham título na próxima mensagem que receberem.
 
 ## Para onde vamos
 
