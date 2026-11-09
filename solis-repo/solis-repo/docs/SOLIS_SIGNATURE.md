@@ -121,7 +121,11 @@ function tick() {
 
 ---
 
-### Feito (09/11/2026) — PROVISÓRIO até o Matheus aprovar os prints
+### Feito e aprovado pelo Matheus pelos prints (09/11/2026)
+
+O desenho está aprovado; só os limites do nível (-45 e -15 dBFS) seguem PROVISÓRIOS até a calibração
+com o microfone dele.
+
 
 - **Onde:** o símbolo do logo — no topo da Sidebar e na barra do topo da navegação por ícones —,
   porque é o único símbolo que está em toda tela. Parado, é o SolisSimbolo de sempre; ouvindo

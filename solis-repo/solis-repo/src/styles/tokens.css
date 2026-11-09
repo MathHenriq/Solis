@@ -358,7 +358,7 @@ body { background: var(--canvas); color: var(--text-primary); font-family: var(-
 }
 .solis-brilho[data-estado="executing"] { animation: solis-executing 0.9s ease-in-out infinite; }
 
-/* Reativo (states.glow.reativo, PROVISORIO): opacity e transform vem do nivel do
+/* Reativo (states.glow.reativo, aprovado em 09/11/2026): opacity e transform vem do nivel do
  * microfone, escritos por src/nivel.ts; o keyframe sai. Parte do minimo. */
 .solis-brilho[data-reativo] { animation: none; opacity: 0.35; transition: opacity 80ms linear, transform 80ms linear; }
 

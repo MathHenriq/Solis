@@ -327,7 +327,7 @@ das outras.
    modelo "Solis" treinado no Colab, pra GPU não trabalhar à toa.
 3. **Camada 3 da assinatura**: o brilho do símbolo do logo seguindo a voz enquanto o Solis ouve
    (microfone ou palavra "Solis"), medido no navegador, sem esperar o Whisper. Feito em
-   09/11/2026, PROVISÓRIO: prints em `design/brilho-voz-validacao.png`; os limites do nível saíram
+   09/11/2026 e aprovado pelo Matheus pelos prints (`design/brilho-voz-validacao.png`); os limites do nível saíram
    de vozes sintéticas e precisam de calibração com o microfone do Matheus. Detalhes e custo medido
    em `docs/SOLIS_SIGNATURE.md`. De quebra: o pulso do microfone passou pro ícone (custava ~330 ms
    de main thread em 6 s com o mouse em cima — `docs/PERFORMANCE.md` 1.1).

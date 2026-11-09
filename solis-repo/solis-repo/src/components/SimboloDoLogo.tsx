@@ -5,8 +5,9 @@ import { SolisSimbolo } from './SolisSimbolo';
 
 /** O símbolo do logo (Sidebar e barra do topo). Parado, é o SolisSimbolo de
  *  sempre. Enquanto o Solis ouve (microfone ou palavra "Solis"), ganha a camada
- *  de brilho seguindo a voz — Camada 3 da assinatura. PROVISÓRIO: desenho
- *  próprio, aguardando aprovação pelos prints (states.glow.reativo).
+ *  de brilho seguindo a voz — Camada 3 da assinatura. Desenho próprio,
+ *  aprovado pelo Matheus pelos prints em 09/11/2026
+ *  (design/brilho-voz-validacao.png; states.glow.reativo).
  *
  *  A caixa de fora é a mesma nos dois estados (bloco, na largura do token), e a
  *  arte nítida tem o mesmo viewBox: trocar de um pro outro não mexe 1px do

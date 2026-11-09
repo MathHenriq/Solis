@@ -68,7 +68,7 @@ def _estados(w):
           % (est, est, p['duration']))
     R = G['reativo']
     w('')
-    w('/* Reativo (states.glow.reativo, PROVISORIO): opacity e transform vem do nivel do')
+    w('/* Reativo (states.glow.reativo, aprovado em 09/11/2026): opacity e transform vem do nivel do')
     w(' * microfone, escritos por src/nivel.ts; o keyframe sai. Parte do minimo. */')
     w('.solis-brilho[data-reativo] { animation: none; opacity: %s; transition: opacity %sms linear, transform %sms linear; }'
       % (R['opacity'][0], R['passoMs'], R['passoMs']))

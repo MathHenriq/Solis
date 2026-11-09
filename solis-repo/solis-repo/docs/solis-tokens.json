@@ -608,7 +608,7 @@
       "farGain": "0.6",
       "artColor": "#FFF0D6",
       "reativo": {
-        "_status": "PROVISORIO - desenho proprio (09/11/2026), aguardando aprovacao pelos prints e calibracao com o microfone do Matheus.",
+        "_status": "Desenho proprio aprovado pelo Matheus pelos prints (09/11/2026, design/brilho-voz-validacao.png). pisoDb e tetoDb seguem PROVISORIOS ate calibrar com o microfone dele.",
         "_onde": "O simbolo do logo (sidebar e barra do topo) enquanto o Solis ouve: apertar pra falar, ou depois da palavra Solis. O nivel e medido no navegador por um AnalyserNode (src/nivel.ts), nunca pelo Whisper, que responde segundos depois.",
         "_mapa": "RMS da janela do analisador (2048 amostras, ~43 ms a 48 kHz) em dBFS: abaixo de pisoDb e silencio (brilho minimo), acima de tetoDb e o maximo. Media movel com pesoNovo pro valor novo (o brilho respira, nao tremula). A faixa de opacity e scale e a do estado listening (states.motion.listening) - o scale minimo, pelo mesmo motivo de la: o halo descola da arte se crescer.",
         "_medida": "Medido nas vozes sinteticas da palavra de ativacao (edge-tts, 4 vozes, 1686 janelas de 43 ms): fala p10 -39,3, mediana -22,2, p90 -14,9 dBFS. pisoDb fica abaixo do p10 (as consoantes baixas ainda acendem um pouco) e tetoDb no p90 (a mediana da fala da 0,75 do brilho). O microfone real pode ficar mais baixo ou mais alto: calibrar.",
