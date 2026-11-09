@@ -128,7 +128,8 @@ def vocabulario(modelos_instalados: list[str] | None = None) -> str:
 def disponivel() -> bool:
     try:
         import faster_whisper  # noqa: F401
-    except ImportError:
+    except ImportError as e:
+        log.warning('faster-whisper não importa neste processo: %s', e)
         return False
     return (PASTA / MODELO / 'model.bin').exists()
 
