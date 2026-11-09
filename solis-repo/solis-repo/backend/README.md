@@ -265,10 +265,9 @@ O Matheus entrega PDFs, `.md`, `.txt` e páginas da web pela tela Conhecimento
   mostra o progresso real (`indexados` / `trechos`) e diz quando parou (Ollama fora). Enquanto
   falta trecho, cada `GET /conhecimento` tenta indexar de novo (uma indexação por vez): quando o
   Ollama volta, a indexação anda sozinha.
-- **Na resposta:** até 4 trechos com similaridade de pelo menos 0,65 entram no pedido, com o nome
-  do arquivo e a página, numa seção própria. O piso foi medido (`busca.py`): perguntas sobre os
-  arquivos deram 0,68 a 0,82, perguntas sem relação 0,56 a 0,60. Falta calibrar com arquivos de
-  verdade.
+- **Na resposta:** até 4 trechos acima do piso do modelo de embeddings (0,37 no embeddinggemma)
+  entram no pedido, com o nome do arquivo e a página (ou o endereço), numa seção própria. Pergunta
+  em português acha texto em inglês (ver Busca por significado).
 - **Privado:** fonte marcada como privada tem o nome e o texto selados pelo cofre, fica fora do
   índice de busca e nunca vai pros cérebros de nuvem — o mesmo filtro dos trechos de conversa.
 - **Banco:** a conexão é uma só, então ler o PDF roda numa thread mas guardar não — escrever de
@@ -277,8 +276,30 @@ O Matheus entrega PDFs, `.md`, `.txt` e páginas da web pela tela Conhecimento
 
 ## Busca por significado
 
-Cada memória e cada mensagem vira um vetor com o `nomic-embed-text` (precisa estar instalado
-no Ollama). A cada mensagem nova, entram no pedido ao modelo:
+Cada memória, cada mensagem e cada trecho de arquivo vira um vetor com o **`embeddinggemma`**
+(621 MB, roda na CPU; precisa estar instalado no Ollama: `ollama pull embeddinggemma`).
+`SOLIS_EMBEDDING` troca o modelo.
+
+**Escolhido medindo** (09/11/2026): 10 perguntas em português contra páginas reais em inglês
+(FastAPI, SQLite, Tauri) e textos em português, mais 5 perguntas sem relação nenhuma.
+
+| Modelo | Fonte certa em 1º | Menor nota certa | Maior nota de ruído | Folga |
+|---|---|---|---|---|
+| nomic-embed-text (o de antes) | 7/10 | 0,54 | 0,65 | −0,10 |
+| qwen3-embedding:0.6b | 10/10 | 0,38 | 0,42 | −0,03 (e 11× mais lento) |
+| bge-m3 | 9/10 | 0,48 | 0,56 | −0,09 |
+| embeddinggemma | 10/10 | 0,45 | 0,29 | +0,16 |
+
+O nomic quase não ligava português com inglês ("como rodo uma tarefa depois de devolver a
+resposta no FastAPI?" dava 0,57 na página certa, nota de ruído). O embeddinggemma é o único em
+que um piso separa o que importa do ruído: 0,37, no meio da folga. Cada modelo usa os prefixos
+com que foi treinado (`busca.MODELOS`).
+
+**Trocar de modelo refaz os vetores.** Vetores de modelos diferentes não se comparam; o banco
+guarda qual modelo fez os seus (`ajustes`, `modelo_vetores`) e, se não for o atual, apaga todos
+e o servidor os refaz em segundo plano ao subir. Nenhum texto é tocado.
+
+A cada mensagem nova, entram no pedido ao modelo:
 
 - as memórias: todas, até 30; acima disso, as 12 mais parecidas com a mensagem mais as 5
   mais recentes;
@@ -292,9 +313,9 @@ terceira chamada ao modelo em toda resposta. O que virou resumo ainda pode volta
 exato pela busca.
 
 Sem o modelo de embeddings, volta pro comportamento anterior (as memórias mais recentes, sem
-trechos antigos) e o que não foi vetorizado fica pendente pra próxima vez. O piso de
-similaridade dos trechos (`PISO_TRECHO` em `solis/busca.py`) foi escolhido sem dados reais e
-precisa ser calibrado.
+trechos antigos) e o que não foi vetorizado fica pendente pra próxima vez. Os pisos
+(`busca.MODELOS`) foram medidos com um conjunto pequeno e precisam ser calibrados com as
+conversas e os arquivos de verdade.
 
 ## Testes
 
