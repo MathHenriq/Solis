@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, avisos, banco, busca, cerebros, conhecimento, memoria, ocr, ollama, resumo, roteador
+from . import apis, avisos, banco, busca, cerebros, conhecimento, memoria, ocr, ollama, resumo, roteador, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -58,10 +58,13 @@ async def _vida(_app):
     leitura = asyncio.create_task(ocr.ler_se_livre())
     # E a vigiar a Agenda e as Tarefas: o aviso do Windows na hora.
     vigia = asyncio.create_task(avisos.vigiar())
+    # E a tirar o Whisper da memória quando ninguém fala há um tempo.
+    ouvido = asyncio.create_task(voz.vigiar())
     yield
     indexacao.cancel()
     leitura.cancel()
     vigia.cancel()
+    ouvido.cancel()
 
 
 app = FastAPI(title='Solis', lifespan=_vida)
@@ -509,6 +512,26 @@ async def apagar_tarefa(id_: int):
     if not banco.apagar_tarefa(id_):
         return JSONResponse({'erro': 'tarefa_inexistente'}, status_code=404)
     return {'ok': True}
+
+
+# — Voz ————————————————————————————————————————————————————————————————————————————
+
+@app.get('/voz')
+async def estado_voz():
+    """Se dá pra falar: o faster-whisper instalado e o modelo na pasta."""
+    return {'disponivel': voz.disponivel(), 'modelo': voz.MODELO}
+
+
+@app.post('/voz')
+async def transcrever_voz(request: Request):
+    """O áudio cru no corpo (o que o MediaRecorder do navegador grava: webm com
+    opus), e o texto de volta. Nada é guardado: o áudio só vive neste pedido."""
+    try:
+        return await voz.transcrever(await request.body())
+    except voz.SemModelo as e:
+        return JSONResponse({'erro': 'sem_modelo', 'motivo': str(e)}, status_code=503)
+    except voz.AudioRuim as e:
+        return JSONResponse({'erro': 'audio_ruim', 'motivo': str(e)}, status_code=400)
 
 
 # — Agenda ————————————————————————————————————————————————————————————————————————

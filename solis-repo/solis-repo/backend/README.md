@@ -56,6 +56,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /agenda` | `{"titulo", "dia", "hora", "duracao", "onde", "privado"}` → cria. `400` com `titulo_vazio`, `dia_invalido`, `hora_invalida` ou `duracao_invalida` |
 | `PATCH /agenda/{id}` | só o que vier muda; `{"onde": ""}` tira o lugar. `404` se não existe |
 | `DELETE /agenda/{id}` | apaga |
+| `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |
+| `POST /voz` | o áudio cru no corpo (webm/opus do navegador, wav...) → `{"texto", "segundos", "duracao", "modelo", "onde"}`. Nada é guardado. `503` com `sem_modelo`, `400` com `audio_ruim` |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
 | `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
@@ -332,6 +334,24 @@ código: mensagem que cancela, desmarca ou adia não cria compromisso, e a taref
 compromisso sai. Os dos próximos 7 dias (até 20) vão no pedido ao modelo; o privado (pedido de
 sigilo, memória privada da mesma mensagem, ou saúde e dinheiro no título) não vai pra nuvem.
 Repetição ("toda terça") não existe ainda: vira a próxima.
+
+## Voz
+
+`solis/voz.py`: apertar pra falar. O front grava pelo microfone do navegador e manda o áudio; o
+Whisper (`small`, pelo faster-whisper) transcreve no computador e o texto volta pra caixa. O áudio só
+vive no pedido.
+
+- **Modelos** em `%LOCALAPPDATA%\Solis\whisper\` (baixados do Hugging Face: `Systran/faster-whisper-small`,
+  e pra comparar `-medium` e `deepdml/faster-whisper-large-v3-turbo-ct2`). `SOLIS_WHISPER` troca.
+- **GPU** (`int8_float16`, 455 MB) com a cuBLAS do Ollama (`lib/ollama/cuda_v12`, posta no PATH do
+  processo); se não carregar — ou falhar na primeira transcrição, que é quando a cuBLAS é aberta —,
+  CPU (`int8`) dali em diante. `SOLIS_WHISPER_DISPOSITIVO=cpu|cuda` força.
+- **Vocabulário:** o `initial_prompt` do Whisper leva os nomes que o Solis conhece (os das memórias,
+  dos títulos das conversas, dos arquivos do Conhecimento e as famílias dos modelos instalados). Foi
+  o que mais pesou na medição: erro de 8,2% pra 2,1%.
+- O modelo sobe na primeira fala (~2,5 s) e sai da memória depois de 10 min sem fala.
+- O `decode_audio` do faster-whisper 1.2.1 não funciona com o `av` 19 (passa um parâmetro que saiu):
+  a decodificação é feita direto pelo PyAV (`voz.decodificar`).
 
 ## Avisos na hora
 
