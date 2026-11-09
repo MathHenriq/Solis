@@ -62,6 +62,11 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /fala` | `{"texto", "conversa", "voz"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz` e por que as anteriores caíram em `X-Solis-Antes`. `voz` troca a do Gemini só neste pedido. `503` com `sem_voz` e os motivos se nenhuma voz deu |
 | `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |
 | `POST /voz` | o áudio cru no corpo (webm/opus do navegador, wav...) → `{"texto", "segundos", "duracao", "modelo", "onde"}`. Nada é guardado. `503` com `sem_modelo`, `400` com `audio_ruim` |
+| `GET /ativacao` | `{"chave", "palavra", "idioma"}`: o que já está no lugar pra ouvir "Solis" |
+| `PUT /ativacao/chave` | `{"chave"}` → a AccessKey do Picovoice, conferida (com o modelo, se já houver) e guardada selada. Nunca volta. `400` com `chave_recusada` ou `modelo_recusado` |
+| `PUT /ativacao/palavra` | o `.ppn` do console do Picovoice, cru no corpo → guarda depois de conferir com a chave. `400` com `chave_recusada` ou `modelo_recusado` |
+| `DELETE /ativacao` | apaga a chave e o modelo da palavra |
+| `WS /escuta` | o navegador manda quadros de 512 amostras PCM 16 bits a 16 kHz; volta `{"tipo": "ativou"}` ao ouvir a palavra e, quando a pessoa para de falar, `{"tipo": "texto", "texto"}` ou `{"tipo": "nada"}`. `{"pausa": true}` suspende (o Solis está falando). `{"tipo": "erro"}` se falta configuração |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
 | `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
@@ -370,6 +375,27 @@ vive no pedido.
 - O modelo sobe na primeira fala (~2,5 s) e sai da memória depois de 10 min sem fala.
 - O `decode_audio` do faster-whisper 1.2.1 não funciona com o `av` 19 (passa um parâmetro que saiu):
   a decodificação é feita direto pelo PyAV (`voz.decodificar`).
+
+## Palavra de ativação
+
+`solis/ativacao.py`: dizer "Solis, ..." sem clicar. O navegador abre o microfone, um AudioWorklet
+(`public/escuta-processador.js`) entrega o áudio em 16 kHz e o WebSocket `/escuta` o traz pra cá. O
+**Porcupine** (Picovoice) ouve a palavra na CPU; depois dela, o fim da fala é achado pela energia do
+som e o trecho vai pro Whisper (`voz.py`). O texto volta pro navegador e vira mensagem na conversa. O
+áudio não vai pro disco nem sai do computador.
+
+- **O que o Matheus põe:** a AccessKey (conta grátis no console.picovoice.ai) e o modelo `solis.ppn`
+  treinado lá (português, Windows), os dois em Configurações → Voz → Palavra de ativação. A chave
+  fica selada no cofre (`chave:picovoice`).
+- **Arquivos** em `%LOCALAPPDATA%\Solis\voz\porcupine\`: o `.ppn` e o `porcupine_params_pt.pv`
+  (984 KB, baixado do repositório oficial do Porcupine na primeira vez; o pacote só traz o inglês).
+- **Fim da fala** (PROVISÓRIO até medir com a voz real): pelo menos 0,4 s de fala, 0,9 s de
+  silêncio encerra, no máximo 15 s; sem falar nada em 5 s depois da palavra, desiste. O silêncio é
+  medido contra o ruído do ambiente (12 dB acima do piso, que se ajusta sozinho).
+  `SOLIS_ATIVACAO_SENSIBILIDADE` (0,5) troca a sensibilidade do Porcupine.
+- Enquanto o Solis fala, a escuta pausa — senão ele se ouviria.
+- A DLL do Porcupine carrega sob o Controle Inteligente de Aplicativos (conferido); o WebSocket
+  usa o `wsproto` (Python puro).
 
 ## Avisos na hora
 

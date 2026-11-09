@@ -45,7 +45,7 @@ function Acoes({
   );
 }
 
-export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = {}) {
+export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: string) => void; ouvindo?: boolean } = {}) {
   const [rascunho, definirRascunho] = useState('');
   const campo = useRef<HTMLInputElement>(null);
   const ditado = useRef(false);
@@ -124,10 +124,10 @@ export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = 
             onChange={(e) => definirRascunho(e.target.value)}
             className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
             style={{ fontSize: 16 }}
-            placeholder={voz.dica ?? 'Fale com o Solis…'}
+            placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
-          <Acoes interativo voz={voz.estado} aoFalar={voz.alternar} />
+          <Acoes interativo voz={ouvindo ? 'ouvindo' : voz.estado} aoFalar={voz.alternar} />
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}

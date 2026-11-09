@@ -34,12 +34,25 @@ export function definirFalaAutomatica(ligada: boolean) {
   }
 }
 
+/** Quem precisa saber que o Solis está falando: a escuta da palavra pausa
+ *  enquanto ele fala, senão a própria voz dele (dizendo "Solis") o acordaria. */
+const ouvintesDaFala = new Set<(falando: boolean) => void>();
+
+export function aoMudarFala(ouvinte: (falando: boolean) => void): () => void {
+  ouvintesDaFala.add(ouvinte);
+  return () => ouvintesDaFala.delete(ouvinte);
+}
+
 export function useFala(conversa: number | null) {
   const [falando, definirFalando] = useState<number | null>(null);
   const [preparando, definirPreparando] = useState(false);
   const [falhou, definirFalhou] = useState<number | null>(null);
   const vez = useRef(0);
   const audio = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    ouvintesDaFala.forEach((o) => o(falando !== null));
+  }, [falando]);
 
   const parar = () => {
     vez.current += 1;

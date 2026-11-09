@@ -249,11 +249,14 @@ export function Thread({
   respondendo,
   aoEnviar,
   conversa = null,
+  ouvindo = false,
 }: {
   turnos: Turno[];
   respondendo: boolean;
   aoEnviar: (texto: string) => void;
   conversa?: number | null;
+  /** A palavra "Solis" foi ouvida e o que vem depois está sendo escutado. */
+  ouvindo?: boolean;
 }) {
   const [rascunho, definirRascunho] = useState('');
   const campo = useRef<HTMLInputElement>(null);
@@ -367,10 +370,10 @@ export function Thread({
             onChange={(e) => definirRascunho(e.target.value)}
             className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
             style={{ paddingLeft: 29, fontSize: 'var(--mem-item-texto)' }}
-            placeholder={voz.dica ?? 'Fale com o Solis…'}
+            placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
-          <BotaoMicrofone estado={voz.estado} aoClicar={voz.alternar} tamanho={22} />
+          <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
           <button
             type="submit"
             className="bg-accent text-canvas flex items-center justify-center shrink-0"

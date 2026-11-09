@@ -5,6 +5,8 @@ import { GavetaConversas, type PropsLista } from './components/ListaConversas';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
 import { useConversa } from './conversa';
+import { useEscuta } from './escuta';
+import { falaAutomatica, respostaFalada } from './fala';
 import { useTheme } from './theme/useTheme';
 import { Agenda } from './views/Agenda';
 import { Conhecimento } from './views/Conhecimento';
@@ -29,6 +31,14 @@ export default function App() {
   // mensagens — e a conversa mora aqui, então trocar de tela não a apaga.
   const conversa = useConversa();
   const { tema, setTema, cena, setCena, nav, setNav } = useTheme();
+  // "Solis, ..." de qualquer tela: o que veio depois da palavra vira mensagem na
+  // conversa aberta, e a resposta é falada (se "Responder falando" estiver ligado).
+  const escuta = useEscuta((texto) => {
+    definirTela('conversa');
+    respostaFalada.proxima = falaAutomatica();
+    conversa.enviar(texto);
+  });
+  const ouvindo = escuta.estado === 'ouvindo';
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
@@ -54,9 +64,9 @@ export default function App() {
   const TELAS: Record<string, () => ReactElement> = {
     conversa: () =>
       conversa.turnos.length ? (
-        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} conversa={conversa.conversa} />
+        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} conversa={conversa.conversa} ouvindo={ouvindo} />
       ) : (
-        <Conversa aoEnviar={conversa.enviar} />
+        <Conversa aoEnviar={conversa.enviar} ouvindo={ouvindo} />
       ),
     memoria: () => <Memoria />,
     modelos: () => <ModelosLocais />,
