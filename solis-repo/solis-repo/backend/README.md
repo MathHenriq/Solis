@@ -56,8 +56,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /agenda` | `{"titulo", "dia", "hora", "duracao", "onde", "privado"}` → cria. `400` com `titulo_vazio`, `dia_invalido`, `hora_invalida` ou `duracao_invalida` |
 | `PATCH /agenda/{id}` | só o que vier muda; `{"onde": ""}` tira o lugar. `404` se não existe |
 | `DELETE /agenda/{id}` | apaga |
+| `GET /fala/ajustes` | a voz e o modelo do Gemini escolhidos, e as opções (`vozes`, `modelos`) |
+| `PUT /fala/ajustes` | `{"voz", "modelo"}` → guarda; trocar o modelo tira o Gemini do descanso (o limite é por modelo). `400` se a voz ou o modelo não existe |
 | `POST /fala/partes` | `{"texto"}` → `{"partes", "lingua"}`: a resposta em pedaços pra falar um de cada vez (o primeiro curto) |
-| `POST /fala` | `{"texto", "conversa"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz`. `503` com `sem_voz` e os motivos se nenhuma voz deu |
+| `POST /fala` | `{"texto", "conversa", "voz"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz` e por que as anteriores caíram em `X-Solis-Antes`. `voz` troca a do Gemini só neste pedido. `503` com `sem_voz` e os motivos se nenhuma voz deu |
 | `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |
 | `POST /voz` | o áudio cru no corpo (webm/opus do navegador, wav...) → `{"texto", "segundos", "duracao", "modelo", "onde"}`. Nada é guardado. `503` com `sem_modelo`, `400` com `audio_ruim` |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
@@ -339,8 +341,9 @@ Repetição ("toda terça") não existe ainda: vira a próxima.
 
 ## O Solis falando
 
-`solis/fala.py`: a resposta vira voz por uma cadeia, na ordem — Gemini TTS (`gemini-3.8-flash-tts`,
-pelo endpoint `interactions`, com a chave do Gemini dos Cérebros) → Ava (`en-US-AvaMultilingualNeural`,
+`solis/fala.py`: a resposta vira voz por uma cadeia, na ordem — Gemini TTS (voz Aoede, modelo
+`gemini-3.8-flash-lite-tts`, pelo endpoint `interactions`, com a chave do Gemini dos Cérebros; trocar
+pela rota `/fala/ajustes`. O `gemini-3.8-flash-tts` grátis dá só 10 pedidos por dia) → Ava (`en-US-AvaMultilingualNeural`,
 o serviço de leitura do Edge pelo `edge-tts`: sem chave, sem garantia — medido de 1,3 a 9 s por
 frase) → Kokoro local (`kokoro-onnx`, pf_dora em português e af_heart em inglês, em
 `%LOCALAPPDATA%\Solis\voz\kokoro`). A que falhar por limite ou chave (401/403/429) descansa 10 min.

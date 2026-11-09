@@ -304,8 +304,13 @@ das outras.
    a fala na CPU e entrando em repetição; a versão original e o XTTS pedem o PyTorch, que o Controle
    Inteligente de Aplicativos do Windows bloqueia (o WSL2 é o caminho pra destravar sem desligar a
    proteção — decisão do Matheus). Decisão dele: nuvem melhor na frente, Ava de reserva nas duas
-   línguas, a local não sai. Falta: a chave do Gemini (e ouvir as vozes dele pra escolher), e o aval
-   dos prints (`design/fala-validacao.png`, PROVISÓRIO).
+   línguas, a local não sai. Com a chave do Gemini: a voz **Aoede**, escolhida pelo Matheus ouvindo 8
+   das 30, no **gemini-3.8-flash-lite-tts** grátis "por ora". O flash-tts grátis dá 10 pedidos por
+   dia (cada resposta são 2 a 4) — pouco pra se acostumar; o limite do Lite está por descobrir no
+   uso. Pago, pelo preço oficial: US$ 0,0015 (Lite) ou 0,00225 (Flash) a cada 10 s de fala até o fim
+   de 2026, o dobro em 2027 — uns US$ 2 a 3 por mês com 20 respostas faladas por dia; e no pago o
+   Google não usa o conteúdo (no grátis, usa). Falta o aval do botão (`design/fala-validacao.png`,
+   PROVISÓRIO) e o seletor de voz em Configurações (hoje é pela rota `/fala/ajustes`).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 

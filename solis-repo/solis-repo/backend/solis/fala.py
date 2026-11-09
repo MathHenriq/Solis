@@ -9,8 +9,13 @@ Aplicativos bloqueia. Decisão dele: nuvem na frente, com reserva, e a local
 não sai — é o que fala sem internet.
 
 A cadeia, na ordem:
-1. Gemini TTS (gemini-3.8-flash-tts), com a chave do Gemini colada em
-   Configurações → Cérebros. A mais natural; detecta a língua sozinho.
+1. Gemini TTS, com a chave do Gemini colada em Configurações → Cérebros. A
+   mais natural; detecta a língua sozinho. Voz Aoede, escolhida pelo Matheus
+   ouvindo 8 das 30. Modelo gemini-3.8-flash-lite-tts no plano grátis: o
+   flash-tts grátis dá 10 pedidos por dia (medido com a chave dele, 09/11/2026)
+   e cada resposta são 2 a 4 pedidos; o limite do Lite a documentação não diz.
+   Pago (preço oficial até 31/12/2026): US$ 0,0015 a cada 10 s de fala no Lite,
+   0,00225 no Flash — e no pago o Google não usa o conteúdo pros produtos dele.
 2. Ava (en-US-AvaMultilingualNeural), a voz do Copilot pelo serviço de leitura
    do Edge: sem chave, fala português e inglês. Sem garantia de serviço —
    medido de 1,3 a 8 s até o primeiro áudio, e uma vez não respondeu.
@@ -38,8 +43,8 @@ from . import banco, memoria
 log = logging.getLogger('solis.fala')
 
 PASTA = Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'Solis' / 'voz'
-GEMINI_MODELO = os.environ.get('SOLIS_FALA_GEMINI', 'gemini-3.8-flash-tts')
-GEMINI_VOZ = os.environ.get('SOLIS_FALA_GEMINI_VOZ', 'Sulafat')  # até o Matheus escolher (ajuste voz_gemini)
+GEMINI_MODELO = os.environ.get('SOLIS_FALA_GEMINI', 'gemini-3.8-flash-lite-tts')
+GEMINI_VOZ = os.environ.get('SOLIS_FALA_GEMINI_VOZ', 'Aoede')  # escolhida pelo Matheus ouvindo (09/11/2026)
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions'
 AVA = 'en-US-AvaMultilingualNeural'
 KOKORO_VOZ = {'pt': ('pf_dora', 'pt-br'), 'en': ('af_heart', 'en-us')}
