@@ -399,7 +399,7 @@
       "buttonGap": "12px",
       "_botoes": "Setas de 68x55 e Hoje de 115x55 na imagem, 18 px entre eles. Altura pelo --mem-acao-h (40px, o dos botoes de contorno, medido na referencia 17); larguras na mesma proporcao: 49 e 84, e 12 entre eles. A versao estatica usava por engano a largura do interruptor (79px) — o mesmo erro que o Adicionar fonte teve.",
       "_divergencias": "O topo dos botoes: na imagem eles comecam 20 px abaixo do topo da maiuscula do titulo; no app ficam na altura do titulo, como o Adicionar fonte (referencia 17, aprovado) e o Nova tarefa. As duas referencias se contradizem e o cabecalho e um componente so (Tela): vale o que ja foi aprovado.",
-      "_novo": "PROVISORIO (09/11/2026), desenho proprio no padrao aprovado de Tarefas: Novo compromisso no cabecalho, editar e apagar no hover, edicao no proprio item (titulo, dia, hora, duracao, lugar), apagar com Desfazer, dia sem compromisso com o estado vazio, e o compromisso sem hora com 'dia todo' na coluna da hora.",
+      "_novo": "Desenho proprio (09/11/2026), aprovado pelo Matheus pelos prints no mesmo dia (design/agenda-validacao.png), no padrao de Tarefas: Novo compromisso no cabecalho, editar e apagar no hover, edicao no proprio item (titulo, dia, hora, duracao, lugar), apagar com Desfazer, dia sem compromisso com o estado vazio, e o compromisso sem hora com 'dia todo' na coluna da hora.",
       "durationWidth": "112px",
       "placeWidth": "190px"
     },

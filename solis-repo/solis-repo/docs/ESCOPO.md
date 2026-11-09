@@ -212,7 +212,7 @@ das outras.
   liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
   aprovado pelo Matheus pelos prints (`design/cerebros-validacao.png`).
 
-### Tarefas e Agenda — feitas (09/11/2026); Tarefas aprovada, Agenda aguardando o aval
+### Tarefas e Agenda — feitas e aprovadas (09/11/2026)
 
 - [x] Tarefas no banco, pela tela (nova, editar com data e hora, marcar, apagar com Desfazer) e
   tiradas da conversa: "me lembra de pagar a luz dia 15" vira tarefa com o prazo em data, e o chip
@@ -233,9 +233,9 @@ das outras.
   botões com 79px de altura (a largura do interruptor, o mesmo erro do Adicionar fonte), o título de
   cada compromisso em 20px em vez do corpo de 16, a linha do tempo quebrada, sem as divisórias, e o
   cartão da vez sem envolver a hora.
-- [ ] Aval do Matheus no desenho novo da Agenda (`design/agenda-validacao.png`): Novo compromisso,
-  editar e apagar no hover, a edição com duração e lugar, "dia todo", o dia livre e o chip "Na
-  agenda". PROVISÓRIO até lá.
+- [x] Desenho novo da Agenda aprovado pelo Matheus pelos prints (`design/agenda-validacao.png`): Novo
+  compromisso, editar e apagar no hover, a edição com duração e lugar, "dia todo", o dia livre e o
+  chip "Na agenda".
 - Limites conhecidos: compromisso que se repete ("toda terça às 19h") vira só a próxima vez; e o
   Solis não avisa na hora (não há notificação) — o compromisso fica na Agenda e no pedido ao
   modelo, mas nada toca às 9h.

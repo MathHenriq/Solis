@@ -24,7 +24,7 @@ import {
  *  ("quinta às 15h tenho consulta com o dentista"). No dia de hoje, o que está
  *  acontecendo (ou o próximo) vira o cartão da referência.
  *
- *  PROVISÓRIO — desenho próprio no padrão aprovado de Tarefas: Novo compromisso,
+ *  Desenho próprio, aprovado pelo Matheus em 09/11/2026 (design/agenda-validacao.png), no padrão de Tarefas: Novo compromisso,
  *  editar e apagar no hover, a edição no próprio item, apagar com Desfazer, o dia
  *  vazio, e "dia todo" na coluna da hora. */
 
