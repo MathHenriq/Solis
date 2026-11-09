@@ -40,6 +40,12 @@ TRECHOS = 5
 # no notebook — alto demais e nada antigo aparece; baixo demais e entra ruído.
 PISO_TRECHO = 0.55
 TRECHO_MAX = 400
+# Trechos dos arquivos do Conhecimento. Um trecho de arquivo tem ~200 palavras
+# (conhecimento.PALAVRAS), então vai inteiro. PROVISÓRIO: mesmo piso das
+# conversas, sem calibrar — o texto de um PDF é mais longo e mais "neutro" que
+# uma fala, e a similaridade tende a sair diferente.
+ARQUIVOS = 4
+PISO_ARQUIVO = 0.55
 
 LOTE = 64
 
@@ -75,6 +81,19 @@ async def indexar_pendentes() -> int:
                 return total
             banco.guardar_vetores(tipo, [(p['id'], _bytes(v)) for p, v in zip(pendentes, vetores)])
             total += len(pendentes)
+    # Os trechos dos arquivos por último: um PDF grande são centenas, e a
+    # memória do que acabou de ser dito não pode esperar por eles.
+    while pendentes := banco.trechos_sem_vetor(LOTE):
+        try:
+            vetores = await ollama.embeddings(MODELO, [DOCUMENTO + p['texto'] for p in pendentes])
+        except (ollama.OllamaIndisponivel, ollama.ModeloInexistente):
+            log.info('embeddings indisponíveis; trechos de arquivo ficam pra depois')
+            return total
+        if len(vetores) != len(pendentes):
+            log.warning('embeddings: %d trechos, %d vetores', len(pendentes), len(vetores))
+            return total
+        banco.guardar_vetores_trechos([(p['id'], _bytes(v)) for p, v in zip(pendentes, vetores)])
+        total += len(pendentes)
     return total
 
 
@@ -111,7 +130,10 @@ async def memorias_parecidas(texto: str, quantas: int) -> list[dict]:
 
 
 async def contexto(mensagem: str, conversa: int, desde: int = 0) -> tuple[list[dict], list[dict]]:
-    """(memórias, trechos de conversas antigas) que vão no pedido desta mensagem.
+    """(memórias, trechos) que vão no pedido desta mensagem. Os trechos são de
+    conversas antigas e, marcados com `arquivo`, dos arquivos do Conhecimento —
+    numa lista só porque o caminho deles é o mesmo, inclusive o filtro do que é
+    privado antes da nuvem (`privada`).
 
     Da conversa aberta, só ficam de fora as mensagens depois de `desde` — essas
     já vão inteiras no histórico. As de antes viraram resumo, e um trecho exato
@@ -140,4 +162,25 @@ async def contexto(mensagem: str, conversa: int, desde: int = 0) -> tuple[list[d
                 trechos.append({**msg, 'texto': msg['texto'][:TRECHO_MAX]})
             if len(trechos) == TRECHOS:
                 break
-    return memorias, trechos
+    return memorias, trechos + _arquivos(q)
+
+
+def _arquivos(q: np.ndarray) -> list[dict]:
+    ids, m = _matriz(banco.vetores_trechos())
+    if not ids:
+        return []
+    sims = m @ q
+    melhores = [ids[i] for i in np.argsort(sims)[::-1][:ARQUIVOS] if sims[i] >= PISO_ARQUIVO]
+    por_id = {t['id']: t for t in banco.trechos_por_id(melhores)}
+    return [
+        {
+            'arquivo': True,
+            'id': t['id'],
+            'documento': t['documento'],
+            'nome': t['nome'],
+            'pagina': t['pagina'],
+            'texto': t['texto'],
+            'privada': t['privado'],
+        }
+        for t in (por_id[i] for i in melhores if i in por_id)
+    ]

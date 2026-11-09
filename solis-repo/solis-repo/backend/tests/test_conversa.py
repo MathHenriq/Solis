@@ -159,7 +159,7 @@ def test_etapas_da_resposta_inteira_em_ordem(monkeypatch):
     # Antes da resposta, a resposta, e depois dela — as de depois chegam pelo
     # mesmo stream, que só fecha quando o aprendizado e o resumo terminam.
     assert etapas == ['memoria', 'cerebro', 'primeira_palavra', 'fim', 'aprendizado', 'indexacao', 'resumo']
-    assert lista[0] == {'etapa': 'memoria', 't': lista[0]['t'], 'memorias': 0, 'trechos': 0}
+    assert lista[0] == {'etapa': 'memoria', 't': lista[0]['t'], 'memorias': 0, 'trechos': 0, 'arquivos': 0}
     tempos = [e['t'] for e in lista if 't' in e]
     assert tempos == sorted(tempos)
     # O texto chega entre a primeira palavra e o fim.

@@ -65,17 +65,32 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
             'Resumo do começo desta conversa (essas mensagens não estão mais abaixo, '
             'só este resumo delas):\n' + resumo
         )
-    if trechos:
+    # Os trechos dos arquivos (Conhecimento) vêm na mesma lista, marcados.
+    arquivos = [t for t in trechos or [] if t.get('arquivo')]
+    conversas = [t for t in trechos or [] if not t.get('arquivo')]
+    if conversas:
         # Com data e autor: "o Solis disse" e "o Matheus disse" pesam diferente,
         # e "em março" responde "quando a gente falou disso?". O texto vai numa
         # linha só: uma resposta antiga com lista viraria itens soltos no meio
         # desta lista, misturados com ela.
-        linhas = [f'- [{t["criada"][:10]}] {autor(t)}: {" ".join(t["texto"].split())}' for t in trechos]
+        linhas = [f'- [{t["criada"][:10]}] {autor(t)}: {" ".join(t["texto"].split())}' for t in conversas]
         partes.append(
             'Trechos de conversas antigas que parecem ligados a esta mensagem '
             '(use se ajudarem; ignore se não):\n' + '\n'.join(linhas)
         )
+    if arquivos:
+        # Com o nome do arquivo e a página: o modelo pode dizer de onde tirou, e
+        # o Matheus conferir no original.
+        linhas = [f'- [{_fonte(a)}] {a["texto"]}' for a in arquivos]
+        partes.append(
+            'Trechos dos arquivos que o Matheus deu pro Solis ler (Conhecimento). Use se '
+            'ajudarem e diga de qual arquivo veio; ignore se não:\n' + '\n'.join(linhas)
+        )
     return '\n\n'.join(partes)
+
+
+def _fonte(arquivo: dict) -> str:
+    return f'{arquivo["nome"]}, pág. {arquivo["pagina"]}' if arquivo.get('pagina') else arquivo['nome']
 
 
 def sistema(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:

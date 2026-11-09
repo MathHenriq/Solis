@@ -41,7 +41,8 @@ async def memorias_do_matheus() -> list[dict]:
 
 @servidor.tool()
 async def buscar_na_memoria(assunto: str, quantas: int = 10) -> dict:
-    """Memórias e trechos de conversas antigas ligados a um assunto, por
+    """Memórias, trechos de conversas antigas e trechos dos arquivos que o
+    Matheus deu pro Solis ler (com o nome e a página), ligados a um assunto, por
     significado (não precisa ser a palavra exata)."""
     quantas = max(1, min(quantas, 30))
     parecidas = await busca.memorias_parecidas(assunto, quantas * 2)
@@ -52,7 +53,13 @@ async def buscar_na_memoria(assunto: str, quantas: int = 10) -> dict:
         'trechos': [
             {'data': t['criada'][:10], 'quem': ollama.autor(t), 'texto': t['texto']}
             for t in trechos
-            if not t['privada']
+            if not t['privada'] and not t.get('arquivo')
+        ],
+        # Dos arquivos do Conhecimento, com o nome e a página pra citar.
+        'arquivos': [
+            {'arquivo': t['nome'], 'pagina': t['pagina'], 'texto': t['texto']}
+            for t in trechos
+            if not t['privada'] and t.get('arquivo')
         ],
     }
 

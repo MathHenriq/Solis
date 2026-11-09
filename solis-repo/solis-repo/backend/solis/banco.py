@@ -152,6 +152,42 @@ MIGRACOES = [
         valor TEXT NOT NULL
     );
     """,
+    # 8 — Conhecimento: os arquivos que o Matheus entrega pro Solis ler.
+    """
+    -- Só o texto extraído fica, cortado em trechos; o arquivo original não é
+    -- copiado. O hash impede o mesmo arquivo de entrar duas vezes. Fonte
+    -- privada tem o nome e os trechos selados pelo cofre e fica fora do
+    -- índice de busca, como a memória privada.
+    CREATE TABLE documentos (
+        id      INTEGER PRIMARY KEY,
+        nome    TEXT NOT NULL,
+        tipo    TEXT NOT NULL CHECK (tipo IN ('pdf', 'nota')),
+        paginas INTEGER,
+        bytes   INTEGER NOT NULL,
+        hash    TEXT NOT NULL UNIQUE,
+        privado INTEGER NOT NULL DEFAULT 0,
+        criado  TEXT NOT NULL
+    );
+    -- O vetor fica no próprio trecho: a tabela vetores só aceita memória e
+    -- mensagem (CHECK), e mudar um CHECK no SQLite é recriar a tabela.
+    CREATE TABLE trechos (
+        id        INTEGER PRIMARY KEY,
+        documento INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+        ordem     INTEGER NOT NULL,
+        pagina    INTEGER,
+        texto     TEXT NOT NULL,
+        vetor     BLOB
+    );
+    CREATE INDEX trechos_do_documento ON trechos (documento, ordem);
+    CREATE VIRTUAL TABLE trechos_fts USING fts5(texto, tokenize='unicode61 remove_diacritics 2');
+    CREATE TRIGGER trechos_fts_inclui AFTER INSERT ON trechos
+    WHEN (SELECT privado FROM documentos WHERE id = new.documento) = 0 BEGIN
+        INSERT INTO trechos_fts(rowid, texto) VALUES (new.id, new.texto);
+    END;
+    CREATE TRIGGER trechos_fts_apaga AFTER DELETE ON trechos BEGIN
+        DELETE FROM trechos_fts WHERE rowid = old.id;
+    END;
+    """,
 ]
 
 
@@ -595,3 +631,137 @@ def importadas_por_aprender() -> list[dict]:
 def marcar_aprendida(conversa: int) -> None:
     with _con() as c:
         c.execute('UPDATE conversas SET aprendida = 1 WHERE id = ?', (conversa,))
+
+
+# — Conhecimento (os arquivos do Matheus) ————————————————————————————————————————
+
+class Duplicado(Exception):
+    """O mesmo arquivo (mesmo conteúdo) já está no Conhecimento."""
+
+    def __init__(self, documento: int):
+        super().__init__(documento)
+        self.documento = documento
+
+
+def adicionar_documento(
+    nome: str, tipo: str, paginas: int | None, tamanho: int, hash_: str,
+    trechos: list[tuple[int | None, str]], privado: bool = False,
+) -> int:
+    """Guarda o documento e os trechos (página, texto), ainda sem vetor."""
+    existente = _con().execute('SELECT id FROM documentos WHERE hash = ?', (hash_,)).fetchone()
+    if existente:
+        raise Duplicado(existente['id'])
+    selar = cofre.selar if privado else (lambda t: t)
+    with _con() as c:
+        doc = c.execute(
+            'INSERT INTO documentos (nome, tipo, paginas, bytes, hash, privado, criado) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (selar(nome), tipo, paginas, tamanho, hash_, int(privado), _agora()),
+        ).lastrowid
+        c.executemany(
+            'INSERT INTO trechos (documento, ordem, pagina, texto) VALUES (?, ?, ?, ?)',
+            [(doc, i, pagina, selar(texto)) for i, (pagina, texto) in enumerate(trechos)],
+        )
+    return doc
+
+
+def documentos() -> list[dict]:
+    """Do mais novo pro mais antigo, com quantos trechos têm e quantos já
+    viraram vetor — a diferença é o "Indexando…" da tela."""
+    linhas = _con().execute(
+        'SELECT d.id, d.nome, d.tipo, d.paginas, d.bytes, d.privado, d.criado, '
+        'COUNT(t.id) AS trechos, COUNT(t.vetor) AS indexados '
+        'FROM documentos d LEFT JOIN trechos t ON t.documento = d.id '
+        'GROUP BY d.id ORDER BY d.criado DESC, d.id DESC'
+    )
+    return [{**dict(l), 'nome': cofre.abrir(l['nome']), 'privado': bool(l['privado'])} for l in linhas]
+
+
+def buscar_documentos(busca: str) -> list[dict]:
+    """Os documentos cujo nome ou texto tem todas as palavras da busca (por
+    prefixo, sem acento). O texto das privadas não está no índice: nelas vale
+    só o nome."""
+    palavras = re.findall(r'\w+', busca)
+    todos = documentos()
+    if not palavras:
+        return todos
+    consulta = ' '.join(f'"{p}"*' for p in palavras)
+    pelo_texto = {
+        l['documento']
+        for l in _con().execute(
+            'SELECT DISTINCT t.documento FROM trechos_fts JOIN trechos t ON t.id = trechos_fts.rowid '
+            'WHERE trechos_fts MATCH ?',
+            (consulta,),
+        )
+    }
+    procuradas = [_sem_acento(p) for p in palavras]
+
+    def no_nome(d):
+        tem = re.findall(r'\w+', _sem_acento(d['nome']))
+        return all(any(t.startswith(p) for t in tem) for p in procuradas)
+
+    return [d for d in todos if d['id'] in pelo_texto or no_nome(d)]
+
+
+def apagar_documento(documento: int) -> bool:
+    with _con() as c:
+        privado = c.execute('SELECT privado FROM documentos WHERE id = ?', (documento,)).fetchone()
+        if privado is None:
+            return False
+        # Os trechos antes, à mão: o gatilho que tira do índice roda em cada um.
+        c.execute('DELETE FROM trechos WHERE documento = ?', (documento,))
+        c.execute('DELETE FROM documentos WHERE id = ?', (documento,))
+    if privado['privado']:
+        _limpar_rastros(_con())
+    return True
+
+
+def marcar_documento_privado(documento: int, privado: bool) -> bool:
+    """Sela (ou abre) o nome e os trechos e tira (ou põe) o texto no índice."""
+    l = _con().execute('SELECT nome, privado FROM documentos WHERE id = ?', (documento,)).fetchone()
+    if l is None:
+        return False
+    if bool(l['privado']) == privado:
+        return True
+    trechos = _con().execute('SELECT id, texto FROM trechos WHERE documento = ?', (documento,)).fetchall()
+    with _con() as c:
+        if privado:
+            c.execute('UPDATE documentos SET privado = 1, nome = ? WHERE id = ?', (cofre.selar(l['nome']), documento))
+            c.executemany('UPDATE trechos SET texto = ? WHERE id = ?', [(cofre.selar(t['texto']), t['id']) for t in trechos])
+            c.executemany('DELETE FROM trechos_fts WHERE rowid = ?', [(t['id'],) for t in trechos])
+        else:
+            c.execute('UPDATE documentos SET privado = 0, nome = ? WHERE id = ?', (cofre.abrir(l['nome']), documento))
+            abertos = [(t['id'], cofre.abrir(t['texto'])) for t in trechos]
+            c.executemany('UPDATE trechos SET texto = ? WHERE id = ?', [(texto, i) for i, texto in abertos])
+            c.executemany('INSERT INTO trechos_fts(rowid, texto) VALUES (?, ?)', abertos)
+    if privado:
+        _limpar_rastros(_con())
+    return True
+
+
+def trechos_sem_vetor(limite: int) -> list[dict]:
+    linhas = _con().execute('SELECT id, texto FROM trechos WHERE vetor IS NULL ORDER BY id LIMIT ?', (limite,))
+    return [{'id': l['id'], 'texto': cofre.abrir(l['texto'])} for l in linhas]
+
+
+def guardar_vetores_trechos(pares: list[tuple[int, bytes]]) -> None:
+    with _con() as c:
+        c.executemany('UPDATE trechos SET vetor = ? WHERE id = ?', [(v, i) for i, v in pares])
+
+
+def vetores_trechos() -> list[tuple[int, bytes]]:
+    return [(l['id'], l['vetor']) for l in _con().execute('SELECT id, vetor FROM trechos WHERE vetor IS NOT NULL')]
+
+
+def trechos_por_id(ids: list[int]) -> list[dict]:
+    if not ids:
+        return []
+    marcas = ','.join('?' * len(ids))
+    linhas = _con().execute(
+        f'SELECT t.id, t.documento, t.pagina, t.texto, d.nome, d.tipo, d.privado '
+        f'FROM trechos t JOIN documentos d ON d.id = t.documento WHERE t.id IN ({marcas})',
+        ids,
+    )
+    return [
+        {**dict(l), 'texto': cofre.abrir(l['texto']), 'nome': cofre.abrir(l['nome']), 'privado': bool(l['privado'])}
+        for l in linhas
+    ]

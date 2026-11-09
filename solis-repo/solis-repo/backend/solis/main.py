@@ -12,12 +12,12 @@ import os
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, banco, busca, cerebros, memoria, ollama, resumo, roteador
+from . import apis, banco, busca, cerebros, conhecimento, memoria, ollama, resumo, roteador
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -251,7 +251,8 @@ async def _responder(
         # de fora não se perde: está no banco, e a busca traz de volta o trecho.
         resumido, historico, desde = resumo.para_o_modelo(conversa)
         memorias, trechos = await busca.contexto(texto, conversa, desde)
-        etapas.marcar('memoria', memorias=len(memorias), trechos=len(trechos))
+        arquivos = sum(1 for t in trechos if t.get('arquivo'))
+        etapas.marcar('memoria', memorias=len(memorias), trechos=len(trechos) - arquivos, arquivos=arquivos)
 
         try:
             fluxo, cerebro = await roteador.responder(
@@ -381,4 +382,48 @@ async def corrigir(id_: int, correcao: Correcao, fundo: BackgroundTasks):
 async def esquecer(id_: int):
     if not banco.apagar_memoria(id_):
         return JSONResponse({'erro': 'memoria_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
+# — Conhecimento ——————————————————————————————————————————————————————————————————
+
+@app.get('/conhecimento')
+async def listar_conhecimento(q: str = ''):
+    """Os arquivos, do mais novo pro mais antigo. `q` filtra pelo nome e pelo
+    texto (o texto das fontes privadas não é buscado, só o nome)."""
+    return {'documentos': banco.buscar_documentos(q) if q.strip() else banco.documentos()}
+
+
+@app.post('/conhecimento')
+async def adicionar_conhecimento(request: Request, nome: str, fundo: BackgroundTasks, privado: bool = False):
+    """O arquivo vem cru no corpo (não multipart): o front manda o File como
+    está, e o nome vai na query. Lê, corta em trechos e guarda; os vetores
+    saem em segundo plano — a tela acompanha pelo `indexados`."""
+    dados = await request.body()
+    try:
+        # Ler um PDF grande leva segundos: fora do laço de eventos.
+        documento = await asyncio.to_thread(conhecimento.adicionar, nome, dados, privado)
+    except conhecimento.NaoLeu as e:
+        return JSONResponse({'erro': 'nao_leu', 'motivo': str(e)}, status_code=400)
+    except banco.Duplicado as e:
+        return JSONResponse({'erro': 'ja_existe', 'documento': e.documento}, status_code=409)
+    fundo.add_task(busca.indexar_pendentes)
+    return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
+
+
+class Privacidade(BaseModel):
+    privado: bool
+
+
+@app.patch('/conhecimento/{id_}')
+async def mudar_conhecimento(id_: int, corpo: Privacidade):
+    if not banco.marcar_documento_privado(id_, corpo.privado):
+        return JSONResponse({'erro': 'documento_inexistente'}, status_code=404)
+    return {'documento': next(d for d in banco.documentos() if d['id'] == id_)}
+
+
+@app.delete('/conhecimento/{id_}')
+async def apagar_conhecimento(id_: int):
+    if not banco.apagar_documento(id_):
+        return JSONResponse({'erro': 'documento_inexistente'}, status_code=404)
     return {'ok': True}
