@@ -20,7 +20,7 @@ import {
  *  As tarefas vêm do servidor: criadas aqui ou tiradas da conversa ("me lembra de
  *  pagar a luz dia 15"). Feita hoje fica riscada no grupo dela até o dia virar.
  *
- *  PROVISÓRIO — desenho próprio, sem referência (o Matheus liberou o front), no
+ *  Desenho próprio, aprovado pelo Matheus em 09/11/2026 (design/tarefas-validacao.png), no
  *  padrão já aprovado da Memória (layout.memoria.acoes): "Nova tarefa" no
  *  cabeçalho, como o "Adicionar fonte" do Conhecimento; editar e apagar no hover;
  *  edição no próprio item, com data e hora; apagar com Desfazer; os grupos

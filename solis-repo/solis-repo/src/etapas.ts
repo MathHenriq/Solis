@@ -103,8 +103,8 @@ export function depois(etapas: Etapa[]): string[] {
     const minuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(corpo) ? corpo.charAt(0).toLowerCase() + corpo.slice(1) : corpo;
     avisos.push(`Memória guardada: ${minuscula}`);
   }
-  // PROVISÓRIO: o chip da tarefa segue o desenho do de memória (referência 18)
-  // e precisa do aval do Matheus. "Tarefa anotada: pagar a conta de luz · dia 15".
+  // O chip da tarefa segue o desenho do de memória (referência 18); aprovado
+  // pelo Matheus em 09/11/2026. "Tarefa anotada: pagar a conta de luz · dia 15".
   for (const t of etapas.find((e) => e.etapa === 'aprendizado')?.tarefas ?? []) {
     const corpo = t.texto.trim().replace(/\.$/, '');
     const minuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(corpo) ? corpo.charAt(0).toLowerCase() + corpo.slice(1) : corpo;

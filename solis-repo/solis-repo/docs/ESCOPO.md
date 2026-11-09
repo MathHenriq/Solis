@@ -212,7 +212,7 @@ das outras.
   liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
   aprovado pelo Matheus pelos prints (`design/cerebros-validacao.png`).
 
-### Tarefas e Agenda — Tarefas feita (09/11/2026), Agenda a seguir
+### Tarefas e Agenda — Tarefas feita e aprovada (09/11/2026), Agenda a seguir
 
 - [x] Tarefas no banco, pela tela (nova, editar com data e hora, marcar, apagar com Desfazer) e
   tiradas da conversa: "me lembra de pagar a luz dia 15" vira tarefa com o prazo em data, e o chip
@@ -221,8 +221,8 @@ das outras.
   privacidade, 20/20 nas memórias (detalhes em `backend/README.md` → Tarefas).
 - [x] As tarefas abertas vão no pedido ao modelo: "o que eu tenho pra fazer essa semana?" responde
   com elas. Tarefa de saúde ou dinheiro é privada e nunca vai pra nuvem.
-- [ ] Aval do Matheus no desenho novo da tela (`design/tarefas-validacao.png`): Nova tarefa, editar e
-  apagar no hover, os grupos Atrasadas e Sem data, e o chip na conversa. PROVISÓRIO até lá.
+- [x] Desenho novo da tela aprovado pelo Matheus pelos prints (`design/tarefas-validacao.png`): Nova
+  tarefa, editar e apagar no hover, os grupos Atrasadas e Sem data, e o chip na conversa.
 - [ ] Agenda com compromissos de verdade (a próxima tela).
 - Limite conhecido: a tarefa (e a memória) sensível é detectada DEPOIS da resposta. Se a mensagem não
   diz "privado" e um cérebro de nuvem está na frente, ela já foi pra nuvem — "quinta tenho consulta

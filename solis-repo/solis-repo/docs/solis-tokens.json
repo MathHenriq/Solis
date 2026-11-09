@@ -363,7 +363,7 @@
       "_menu": "Item de 36px com texto de 14 (o --mac-botao-texto) e icone de 16 (o --mac-icone): a mesma escala dos controles secundarios da Memoria."
     },
     "tarefas": {
-      "_status": "PROVISORIO (09/11/2026): desenho proprio, sem referencia, aguardando o aval do Matheus pelos prints. A lista (grupos, caixa, texto, de:, prazo a direita) e a da referencia 15, ja no codigo. Novos: Nova tarefa no cabecalho (o BotaoContorno do Adicionar fonte), editar e apagar no hover e a edicao no proprio item (layout.memoria.acoes), apagar com Desfazer (o aviso da Memoria), os grupos Atrasadas e Sem data no estilo dos outros, e o prazo atrasado na cor --erro.",
+      "_status": "Desenho proprio (09/11/2026), aprovado pelo Matheus pelos prints no mesmo dia (design/tarefas-validacao.png). A lista (grupos, caixa, texto, de:, prazo a direita) e a da referencia 15, ja no codigo. Novos: Nova tarefa no cabecalho (o BotaoContorno do Adicionar fonte), editar e apagar no hover e a edicao no proprio item (layout.memoria.acoes), apagar com Desfazer (o aviso da Memoria), os grupos Atrasadas e Sem data no estilo dos outros, e o prazo atrasado na cor --erro.",
       "dateWidth": "148px",
       "timeWidth": "104px",
       "_campos": "Campos nativos de data e hora (o seletor do sistema), na altura dos botoes da edicao (--mac-botao-h, 30px) e com o texto de 14 deles. Largura: dd/mm/aaaa a 14px mais o icone do calendario e o padding de 10 de cada lado; hh:mm idem. Conferido no app que nada corta."
