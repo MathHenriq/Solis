@@ -262,6 +262,23 @@ MIGRACOES = [
     );
     CREATE INDEX tarefas_por_prazo ON tarefas (feita, prazo);
     """,
+    # 12 — compromissos da Agenda: o que tem dia (e quase sempre hora) em que o
+    # Matheus vai estar em algum lugar. Diferente da tarefa: não se marca como
+    # feito, e tem duração (minutos) e lugar. `hora` NULL é o dia inteiro.
+    """
+    CREATE TABLE compromissos (
+        id       INTEGER PRIMARY KEY,
+        titulo   TEXT NOT NULL,
+        dia      TEXT NOT NULL,
+        hora     TEXT,
+        duracao  INTEGER,
+        onde     TEXT,
+        conversa INTEGER REFERENCES conversas(id) ON DELETE SET NULL,
+        privado  INTEGER NOT NULL DEFAULT 0,
+        criado   TEXT NOT NULL
+    );
+    CREATE INDEX compromissos_por_dia ON compromissos (dia, hora);
+    """,
 ]
 
 
@@ -910,6 +927,77 @@ def mudar_tarefa(id_: int, **campos) -> dict | None:
 def apagar_tarefa(id_: int) -> bool:
     with _con() as c:
         return c.execute('DELETE FROM tarefas WHERE id = ?', (id_,)).rowcount > 0
+
+
+# — Compromissos ————————————————————————————————————————————————————————————————
+
+_COMPROMISSO = (
+    'SELECT m.id, m.titulo, m.dia, m.hora, m.duracao, m.onde, m.conversa, m.privado, m.criado, c.titulo AS origem '
+    'FROM compromissos m LEFT JOIN conversas c ON c.id = m.conversa '
+)
+# O dia inteiro primeiro, depois pela hora.
+_ORDEM_COMPROMISSOS = 'ORDER BY m.dia, m.hora IS NOT NULL, m.hora, m.id'
+
+
+def _compromisso(l: sqlite3.Row) -> dict:
+    d = {**dict(l), 'privado': bool(l['privado'])}
+    for campo in ('titulo', 'onde', 'origem'):
+        d[campo] = cofre.abrir(d[campo])
+    return d
+
+
+def adicionar_compromisso(
+    titulo: str, dia: str, hora: str | None = None, duracao: int | None = None, onde: str | None = None,
+    conversa: int | None = None, privado: bool = False,
+) -> int:
+    selar = cofre.selar if privado else (lambda t: t)
+    with _con() as c:
+        return c.execute(
+            'INSERT INTO compromissos (titulo, dia, hora, duracao, onde, conversa, privado, criado) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (selar(titulo), dia, hora, duracao or None, selar(onde) if onde else None, conversa, int(privado), _agora()),
+        ).lastrowid
+
+
+def compromisso(id_: int) -> dict | None:
+    l = _con().execute(_COMPROMISSO + 'WHERE m.id = ?', (id_,)).fetchone()
+    return _compromisso(l) if l else None
+
+
+def compromissos(de: str, ate: str, limite: int = 500) -> list[dict]:
+    """Os compromissos de `de` a `ate` (datas AAAA-MM-DD, as duas inclusas)."""
+    linhas = _con().execute(_COMPROMISSO + 'WHERE m.dia BETWEEN ? AND ? ' + _ORDEM_COMPROMISSOS + ' LIMIT ?', (de, ate, limite))
+    return [_compromisso(l) for l in linhas]
+
+
+def mudar_compromisso(id_: int, **campos) -> dict | None:
+    """Muda título, dia, hora, duração ou lugar. None se não existe."""
+    atual = _con().execute('SELECT privado FROM compromissos WHERE id = ?', (id_,)).fetchone()
+    if atual is None:
+        return None
+    selar = cofre.selar if atual['privado'] else (lambda t: t)
+    novos = {}
+    if 'titulo' in campos:
+        novos['titulo'] = selar(campos['titulo'])
+    if 'dia' in campos:
+        novos['dia'] = campos['dia']
+    if 'hora' in campos:
+        novos['hora'] = campos['hora'] or None
+    if 'duracao' in campos:
+        novos['duracao'] = campos['duracao'] or None
+    if 'onde' in campos:
+        novos['onde'] = selar(campos['onde']) if campos['onde'] else None
+    if novos:
+        with _con() as c:
+            c.execute(
+                f'UPDATE compromissos SET {", ".join(f"{k} = ?" for k in novos)} WHERE id = ?', (*novos.values(), id_)
+            )
+    return compromisso(id_)
+
+
+def apagar_compromisso(id_: int) -> bool:
+    with _con() as c:
+        return c.execute('DELETE FROM compromissos WHERE id = ?', (id_,)).rowcount > 0
 
 
 def escaneado_pendente() -> dict | None:

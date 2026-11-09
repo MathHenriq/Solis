@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
@@ -264,7 +264,7 @@ async def _responder(
         etapas.marcar('memoria', memorias=len(memorias), trechos=len(trechos) - arquivos, arquivos=arquivos)
         # As tarefas abertas vão no pedido, na mesma lista dos trechos (o filtro
         # do que é privado antes da nuvem é o mesmo): "o que eu tenho pra hoje?"
-        trechos = trechos + _tarefas_no_pedido()
+        trechos = trechos + _tarefas_no_pedido() + _agenda_no_pedido()
 
         try:
             fluxo, cerebro = await roteador.responder(
@@ -328,8 +328,13 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     if titulo := await resumo.titular(modelo, conversa):
         etapas.marcar('titulo', titulo=titulo)
     criadas: list[dict] = []
-    novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas)
-    etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [], tarefas=criadas, modelo=modelo)
+    marcados: list[dict] = []
+    novas = await memoria.aprender(
+        modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas, compromissos=marcados
+    )
+    etapas.marcar(
+        'aprendizado', novas=len(novas or []), textos=novas or [], tarefas=criadas, compromissos=marcados, modelo=modelo
+    )
     etapas.marcar('indexacao', vetores=await busca.indexar_pendentes())
     etapas.marcar('resumo', resumiu=bool(await resumo.resumir(modelo, conversa)))
 
@@ -412,6 +417,23 @@ def _tarefas_no_pedido() -> list[dict]:
     ]
 
 
+# Os compromissos de hoje aos próximos dias que vão em cada pedido.
+AGENDA_DIAS = 7
+AGENDA_NO_PEDIDO = 20
+
+
+def _agenda_no_pedido() -> list[dict]:
+    hoje = date.today()
+    return [
+        {
+            'compromisso': True,
+            'texto': c['titulo'] + (f' ({c["onde"]})' if c['onde'] else ''),
+            'dia': c['dia'], 'hora': c['hora'], 'privada': c['privado'],
+        }
+        for c in banco.compromissos(hoje.isoformat(), (hoje + timedelta(days=AGENDA_DIAS)).isoformat(), AGENDA_NO_PEDIDO)
+    ]
+
+
 def _meia_noite_utc() -> str:
     """O começo do dia de hoje, na hora local, em UTC (como o banco guarda)."""
     hoje = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -483,6 +505,81 @@ async def mudar_tarefa(id_: int, corpo: MudancaTarefa):
 async def apagar_tarefa(id_: int):
     if not banco.apagar_tarefa(id_):
         return JSONResponse({'erro': 'tarefa_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
+# — Agenda ————————————————————————————————————————————————————————————————————————
+
+class NovoCompromisso(BaseModel):
+    titulo: str
+    dia: str
+    hora: str | None = None
+    duracao: int | None = None
+    onde: str | None = None
+    privado: bool = False
+
+
+class MudancaCompromisso(BaseModel):
+    titulo: str | None = None
+    dia: str | None = None
+    hora: str | None = None
+    duracao: int | None = None
+    onde: str | None = None
+
+
+def _erro_compromisso(campos: dict) -> str | None:
+    if 'titulo' in campos and not (campos['titulo'] or '').strip():
+        return 'titulo_vazio'
+    if 'dia' in campos and not campos['dia']:
+        return 'dia_vazio'
+    if erro := _prazo_valido(campos.get('dia'), campos.get('hora')):
+        return 'dia_invalido' if erro == 'prazo_invalido' else erro
+    duracao = campos.get('duracao')
+    if duracao is not None and not 0 <= duracao <= 24 * 60:
+        return 'duracao_invalida'
+    return None
+
+
+@app.get('/agenda')
+async def listar_agenda(de: str, ate: str | None = None):
+    """Os compromissos de `de` a `ate` (AAAA-MM-DD; sem `ate`, só o dia `de`),
+    do dia inteiro pro mais tarde. Cada um com `origem`: a conversa de onde veio."""
+    if _prazo_valido(de, None) or (ate and _prazo_valido(ate, None)):
+        return JSONResponse({'erro': 'dia_invalido'}, status_code=400)
+    return {'compromissos': banco.compromissos(de, ate or de)}
+
+
+@app.post('/agenda')
+async def criar_compromisso(corpo: NovoCompromisso):
+    campos = corpo.model_dump()
+    if erro := _erro_compromisso(campos):
+        return JSONResponse({'erro': erro}, status_code=400)
+    id_ = banco.adicionar_compromisso(
+        corpo.titulo.strip(), corpo.dia, corpo.hora or None, corpo.duracao, (corpo.onde or '').strip() or None,
+        privado=corpo.privado,
+    )
+    return {'compromisso': banco.compromisso(id_)}
+
+
+@app.patch('/agenda/{id_}')
+async def mudar_compromisso(id_: int, corpo: MudancaCompromisso):
+    campos = {k: getattr(corpo, k) for k in corpo.model_fields_set}
+    if erro := _erro_compromisso(campos):
+        return JSONResponse({'erro': erro}, status_code=400)
+    if 'titulo' in campos:
+        campos['titulo'] = campos['titulo'].strip()
+    if 'onde' in campos:
+        campos['onde'] = (campos['onde'] or '').strip()
+    compromisso = banco.mudar_compromisso(id_, **campos)
+    if compromisso is None:
+        return JSONResponse({'erro': 'compromisso_inexistente'}, status_code=404)
+    return {'compromisso': compromisso}
+
+
+@app.delete('/agenda/{id_}')
+async def apagar_compromisso(id_: int):
+    if not banco.apagar_compromisso(id_):
+        return JSONResponse({'erro': 'compromisso_inexistente'}, status_code=404)
     return {'ok': True}
 
 

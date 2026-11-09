@@ -95,6 +95,26 @@ INSTRUCAO_TAREFAS = (
     '"pode resumir isso?") — quem faz é o Solis, não o Matheus; o que já foi feito; pergunta.\n'
     'Uma tarefa NUNCA vai também em memórias: compromisso e coisa a fazer são só tarefa.'
 )
+# Compromisso: o que tem dia marcado em que ele vai ESTAR em algum lugar. Medido
+# em 09/11/2026 no qwen3:8b, 22 mensagens (consulta, reunião com duração e meio,
+# "das 11h30 às 13h", viagem sem hora, e as tarefas e não-tarefas das medições
+# anteriores): 18 de 18 compromissos e 18 de 18 tarefas certos, 22 de 22 nas
+# memórias, em ~13 s. Os dois cortes no código: compromisso numa mensagem que
+# fala em cancelar, desmarcar ou adiar não é criado ("a reunião de amanhã foi
+# cancelada" virava compromisso), e a tarefa que repete um compromisso sai
+# ("reunião com o orientador" saía nos dois). Repetição ("toda terça") ainda não
+# existe: vira só a próxima.
+INSTRUCAO_COMPROMISSOS = (
+    '\n\nCompromissos: o que tem dia (e quase sempre hora) marcado em que o MATHEUS vai ESTAR '
+    'em algum lugar ou com alguém — reunião, consulta, aula, treino, viagem, evento. Vai em '
+    'compromissos, NUNCA em tarefas. Tarefa é algo que ele precisa FAZER até um prazo ("pagar", '
+    '"entregar", "comprar", "marcar a consulta"). Cada compromisso: o título curto ("Consulta com o '
+    'dentista"); o dia como AAAA-MM-DD, do calendário; a hora de início HH:MM ou ""; a duração em '
+    'minutos se ele disse (ou o fim), senão 0; o lugar ou meio ("Google Meet", "academia") ou "". '
+    'O que já aconteceu ou foi cancelado não é compromisso.'
+)
+CANCELADO = re.compile(r'\b(cancelad[oa]s?|cancelou|desmarcad[oa]s?|desmarquei|adiad[oa]s?|adiou)\b', re.IGNORECASE)
+
 DIAS = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
 CALENDARIO_DIAS = 35
 
@@ -137,6 +157,25 @@ ESQUEMA_COM_TAREFAS = {
         },
     },
     'required': ['memorias', 'tarefas'],
+}
+# E com compromissos: é este que vai pro modelo nas conversas de agora.
+ESQUEMA_COMPLETO = {
+    **ESQUEMA_COM_TAREFAS,
+    'properties': {
+        **ESQUEMA_COM_TAREFAS['properties'],
+        'compromissos': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'titulo': {'type': 'string'}, 'dia': {'type': 'string'}, 'hora': {'type': 'string'},
+                    'duracao': {'type': 'integer'}, 'onde': {'type': 'string'},
+                },
+                'required': ['titulo', 'dia', 'hora', 'duracao', 'onde'],
+            },
+        },
+    },
+    'required': ['memorias', 'tarefas', 'compromissos'],
 }
 
 
@@ -263,6 +302,7 @@ async def aprender(
     antiga: str | None = None,
     tarefas: list[dict] | None = None,
     agora: dt.datetime | None = None,
+    compromissos: list[dict] | None = None,
 ) -> list[str]:
     """Extrai e guarda o que houver de novo na `mensagem`; devolve o texto das
     memórias que guardou (a tela mostra cada uma). Nunca levanta: roda depois
@@ -312,15 +352,23 @@ async def aprender(
         if antiga:
             resposta = await ollama.responder_json(modelo, INSTRUCAO, texto, ESQUEMA)
         else:
-            resposta = await ollama.responder_json(modelo, INSTRUCAO + INSTRUCAO_TAREFAS, texto, ESQUEMA_COM_TAREFAS)
+            resposta = await ollama.responder_json(
+                modelo, INSTRUCAO + INSTRUCAO_TAREFAS + INSTRUCAO_COMPROMISSOS, texto, ESQUEMA_COMPLETO
+            )
         novas = resposta.get('memorias', [])
         achadas = [] if antiga else [t for t in resposta.get('tarefas', []) if (t.get('texto') or '').strip()]
+        marcados = [] if antiga else [c for c in resposta.get('compromissos', []) if (c.get('titulo') or '').strip()]
     except Exception:
         log.exception('extração de memória falhou')
-        novas, achadas = [], []
+        novas, achadas, marcados = [], [], []
 
-    # A memória que só repete uma tarefa sai (o sigilo dela fica, abaixo).
-    textos_tarefas = [t['texto'].strip() for t in achadas]
+    if CANCELADO.search(mensagem):
+        marcados = []
+    titulos = [c['titulo'].strip() for c in marcados]
+    # A tarefa que repete um compromisso sai: ele é o compromisso.
+    achadas = [t for t in achadas if not _eh_a_tarefa(t['texto'], titulos)]
+    # A memória que só repete uma tarefa ou um compromisso sai (o sigilo dela fica).
+    textos_tarefas = [t['texto'].strip() for t in achadas] + titulos
     repetidas = [m for m in novas if _eh_a_tarefa(m.get('texto', ''), textos_tarefas)]
     novas = [m for m in novas if m not in repetidas]
 
@@ -375,6 +423,23 @@ async def aprender(
         saiu_privada = saiu_privada or sensivel
         if tarefas is not None:
             tarefas.append({'texto': texto_tarefa, 'prazo': prazo, 'hora': hora})
+
+    for c in marcados:
+        dia, hora = _prazo({'prazo': c.get('dia'), 'hora': c.get('hora')}, agora)
+        if len(marcados) == 1:
+            dia = corrigir_data(mensagem, dia, agora)
+        if not dia:
+            continue  # compromisso sem dia não cabe na Agenda
+        titulo = c['titulo'].strip().rstrip('.')
+        duracao = c.get('duracao') if isinstance(c.get('duracao'), int) and 0 < c['duracao'] <= 24 * 60 else None
+        onde = (c.get('onde') or '').strip() or None
+        sensivel = bool(SENSIVEL.search(titulo))
+        banco.adicionar_compromisso(
+            titulo, dia, hora, duracao, onde, conversa, privado=privado or memoria_privada or sensivel
+        )
+        saiu_privada = saiu_privada or sensivel
+        if compromissos is not None:
+            compromissos.append({'titulo': titulo, 'dia': dia, 'hora': hora, 'duracao': duracao, 'onde': onde})
 
     # Se saiu algo privado desta mensagem, ela (e a resposta) não vai mais pra
     # nuvem — nem no histórico, nem como trecho antigo.

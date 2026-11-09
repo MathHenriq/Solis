@@ -43,7 +43,8 @@ SISTEMA = (
     'Quando ele disser algo que precisa fazer ("me lembra de pagar a luz dia 15", '
     '"tenho que entregar o relatório sexta"), depois da sua resposta isso vira uma '
     'tarefa na tela Tarefas, com o prazo — pode dizer que ficou anotado. Marcar como '
-    'feita, mudar ou apagar uma tarefa você não consegue: é pela tela Tarefas.\n\n'
+    'feita, mudar ou apagar uma tarefa você não consegue: é pela tela Tarefas. Do mesmo '
+    'jeito, compromisso com dia marcado ("quinta às 15h tenho consulta") vai pra tela Agenda.\n\n'
     'Quando não souber algo, diga que não sabe. Responda em português do Brasil, '
     'com clareza e sem rodeios.'
 )
@@ -74,7 +75,8 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
     # Os trechos dos arquivos (Conhecimento) vêm na mesma lista, marcados.
     arquivos = [t for t in trechos or [] if t.get('arquivo')]
     tarefas = [t for t in trechos or [] if t.get('tarefa')]
-    conversas = [t for t in trechos or [] if not t.get('arquivo') and not t.get('tarefa')]
+    agenda = [t for t in trechos or [] if t.get('compromisso')]
+    conversas = [t for t in trechos or [] if not t.get('arquivo') and not t.get('tarefa') and not t.get('compromisso')]
     if conversas:
         # Com data e autor: "o Solis disse" e "o Matheus disse" pesam diferente,
         # e "em março" responde "quando a gente falou disso?". O texto vai numa
@@ -99,6 +101,13 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
         partes.append(
             f'Tarefas abertas do Matheus (hoje é {DIAS[hoje.weekday()]}, {hoje:%d/%m/%Y}), da mais '
             'próxima pra mais longe:\n' + '\n'.join(linhas)
+        )
+    if agenda:
+        hoje = date.today()
+        linhas = [f'- [{_quando({"prazo": c["dia"], "hora": c["hora"]})}] {c["texto"]}' for c in agenda]
+        partes.append(
+            f'Agenda do Matheus, de hoje ({DIAS[hoje.weekday()]}, {hoje:%d/%m/%Y}) aos próximos 7 dias:\n'
+            + '\n'.join(linhas)
         )
     return '\n\n'.join(partes)
 
