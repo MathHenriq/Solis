@@ -117,7 +117,14 @@ export function useEscuta(aoTexto: (texto: string) => void) {
 
     (async () => {
       try {
-        fluxo = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        // Sem o processamento de chamada (eco, ruído, ganho): com ele, o
+        // navegador abre o microfone como "comunicação", e o Windows abaixa
+        // todos os outros sons do PC (80% por padrão) enquanto ele estiver
+        // aberto — e esta escuta fica aberta o tempo todo. O eco não faz
+        // falta: a escuta já pausa enquanto o Solis fala.
+        fluxo = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
         contexto = new AudioContext({ sampleRate: 16000 });
         await contexto.audioWorklet.addModule('/escuta-processador.js');
         const no = new AudioWorkletNode(contexto, 'escuta-processador');
