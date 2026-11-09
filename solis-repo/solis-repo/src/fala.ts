@@ -14,6 +14,26 @@ import { falarTexto, partesDaFala } from './servidor';
  *  e a resposta chega na thread. */
 export const respostaFalada = { proxima: false };
 
+const CHAVE_AUTO = 'solis.fala.auto';
+
+/** Falar sozinho a resposta de uma mensagem ditada (Configurações → Voz).
+ *  Ligado por padrão. Guardado no navegador, como a aparência. */
+export function falaAutomatica(): boolean {
+  try {
+    return localStorage.getItem(CHAVE_AUTO) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function definirFalaAutomatica(ligada: boolean) {
+  try {
+    localStorage.setItem(CHAVE_AUTO, ligada ? '1' : '0');
+  } catch {
+    /* sem armazenamento: vale só nesta sessão */
+  }
+}
+
 export function useFala(conversa: number | null) {
   const [falando, definirFalando] = useState<number | null>(null);
   const [preparando, definirPreparando] = useState(false);

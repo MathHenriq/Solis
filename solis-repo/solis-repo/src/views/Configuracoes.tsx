@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Interruptor } from '../components/Controles';
 import { TEMAS, type EstiloNav, type Tema } from '../theme/theme';
 import { CartaoCerebros } from './CartaoCerebros';
+import { CartaoVoz } from './CartaoVoz';
 
 /** Configurações → Aparência.
  *
@@ -182,6 +183,7 @@ export function Configuracoes({
         </section>
 
         <CartaoCerebros />
+        <CartaoVoz />
       </div>
     </main>
   );

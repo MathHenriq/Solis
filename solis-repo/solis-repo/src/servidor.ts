@@ -594,3 +594,45 @@ export async function falarTexto(texto: string, conversa: number | null): Promis
     return null;
   }
 }
+
+export type AjustesFala = { voz: string; modelo: string; vozes: string[]; modelos: string[] };
+
+/** A voz e o modelo do Gemini escolhidos, e as opções. Null: servidor fora. */
+export async function lerAjustesFala(): Promise<AjustesFala | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/ajustes`);
+    return r.ok ? ((await r.json()) as AjustesFala) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function ajustarFala(campos: { voz?: string; modelo?: string }): Promise<AjustesFala | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/ajustes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(campos),
+    });
+    return r.ok ? ((await r.json()) as AjustesFala) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Uma amostra de uma voz do Gemini, pra ouvir antes de escolher. 'sem-voz':
+ *  o servidor respondeu, mas nenhuma voz da cadeia falou; null: servidor fora. */
+export async function amostraDeVoz(voz: string): Promise<{ audio: Blob; voz: string } | 'sem-voz' | null> {
+  try {
+    const r = await fetch(`${BASE}/fala`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto: 'Oi, Matheus! É assim que eu falo as respostas. Gostou?', voz }),
+    });
+    if (r.status === 503) return 'sem-voz';
+    if (!r.ok) return null;
+    return { audio: await r.blob(), voz: r.headers.get('X-Solis-Voz') ?? '' };
+  } catch {
+    return null;
+  }
+}

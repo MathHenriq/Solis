@@ -6,7 +6,7 @@ import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
 import { NOMES_CEREBRO } from '../servidor';
-import { respostaFalada, useFala } from '../fala';
+import { falaAutomatica, respostaFalada, useFala } from '../fala';
 import { useVoz } from '../voz';
 
 
@@ -354,7 +354,7 @@ export function Thread({
             // envio espera — duas perguntas cruzadas embaralhariam a thread.
             if (respondendo || !rascunho.trim()) return;
             grudada.current = true;
-            respostaFalada.proxima = ditado.current;
+            respostaFalada.proxima = ditado.current && falaAutomatica();
             ditado.current = false;
             aoEnviar(rascunho);
             definirRascunho('');
