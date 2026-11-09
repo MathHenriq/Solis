@@ -374,7 +374,7 @@ async def corrigir(id_: int, correcao: Correcao, fundo: BackgroundTasks):
     if memoria is None:
         return JSONResponse({'erro': 'memoria_inexistente'}, status_code=404)
     # O vetor novo, pra busca por significado achar o texto corrigido.
-    fundo.add_task(busca.indexar_pendentes)
+    fundo.add_task(busca.indexar_se_livre)
     return {'memoria': memoria}
 
 
@@ -388,10 +388,17 @@ async def esquecer(id_: int):
 # — Conhecimento ——————————————————————————————————————————————————————————————————
 
 @app.get('/conhecimento')
-async def listar_conhecimento(q: str = ''):
+async def listar_conhecimento(fundo: BackgroundTasks, q: str = ''):
     """Os arquivos, do mais novo pro mais antigo. `q` filtra pelo nome e pelo
-    texto (o texto das fontes privadas não é buscado, só o nome)."""
-    return {'documentos': banco.buscar_documentos(q) if q.strip() else banco.documentos()}
+    texto (o texto das fontes privadas não é buscado, só o nome).
+
+    Se ainda falta trecho sem vetor, tenta indexar de novo: a tela pergunta a
+    cada 1,5 s enquanto falta, e sem isto um Ollama que volta depois de fora
+    deixava a indexação parada até o próximo upload ou mensagem."""
+    documentos = banco.documentos()
+    if any(d['indexados'] < d['trechos'] for d in documentos):
+        fundo.add_task(busca.indexar_se_livre)
+    return {'documentos': banco.buscar_documentos(q) if q.strip() else documentos}
 
 
 @app.post('/conhecimento')
@@ -409,7 +416,7 @@ async def adicionar_conhecimento(request: Request, nome: str, fundo: BackgroundT
         return JSONResponse({'erro': 'nao_leu', 'motivo': str(e)}, status_code=400)
     except banco.Duplicado as e:
         return JSONResponse({'erro': 'ja_existe', 'documento': e.documento}, status_code=409)
-    fundo.add_task(busca.indexar_pendentes)
+    fundo.add_task(busca.indexar_se_livre)
     return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
 
 
@@ -430,7 +437,7 @@ async def adicionar_pagina(corpo: Pagina, fundo: BackgroundTasks):
         return JSONResponse({'erro': 'nao_leu', 'motivo': str(e)}, status_code=400)
     except banco.Duplicado as e:
         return JSONResponse({'erro': 'ja_existe', 'documento': e.documento}, status_code=409)
-    fundo.add_task(busca.indexar_pendentes)
+    fundo.add_task(busca.indexar_se_livre)
     return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
 
 

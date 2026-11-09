@@ -287,3 +287,33 @@ def test_migracao_9_preserva_arquivos_indice_e_vetores(tmp_path):
     destino = {l['table'] for l in banco._con().execute('PRAGMA foreign_key_list(trechos)')}
     assert destino == {'documentos'}
     assert banco.apagar_documento(7) and banco._con().execute('SELECT COUNT(*) FROM trechos_fts').fetchone()[0] == 0
+
+
+def test_indexacao_parada_volta_sozinha_quando_o_ollama_volta(monkeypatch):
+    """Ollama fora no upload: os trechos ficam sem vetor. Quando ele volta, a
+    própria tela (que pergunta a lista enquanto falta) faz a indexação andar."""
+    cliente = TestClient(main.app)
+    cliente.post('/conhecimento?nome=a.txt', content=b'tauri e sqlite')  # conftest: embeddings fora
+    assert cliente.get('/conhecimento').json()['documentos'][0]['indexados'] == 0
+
+    async def volta(modelo, textos):
+        return [vetor(t) for t in textos]
+    monkeypatch.setattr(ollama, 'embeddings', volta)
+    cliente.get('/conhecimento')  # dispara a indexação em segundo plano
+    assert cliente.get('/conhecimento').json()['documentos'][0]['indexados'] == 1
+
+
+def test_indexacao_nao_roda_duas_ao_mesmo_tempo(monkeypatch):
+    chamadas = []
+
+    async def devagar(modelo, textos):
+        chamadas.append(len(textos))
+        await asyncio.sleep(0.05)
+        return [vetor(t) for t in textos]
+    monkeypatch.setattr(ollama, 'embeddings', devagar)
+    conhecimento.adicionar('a.txt', b'tauri e sqlite')
+
+    async def duas():
+        return await asyncio.gather(busca.indexar_se_livre(), busca.indexar_se_livre())
+    assert sorted(asyncio.run(duas())) == [0, 1]
+    assert chamadas == [1]

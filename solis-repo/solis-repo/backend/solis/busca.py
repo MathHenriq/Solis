@@ -12,6 +12,7 @@ por similaridade de cosseno.
 Tudo aqui falha pra trás: sem o modelo de embeddings, o Solis volta a mandar as
 memórias mais recentes, como antes. Lembrar menos é melhor que não responder.
 """
+import asyncio
 import logging
 import os
 
@@ -101,6 +102,20 @@ async def indexar_pendentes() -> int:
         banco.guardar_vetores_trechos([(p['id'], _bytes(v)) for p, v in zip(pendentes, vetores)])
         total += len(pendentes)
     return total
+
+
+_indexando = asyncio.Lock()
+
+
+async def indexar_se_livre() -> int:
+    """indexar_pendentes, a menos que uma já esteja rodando — essa pega o que
+    falta, porque volta a perguntar o banco a cada lote. É o que as tarefas de
+    fundo chamam: a tela do Conhecimento pede a cada 1,5 s enquanto falta
+    trecho, e sem a trava cada pedido abriria mais uma indexação."""
+    if _indexando.locked():
+        return 0
+    async with _indexando:
+        return await indexar_pendentes()
 
 
 async def _consulta(texto: str) -> np.ndarray | None:
