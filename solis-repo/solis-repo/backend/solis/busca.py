@@ -41,11 +41,17 @@ TRECHOS = 5
 PISO_TRECHO = 0.55
 TRECHO_MAX = 400
 # Trechos dos arquivos do Conhecimento. Um trecho de arquivo tem ~200 palavras
-# (conhecimento.PALAVRAS), então vai inteiro. PROVISÓRIO: mesmo piso das
-# conversas, sem calibrar — o texto de um PDF é mais longo e mais "neutro" que
-# uma fala, e a similaridade tende a sair diferente.
+# (conhecimento.PALAVRAS), então vai inteiro.
+#
+# Piso medido com o nomic-embed-text (08/11/2026, 6 arquivos de teste, 5
+# perguntas): as perguntas sobre os arquivos deram 0,68 a 0,82; as sem relação
+# ("qual a capital da França?", "me lembra de comprar pão") deram 0,56 a 0,60 —
+# o nomic tem um fundo alto, e com 0,55 elas puxavam 2 a 4 trechos de ruído.
+# 0,65 fica entre os dois grupos. PROVISÓRIO: calibrar com os arquivos de
+# verdade do Matheus. O mesmo fundo alto sugere que o PISO_TRECHO das conversas
+# (0,55) também deixa ruído passar.
 ARQUIVOS = 4
-PISO_ARQUIVO = 0.55
+PISO_ARQUIVO = 0.65
 
 LOTE = 64
 
