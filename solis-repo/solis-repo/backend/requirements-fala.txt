@@ -1,0 +1,4 @@
+# A voz local de reserva (Kokoro). O pacote declara Python < 3.14, mas roda no
+# 3.14 (conferido em 09/11/2026); por isso fica fora do requirements.txt:
+#   pip install --ignore-requires-python -r requirements-fala.txt
+kokoro-onnx==0.6.1

@@ -56,6 +56,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /agenda` | `{"titulo", "dia", "hora", "duracao", "onde", "privado"}` → cria. `400` com `titulo_vazio`, `dia_invalido`, `hora_invalida` ou `duracao_invalida` |
 | `PATCH /agenda/{id}` | só o que vier muda; `{"onde": ""}` tira o lugar. `404` se não existe |
 | `DELETE /agenda/{id}` | apaga |
+| `POST /fala/partes` | `{"texto"}` → `{"partes", "lingua"}`: a resposta em pedaços pra falar um de cada vez (o primeiro curto) |
+| `POST /fala` | `{"texto", "conversa"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz`. `503` com `sem_voz` e os motivos se nenhuma voz deu |
 | `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |
 | `POST /voz` | o áudio cru no corpo (webm/opus do navegador, wav...) → `{"texto", "segundos", "duracao", "modelo", "onde"}`. Nada é guardado. `503` com `sem_modelo`, `400` com `audio_ruim` |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
@@ -334,6 +336,19 @@ código: mensagem que cancela, desmarca ou adia não cria compromisso, e a taref
 compromisso sai. Os dos próximos 7 dias (até 20) vão no pedido ao modelo; o privado (pedido de
 sigilo, memória privada da mesma mensagem, ou saúde e dinheiro no título) não vai pra nuvem.
 Repetição ("toda terça") não existe ainda: vira a próxima.
+
+## O Solis falando
+
+`solis/fala.py`: a resposta vira voz por uma cadeia, na ordem — Gemini TTS (`gemini-3.8-flash-tts`,
+pelo endpoint `interactions`, com a chave do Gemini dos Cérebros) → Ava (`en-US-AvaMultilingualNeural`,
+o serviço de leitura do Edge pelo `edge-tts`: sem chave, sem garantia — medido de 1,3 a 9 s por
+frase) → Kokoro local (`kokoro-onnx`, pf_dora em português e af_heart em inglês, em
+`%LOCALAPPDATA%\Solis\voz\kokoro`). A que falhar por limite ou chave (401/403/429) descansa 10 min.
+Privado (conversa com algo privado, ou saúde, dinheiro e documento no texto) só vai pra local. O
+texto é limpo pra fala (sem markdown, código vira "um trecho de código", endereço vira "o link") e
+cortado em pedaços — o primeiro com até 90 caracteres, pra começar a falar logo. Os 64 últimos
+pedaços ficam em memória. A Kokoro instala à parte: `pip install --ignore-requires-python -r
+requirements-fala.txt`.
 
 ## Voz
 

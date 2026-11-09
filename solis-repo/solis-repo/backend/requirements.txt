@@ -9,3 +9,4 @@ pypdfium2==5.15.1
 pillow==13.0.0
 faster-whisper==1.2.1
 av==19.0.2
+edge-tts==7.3.1

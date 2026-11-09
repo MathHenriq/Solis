@@ -16,10 +16,10 @@ from logging.handlers import RotatingFileHandler
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, avisos, banco, busca, cerebros, conhecimento, memoria, ocr, ollama, resumo, roteador, voz
+from . import apis, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, resumo, roteador, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -60,7 +60,9 @@ async def _vida(_app):
     vigia = asyncio.create_task(avisos.vigiar())
     # E a tirar o Whisper da memória quando ninguém fala há um tempo.
     ouvido = asyncio.create_task(voz.vigiar())
+    boca = asyncio.create_task(fala.vigiar())
     yield
+    boca.cancel()
     indexacao.cancel()
     leitura.cancel()
     vigia.cancel()
@@ -532,6 +534,32 @@ async def transcrever_voz(request: Request):
         return JSONResponse({'erro': 'sem_modelo', 'motivo': str(e)}, status_code=503)
     except voz.AudioRuim as e:
         return JSONResponse({'erro': 'audio_ruim', 'motivo': str(e)}, status_code=400)
+
+
+# — Fala ———————————————————————————————————————————————————————————————————————————
+
+class TextoFala(BaseModel):
+    texto: str
+    conversa: int | None = None
+
+
+@app.post('/fala/partes')
+async def partes_da_fala(corpo: TextoFala):
+    """A resposta em pedaços pra falar um de cada vez: o primeiro áudio chega
+    rápido e o resto é gerado enquanto ele toca."""
+    return {'partes': fala.partes(corpo.texto), 'lingua': fala.lingua(corpo.texto)}
+
+
+@app.post('/fala')
+async def falar(corpo: TextoFala):
+    """Um pedaço de texto em áudio, pela cadeia de vozes (fala.py). Quem falou
+    vem no cabeçalho X-Solis-Voz. A conversa decide se pode ir pra nuvem: com
+    algo privado nela, só a voz local."""
+    try:
+        audio, tipo, quem = await fala.falar(corpo.texto, corpo.conversa)
+    except fala.SemVoz as e:
+        return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
+    return Response(audio, media_type=tipo, headers={'X-Solis-Voz': quem, 'Access-Control-Expose-Headers': 'X-Solis-Voz'})
 
 
 # — Agenda ————————————————————————————————————————————————————————————————————————
