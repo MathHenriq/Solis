@@ -39,7 +39,7 @@ log = logging.getLogger('solis.fala')
 
 PASTA = Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'Solis' / 'voz'
 GEMINI_MODELO = os.environ.get('SOLIS_FALA_GEMINI', 'gemini-3.8-flash-tts')
-GEMINI_VOZ = os.environ.get('SOLIS_FALA_GEMINI_VOZ', 'Sulafat')  # PROVISÓRIO: escolher ouvindo
+GEMINI_VOZ = os.environ.get('SOLIS_FALA_GEMINI_VOZ', 'Sulafat')  # até o Matheus escolher (ajuste voz_gemini)
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions'
 AVA = 'en-US-AvaMultilingualNeural'
 KOKORO_VOZ = {'pt': ('pf_dora', 'pt-br'), 'en': ('af_heart', 'en-us')}
@@ -121,21 +121,67 @@ def privado(texto: str, conversa: int | None) -> bool:
 
 # — As vozes ———————————————————————————————————————————————————————————————————————
 
-async def gemini(texto: str, lingua_: str, transporte: httpx.AsyncBaseTransport | None = None) -> bytes:
+def modelo_gemini() -> str:
+    """O modelo de TTS do Gemini (ajuste modelo_fala_gemini), ou o padrão."""
+    return banco.ajuste('modelo_fala_gemini') or GEMINI_MODELO
+
+
+def _espera(texto: str) -> float | None:
+    """Os segundos do "retry in 11h57m24s" de um 429 do Google, se houver."""
+    m = re.search(r'retry in ((?:\d+h)?(?:\d+m)?(?:[\d.]+s)?)', texto)
+    if not m or not m.group(1):
+        return None
+    partes = dict((u, float(v)) for v, u in re.findall(r'([\d.]+)([hms])', m.group(1)))
+    return partes.get('h', 0) * 3600 + partes.get('m', 0) * 60 + partes.get('s', 0)
+
+
+# As 30 vozes do Gemini TTS (documentação, 09/11/2026).
+VOZES_GEMINI = [
+    'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Aoede', 'Callirrhoe', 'Autonoe', 'Enceladus',
+    'Iapetus', 'Umbriel', 'Algieba', 'Despina', 'Erinome', 'Algenib', 'Rasalgethi', 'Laomedeia', 'Achernar',
+    'Alnilam', 'Schedar', 'Gacrux', 'Pulcherrima', 'Achird', 'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia',
+    'Sadaltager', 'Sulafat',
+]
+MODELOS_GEMINI = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts']
+
+
+def ajustar(voz: str | None = None, modelo: str | None = None) -> None:
+    """Guarda a voz e o modelo do Gemini. Trocar o modelo tira o Gemini do
+    descanso: o limite é por modelo, e o outro pode ter cota."""
+    if voz is not None:
+        if voz not in VOZES_GEMINI:
+            raise ValueError(f'voz desconhecida: {voz}')
+        banco.guardar_ajuste('voz_gemini', voz)
+    if modelo is not None:
+        if modelo not in MODELOS_GEMINI:
+            raise ValueError(f'modelo desconhecido: {modelo}')
+        banco.guardar_ajuste('modelo_fala_gemini', modelo)
+        _fora_ate.pop('gemini', None)
+        _cache.clear()
+
+
+def voz_gemini() -> str:
+    """A voz do Gemini escolhida (ajuste voz_gemini), ou a padrão."""
+    return banco.ajuste('voz_gemini') or GEMINI_VOZ
+
+
+async def gemini(
+    texto: str, lingua_: str, transporte: httpx.AsyncBaseTransport | None = None, voz: str | None = None,
+) -> bytes:
     from . import apis
     chave = apis._chave_de('gemini')
     if not chave:
         raise SemVoz('sem chave do Gemini')
     corpo = {
-        'model': GEMINI_MODELO,
+        'model': modelo_gemini(),
         'input': [{'type': 'user_input', 'content': [{'type': 'text', 'text': texto}]}],
         'response_format': {'type': 'audio'},
-        'generation_config': {'speech_config': [{'voice': GEMINI_VOZ}]},
+        'generation_config': {'speech_config': [{'voice': voz or voz_gemini()}]},
     }
     async with httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=transporte) as c:
         r = await c.post(GEMINI_URL, json=corpo, headers={'x-goog-api-key': chave})
     if r.status_code >= 400:
-        raise SemVoz(f'Gemini respondeu {r.status_code}')
+        raise SemVoz(f'Gemini respondeu {r.status_code}: {r.text[:160]}')
     audio = [
         parte['data']
         for passo in r.json().get('steps', []) if passo.get('type') == 'model_output'
@@ -202,31 +248,38 @@ LOCAL = [('kokoro', 'audio/wav', kokoro)]
 # A voz que falhou por limite ou chave fica fora até esta hora (como os cérebros).
 _fora_ate: dict[str, float] = {}
 _cache: OrderedDict = OrderedDict()
+# Por que as vozes antes da que falou falharam, na última fala (vai no
+# cabeçalho X-Solis-Antes da rota: o que caiu fica visível sem abrir o log).
+ultimos_motivos: list[str] = []
 
 
-async def falar(texto: str, conversa: int | None = None) -> tuple[bytes, str, str]:
-    """(áudio, tipo, quem falou) de um pedaço de texto. SemVoz se ninguém."""
+async def falar(texto: str, conversa: int | None = None, voz: str | None = None) -> tuple[bytes, str, str]:
+    """(áudio, tipo, quem falou) de um pedaço de texto. SemVoz se ninguém.
+    `voz`: uma voz do Gemini no lugar da escolhida (pra ouvir antes de escolher)."""
     texto = limpar(texto)
     if not texto:
         raise SemVoz('nada pra falar')
     lingua_ = lingua(texto)
     cadeia = LOCAL if privado(texto, conversa) else NUVEM + LOCAL
-    chave = (texto, tuple(n for n, _, _ in cadeia))
+    chave = (texto, voz or voz_gemini(), tuple(n for n, _, _ in cadeia))
     if chave in _cache:
         _cache.move_to_end(chave)
         return _cache[chave]
     motivos = []
-    for nome, tipo, voz in cadeia:
+    ultimos_motivos.clear()
+    for nome, tipo, funcao in cadeia:
         if _fora_ate.get(nome, 0) > time.time():
+            motivos.append(f'{nome}: descansando')
             continue
         try:
-            audio = await voz(texto, lingua_)
+            audio = await (funcao(texto, lingua_, voz=voz) if nome == 'gemini' and voz else funcao(texto, lingua_))
         except SemVoz as e:
             motivos.append(f'{nome}: {e}')
-            # Chave recusada ou limite: a voz descansa 10 min em vez de ser
-            # tentada (e esperada) a cada pedaço.
+            # Chave recusada ou limite: a voz descansa em vez de ser tentada (e
+            # esperada) a cada pedaço — o tempo que o Google mandar ("retry in
+            # 11h57m": o limite diário do plano grátis), ou 10 min.
             if re.search(r'\b(401|403|429)\b', str(e)):
-                _fora_ate[nome] = time.time() + 600
+                _fora_ate[nome] = time.time() + (_espera(str(e)) or 600)
             continue
         except Exception as e:  # rede, biblioteca: segue a cadeia
             motivos.append(f'{nome}: {type(e).__name__}')
@@ -237,6 +290,7 @@ async def falar(texto: str, conversa: int | None = None) -> tuple[bytes, str, st
             _cache.popitem(last=False)
         if motivos:
             log.info('fala por %s (antes: %s)', nome, '; '.join(motivos))
+            ultimos_motivos.extend(motivos)
         return resultado
     raise SemVoz('; '.join(motivos) or 'nenhuma voz disponível')
 

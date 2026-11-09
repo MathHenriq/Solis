@@ -159,3 +159,44 @@ def test_primeiro_pedaco_e_curto_pra_comecar_logo():
     assert partes[0] == 'Bom dia, Matheus. Você tem duas tarefas hoje. A reunião é às nove.'
     assert partes[1] == 'Depois tem o treino às sete da noite.'
     assert len(partes[0]) <= fala.PRIMEIRA_MAX and ' '.join(partes) == fala.limpar(texto)
+
+
+def test_voz_e_modelo_escolhidos_vao_pro_gemini():
+    banco.guardar_ajuste('chave:gemini', cofre.selar('k'))
+    corpos = []
+
+    def responder(pedido):
+        corpos.append(json.loads(pedido.content))
+        return httpx.Response(200, json={'steps': [{'type': 'model_output', 'content': [
+            {'type': 'audio', 'data': base64.b64encode(b'wav').decode()}]}]})
+    fala.ajustar(voz='Charon', modelo='gemini-3.8-flash-lite-tts')
+    asyncio.run(fala.gemini('Oi.', 'pt', httpx.MockTransport(responder)))
+    asyncio.run(fala.gemini('Oi.', 'pt', httpx.MockTransport(responder), voz='Iapetus'))
+    assert corpos[0]['model'] == 'gemini-3.8-flash-lite-tts'
+    assert [c['generation_config']['speech_config'][0]['voice'] for c in corpos] == ['Charon', 'Iapetus']
+    with pytest.raises(ValueError):
+        fala.ajustar(voz='Inventada')
+
+
+def test_rota_de_ajustes():
+    c = TestClient(main.app)
+    d = c.get('/fala/ajustes').json()
+    assert d['voz'] == fala.GEMINI_VOZ and 'Sulafat' in d['vozes'] and len(d['vozes']) == 30
+    assert c.put('/fala/ajustes', json={'voz': 'Achird'}).json()['voz'] == 'Achird'
+    assert c.put('/fala/ajustes', json={'modelo': 'gpt-4'}).status_code == 400
+
+
+def test_limite_do_google_faz_a_voz_descansar_o_tempo_que_ele_mandar(vozes, monkeypatch):
+    _, falhas = vozes
+    falhas['gemini'] = 'Gemini respondeu 429: limit 10 requests per day. Please retry in 11h57m24s'
+    agora = 1_000_000.0
+    monkeypatch.setattr(fala.time, 'time', lambda: agora)
+    asyncio.run(fala.falar('Uma.'))
+    assert fala._fora_ate['gemini'] == agora + 11 * 3600 + 57 * 60 + 24
+    assert fala.ultimos_motivos and fala.ultimos_motivos[0].startswith('gemini: Gemini respondeu 429')
+
+
+def test_trocar_o_modelo_tira_o_gemini_do_descanso(vozes):
+    fala._fora_ate['gemini'] = 9e18
+    fala.ajustar(modelo='gemini-3.8-flash-lite-tts')
+    assert 'gemini' not in fala._fora_ate

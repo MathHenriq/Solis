@@ -541,6 +541,29 @@ async def transcrever_voz(request: Request):
 class TextoFala(BaseModel):
     texto: str
     conversa: int | None = None
+    # Uma voz do Gemini pra ouvir antes de escolher; sem ela, a escolhida.
+    voz: str | None = None
+
+
+class AjustesFala(BaseModel):
+    voz: str | None = None
+    modelo: str | None = None
+
+
+@app.get('/fala/ajustes')
+async def ajustes_da_fala():
+    """A voz e o modelo do Gemini escolhidos, e as opções."""
+    return {'voz': fala.voz_gemini(), 'modelo': fala.modelo_gemini(),
+            'vozes': fala.VOZES_GEMINI, 'modelos': fala.MODELOS_GEMINI}
+
+
+@app.put('/fala/ajustes')
+async def ajustar_fala(corpo: AjustesFala):
+    try:
+        fala.ajustar(corpo.voz, corpo.modelo)
+    except ValueError as e:
+        return JSONResponse({'erro': 'ajuste_invalido', 'motivo': str(e)}, status_code=400)
+    return await ajustes_da_fala()
 
 
 @app.post('/fala/partes')
@@ -556,10 +579,16 @@ async def falar(corpo: TextoFala):
     vem no cabeçalho X-Solis-Voz. A conversa decide se pode ir pra nuvem: com
     algo privado nela, só a voz local."""
     try:
-        audio, tipo, quem = await fala.falar(corpo.texto, corpo.conversa)
+        audio, tipo, quem = await fala.falar(corpo.texto, corpo.conversa, corpo.voz)
     except fala.SemVoz as e:
         return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
-    return Response(audio, media_type=tipo, headers={'X-Solis-Voz': quem, 'Access-Control-Expose-Headers': 'X-Solis-Voz'})
+    cabecalhos = {'X-Solis-Voz': quem, 'Access-Control-Expose-Headers': 'X-Solis-Voz, X-Solis-Antes'}
+    if fala.ultimos_motivos:
+        # Cabeçalho HTTP é ASCII: os motivos vão sem acento.
+        import unicodedata
+        motivos = '; '.join(fala.ultimos_motivos)
+        cabecalhos['X-Solis-Antes'] = unicodedata.normalize('NFKD', motivos).encode('ascii', 'ignore').decode()[:500]
+    return Response(audio, media_type=tipo, headers=cabecalhos)
 
 
 # — Agenda ————————————————————————————————————————————————————————————————————————
