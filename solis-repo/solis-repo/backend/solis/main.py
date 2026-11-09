@@ -586,7 +586,9 @@ async def falar(corpo: TextoFala):
     if fala.ultimos_motivos:
         # Cabeçalho HTTP é ASCII: os motivos vão sem acento.
         import unicodedata
-        motivos = '; '.join(fala.ultimos_motivos)
+        # Uma linha só: erro do Google vem com quebra de linha, e cabeçalho com
+        # quebra derruba a resposta inteira (visto com uma chave inválida).
+        motivos = ' '.join('; '.join(fala.ultimos_motivos).split())
         cabecalhos['X-Solis-Antes'] = unicodedata.normalize('NFKD', motivos).encode('ascii', 'ignore').decode()[:500]
     return Response(audio, media_type=tipo, headers=cabecalhos)
 

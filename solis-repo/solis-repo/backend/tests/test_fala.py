@@ -200,3 +200,13 @@ def test_trocar_o_modelo_tira_o_gemini_do_descanso(vozes):
     fala._fora_ate['gemini'] = 9e18
     fala.ajustar(modelo='gemini-3.8-flash-lite-tts')
     assert 'gemini' not in fala._fora_ate
+
+
+def test_motivo_com_quebra_de_linha_nao_derruba_a_resposta(vozes):
+    """O erro do Google vem em JSON com quebras de linha; no cabeçalho, isso
+    derrubava a resposta inteira (h11: Illegal header value)."""
+    _, falhas = vozes
+    falhas['gemini'] = 'Gemini respondeu 400: [{\n  "error": {\n    "message": "API key not valid. Ação"'
+    r = TestClient(main.app).post('/fala', json={'texto': 'Bom dia!'})
+    assert r.status_code == 200 and r.headers['x-solis-voz'] == 'ava'
+    assert '\n' not in r.headers['x-solis-antes'] and 'API key not valid' in r.headers['x-solis-antes']
