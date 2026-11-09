@@ -38,6 +38,14 @@ O protótipo de ontem (`solis-prototype.html`) usa `filter: drop-shadow` animado
 
 O efeito visual final é equivalente — o glow "pulsa" — mas o custo pra GPU é ordens de grandeza menor porque não recalcula sombra a cada frame.
 
+### 1.1 Não animar o elemento que está debaixo do mouse
+
+Medido (09/11/2026): o microfone pulsando em `opacity` — regra 1 cumprida — custava 865 recálculos de
+estilo e ~330 ms de main thread em 6 s, porque o cursor fica parado em cima do botão depois do
+clique, e o Chrome refaz o hover a cada quadro de um elemento que anima sob ele. Com o mouse fora,
+o mesmo pulso custava zero. A correção: animar o **ícone de dentro**, com `pointer-events: none`, e
+não o botão — 72 recálculos, mesmo visual. Vale pra todo botão que anima em loop.
+
 ## 2. Fonte: sem dependência de rede
 
 **Regra:** nada de `<link>` pra Google Fonts ou qualquer CDN de fonte em runtime. Duas opções:

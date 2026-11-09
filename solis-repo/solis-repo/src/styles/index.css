@@ -306,12 +306,17 @@ main {
 :root[data-theme="dark"] .solis-data { color-scheme: dark; }
 
 /* O microfone ouvindo: pulsa só na opacidade (docs/PERFORMANCE.md — nada de
-   filter ou box-shadow animado). 1,2 s por ciclo, o ritmo calmo da respiração. */
+   filter ou box-shadow animado). 1,2 s por ciclo, o ritmo calmo da respiração.
+   Pulsa o ÍCONE, sem receber o mouse, e não o botão: com o cursor parado em
+   cima de um botão que anima (é onde ele fica depois do clique), o Chrome
+   refaz o hover a cada quadro — medido gravando, 865 recálculos de estilo e
+   ~330 ms de main thread em 6 s; no ícone, 72 e ~66 ms. Mesmo visual: o
+   ícone é o único conteúdo do botão. */
 @keyframes solis-ouvindo {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
-.solis-ouvindo { animation: solis-ouvindo 1.2s ease-in-out infinite; }
+.solis-ouvindo > svg { animation: solis-ouvindo 1.2s ease-in-out infinite; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
-  .solis-ouvindo { animation: none; }
+  .solis-ouvindo > svg { animation: none; }
 }
