@@ -189,6 +189,10 @@ for chave, var in [('menuWidth','--kn-menu-l'), ('menuPad','--kn-menu-pad'), ('m
                    ('menuIconGap','--kn-menu-icone-gap'), ('menuTop','--kn-menu-top'),
                    ('addressWidth','--kn-endereco-l')]:
     w('  %s: %s;' % (var, kn[chave]))
+w('  /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */')
+tf = T['layout']['tarefas']
+for chave, var in [('dateWidth', '--tf-data-l'), ('timeWidth', '--tf-hora-l')]:
+    w('  %s: %s;' % (var, tf[chave]))
 w('  /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */')
 for chave, var in [('cardGap','--cer-cartao-gap'), ('orderIcon','--cer-seta'), ('orderHit','--cer-seta-alvo'),
                    ('controlsGap','--cer-controles-gap'), ('positionWidth','--cer-posicao'),

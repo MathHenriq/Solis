@@ -298,3 +298,9 @@ main {
   background-size: cover;
   background-repeat: no-repeat;
 }
+
+/* Campos de data e hora das Tarefas: o seletor nativo (calendário, relógio)
+   segue o tema — escuro no dark, claro no espacial e no claro. Sem isso o
+   ícone do calendário sai preto sobre o fundo escuro. */
+.solis-data { color-scheme: light; }
+:root[data-theme="dark"] .solis-data { color-scheme: dark; }

@@ -48,6 +48,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /conhecimento/pagina` | `{"url", "privado"}` → baixa o endereço (com ou sem `https://`), tira o conteúdo principal e guarda como os arquivos; endereço de PDF entra como PDF. Os mesmos erros do `POST /conhecimento` (o `motivo` diz: 404, precisa de login, não é página, montada por JavaScript) |
 | `PATCH /conhecimento/{id}` | `{"privado"}` → sela (ou abre) o nome e o texto e tira (ou põe) do índice de busca |
 | `DELETE /conhecimento/{id}` | apaga o documento e os trechos |
+| `GET /tarefas` | as abertas e as feitas hoje, da mais perto do prazo pra mais longe (sem prazo por último): `texto`, `prazo` (AAAA-MM-DD), `hora` (HH:MM), `conversa` e `origem` (o título dela), `privada`, `feita` |
+| `POST /tarefas` | `{"texto", "prazo", "hora", "privada"}` → cria. `400` com `texto_vazio`, `prazo_invalido` ou `hora_invalida` |
+| `PATCH /tarefas/{id}` | só o que vier muda: `{"feita": true}` marca, `{"prazo": ""}` tira o prazo e a hora junto. `404` se não existe |
+| `DELETE /tarefas/{id}` | apaga |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
 | `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
@@ -293,6 +297,28 @@ O Matheus entrega PDFs, `.md`, `.txt` e páginas da web pela tela Conhecimento
 - **Banco:** a conexão é uma só, então ler o PDF roda numa thread mas guardar não — escrever de
   várias threads embaralhava as transações quando vários arquivos chegavam juntos.
 - O MCP (`buscar_na_memoria`) devolve os trechos de arquivo à parte, com o nome e a página.
+
+## Tarefas
+
+Criadas pela tela ou tiradas da conversa (`solis/memoria.py`): a mesma pergunta de fundo que tira as
+memórias tira as tarefas, numa chamada só ao modelo de fundo. O pedido leva o calendário dos próximos
+35 dias (dia da semana e data): o modelo copia a data em vez de fazer conta.
+
+Medido no qwen3:8b em 20 mensagens (09/11/2026): "dia 15", "sexta às 14h", "fim do mês", "daqui a
+duas semanas", duas tarefas numa mensagem, saúde e dinheiro, e o que não é tarefa (pergunta, "me
+ajuda a escrever um email", o que já foi feito, fatos sobre ele): **20/20 tarefas com o prazo certo,
+11/11 na privacidade, 20/20 nas memórias**, em ~10 s. O modelo é determinístico pra um mesmo
+pedido, mas cada frase mudada na instrução trocava qual caso ele errava. Por isso as contas ficam
+no código:
+- prazo de hoje na hora exata do pedido é o "Agora" copiado: sem prazo;
+- dia da semana dito e prazo em outro dia, ou "daqui a N dias/semanas": a data é recalculada (só
+  com uma tarefa e uma expressão na mensagem);
+- memória que só repete uma tarefa sai (o modelo fazia isso em 4 de 17 casos);
+- tarefa com palavra de saúde, dinheiro ou documento é privada (pedido ao modelo, ele acertava 9 ou
+  10 de 11). Errar pra mais privada só tira a tarefa do pedido à nuvem.
+
+As 20 abertas mais próximas do prazo vão em cada pedido ao modelo, com a data de hoje; a privada não
+vai pra nuvem. Conversa importada não vira tarefa.
 
 ## Busca por significado
 

@@ -189,6 +189,8 @@ export type Etapa = {
   novas?: number;
   /** As memórias guardadas depois da resposta. */
   textos?: string[];
+  /** As tarefas tiradas da mensagem depois da resposta. */
+  tarefas?: { texto: string; prazo: string | null; hora: string | null }[];
   vetores?: number;
   resumiu?: boolean;
   /** O título que a conversa ganhou. */
@@ -418,6 +420,63 @@ export async function marcarDocumentoPrivado(id: number, privado: boolean): Prom
 export async function apagarDocumento(id: number): Promise<boolean> {
   try {
     return (await fetch(`${BASE}/conhecimento/${id}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
+// — Tarefas ———————————————————————————————————————————————————————————————————————
+
+export type Tarefa = {
+  id: number;
+  texto: string;
+  /** Data local, AAAA-MM-DD. Null: sem prazo. */
+  prazo: string | null;
+  /** HH:MM, só com prazo. */
+  hora: string | null;
+  /** A conversa de onde a tarefa saiu, e o título dela. Null: criada pela tela. */
+  conversa: number | null;
+  origem: string | null;
+  privada: boolean;
+  criada: string;
+  /** Quando foi marcada (UTC). Null enquanto aberta; a feita antes de hoje não vem. */
+  feita: string | null;
+};
+
+/** O que a tela manda ao criar ou mudar. */
+export type CamposTarefa = { texto?: string; prazo?: string | null; hora?: string | null; feita?: boolean };
+
+export async function listarTarefas(): Promise<Resultado<Tarefa[]>> {
+  try {
+    const r = await fetch(`${BASE}/tarefas`);
+    if (!r.ok) return { estado: 'sem-servidor' };
+    return { estado: 'ok', dados: ((await r.json()) as { tarefas: Tarefa[] }).tarefas };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
+async function enviarTarefa(url: string, metodo: 'POST' | 'PATCH', campos: CamposTarefa): Promise<Tarefa | null> {
+  try {
+    const r = await fetch(url, {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json' },
+      // Prazo vazio vai como "", que o servidor entende como "sem prazo".
+      body: JSON.stringify({ ...campos, ...('prazo' in campos ? { prazo: campos.prazo ?? '' } : {}) }),
+    });
+    return r.ok ? ((await r.json()) as { tarefa: Tarefa }).tarefa : null;
+  } catch {
+    return null;
+  }
+}
+
+export const criarTarefa = (campos: CamposTarefa & { texto: string }) => enviarTarefa(`${BASE}/tarefas`, 'POST', campos);
+
+export const mudarTarefa = (id: number, campos: CamposTarefa) => enviarTarefa(`${BASE}/tarefas/${id}`, 'PATCH', campos);
+
+export async function apagarTarefa(id: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/tarefas/${id}`, { method: 'DELETE' })).ok;
   } catch {
     return false;
   }

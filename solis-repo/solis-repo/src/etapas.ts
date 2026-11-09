@@ -1,3 +1,4 @@
+import { rotuloPrazo } from './datas';
 import { NOMES_CEREBRO, type Etapa } from './servidor';
 
 /** Das etapas cruas do servidor (backend/solis/etapas.py) pras frases da tela.
@@ -101,6 +102,13 @@ export function depois(etapas: Etapa[]): string[] {
     const corpo = texto.trim().replace(/\.$/, '');
     const minuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(corpo) ? corpo.charAt(0).toLowerCase() + corpo.slice(1) : corpo;
     avisos.push(`Memória guardada: ${minuscula}`);
+  }
+  // PROVISÓRIO: o chip da tarefa segue o desenho do de memória (referência 18)
+  // e precisa do aval do Matheus. "Tarefa anotada: pagar a conta de luz · dia 15".
+  for (const t of etapas.find((e) => e.etapa === 'aprendizado')?.tarefas ?? []) {
+    const corpo = t.texto.trim().replace(/\.$/, '');
+    const minuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(corpo) ? corpo.charAt(0).toLowerCase() + corpo.slice(1) : corpo;
+    avisos.push(`Tarefa anotada: ${minuscula}${t.prazo ? ` · ${rotuloPrazo(t.prazo, t.hora)}` : ''}`);
   }
   // PROVISÓRIO: a referência só mostra o chip de memória. O de resumo segue o
   // mesmo desenho e precisa do aval do Matheus.
