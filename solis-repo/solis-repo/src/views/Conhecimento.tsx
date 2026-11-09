@@ -21,7 +21,9 @@ import {
  *  cada fonte é um objeto com identidade, não uma linha de texto.
  *
  *  O servidor lê o arquivo (PDF, .md, .txt), guarda o texto em trechos e faz um
- *  vetor de cada um; o "Indexando… 64%" é a conta real de trechos com vetor.
+ *  vetor de cada um; o "Indexando… 64%" é a conta real de trechos com vetor. A
+ *  página escaneada passa antes pelo OCR: "Lendo as páginas escaneadas… 40%" é
+ *  a conta de páginas lidas — a mesma barra, sem desenho novo.
  *
  *  Desenho próprio, aprovado pelo Matheus em 08/11/2026 (design/conhecimento-validacao.png,
  *  layout.conhecimento): o menu dos três pontos e
@@ -41,11 +43,14 @@ const numero = new Intl.NumberFormat('pt-BR');
 function detalhe(d: Documento) {
   // Página web como a referência escreve: "Página web · há 1 semana".
   if (d.tipo === 'web') return `Página web · ${quando(d.criado)}`;
+  const rotulo = d.tipo === 'nota' ? 'Nota' : d.escaneadas && d.escaneadas === d.paginas ? 'PDF escaneado' : 'PDF';
+  // O OCR leu tudo e não achou texto: dizer, em vez de um cartão que parece normal.
+  if (!d.trechos) return `${rotulo} · nenhum texto encontrado`;
   const tamanho =
     d.tipo === 'pdf'
       ? `${numero.format(d.paginas ?? 0)} ${d.paginas === 1 ? 'página' : 'páginas'}`
       : `${numero.format(d.trechos)} ${d.trechos === 1 ? 'trecho' : 'trechos'}`;
-  return `${d.tipo === 'pdf' ? 'PDF' : 'Nota'} · ${tamanho} · ${quando(d.criado)}`;
+  return `${rotulo} · ${tamanho} · ${quando(d.criado)}`;
 }
 
 const ICONE = { pdf: 'documento', nota: 'nota', web: 'web' } as const;
@@ -213,8 +218,29 @@ function Cartao({
 }) {
   const lendo = 'lendo' in d;
   const doc = lendo ? null : d;
+  // Primeiro o OCR lê as páginas escaneadas; a indexação vem depois (ver ocr.py).
+  const lendoPaginas = !!doc && doc.lidas < doc.escaneadas;
   const indexando = doc && doc.indexados < doc.trechos;
-  const pct = doc && doc.trechos ? Math.floor((doc.indexados / doc.trechos) * 100) : 0;
+  const pct = !doc
+    ? 0
+    : lendoPaginas
+      ? Math.floor((doc.lidas / doc.escaneadas) * 100)
+      : doc.trechos
+        ? Math.floor((doc.indexados / doc.trechos) * 100)
+        : 0;
+  const estado = lendo
+    ? d.web
+      ? 'Baixando a página…'
+      : 'Lendo o arquivo…'
+    : lendoPaginas
+      ? doc!.leitura_parada === 'ollama'
+        ? `Parado em ${pct}%. O Ollama está ligado?`
+        : doc!.leitura_parada === 'ocr'
+          ? `Parado em ${pct}%. Não consegui ler as páginas.`
+          : `Lendo as páginas escaneadas… ${pct}%`
+      : parado
+        ? `Parado em ${pct}%. O Ollama está ligado?`
+        : `Indexando… ${pct}%`;
 
   return (
     <article
@@ -248,7 +274,7 @@ function Cartao({
       <div className="text-text-primary truncate" title={'url' in d && d.url ? d.url : d.nome} style={{ fontSize: 'var(--cfg-secao)', marginTop: 30 }}>
         {d.nome}
       </div>
-      {lendo || indexando ? (
+      {lendo || lendoPaginas || indexando ? (
         <div style={{ marginTop: 12 }}>
           {/* Barra de progresso desenhada, não <progress>: o nativo não
               aceita altura nem cor consistentes entre navegadores. */}
@@ -256,7 +282,7 @@ function Cartao({
             <div className="bg-accent" style={{ width: `${pct}%`, height: 4, borderRadius: 999 }} />
           </div>
           <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 10 }}>
-            {lendo ? (d.web ? 'Baixando a página…' : 'Lendo o arquivo…') : parado ? `Parado em ${pct}%. O Ollama está ligado?` : `Indexando… ${pct}%`}
+            {estado}
           </div>
         </div>
       ) : (
@@ -305,20 +331,24 @@ export function Conhecimento() {
   }, [busca, resultado]);
 
   // Acompanha a indexação enquanto houver trecho sem vetor.
+  // Acompanha também a leitura das páginas escaneadas. Enquanto o OCR lê, a
+  // indexação espera de propósito (ver ocr.py): isso não é "parado".
   const docs = resultado?.estado === 'ok' ? resultado.dados : [];
-  const faltam = docs.reduce((s, d) => s + d.trechos - d.indexados, 0);
+  const faltaIndexar = (ds: Documento[]) => ds.reduce((s, d) => s + d.trechos - d.indexados, 0);
+  const lendoAgora = (ds: Documento[]) => ds.some((d) => d.lidas < d.escaneadas && !d.leitura_parada);
+  const faltam = faltaIndexar(docs) + docs.reduce((s, d) => s + d.escaneadas - d.lidas, 0);
   useEffect(() => {
     if (!faltam) {
       definirParado(false);
       return;
     }
     let voltas = 0;
-    let antes = faltam;
+    let antes = faltaIndexar(docs);
     const t = window.setInterval(async () => {
       const r = await listarDocumentos();
       if (r.estado !== 'ok') return;
-      const agora = r.dados.reduce((s, d) => s + d.trechos - d.indexados, 0);
-      voltas = agora < antes ? 0 : voltas + 1;
+      const agora = faltaIndexar(r.dados);
+      voltas = agora < antes || lendoAgora(r.dados) ? 0 : voltas + 1;
       antes = agora;
       definirParado(voltas >= VOLTAS_PARADO);
       definirResultado(r);

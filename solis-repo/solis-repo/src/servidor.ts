@@ -343,6 +343,12 @@ export type Documento = {
   criado: string;
   trechos: number;
   indexados: number;
+  /** Páginas escaneadas (imagem) do PDF, e quantas o OCR já leu. */
+  escaneadas: number;
+  lidas: number;
+  /** Por que a leitura das escaneadas não anda: o Ollama fora, ou nada neste
+   *  computador lê imagem. Só vem na lista (GET), e só enquanto falta página. */
+  leitura_parada?: 'ollama' | 'ocr' | null;
 };
 
 export async function listarDocumentos(busca = ''): Promise<Resultado<Documento[]>> {
