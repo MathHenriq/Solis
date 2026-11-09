@@ -304,3 +304,14 @@ main {
    ícone do calendário sai preto sobre o fundo escuro. */
 .solis-data { color-scheme: light; }
 :root[data-theme="dark"] .solis-data { color-scheme: dark; }
+
+/* O microfone ouvindo: pulsa só na opacidade (docs/PERFORMANCE.md — nada de
+   filter ou box-shadow animado). 1,2 s por ciclo, o ritmo calmo da respiração. */
+@keyframes solis-ouvindo {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.solis-ouvindo { animation: solis-ouvindo 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .solis-ouvindo { animation: none; }
+}

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AvisosDepois, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
+import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
 import { NOMES_CEREBRO } from '../servidor';
+import { useVoz } from '../voz';
 
 
 /** Conversa com thread em andamento — o outro estado da tela de Conversa.
@@ -207,6 +209,11 @@ export function Thread({
   aoEnviar: (texto: string) => void;
 }) {
   const [rascunho, definirRascunho] = useState('');
+  const campo = useRef<HTMLInputElement>(null);
+  const voz = useVoz((texto) => {
+    definirRascunho((r) => (r.trim() ? `${r.trimEnd()} ${texto}` : texto));
+    campo.current?.focus();
+  });
   const rolagem = useRef<HTMLDivElement>(null);
   // A thread segue o texto que chega SÓ se a pessoa está no fim dela. Quem rolou
   // pra cima pra reler não pode ser puxado de volta a cada pedaço.
@@ -281,17 +288,16 @@ export function Thread({
           }}
         >
           <input
+            ref={campo}
             autoFocus
             value={rascunho}
             onChange={(e) => definirRascunho(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
+            className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
             style={{ paddingLeft: 29, fontSize: 'var(--mem-item-texto)' }}
-            placeholder="Fale com o Solis…"
+            placeholder={voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
-          <button type="button" className="text-text-secondary p-sm" aria-label="Falar">
-            <Icone nome="microfone" tamanho={22} />
-          </button>
+          <BotaoMicrofone estado={voz.estado} aoClicar={voz.alternar} tamanho={22} />
           <button
             type="submit"
             className="bg-accent text-canvas flex items-center justify-center shrink-0"

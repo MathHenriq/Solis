@@ -542,3 +542,23 @@ export async function apagarCompromisso(id: number): Promise<boolean> {
     return false;
   }
 }
+
+// — Voz ———————————————————————————————————————————————————————————————————————————
+
+export type ResultadoVoz =
+  | { estado: 'ok'; texto: string; segundos: number; duracao: number }
+  | { estado: 'sem-modelo' | 'audio-ruim' | 'sem-servidor' };
+
+/** O áudio gravado (webm/opus) vira texto no servidor, com o Whisper local. */
+export async function transcreverAudio(audio: Blob): Promise<ResultadoVoz> {
+  try {
+    const r = await fetch(`${BASE}/voz`, { method: 'POST', body: audio });
+    if (r.status === 503) return { estado: 'sem-modelo' };
+    if (r.status === 400) return { estado: 'audio-ruim' };
+    if (!r.ok) return { estado: 'sem-servidor' };
+    const d = (await r.json()) as { texto: string; segundos: number; duracao: number };
+    return { estado: 'ok', ...d };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}

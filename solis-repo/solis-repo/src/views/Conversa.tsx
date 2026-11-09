@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Icone, type NomeIcone } from '../components/icons';
+import { useVoz, type EstadoVoz } from '../voz';
 
 /** Tela de Conversa — estado de abertura.
  *
@@ -20,18 +22,14 @@ const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
 
 /** Microfone e envio. Renderizado duas vezes: uma de verdade à direita do campo
  *  e uma invisível à esquerda, como espelho — ver o comentário no form. */
-function Acoes({ interativo = false }: { interativo?: boolean } = {}) {
+function Acoes({
+  interativo = false,
+  voz = 'parado',
+  aoFalar,
+}: { interativo?: boolean; voz?: EstadoVoz; aoFalar?: () => void } = {}) {
   return (
     <>
-      <button
-        type="button"
-        className="text-text-secondary p-sm"
-        aria-label={interativo ? 'Falar' : undefined}
-        aria-hidden={!interativo}
-        tabIndex={interativo ? undefined : -1}
-      >
-        <Icone nome="microfone" tamanho={19} />
-      </button>
+      <BotaoMicrofone estado={voz} aoClicar={aoFalar} tamanho={19} interativo={interativo} />
       <button
         type={interativo ? 'submit' : 'button'}
         className="text-accent p-sm"
@@ -48,6 +46,13 @@ function Acoes({ interativo = false }: { interativo?: boolean } = {}) {
 
 export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = {}) {
   const [rascunho, definirRascunho] = useState('');
+  const campo = useRef<HTMLInputElement>(null);
+  // A fala transcrita entra na caixa (depois do que já estava escrito), e a
+  // pessoa confere antes de enviar.
+  const voz = useVoz((texto) => {
+    definirRascunho((r) => (r.trim() ? `${r.trimEnd()} ${texto}` : texto));
+    campo.current?.focus();
+  });
   return (
     <main className="tela-conversa relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
@@ -109,14 +114,15 @@ export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = 
             <Acoes />
           </span>
           <input
+            ref={campo}
             value={rascunho}
             onChange={(e) => definirRascunho(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
+            className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
             style={{ fontSize: 16 }}
-            placeholder="Fale com o Solis…"
+            placeholder={voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
-          <Acoes interativo />
+          <Acoes interativo voz={voz.estado} aoFalar={voz.alternar} />
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}

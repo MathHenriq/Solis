@@ -284,7 +284,15 @@ das outras.
 
 ### Voz
 
-1. **Apertar pra falar** primeiro.
+1. **Apertar pra falar** primeiro. **Feito (09/11/2026):** um clique no microfone ouve, outro para,
+   e o texto entra na caixa pra conferir antes de enviar (Esc desiste). Whisper local (`small`, pelo
+   faster-whisper) na GPU, com a cuBLAS que o Ollama já traz, e na CPU se a GPU não der. Medido em 8
+   frases de texto conhecido, limpas e com ruído: com o vocabulário que o Solis já conhece (nomes das
+   memórias, dos arquivos, dos modelos), o erro por palavra cai de 8,2% pra 2,1% e o small empata
+   com o large-v3-turbo ocupando 455 MB de placa em vez de 1,2 GB; 0,5 s por frase na GPU, ~4 s na
+   CPU (tabela em `backend/solis/voz.py`). De ponta a ponta no app: transcrito e na caixa em 4,5 s na
+   primeira fala (2,5 s são o modelo subindo). Falta: conferir com a voz do Matheus no headset, e o
+   aval dos prints (`design/voz-validacao.png`, PROVISÓRIO).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 
