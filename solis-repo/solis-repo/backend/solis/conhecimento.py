@@ -5,9 +5,11 @@ vetor (busca.indexar_pendentes) — o mesmo caminho das memórias. Na hora de
 responder, os trechos mais ligados à mensagem entram no pedido com o nome do
 arquivo e a página.
 
-Formatos: PDF (pela pypdf, Python puro) e texto (.md, .txt). PDF escaneado não
-tem texto — é imagem — e sem OCR não há o que ler: é recusado com esse motivo,
-em vez de entrar vazio.
+Formatos: PDF (pela pypdf, Python puro), texto (.md, .txt) e página web (pela
+trafilatura, que tira só o conteúdo principal — sem menu, rodapé e anúncio; o
+parser HTML da biblioteca padrão traria tudo junto). PDF escaneado não tem
+texto — é imagem — e sem OCR não há o que ler: é recusado com esse motivo, em
+vez de entrar vazio.
 
 O arquivo original não é copiado: fica onde está. O Solis guarda o texto
 extraído, que é o que ele usa.
@@ -16,12 +18,19 @@ import hashlib
 import io
 import re
 from pathlib import PurePath
+from urllib.parse import unquote, urlsplit
+
+import httpx
 
 from . import banco
 
 TEXTO = {'.md', '.markdown', '.txt'}
 PDF = {'.pdf'}
 TAMANHO_MAX = 50 * 1024 * 1024
+PAGINA_MAX = 15 * 1024 * 1024
+TIMEOUT_PAGINA = httpx.Timeout(20.0, connect=8.0)
+# Nome genérico de cliente: nada que identifique o Matheus vai pro site.
+NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Solis/0.1'
 
 # Trechos de ~200 palavras, com 40 de sobra entre um e o próximo: uma ideia que
 # cai na emenda continua inteira em algum dos dois. ~200 palavras cabem com
@@ -114,10 +123,77 @@ def preparar(nome: str, dados: bytes) -> dict:
 def guardar(nome: str, lido: dict, privado: bool = False) -> int:
     """A parte do banco — na mesma thread de todo o resto do servidor."""
     return banco.adicionar_documento(
-        nome, lido['tipo'], lido['paginas'], lido['tamanho'], lido['hash'], lido['trechos'], privado
+        nome, lido['tipo'], lido['paginas'], lido['tamanho'], lido['hash'], lido['trechos'], privado,
+        url=lido.get('url'),
     )
 
 
 def adicionar(nome: str, dados: bytes, privado: bool = False) -> int:
     """Lê e guarda. Devolve o id. NaoLeu ou banco.Duplicado se não entrou."""
     return guardar(nome, preparar(nome, dados), privado)
+
+
+# — Página web ————————————————————————————————————————————————————————————————
+
+def _endereco(url: str) -> str:
+    url = url.strip()
+    if not re.match(r'^https?://', url, re.I):
+        # "fastapi.tiangolo.com/tutorial" colado sem o https:// é o mais comum.
+        if re.match(r'^[\w-]+(\.[\w-]+)+(/|$)', url):
+            url = 'https://' + url
+        else:
+            raise NaoLeu('o endereço precisa ser de uma página (https://...)')
+    return url
+
+
+async def baixar(url: str, transporte: httpx.AsyncBaseTransport | None = None) -> tuple[str, str, bytes]:
+    """(endereço final, tipo do conteúdo, corpo). NaoLeu se não deu."""
+    url = _endereco(url)
+    try:
+        async with httpx.AsyncClient(
+            timeout=TIMEOUT_PAGINA, follow_redirects=True, transport=transporte, headers={'User-Agent': NAVEGADOR}
+        ) as c:
+            async with c.stream('GET', url) as r:
+                if r.status_code >= 400:
+                    raise NaoLeu(f'o site respondeu {r.status_code}' + (' (precisa de login?)' if r.status_code in (401, 403) else ''))
+                corpo = bytearray()
+                async for parte in r.aiter_bytes():
+                    corpo += parte
+                    if len(corpo) > PAGINA_MAX:
+                        raise NaoLeu('a página passa de 15 MB')
+                return str(r.url), r.headers.get('content-type', ''), bytes(corpo)
+    except httpx.HTTPError as e:
+        raise NaoLeu('não consegui abrir o endereço (sem internet, ou o site está fora)') from e
+
+
+def _titulo(texto: str | None) -> str | None:
+    # "Background Tasks¶": o ¶ e o # são âncoras de documentação, não título.
+    texto = ' '.join((texto or '').split()).strip(' ¶#|-–—')
+    return texto[:200] or None
+
+
+def preparar_pagina(url: str, tipo_conteudo: str, corpo: bytes) -> tuple[str, dict]:
+    """(nome, preparado) — o mesmo `preparado` de preparar(). Roda numa thread."""
+    caminho = urlsplit(url)
+    if 'pdf' in tipo_conteudo or caminho.path.lower().endswith('.pdf'):
+        nome = unquote(PurePath(caminho.path).name) or caminho.netloc
+        lido = preparar(nome if nome.lower().endswith('.pdf') else f'{nome}.pdf', corpo)
+        return nome, lido
+    if 'html' not in tipo_conteudo and 'text/plain' not in tipo_conteudo:
+        raise NaoLeu('o endereço não é uma página nem um PDF')
+
+    import trafilatura
+
+    html = corpo.decode('utf-8', errors='replace')
+    texto = trafilatura.extract(html, url=url, include_comments=False, include_tables=True, favor_recall=True)
+    trechos = [(None, t) for t in cortar(_limpo(texto or ''))]
+    if not trechos:
+        raise NaoLeu('não achei texto na página (pode pedir login ou ser montada por JavaScript)')
+    meta = trafilatura.extract_metadata(html, default_url=url)
+    nome = _titulo(meta.title if meta else None) or f'{caminho.netloc}{caminho.path}'.rstrip('/')
+    return nome, {
+        'tipo': 'web', 'paginas': None, 'trechos': trechos, 'tamanho': len(corpo),
+        # O endereço é a identidade da página (o conteúdo muda com o tempo):
+        # a mesma página não entra duas vezes.
+        'hash': hashlib.sha256(f'url:{url}'.encode()).hexdigest(), 'url': url,
+    }

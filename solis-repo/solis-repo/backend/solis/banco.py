@@ -188,6 +188,52 @@ MIGRACOES = [
         DELETE FROM trechos_fts WHERE rowid = old.id;
     END;
     """,
+    # 9 — Conhecimento: página web (tipo 'web' e o endereço).
+    """
+    -- Mudar o CHECK do tipo no SQLite é recriar a tabela. Os trechos vão
+    -- junto (a chave estrangeira aponta pra documentos), com os MESMOS ids:
+    -- o índice trechos_fts usa o id como rowid e os vetores estão nos
+    -- próprios trechos, então nada precisa ser reindexado. Os gatilhos saem
+    -- antes do DROP pra não mexerem no índice no meio da troca.
+    CREATE TABLE documentos_9 (
+        id      INTEGER PRIMARY KEY,
+        nome    TEXT NOT NULL,
+        tipo    TEXT NOT NULL CHECK (tipo IN ('pdf', 'nota', 'web')),
+        paginas INTEGER,
+        bytes   INTEGER NOT NULL,
+        hash    TEXT NOT NULL UNIQUE,
+        privado INTEGER NOT NULL DEFAULT 0,
+        criado  TEXT NOT NULL,
+        url     TEXT
+    );
+    INSERT INTO documentos_9 (id, nome, tipo, paginas, bytes, hash, privado, criado)
+        SELECT id, nome, tipo, paginas, bytes, hash, privado, criado FROM documentos;
+    CREATE TABLE trechos_9 (
+        id        INTEGER PRIMARY KEY,
+        documento INTEGER NOT NULL REFERENCES documentos_9(id) ON DELETE CASCADE,
+        ordem     INTEGER NOT NULL,
+        pagina    INTEGER,
+        texto     TEXT NOT NULL,
+        vetor     BLOB
+    );
+    INSERT INTO trechos_9 (id, documento, ordem, pagina, texto, vetor)
+        SELECT id, documento, ordem, pagina, texto, vetor FROM trechos;
+    DROP TRIGGER trechos_fts_inclui;
+    DROP TRIGGER trechos_fts_apaga;
+    DROP TABLE trechos;
+    DROP TABLE documentos;
+    -- O RENAME também reescreve a referência de trechos_9 pra "documentos".
+    ALTER TABLE documentos_9 RENAME TO documentos;
+    ALTER TABLE trechos_9 RENAME TO trechos;
+    CREATE INDEX trechos_do_documento ON trechos (documento, ordem);
+    CREATE TRIGGER trechos_fts_inclui AFTER INSERT ON trechos
+    WHEN (SELECT privado FROM documentos WHERE id = new.documento) = 0 BEGIN
+        INSERT INTO trechos_fts(rowid, texto) VALUES (new.id, new.texto);
+    END;
+    CREATE TRIGGER trechos_fts_apaga AFTER DELETE ON trechos BEGIN
+        DELETE FROM trechos_fts WHERE rowid = old.id;
+    END;
+    """,
 ]
 
 
@@ -645,7 +691,7 @@ class Duplicado(Exception):
 
 def adicionar_documento(
     nome: str, tipo: str, paginas: int | None, tamanho: int, hash_: str,
-    trechos: list[tuple[int | None, str]], privado: bool = False,
+    trechos: list[tuple[int | None, str]], privado: bool = False, url: str | None = None,
 ) -> int:
     """Guarda o documento e os trechos (página, texto), ainda sem vetor."""
     existente = _con().execute('SELECT id FROM documentos WHERE hash = ?', (hash_,)).fetchone()
@@ -654,8 +700,8 @@ def adicionar_documento(
     selar = cofre.selar if privado else (lambda t: t)
     with _con() as c:
         doc = c.execute(
-            'INSERT INTO documentos (nome, tipo, paginas, bytes, hash, privado, criado) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            (selar(nome), tipo, paginas, tamanho, hash_, int(privado), _agora()),
+            'INSERT INTO documentos (nome, tipo, paginas, bytes, hash, privado, criado, url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (selar(nome), tipo, paginas, tamanho, hash_, int(privado), _agora(), selar(url) if url else None),
         ).lastrowid
         c.executemany(
             'INSERT INTO trechos (documento, ordem, pagina, texto) VALUES (?, ?, ?, ?)',
@@ -668,12 +714,15 @@ def documentos() -> list[dict]:
     """Do mais novo pro mais antigo, com quantos trechos têm e quantos já
     viraram vetor — a diferença é o "Indexando…" da tela."""
     linhas = _con().execute(
-        'SELECT d.id, d.nome, d.tipo, d.paginas, d.bytes, d.privado, d.criado, '
+        'SELECT d.id, d.nome, d.tipo, d.paginas, d.bytes, d.privado, d.criado, d.url, '
         'COUNT(t.id) AS trechos, COUNT(t.vetor) AS indexados '
         'FROM documentos d LEFT JOIN trechos t ON t.documento = d.id '
         'GROUP BY d.id ORDER BY d.criado DESC, d.id DESC'
     )
-    return [{**dict(l), 'nome': cofre.abrir(l['nome']), 'privado': bool(l['privado'])} for l in linhas]
+    return [
+        {**dict(l), 'nome': cofre.abrir(l['nome']), 'url': cofre.abrir(l['url']), 'privado': bool(l['privado'])}
+        for l in linhas
+    ]
 
 
 def buscar_documentos(busca: str) -> list[dict]:
@@ -717,7 +766,7 @@ def apagar_documento(documento: int) -> bool:
 
 def marcar_documento_privado(documento: int, privado: bool) -> bool:
     """Sela (ou abre) o nome e os trechos e tira (ou põe) o texto no índice."""
-    l = _con().execute('SELECT nome, privado FROM documentos WHERE id = ?', (documento,)).fetchone()
+    l = _con().execute('SELECT nome, url, privado FROM documentos WHERE id = ?', (documento,)).fetchone()
     if l is None:
         return False
     if bool(l['privado']) == privado:
@@ -725,11 +774,17 @@ def marcar_documento_privado(documento: int, privado: bool) -> bool:
     trechos = _con().execute('SELECT id, texto FROM trechos WHERE documento = ?', (documento,)).fetchall()
     with _con() as c:
         if privado:
-            c.execute('UPDATE documentos SET privado = 1, nome = ? WHERE id = ?', (cofre.selar(l['nome']), documento))
+            c.execute(
+                'UPDATE documentos SET privado = 1, nome = ?, url = ? WHERE id = ?',
+                (cofre.selar(l['nome']), cofre.selar(l['url']), documento),
+            )
             c.executemany('UPDATE trechos SET texto = ? WHERE id = ?', [(cofre.selar(t['texto']), t['id']) for t in trechos])
             c.executemany('DELETE FROM trechos_fts WHERE rowid = ?', [(t['id'],) for t in trechos])
         else:
-            c.execute('UPDATE documentos SET privado = 0, nome = ? WHERE id = ?', (cofre.abrir(l['nome']), documento))
+            c.execute(
+                'UPDATE documentos SET privado = 0, nome = ?, url = ? WHERE id = ?',
+                (cofre.abrir(l['nome']), cofre.abrir(l['url']), documento),
+            )
             abertos = [(t['id'], cofre.abrir(t['texto'])) for t in trechos]
             c.executemany('UPDATE trechos SET texto = ? WHERE id = ?', [(texto, i) for i, texto in abertos])
             c.executemany('INSERT INTO trechos_fts(rowid, texto) VALUES (?, ?)', abertos)
@@ -757,11 +812,12 @@ def trechos_por_id(ids: list[int]) -> list[dict]:
         return []
     marcas = ','.join('?' * len(ids))
     linhas = _con().execute(
-        f'SELECT t.id, t.documento, t.pagina, t.texto, d.nome, d.tipo, d.privado '
+        f'SELECT t.id, t.documento, t.pagina, t.texto, d.nome, d.tipo, d.privado, d.url '
         f'FROM trechos t JOIN documentos d ON d.id = t.documento WHERE t.id IN ({marcas})',
         ids,
     )
     return [
-        {**dict(l), 'texto': cofre.abrir(l['texto']), 'nome': cofre.abrir(l['nome']), 'privado': bool(l['privado'])}
+        {**dict(l), 'texto': cofre.abrir(l['texto']), 'nome': cofre.abrir(l['nome']), 'url': cofre.abrir(l['url']),
+         'privado': bool(l['privado'])}
         for l in linhas
     ]

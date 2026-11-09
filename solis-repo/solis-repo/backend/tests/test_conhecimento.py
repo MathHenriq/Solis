@@ -179,3 +179,111 @@ def test_fonte_privada_selada_fora_do_indice_e_da_nuvem(embeddings_falsos, tmp_p
     assert len(cliente.get('/conhecimento', params={'q': 'normal'}).json()['documentos']) == 1
     cliente.patch(f'/conhecimento/{doc["id"]}', json={'privado': True})
     assert cliente.get('/conhecimento', params={'q': 'normal'}).json()['documentos'] == []
+
+
+# --- página web --------------------------------------------------------------
+
+import httpx  # noqa: E402
+
+PAGINA = '''<html><head><title>Arquitetura de sistemas locais ¶</title></head><body>
+<nav><a href="/">Início</a> <a href="/blog">Blog</a> Menu que não importa</nav>
+<article><h1>Arquitetura de sistemas locais</h1>
+<p>Um sistema local-first guarda os dados no aparelho da pessoa e sincroniza quando dá.
+O tauri empacota o app e sobe o servidor local junto, sem nada exposto na rede.</p>
+<p>O banco SQLite fica num arquivo só, e a busca de texto usa o FTS5 com remove_diacritics.</p>
+</article><footer>© 2026 Todos os direitos reservados · Política de cookies</footer></body></html>'''
+
+
+def site(rotas: dict):
+    def responde(req):
+        corpo = rotas.get(str(req.url))
+        if corpo is None:
+            return httpx.Response(404)
+        tipo, dados = corpo
+        return httpx.Response(200, headers={'content-type': tipo}, content=dados)
+    return httpx.MockTransport(responde)
+
+
+def adicionar_pagina(url, rotas, privado=False):
+    async def faz():
+        final, tipo, dados = await conhecimento.baixar(url, site(rotas))
+        nome, lido = conhecimento.preparar_pagina(final, tipo, dados)
+        return conhecimento.guardar(nome, lido, privado)
+    return asyncio.run(faz())
+
+
+def test_pagina_entra_so_com_o_conteudo_principal(embeddings_falsos):
+    rotas = {'https://exemplo.dev/arquitetura': ('text/html; charset=utf-8', PAGINA.encode())}
+    # Colado sem o https:// também vale.
+    adicionar_pagina('exemplo.dev/arquitetura', rotas)
+    [d] = banco.documentos()
+    assert (d['nome'], d['tipo'], d['url']) == ('Arquitetura de sistemas locais', 'web', 'https://exemplo.dev/arquitetura')
+    texto = ' '.join(t['texto'] for t in banco.trechos_por_id([r[0] for r in banco._con().execute('SELECT id FROM trechos')]))
+    assert 'local-first' in texto and 'FTS5' in texto
+    assert 'Menu que não importa' not in texto and 'Política de cookies' not in texto
+
+    # A mesma página de novo não entra.
+    with pytest.raises(banco.Duplicado):
+        adicionar_pagina('https://exemplo.dev/arquitetura', rotas)
+
+    # Na resposta, a fonte vai com o endereço.
+    asyncio.run(busca.indexar_pendentes())
+    _, trechos = asyncio.run(busca.contexto('o tauri e o sqlite no sistema local', 0))
+    assert '[Arquitetura de sistemas locais, https://exemplo.dev/arquitetura]' in ollama.contexto([], trechos)
+
+
+def test_endereco_de_pdf_entra_como_pdf():
+    rotas = {'https://exemplo.dev/docs/Guia%20Tauri.pdf': ('application/pdf', pdf_com('tauri pagina um', 'tauri pagina dois'))}
+    adicionar_pagina('https://exemplo.dev/docs/Guia%20Tauri.pdf', rotas)
+    [d] = banco.documentos()
+    assert (d['nome'], d['tipo'], d['paginas']) == ('Guia Tauri.pdf', 'pdf', 2)
+
+
+@pytest.mark.parametrize('url, rotas, motivo', [
+    ('ftp://x', {}, 'precisa ser de uma página'),
+    ('https://exemplo.dev/sumiu', {}, 'respondeu 404'),
+    ('https://exemplo.dev/foto.png', {'https://exemplo.dev/foto.png': ('image/png', b'\x89PNG')}, 'nem um PDF'),
+    ('https://exemplo.dev/js', {'https://exemplo.dev/js': ('text/html', b'<html><body><div id="app"></div><script>x()</script></body></html>')}, 'JavaScript'),
+])
+def test_pagina_recusada_diz_por_que(url, rotas, motivo):
+    with pytest.raises(conhecimento.NaoLeu, match=motivo):
+        adicionar_pagina(url, rotas)
+    assert banco.documentos() == []
+
+
+def test_rota_da_pagina(monkeypatch):
+    async def baixa(url, transporte=None):
+        conhecimento._endereco(url)  # a mesma validação do de verdade
+        return 'https://exemplo.dev/arquitetura', 'text/html', PAGINA.encode()
+    monkeypatch.setattr(conhecimento, 'baixar', baixa)
+    cliente = TestClient(main.app)
+    r = cliente.post('/conhecimento/pagina', json={'url': 'https://exemplo.dev/arquitetura', 'privado': True})
+    d = r.json()['documento']
+    assert (d['tipo'], d['url'], d['privado']) == ('web', 'https://exemplo.dev/arquitetura', True)
+    if cofre.DISPONIVEL:  # o endereço de uma página privada também fica selado
+        assert cofre.selado(banco._con().execute('SELECT url FROM documentos').fetchone()[0])
+    assert cliente.post('/conhecimento/pagina', json={'url': 'x'}).json()['erro'] == 'nao_leu'
+    assert cliente.post('/conhecimento/pagina', json={'url': 'https://exemplo.dev/arquitetura'}).status_code == 409
+
+
+def test_migracao_9_preserva_arquivos_indice_e_vetores(tmp_path):
+    """Recriar documentos e trechos (pra aceitar 'web') não pode perder nada."""
+    import sqlite3
+    caminho = tmp_path / 'v8.db'
+    c = sqlite3.connect(caminho)
+    c.executescript(banco.ESQUEMA)
+    for i, sql in enumerate(banco.MIGRACOES[:8], start=1):
+        c.executescript(f'BEGIN; {sql} PRAGMA user_version = {i}; COMMIT;')
+    c.execute("INSERT INTO documentos (id, nome, tipo, paginas, bytes, hash, privado, criado) VALUES (7, 'a.pdf', 'pdf', 1, 10, 'h', 0, 'x')")
+    c.execute("INSERT INTO trechos (id, documento, ordem, pagina, texto, vetor) VALUES (42, 7, 0, 1, 'zebra listrada', X'00')")
+    c.commit()
+    c.close()
+
+    banco.usar(caminho)
+    assert banco._con().execute('PRAGMA user_version').fetchone()[0] == len(banco.MIGRACOES)
+    [d] = banco.documentos()
+    assert (d['id'], d['nome'], d['trechos'], d['indexados'], d['url']) == (7, 'a.pdf', 1, 1, None)
+    assert [x['nome'] for x in banco.buscar_documentos('zebra')] == ['a.pdf']  # o índice continua
+    destino = {l['table'] for l in banco._con().execute('PRAGMA foreign_key_list(trechos)')}
+    assert destino == {'documentos'}
+    assert banco.apagar_documento(7) and banco._con().execute('SELECT COUNT(*) FROM trechos_fts').fetchone()[0] == 0

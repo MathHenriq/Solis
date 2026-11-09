@@ -413,6 +413,27 @@ async def adicionar_conhecimento(request: Request, nome: str, fundo: BackgroundT
     return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
 
 
+class Pagina(BaseModel):
+    url: str
+    privado: bool = False
+
+
+@app.post('/conhecimento/pagina')
+async def adicionar_pagina(corpo: Pagina, fundo: BackgroundTasks):
+    """Baixa a página (ou o PDF do endereço), tira o conteúdo principal e guarda
+    como os arquivos. Os mesmos erros do POST /conhecimento."""
+    try:
+        url, tipo, dados = await conhecimento.baixar(corpo.url)
+        nome, lido = await asyncio.to_thread(conhecimento.preparar_pagina, url, tipo, dados)
+        documento = conhecimento.guardar(nome, lido, corpo.privado)
+    except conhecimento.NaoLeu as e:
+        return JSONResponse({'erro': 'nao_leu', 'motivo': str(e)}, status_code=400)
+    except banco.Duplicado as e:
+        return JSONResponse({'erro': 'ja_existe', 'documento': e.documento}, status_code=409)
+    fundo.add_task(busca.indexar_pendentes)
+    return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
+
+
 class Privacidade(BaseModel):
     privado: bool
 

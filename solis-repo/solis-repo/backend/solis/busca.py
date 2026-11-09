@@ -185,6 +185,7 @@ def _arquivos(q: np.ndarray) -> list[dict]:
             'documento': t['documento'],
             'nome': t['nome'],
             'pagina': t['pagina'],
+            'url': t['url'],
             'texto': t['texto'],
             'privada': t['privado'],
         }

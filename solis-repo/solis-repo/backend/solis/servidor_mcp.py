@@ -57,7 +57,7 @@ async def buscar_na_memoria(assunto: str, quantas: int = 10) -> dict:
         ],
         # Dos arquivos do Conhecimento, com o nome e a página pra citar.
         'arquivos': [
-            {'arquivo': t['nome'], 'pagina': t['pagina'], 'texto': t['texto']}
+            {'arquivo': t['nome'], 'pagina': t['pagina'], 'url': t.get('url'), 'texto': t['texto']}
             for t in trechos
             if not t['privada'] and t.get('arquivo')
         ],

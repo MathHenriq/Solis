@@ -90,6 +90,8 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
 
 
 def _fonte(arquivo: dict) -> str:
+    if arquivo.get('url'):
+        return f'{arquivo["nome"]}, {arquivo["url"]}'
     return f'{arquivo["nome"]}, pág. {arquivo["pagina"]}' if arquivo.get('pagina') else arquivo['nome']
 
 
