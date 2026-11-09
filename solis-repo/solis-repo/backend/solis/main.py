@@ -14,12 +14,12 @@ from datetime import date, datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
-from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, resumo, roteador, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, resumo, roteador, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -591,6 +591,94 @@ async def falar(corpo: TextoFala):
         motivos = ' '.join('; '.join(fala.ultimos_motivos).split())
         cabecalhos['X-Solis-Antes'] = unicodedata.normalize('NFKD', motivos).encode('ascii', 'ignore').decode()[:500]
     return Response(audio, media_type=tipo, headers=cabecalhos)
+
+
+# — Palavra de ativação ———————————————————————————————————————————————————————————
+
+@app.get('/ativacao')
+async def estado_ativacao():
+    """O que falta pra escuta da palavra funcionar: chave, palavra, idioma."""
+    return ativacao.estado()
+
+
+class ChavePicovoice(BaseModel):
+    chave: str
+
+
+@app.put('/ativacao/chave')
+async def guardar_chave_ativacao(corpo: ChavePicovoice):
+    """A AccessKey do Picovoice, colada pelo Matheus na tela. Conferida com o
+    modelo da palavra (se já houver) e guardada selada. Nunca volta."""
+    try:
+        await asyncio.to_thread(ativacao.guardar_chave, corpo.chave)
+    except ativacao.ChaveRecusada as e:
+        return JSONResponse({'erro': 'chave_recusada', 'motivo': str(e)[:300]}, status_code=400)
+    except (ativacao.ModeloRecusado, ativacao.SemConfiguracao) as e:
+        return JSONResponse({'erro': 'modelo_recusado', 'motivo': str(e)[:300]}, status_code=400)
+    return ativacao.estado()
+
+
+@app.put('/ativacao/palavra')
+async def guardar_palavra_ativacao(request: Request):
+    """O arquivo .ppn da palavra, cru no corpo."""
+    try:
+        await asyncio.to_thread(ativacao.guardar_palavra, await request.body())
+    except ativacao.ChaveRecusada as e:
+        return JSONResponse({'erro': 'chave_recusada', 'motivo': str(e)[:300]}, status_code=400)
+    except (ativacao.ModeloRecusado, ativacao.SemConfiguracao) as e:
+        return JSONResponse({'erro': 'modelo_recusado', 'motivo': str(e)[:300]}, status_code=400)
+    return ativacao.estado()
+
+
+@app.delete('/ativacao')
+async def apagar_ativacao():
+    ativacao.apagar()
+    return ativacao.estado()
+
+
+@app.websocket('/escuta')
+async def escuta(ws: WebSocket):
+    """O microfone aberto do navegador: áudio PCM 16 bits, 16 kHz, mono, em
+    pedaços binários. Volta {"tipo": "ativou"} ao ouvir a palavra e, quando a
+    pessoa para de falar, {"tipo": "texto", "texto"} (ou {"tipo": "nada"}).
+    Texto {"pausa": true} do navegador suspende a escuta — enquanto o Solis
+    fala, a voz dele não pode acordar ele mesmo."""
+    await ws.accept()
+    try:
+        escutando = await asyncio.to_thread(ativacao.Escuta)
+    except Exception as e:
+        await ws.send_json({'tipo': 'erro', 'motivo': str(e)[:300]})
+        await ws.close()
+        return
+    pausada = False
+    try:
+        while True:
+            msg = await ws.receive()
+            if msg.get('type') == 'websocket.disconnect':
+                break
+            if msg.get('text'):
+                try:
+                    pausada = bool(json.loads(msg['text']).get('pausa'))
+                except ValueError:
+                    pass
+                continue
+            if pausada or not msg.get('bytes'):
+                continue
+            for tipo, audio in escutando.alimentar(msg['bytes']):
+                if tipo == 'ativou':
+                    await ws.send_json({'tipo': 'ativou'})
+                elif audio is None:
+                    await ws.send_json({'tipo': 'nada'})
+                else:
+                    try:
+                        texto = (await voz.transcrever(audio))['texto']
+                    except (voz.SemModelo, voz.AudioRuim):
+                        texto = ''
+                    await ws.send_json({'tipo': 'texto', 'texto': texto} if texto else {'tipo': 'nada'})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        escutando.fechar()
 
 
 # — Agenda ————————————————————————————————————————————————————————————————————————
