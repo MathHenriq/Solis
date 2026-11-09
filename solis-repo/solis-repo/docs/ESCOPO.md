@@ -291,8 +291,8 @@ das outras.
    memórias, dos arquivos, dos modelos), o erro por palavra cai de 8,2% pra 2,1% e o small empata
    com o large-v3-turbo ocupando 455 MB de placa em vez de 1,2 GB; 0,5 s por frase na GPU, ~4 s na
    CPU (tabela em `backend/solis/voz.py`). De ponta a ponta no app: transcrito e na caixa em 4,5 s na
-   primeira fala (2,5 s são o modelo subindo). Falta: conferir com a voz do Matheus no headset, e o
-   aval dos prints (`design/voz-validacao.png`, PROVISÓRIO).
+   primeira fala (2,5 s são o modelo subindo). Conferido pelo Matheus com a voz dele no headset
+   (09/11/2026): saiu bem. Falta o aval dos prints (`design/voz-validacao.png`, PROVISÓRIO).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 
