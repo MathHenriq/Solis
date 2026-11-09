@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { Icone } from '../components/icons';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Botao } from '../components/Controles';
+import { Icone, type NomeIcone } from '../components/icons';
 import { BotaoContorno, EstadoVazio, Tela } from '../components/Tela';
 import { quando } from '../datas';
 import {
   adicionarDocumento,
+  adicionarPagina,
   apagarDocumento,
   listarDocumentos,
   marcarDocumentoPrivado,
@@ -23,7 +25,8 @@ import {
  *
  *  Desenho próprio, aprovado pelo Matheus em 08/11/2026 (design/conhecimento-validacao.png,
  *  layout.conhecimento): o menu dos três pontos e
- *  o aviso de baixo. "Página web" da referência ainda não existe. */
+ *  o aviso de baixo. "Adicionar fonte" abre um menu: arquivo ou página da web (o
+ *  campo de endereço é desenho próprio, PROVISÓRIO até o Matheus aprovar). */
 
 const DESFAZER_MS = 6000;
 const ACOMPANHAR_MS = 1500;
@@ -36,6 +39,8 @@ const ACEITA = '.pdf,.md,.markdown,.txt';
 const numero = new Intl.NumberFormat('pt-BR');
 
 function detalhe(d: Documento) {
+  // Página web como a referência escreve: "Página web · há 1 semana".
+  if (d.tipo === 'web') return `Página web · ${quando(d.criado)}`;
   const tamanho =
     d.tipo === 'pdf'
       ? `${numero.format(d.paginas ?? 0)} ${d.paginas === 1 ? 'página' : 'páginas'}`
@@ -43,7 +48,64 @@ function detalhe(d: Documento) {
   return `${d.tipo === 'pdf' ? 'PDF' : 'Nota'} · ${tamanho} · ${quando(d.criado)}`;
 }
 
+const ICONE = { pdf: 'documento', nota: 'nota', web: 'web' } as const;
+
 type Aviso = { texto: string; desfazer?: () => void };
+
+/** A caixa flutuante dos menus (o ⋮ do cartão e o "Adicionar fonte"): fecha
+ *  com clique fora ou Esc, como qualquer menu, e põe o foco no primeiro
+ *  controle de dentro. Desenho em layout.conhecimento. */
+function Caixa({ largura, aoFechar, children }: { largura?: string; aoFechar: () => void; children: ReactNode }) {
+  const caixa = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const fora = (e: MouseEvent) => !caixa.current?.contains(e.target as Node) && aoFechar();
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
+    document.addEventListener('mousedown', fora);
+    document.addEventListener('keydown', esc);
+    caixa.current?.querySelector<HTMLElement>('input, button')?.focus();
+    return () => {
+      document.removeEventListener('mousedown', fora);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [aoFechar]);
+  return (
+    <div
+      ref={caixa}
+      role="menu"
+      className="absolute right-0 z-10 border border-divider bg-canvas"
+      style={{
+        top: `calc(100% + var(--kn-menu-top))`,
+        width: largura ?? 'var(--kn-menu-l)',
+        padding: 'var(--kn-menu-pad)',
+        borderRadius: 'var(--kn-menu-raio)',
+        boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ItemMenu({ icone, onClick, children }: { icone: NomeIcone; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex items-center w-full text-left text-text-primary hover:bg-[var(--mem-hover)]"
+      style={{
+        height: 'var(--kn-menu-item-h)',
+        padding: '0 var(--kn-menu-item-px)',
+        gap: 'var(--kn-menu-icone-gap)',
+        borderRadius: 'calc(var(--kn-menu-raio) - var(--kn-menu-pad))',
+        fontSize: 'var(--mac-botao-texto)',
+      }}
+    >
+      <Icone nome={icone} tamanho="var(--mac-icone)" className="text-text-secondary" />
+      {children}
+    </button>
+  );
+}
 
 function Menu({
   d,
@@ -56,50 +118,81 @@ function Menu({
   aoPrivado: () => void;
   aoRemover: () => void;
 }) {
-  const caixa = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // Fecha com clique fora ou Esc, como qualquer menu.
-    const fora = (e: MouseEvent) => !caixa.current?.contains(e.target as Node) && aoFechar();
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
-    document.addEventListener('mousedown', fora);
-    document.addEventListener('keydown', esc);
-    caixa.current?.querySelector('button')?.focus();
-    return () => {
-      document.removeEventListener('mousedown', fora);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [aoFechar]);
-
-  const item = 'flex items-center w-full text-left text-text-primary hover:bg-[var(--mem-hover)]';
-  const estilo = {
-    height: 'var(--kn-menu-item-h)',
-    padding: '0 var(--kn-menu-item-px)',
-    gap: 'var(--kn-menu-icone-gap)',
-    borderRadius: 'calc(var(--kn-menu-raio) - var(--kn-menu-pad))',
-    fontSize: 'var(--mac-botao-texto)',
-  };
   return (
-    <div
-      ref={caixa}
-      role="menu"
-      className="absolute right-0 z-10 border border-divider bg-canvas"
-      style={{
-        top: `calc(100% + var(--kn-menu-top))`,
-        width: 'var(--kn-menu-l)',
-        padding: 'var(--kn-menu-pad)',
-        borderRadius: 'var(--kn-menu-raio)',
-        boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
-      }}
-    >
-      <button type="button" role="menuitem" className={item} style={estilo} onClick={aoPrivado}>
-        <Icone nome="cadeado" tamanho="var(--mac-icone)" className="text-text-secondary" />
+    <Caixa aoFechar={aoFechar}>
+      {d.url && (
+        <ItemMenu
+          icone="web"
+          onClick={() => {
+            window.open(d.url!, '_blank', 'noopener');
+            aoFechar();
+          }}
+        >
+          Abrir a página
+        </ItemMenu>
+      )}
+      <ItemMenu icone="cadeado" onClick={aoPrivado}>
         {d.privado ? 'Deixar de ser privado' : 'Marcar como privado'}
-      </button>
-      <button type="button" role="menuitem" className={item} style={estilo} onClick={aoRemover}>
-        <Icone nome="lixeira" tamanho="var(--mac-icone)" className="text-text-secondary" />
+      </ItemMenu>
+      <ItemMenu icone="lixeira" onClick={aoRemover}>
         Remover do Conhecimento
-      </button>
-    </div>
+      </ItemMenu>
+    </Caixa>
+  );
+}
+
+/** "Adicionar fonte": arquivo do computador ou página da web. A página vira um
+ *  campo de endereço na própria caixa, sem janela no meio da tela. */
+function MenuAdicionar({
+  aoArquivo,
+  aoPagina,
+  aoFechar,
+}: {
+  aoArquivo: () => void;
+  aoPagina: (url: string) => void;
+  aoFechar: () => void;
+}) {
+  const [pagina, definirPagina] = useState(false);
+  const [url, definirUrl] = useState('');
+  const enviar = () => url.trim() && aoPagina(url.trim());
+  if (!pagina) {
+    return (
+      <Caixa aoFechar={aoFechar}>
+        <ItemMenu icone="documento" onClick={aoArquivo}>
+          Arquivo do computador
+        </ItemMenu>
+        <ItemMenu icone="web" onClick={() => definirPagina(true)}>
+          Página da web
+        </ItemMenu>
+      </Caixa>
+    );
+  }
+  return (
+    <Caixa largura="var(--kn-endereco-l)" aoFechar={aoFechar}>
+      <div style={{ padding: 'var(--kn-menu-pad)' }}>
+        <input
+          type="url"
+          value={url}
+          spellCheck={false}
+          onChange={(e) => definirUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && enviar()}
+          placeholder="Cole o endereço da página"
+          aria-label="Endereço da página"
+          className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-placeholder border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+          style={{
+            fontSize: 'var(--mac-botao-texto)',
+            borderRadius: 'var(--mac-campo-raio)',
+            padding: 'var(--mac-campo-py) var(--mac-campo-px)',
+          }}
+        />
+        <div className="flex items-center" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
+          <Botao tipo="destaque" onClick={enviar} disabled={!url.trim()}>
+            Adicionar
+          </Botao>
+          <Botao onClick={aoFechar}>Cancelar</Botao>
+        </div>
+      </div>
+    </Caixa>
   );
 }
 
@@ -111,7 +204,7 @@ function Cartao({
   aoPrivado,
   aoRemover,
 }: {
-  d: Documento | { id: string; nome: string; lendo: true };
+  d: Documento | { id: string; nome: string; lendo: true; web?: boolean };
   parado?: boolean;
   menuAberto?: boolean;
   aoMenu?: (aberto: boolean) => void;
@@ -130,7 +223,7 @@ function Cartao({
     >
       <div className="flex items-start justify-between">
         <span className="text-text-secondary">
-          <Icone nome={doc?.tipo === 'nota' ? 'nota' : 'documento'} tamanho={28} />
+          <Icone nome={lendo ? (d.web ? 'web' : 'documento') : ICONE[doc!.tipo]} tamanho={28} />
         </span>
         {doc && (
           <div className="relative">
@@ -152,7 +245,7 @@ function Cartao({
       </div>
       {/* O nome numa linha só: nome de arquivo pode ser enorme, e o cartão não
           pode crescer por isso. O inteiro fica no title. */}
-      <div className="text-text-primary truncate" title={d.nome} style={{ fontSize: 'var(--cfg-secao)', marginTop: 30 }}>
+      <div className="text-text-primary truncate" title={'url' in d && d.url ? d.url : d.nome} style={{ fontSize: 'var(--cfg-secao)', marginTop: 30 }}>
         {d.nome}
       </div>
       {lendo || indexando ? (
@@ -163,7 +256,7 @@ function Cartao({
             <div className="bg-accent" style={{ width: `${pct}%`, height: 4, borderRadius: 999 }} />
           </div>
           <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 10 }}>
-            {lendo ? 'Lendo o arquivo…' : parado ? `Parado em ${pct}%. O Ollama está ligado?` : `Indexando… ${pct}%`}
+            {lendo ? (d.web ? 'Baixando a página…' : 'Lendo o arquivo…') : parado ? `Parado em ${pct}%. O Ollama está ligado?` : `Indexando… ${pct}%`}
           </div>
         </div>
       ) : (
@@ -183,7 +276,8 @@ export function Conhecimento() {
   const [resultado, definirResultado] = useState<Resultado<Documento[]> | null>(null);
   const [busca, definirBusca] = useState('');
   const [achados, definirAchados] = useState<Documento[] | null>(null);
-  const [lendo, definirLendo] = useState<{ id: string; nome: string; lendo: true }[]>([]);
+  const [lendo, definirLendo] = useState<{ id: string; nome: string; lendo: true; web?: boolean }[]>([]);
+  const [adicionando, definirAdicionando] = useState(false);
   const [menu, definirMenu] = useState<number | null>(null);
   const [aviso, definirAviso] = useState<Aviso | null>(null);
   const [removido, definirRemovido] = useState<number | null>(null);
@@ -260,6 +354,20 @@ export function Conhecimento() {
     if (problemas.length) avisar({ texto: problemas.join(' · ') });
   }
 
+  async function adicionarEndereco(url: string) {
+    definirAdicionando(false);
+    // Enquanto baixa, o cartão mostra o site — o título só vem com a página.
+    const site = url.replace(/^https?:\/\//i, '').split('/')[0];
+    const marca = { id: `lendo-${Date.now()}`, nome: site, lendo: true as const, web: true };
+    definirLendo((l) => [marca, ...l]);
+    const r = await adicionarPagina(url);
+    definirLendo((l) => l.filter((x) => x.id !== marca.id));
+    await recarregar();
+    if (r.estado === 'nao-leu') avisar({ texto: `${site}: ${r.motivo}` });
+    else if (r.estado === 'ja-existe') avisar({ texto: 'Essa página já está no Conhecimento' });
+    else if (r.estado === 'sem-servidor') avisar({ texto: 'O servidor do Solis está desligado' });
+  }
+
   // Remover some na hora e só vai pro servidor depois do Desfazer: o texto
   // guardado não volta (o arquivo original não é copiado), então o atraso é a
   // única rede de segurança.
@@ -295,9 +403,21 @@ export function Conhecimento() {
   }
 
   const botao = (
-    <BotaoContorno onClick={() => arquivo.current?.click()}>
-      <span style={{ fontSize: 20, lineHeight: 1 }}>+</span> Adicionar fonte
-    </BotaoContorno>
+    <div className="relative shrink-0">
+      <BotaoContorno onClick={() => definirAdicionando((a) => !a)}>
+        <span style={{ fontSize: 20, lineHeight: 1 }}>+</span> Adicionar fonte
+      </BotaoContorno>
+      {adicionando && (
+        <MenuAdicionar
+          aoArquivo={() => {
+            definirAdicionando(false);
+            arquivo.current?.click();
+          }}
+          aoPagina={adicionarEndereco}
+          aoFechar={() => definirAdicionando(false)}
+        />
+      )}
+    </div>
   );
   const entrada = (
     <input
@@ -349,7 +469,7 @@ export function Conhecimento() {
           <EstadoVazio
             icone="conhecimento"
             titulo="Nenhuma fonte ainda"
-            corpo={'Adicione PDFs, notas e textos. O Solis lê, guarda o texto\ne usa nas respostas, dizendo de qual arquivo tirou.'}
+            corpo={'Adicione PDFs, notas, textos e páginas da web. O Solis lê, guarda\no texto e usa nas respostas, dizendo de onde tirou.'}
           />
         ) : undefined
       }

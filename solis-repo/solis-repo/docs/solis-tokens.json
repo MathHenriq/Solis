@@ -358,6 +358,8 @@
       "menuItemPadX": "12px",
       "menuIconGap": "10px",
       "menuTop": "4px",
+      "addressWidth": "380px",
+      "_addressWidth": "PROVISORIO (09/11/2026): a caixa do endereco da pagina web, aberta pelo Adicionar fonte. Larga o bastante pra um endereco de documentacao (~50 caracteres a 14px) sem cobrir a grade.",
       "_menu": "Item de 36px com texto de 14 (o --mac-botao-texto) e icone de 16 (o --mac-icone): a mesma escala dos controles secundarios da Memoria."
     },
     "iconBar": {

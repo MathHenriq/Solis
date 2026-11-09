@@ -186,7 +186,8 @@ w('  /* Menu do Conhecimento - desenho proprio, aprovado. Ver layout.conheciment
 kn = T['layout']['conhecimento']
 for chave, var in [('menuWidth','--kn-menu-l'), ('menuPad','--kn-menu-pad'), ('menuRadius','--kn-menu-raio'),
                    ('menuItemHeight','--kn-menu-item-h'), ('menuItemPadX','--kn-menu-item-px'),
-                   ('menuIconGap','--kn-menu-icone-gap'), ('menuTop','--kn-menu-top')]:
+                   ('menuIconGap','--kn-menu-icone-gap'), ('menuTop','--kn-menu-top'),
+                   ('addressWidth','--kn-endereco-l')]:
     w('  %s: %s;' % (var, kn[chave]))
 w('  /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */')
 for chave, var in [('cardGap','--cer-cartao-gap'), ('orderIcon','--cer-seta'), ('orderHit','--cer-seta-alvo'),

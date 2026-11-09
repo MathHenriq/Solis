@@ -331,11 +331,12 @@ export async function conversar(conversa: number | null, texto: string, ouvintes
 }
 
 /** Um arquivo do Conhecimento. `indexados < trechos` = ainda virando vetor
- *  (o "Indexando… 64%" da tela). `paginas` só no PDF. */
+ *  (o "Indexando… 64%" da tela). `paginas` só no PDF; `url` só na página web. */
 export type Documento = {
   id: number;
   nome: string;
-  tipo: 'pdf' | 'nota';
+  tipo: 'pdf' | 'nota' | 'web';
+  url: string | null;
   paginas: number | null;
   bytes: number;
   privado: boolean;
@@ -367,6 +368,24 @@ export async function adicionarDocumento(arquivo: File, privado = false): Promis
       `${BASE}/conhecimento?nome=${encodeURIComponent(arquivo.name)}&privado=${privado}`,
       { method: 'POST', body: arquivo },
     );
+    if (r.ok) return { estado: 'ok', documento: ((await r.json()) as { documento: Documento }).documento };
+    const corpo = (await r.json().catch(() => ({}))) as { erro?: string; motivo?: string };
+    if (corpo.erro === 'nao_leu') return { estado: 'nao-leu', motivo: corpo.motivo ?? '' };
+    if (corpo.erro === 'ja_existe') return { estado: 'ja-existe' };
+    return { estado: 'sem-servidor' };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
+/** O servidor baixa o endereço e tira o conteúdo principal da página. */
+export async function adicionarPagina(url: string, privado = false): Promise<ResultadoArquivo> {
+  try {
+    const r = await fetch(`${BASE}/conhecimento/pagina`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, privado }),
+    });
     if (r.ok) return { estado: 'ok', documento: ((await r.json()) as { documento: Documento }).documento };
     const corpo = (await r.json().catch(() => ({}))) as { erro?: string; motivo?: string };
     if (corpo.erro === 'nao_leu') return { estado: 'nao-leu', motivo: corpo.motivo ?? '' };
