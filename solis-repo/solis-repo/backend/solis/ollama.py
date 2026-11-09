@@ -8,6 +8,7 @@ import asyncio
 import base64
 import json
 import os
+from datetime import date
 from collections.abc import AsyncIterator
 
 import httpx
@@ -39,6 +40,10 @@ SISTEMA = (
     'só sabe o que foi dito nesta conversa e o que aprendeu no treinamento.\n\n'
     'Quando o Matheus pedir pra guardar ou lembrar algo, isso fica guardado nas '
     'memórias — pode confirmar que guardou.\n\n'
+    'Quando ele disser algo que precisa fazer ("me lembra de pagar a luz dia 15", '
+    '"tenho que entregar o relatório sexta"), depois da sua resposta isso vira uma '
+    'tarefa na tela Tarefas, com o prazo — pode dizer que ficou anotado. Marcar como '
+    'feita, mudar ou apagar uma tarefa você não consegue: é pela tela Tarefas.\n\n'
     'Quando não souber algo, diga que não sabe. Responda em português do Brasil, '
     'com clareza e sem rodeios.'
 )
@@ -68,7 +73,8 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
         )
     # Os trechos dos arquivos (Conhecimento) vêm na mesma lista, marcados.
     arquivos = [t for t in trechos or [] if t.get('arquivo')]
-    conversas = [t for t in trechos or [] if not t.get('arquivo')]
+    tarefas = [t for t in trechos or [] if t.get('tarefa')]
+    conversas = [t for t in trechos or [] if not t.get('arquivo') and not t.get('tarefa')]
     if conversas:
         # Com data e autor: "o Solis disse" e "o Matheus disse" pesam diferente,
         # e "em março" responde "quando a gente falou disso?". O texto vai numa
@@ -87,7 +93,24 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
             'Trechos dos arquivos que o Matheus deu pro Solis ler (Conhecimento). Use se '
             'ajudarem e diga de qual arquivo veio; ignore se não:\n' + '\n'.join(linhas)
         )
+    if tarefas:
+        hoje = date.today()
+        linhas = [f'- [{_quando(t)}] {t["texto"]}' for t in tarefas]
+        partes.append(
+            f'Tarefas abertas do Matheus (hoje é {DIAS[hoje.weekday()]}, {hoje:%d/%m/%Y}), da mais '
+            'próxima pra mais longe:\n' + '\n'.join(linhas)
+        )
     return '\n\n'.join(partes)
+
+
+DIAS = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
+
+
+def _quando(tarefa: dict) -> str:
+    if not tarefa.get('prazo'):
+        return 'sem prazo'
+    d = date.fromisoformat(tarefa['prazo'])
+    return f'{DIAS[d.weekday()]} {d:%d/%m}' + (f' às {tarefa["hora"]}' if tarefa.get('hora') else '')
 
 
 def _fonte(arquivo: dict) -> str:

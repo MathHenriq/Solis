@@ -75,7 +75,7 @@ def falso_que_responde(monkeypatch, pedacos=PEDACOS, quebra_no=None):
         return gen()
     monkeypatch.setattr(ollama, 'conversar', falso)
     # O aprendizado de fundo tem teste próprio; aqui ele não pode sair pra rede.
-    async def sem_aprender(*_):
+    async def sem_aprender(*_, **__):
         pass
     monkeypatch.setattr(memoria, 'aprender', sem_aprender)
     return recebido
@@ -192,7 +192,7 @@ def test_tarefas_de_fundo_usam_o_modelo_de_fundo(monkeypatch):
     falso_que_responde(monkeypatch)
     usados = []
 
-    async def aprender(modelo, *_):
+    async def aprender(modelo, *_, **__):
         usados.append(modelo)
         return []
     monkeypatch.setattr(memoria, 'aprender', aprender)

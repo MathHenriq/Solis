@@ -245,6 +245,23 @@ MIGRACOES = [
     ALTER TABLE documentos ADD COLUMN faltam TEXT;
     ALTER TABLE documentos ADD COLUMN original TEXT;
     """,
+    # 11 — tarefas: criadas pela tela ou tiradas da conversa (memoria.aprender).
+    # `prazo` é a data local (AAAA-MM-DD) e `hora` (HH:MM) é opcional: "pagar a
+    # luz dia 15" não tem hora, e inventar uma seria mentir. `feita` é quando foi
+    # marcada (UTC), NULL enquanto aberta. A privada tem o texto selado.
+    """
+    CREATE TABLE tarefas (
+        id       INTEGER PRIMARY KEY,
+        texto    TEXT NOT NULL,
+        prazo    TEXT,
+        hora     TEXT,
+        conversa INTEGER REFERENCES conversas(id) ON DELETE SET NULL,
+        privada  INTEGER NOT NULL DEFAULT 0,
+        criada   TEXT NOT NULL,
+        feita    TEXT
+    );
+    CREATE INDEX tarefas_por_prazo ON tarefas (feita, prazo);
+    """,
 ]
 
 
@@ -816,6 +833,83 @@ def marcar_documento_privado(documento: int, privado: bool) -> bool:
     if privado:
         _limpar_rastros(_con())
     return True
+
+
+# — Tarefas —————————————————————————————————————————————————————————————————————
+
+def _tarefa(l: sqlite3.Row) -> dict:
+    d = {**dict(l), 'texto': cofre.abrir(l['texto']), 'privada': bool(l['privada'])}
+    if 'origem' in d:
+        d['origem'] = cofre.abrir(d['origem'])
+    return d
+
+
+_TAREFA = (
+    'SELECT t.id, t.texto, t.prazo, t.hora, t.conversa, t.privada, t.criada, t.feita, c.titulo AS origem '
+    'FROM tarefas t LEFT JOIN conversas c ON c.id = t.conversa '
+)
+# Com prazo antes, do mais perto pro mais longe; sem hora no fim do dia; sem
+# prazo por último.
+_ORDEM_TAREFAS = 'ORDER BY t.prazo IS NULL, t.prazo, t.hora IS NULL, t.hora, t.id'
+
+
+def adicionar_tarefa(
+    texto: str, prazo: str | None = None, hora: str | None = None, conversa: int | None = None, privada: bool = False
+) -> int:
+    with _con() as c:
+        return c.execute(
+            'INSERT INTO tarefas (texto, prazo, hora, conversa, privada, criada) VALUES (?, ?, ?, ?, ?, ?)',
+            (cofre.selar(texto) if privada else texto, prazo, hora if prazo else None, conversa, int(privada), _agora()),
+        ).lastrowid
+
+
+def tarefa(id_: int) -> dict | None:
+    l = _con().execute(_TAREFA + 'WHERE t.id = ?', (id_,)).fetchone()
+    return _tarefa(l) if l else None
+
+
+def tarefas(feitas_desde: str | None = None) -> list[dict]:
+    """As abertas, e as feitas desde `feitas_desde` (UTC) — a tela mostra riscada
+    a que foi feita hoje, e a de ontem já sai da lista (continua no banco)."""
+    linhas = _con().execute(
+        _TAREFA + 'WHERE t.feita IS NULL OR t.feita >= ? ' + _ORDEM_TAREFAS, (feitas_desde or '9999',)
+    )
+    return [_tarefa(l) for l in linhas]
+
+
+def tarefas_abertas(limite: int) -> list[dict]:
+    """As abertas mais próximas do prazo — o que vai no pedido ao modelo."""
+    return [_tarefa(l) for l in _con().execute(_TAREFA + 'WHERE t.feita IS NULL ' + _ORDEM_TAREFAS + ' LIMIT ?', (limite,))]
+
+
+def mudar_tarefa(id_: int, **campos) -> dict | None:
+    """Muda texto, prazo, hora ou feita (bool). None se não existe. Prazo vazio
+    leva a hora junto: hora sem dia não diz nada."""
+    atual = _con().execute('SELECT privada, prazo, hora FROM tarefas WHERE id = ?', (id_,)).fetchone()
+    if atual is None:
+        return None
+    novos = {}
+    if 'texto' in campos:
+        novos['texto'] = cofre.selar(campos['texto']) if atual['privada'] else campos['texto']
+    if 'prazo' in campos:
+        novos['prazo'] = campos['prazo'] or None
+    if 'hora' in campos:
+        novos['hora'] = campos['hora'] or None
+    if not novos.get('prazo', atual['prazo'] if 'prazo' not in campos else None):
+        novos['hora'] = None
+    if 'feita' in campos:
+        novos['feita'] = _agora() if campos['feita'] else None
+    if novos:
+        with _con() as c:
+            c.execute(
+                f'UPDATE tarefas SET {", ".join(f"{k} = ?" for k in novos)} WHERE id = ?', (*novos.values(), id_)
+            )
+    return tarefa(id_)
+
+
+def apagar_tarefa(id_: int) -> bool:
+    with _con() as c:
+        return c.execute('DELETE FROM tarefas WHERE id = ?', (id_,)).rowcount > 0
 
 
 def escaneado_pendente() -> dict | None:

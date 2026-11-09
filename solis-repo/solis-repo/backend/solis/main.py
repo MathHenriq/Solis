@@ -9,6 +9,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+from datetime import date, datetime, timezone
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
@@ -260,6 +262,9 @@ async def _responder(
         memorias, trechos = await busca.contexto(texto, conversa, desde)
         arquivos = sum(1 for t in trechos if t.get('arquivo'))
         etapas.marcar('memoria', memorias=len(memorias), trechos=len(trechos) - arquivos, arquivos=arquivos)
+        # As tarefas abertas vão no pedido, na mesma lista dos trechos (o filtro
+        # do que é privado antes da nuvem é o mesmo): "o que eu tenho pra hoje?"
+        trechos = trechos + _tarefas_no_pedido()
 
         try:
             fluxo, cerebro = await roteador.responder(
@@ -322,8 +327,9 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     modelo = await _modelo_de_fundo(modelo)
     if titulo := await resumo.titular(modelo, conversa):
         etapas.marcar('titulo', titulo=titulo)
-    novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id)
-    etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [], modelo=modelo)
+    criadas: list[dict] = []
+    novas = await memoria.aprender(modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas)
+    etapas.marcar('aprendizado', novas=len(novas or []), textos=novas or [], tarefas=criadas, modelo=modelo)
     etapas.marcar('indexacao', vetores=await busca.indexar_pendentes())
     etapas.marcar('resumo', resumiu=bool(await resumo.resumir(modelo, conversa)))
 
@@ -389,6 +395,94 @@ async def corrigir(id_: int, correcao: Correcao, fundo: BackgroundTasks):
 async def esquecer(id_: int):
     if not banco.apagar_memoria(id_):
         return JSONResponse({'erro': 'memoria_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
+# — Tarefas ———————————————————————————————————————————————————————————————————————
+
+# As abertas mais próximas do prazo que vão em cada pedido. Mais que isso é
+# pedido longo pra pouca chance de a mensagem ser sobre a 21ª.
+TAREFAS_NO_PEDIDO = 20
+
+
+def _tarefas_no_pedido() -> list[dict]:
+    return [
+        {'tarefa': True, 'texto': t['texto'], 'prazo': t['prazo'], 'hora': t['hora'], 'privada': t['privada']}
+        for t in banco.tarefas_abertas(TAREFAS_NO_PEDIDO)
+    ]
+
+
+def _meia_noite_utc() -> str:
+    """O começo do dia de hoje, na hora local, em UTC (como o banco guarda)."""
+    hoje = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    return hoje.astimezone(timezone.utc).isoformat(timespec='seconds')
+
+
+class NovaTarefa(BaseModel):
+    texto: str
+    prazo: str | None = None
+    hora: str | None = None
+    privada: bool = False
+
+
+class MudancaTarefa(BaseModel):
+    texto: str | None = None
+    prazo: str | None = None
+    hora: str | None = None
+    feita: bool | None = None
+
+
+def _prazo_valido(prazo: str | None, hora: str | None) -> str | None:
+    """O erro, ou None se prazo e hora estão no formato (AAAA-MM-DD, HH:MM)."""
+    if prazo:
+        try:
+            date.fromisoformat(prazo)
+        except ValueError:
+            return 'prazo_invalido'
+    if hora and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', hora):
+        return 'hora_invalida'
+    return None
+
+
+@app.get('/tarefas')
+async def listar_tarefas():
+    """As abertas e as feitas hoje, da mais perto do prazo pra mais longe (sem
+    prazo por último). Cada uma com `origem`: o título da conversa de onde veio."""
+    return {'tarefas': banco.tarefas(_meia_noite_utc())}
+
+
+@app.post('/tarefas')
+async def criar_tarefa(corpo: NovaTarefa):
+    texto = corpo.texto.strip()
+    if not texto:
+        return JSONResponse({'erro': 'texto_vazio'}, status_code=400)
+    if erro := _prazo_valido(corpo.prazo, corpo.hora):
+        return JSONResponse({'erro': erro}, status_code=400)
+    id_ = banco.adicionar_tarefa(texto, corpo.prazo or None, corpo.hora or None, privada=corpo.privada)
+    return {'tarefa': banco.tarefa(id_)}
+
+
+@app.patch('/tarefas/{id_}')
+async def mudar_tarefa(id_: int, corpo: MudancaTarefa):
+    """Só o que veio no corpo muda: `{"feita": true}` marca, `{"prazo": ""}` tira
+    o prazo (e a hora junto)."""
+    campos = {k: getattr(corpo, k) for k in corpo.model_fields_set}
+    if 'texto' in campos:
+        campos['texto'] = (campos['texto'] or '').strip()
+        if not campos['texto']:
+            return JSONResponse({'erro': 'texto_vazio'}, status_code=400)
+    if erro := _prazo_valido(campos.get('prazo'), campos.get('hora')):
+        return JSONResponse({'erro': erro}, status_code=400)
+    tarefa = banco.mudar_tarefa(id_, **campos)
+    if tarefa is None:
+        return JSONResponse({'erro': 'tarefa_inexistente'}, status_code=404)
+    return {'tarefa': tarefa}
+
+
+@app.delete('/tarefas/{id_}')
+async def apagar_tarefa(id_: int):
+    if not banco.apagar_tarefa(id_):
+        return JSONResponse({'erro': 'tarefa_inexistente'}, status_code=404)
     return {'ok': True}
 
 

@@ -143,7 +143,7 @@ def local_falso(monkeypatch, texto='resposta local'):
         return gen()
     monkeypatch.setattr(ollama, 'conversar', conversar)
 
-    async def nada(*_):
+    async def nada(*_, **__):
         pass
     monkeypatch.setattr(memoria, 'aprender', nada)
 

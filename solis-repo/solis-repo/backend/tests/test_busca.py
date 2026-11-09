@@ -145,7 +145,7 @@ def test_so_o_fim_da_conversa_vai_inteiro(monkeypatch):
             yield 'ok'
         return gen()
 
-    async def nada(*_):
+    async def nada(*_, **__):
         pass
     monkeypatch.setattr(ollama, 'conversar', falso)
     monkeypatch.setattr(memoria, 'aprender', nada)

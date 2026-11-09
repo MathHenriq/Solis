@@ -222,6 +222,7 @@ def test_migracao_10_mantem_os_documentos(tmp_path):
     c = banco._con()
     for coluna in ('escaneadas', 'faltam', 'original'):
         c.execute(f'ALTER TABLE documentos DROP COLUMN {coluna}')
+    c.execute('DROP TABLE tarefas')  # a 11 também roda de novo
     c.execute('PRAGMA user_version = 9')
     c.commit()
     banco.usar(caminho)
