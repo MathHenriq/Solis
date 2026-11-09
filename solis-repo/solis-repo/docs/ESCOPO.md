@@ -240,7 +240,7 @@ das outras.
   da tarefa, e um resumo às 8h com as tarefas do dia sem hora e os compromissos de dia inteiro. Sai
   do servidor (o front roda no navegador), pelo PowerShell do sistema; o privado não mostra o
   título. Conferido no notebook: o aviso saiu 1 s depois de o servidor subir, e chega à Central de
-  Notificações em 0,8 s. Enquanto o Solis não for um app instalado, o aviso aparece em nome do
+  Notificações em 0,8 s; o Matheus viu o aviso na tela. Enquanto o Solis não for um app instalado, o aviso aparece em nome do
   "Windows PowerShell" (com "Solis" na linha de baixo): ter nome e ícone próprios pede o app de
   verdade (Tauri, .msi), que registra a identidade dele no Windows.
 - Limite conhecido: compromisso que se repete ("toda terça às 19h") vira só a próxima vez.
