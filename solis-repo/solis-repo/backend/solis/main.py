@@ -401,8 +401,10 @@ async def adicionar_conhecimento(request: Request, nome: str, fundo: BackgroundT
     saem em segundo plano — a tela acompanha pelo `indexados`."""
     dados = await request.body()
     try:
-        # Ler um PDF grande leva segundos: fora do laço de eventos.
-        documento = await asyncio.to_thread(conhecimento.adicionar, nome, dados, privado)
+        # Ler um PDF grande leva segundos: fora do laço de eventos. Guardar,
+        # não — o banco só é escrito desta thread (ver conhecimento.preparar).
+        lido = await asyncio.to_thread(conhecimento.preparar, nome, dados)
+        documento = conhecimento.guardar(nome, lido, privado)
     except conhecimento.NaoLeu as e:
         return JSONResponse({'erro': 'nao_leu', 'motivo': str(e)}, status_code=400)
     except banco.Duplicado as e:

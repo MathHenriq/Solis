@@ -99,8 +99,25 @@ def ler(nome: str, dados: bytes) -> tuple[str, int | None, list[tuple[int | None
     return tipo, None, trechos
 
 
+def preparar(nome: str, dados: bytes) -> dict:
+    """A parte lenta (ler o PDF), sem tocar no banco — pode rodar numa thread.
+
+    O banco NÃO pode ser escrito daqui: a conexão é uma só, e escrever de
+    várias threads ao mesmo tempo embaralha as transações (visto ao mandar
+    seis arquivos juntos: "cannot commit - no transaction is active", e
+    documento guardado sem os trechos)."""
+    tipo, paginas, trechos = ler(nome, dados)
+    return {'tipo': tipo, 'paginas': paginas, 'trechos': trechos,
+            'tamanho': len(dados), 'hash': hashlib.sha256(dados).hexdigest()}
+
+
+def guardar(nome: str, lido: dict, privado: bool = False) -> int:
+    """A parte do banco — na mesma thread de todo o resto do servidor."""
+    return banco.adicionar_documento(
+        nome, lido['tipo'], lido['paginas'], lido['tamanho'], lido['hash'], lido['trechos'], privado
+    )
+
+
 def adicionar(nome: str, dados: bytes, privado: bool = False) -> int:
     """Lê e guarda. Devolve o id. NaoLeu ou banco.Duplicado se não entrou."""
-    tipo, paginas, trechos = ler(nome, dados)
-    hash_ = hashlib.sha256(dados).hexdigest()
-    return banco.adicionar_documento(nome, tipo, paginas, len(dados), hash_, trechos, privado)
+    return guardar(nome, preparar(nome, dados), privado)

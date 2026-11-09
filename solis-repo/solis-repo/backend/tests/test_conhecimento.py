@@ -106,6 +106,22 @@ def test_adicionar_listar_e_nao_duplicar(embeddings_falsos):
     assert (r.status_code, r.json()['erro']) == (400, 'nao_leu')
 
 
+def test_varios_arquivos_ao_mesmo_tempo_entram_todos_inteiros():
+    """Seis de uma vez (o "Adicionar fonte" com vários arquivos): antes, cada
+    um escrevia no banco de uma thread e as transações se embaralhavam."""
+    import httpx
+
+    async def manda():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url='http://t') as c:
+            return await asyncio.gather(*(
+                c.post('/conhecimento', params={'nome': f'doc{i}.pdf'}, content=pdf_com(*[f'documento {i} pagina {p}' for p in range(1, 6)]))
+                for i in range(6)
+            ))
+    respostas = asyncio.run(manda())
+    assert [r.status_code for r in respostas] == [200] * 6
+    assert sorted((d['nome'], d['trechos']) for d in banco.documentos()) == [(f'doc{i}.pdf', 5) for i in range(6)]
+
+
 def test_busca_pelo_texto_e_pelo_nome_sem_acento():
     cliente = TestClient(main.app)
     cliente.post('/conhecimento?nome=Anotações.md', content='O índice FTS5 do SQLite'.encode())
