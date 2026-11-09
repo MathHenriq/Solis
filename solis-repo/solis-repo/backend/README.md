@@ -62,9 +62,9 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /fala` | `{"texto", "conversa", "voz"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz` e por que as anteriores caíram em `X-Solis-Antes`. `voz` troca a do Gemini só neste pedido. `503` com `sem_voz` e os motivos se nenhuma voz deu |
 | `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |
 | `POST /voz` | o áudio cru no corpo (webm/opus do navegador, wav...) → `{"texto", "segundos", "duracao", "modelo", "onde"}`. Nada é guardado. `503` com `sem_modelo`, `400` com `audio_ruim` |
-| `GET /ativacao` | `{"chave", "palavra", "idioma"}`: o que já está no lugar pra ouvir "Solis" |
-| `PUT /ativacao/chave` | `{"chave"}` → a AccessKey do Picovoice, conferida (com o modelo, se já houver) e guardada selada. Nunca volta. `400` com `chave_recusada` ou `modelo_recusado` |
-| `PUT /ativacao/palavra` | o `.ppn` do console do Picovoice, cru no corpo → guarda depois de conferir com a chave. `400` com `chave_recusada` ou `modelo_recusado` |
+| `GET /ativacao` | `{"chave", "palavra", "idioma", "motor"}`: quem ouve "Solis" (`whisper`, `porcupine` ou `null` se falta tudo) |
+| `PUT /ativacao/chave` | (Porcupine, sem uso hoje) `{"chave"}` → a AccessKey do Picovoice, conferida (com o modelo, se já houver) e guardada selada. Nunca volta. `400` com `chave_recusada` ou `modelo_recusado` |
+| `PUT /ativacao/palavra` | (Porcupine) o `.ppn` do console do Picovoice, cru no corpo → guarda depois de conferir com a chave. `400` com `chave_recusada` ou `modelo_recusado` |
 | `DELETE /ativacao` | apaga a chave e o modelo da palavra |
 | `WS /escuta` | o navegador manda quadros de 512 amostras PCM 16 bits a 16 kHz; volta `{"tipo": "ativou"}` ao ouvir a palavra e, quando a pessoa para de falar, `{"tipo": "texto", "texto"}` ou `{"tipo": "nada"}`. `{"pausa": true}` suspende (o Solis está falando). `{"tipo": "erro"}` se falta configuração |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
@@ -380,22 +380,31 @@ vive no pedido.
 
 `solis/ativacao.py`: dizer "Solis, ..." sem clicar. O navegador abre o microfone, um AudioWorklet
 (`public/escuta-processador.js`) entrega o áudio em 16 kHz e o WebSocket `/escuta` o traz pra cá. O
-**Porcupine** (Picovoice) ouve a palavra na CPU; depois dela, o fim da fala é achado pela energia do
-som e o trecho vai pro Whisper (`voz.py`). O texto volta pro navegador e vira mensagem na conversa. O
 áudio não vai pro disco nem sai do computador.
 
-- **O que o Matheus põe:** a AccessKey (conta grátis no console.picovoice.ai) e o modelo `solis.ppn`
-  treinado lá (português, Windows), os dois em Configurações → Voz → Palavra de ativação. A chave
-  fica selada no cofre (`chave:picovoice`).
-- **Arquivos** em `%LOCALAPPDATA%\Solis\voz\porcupine\`: o `.ppn` e o `porcupine_params_pt.pv`
-  (984 KB, baixado do repositório oficial do Porcupine na primeira vez; o pacote só traz o inglês).
-- **Fim da fala** (PROVISÓRIO até medir com a voz real): pelo menos 0,4 s de fala, 0,9 s de
-  silêncio encerra, no máximo 15 s; sem falar nada em 5 s depois da palavra, desiste. O silêncio é
-  medido contra o ruído do ambiente (12 dB acima do piso, que se ajusta sozinho).
-  `SOLIS_ATIVACAO_SENSIBILIDADE` (0,5) troca a sensibilidade do Porcupine.
-- Enquanto o Solis fala, a escuta pausa — senão ele se ouviria.
-- A DLL do Porcupine carrega sob o Controle Inteligente de Aplicativos (conferido); o WebSocket
-  usa o `wsproto` (Python puro).
+- **Quem ouve a palavra: o Whisper** (o mesmo do microfone, sem nada a configurar). A energia do som
+  separa os trechos de fala; os primeiros 2 s de cada trecho (`PREVIA`), ou o trecho inteiro se for
+  mais curto, vão pro Whisper, e se o texto começa com "Solis" (ou "ei, Solis"; aceita Sólis, Solís,
+  Sollis) o trecho vira comando. "Solis, que horas são?" de uma vez já é o pedido; "Solis" sozinho e
+  uma pausa, o Solis espera o pedido.
+- **Medido** com 4 vozes sintéticas (edge-tts) e ruído de fundo: 31 de 32 frases com "Solis"
+  acordaram, 0 de 40 sem ele (sol, solidão, sólido, Solange, girassóis). Sem o vocabulário no prompt
+  do Whisper, só 15 de 32 — o vocabulário fica. Whisper `small` na GPU: mediana de 1,0 s por trecho.
+  De ponta a ponta no navegador, a mensagem chega uns 4 a 5 s depois que a pessoa para de falar (0,9 s
+  de silêncio + a transcrição do comando); o primeiro uso soma ~9 s pra carregar o modelo.
+- **O custo:** cada trecho de fala que o microfone pega (TV, conversa no cômodo) é uma transcrição na
+  GPU. É a ponte até um modelo só da palavra (openWakeWord com "Solis" treinado fora daqui).
+- **Eco do vocabulário:** diante de som que não é fala (um zumbido que varia), o Whisper às vezes
+  devolve o próprio vocabulário ("Matheus, Solis, Ollama, Claude"). Três palavras ou mais, quase todas
+  do vocabulário, viram texto vazio (`voz.eco_do_vocabulario`) — vale pro microfone também.
+- **Fim da fala** (PROVISÓRIO): pelo menos 0,4 s de fala, 0,9 s de silêncio encerra, no máximo 15 s;
+  sem falar nada em 5 s depois da palavra, desiste. O silêncio é medido contra o ruído do ambiente (12
+  dB acima do piso, que se ajusta sozinho).
+- Enquanto o Solis fala, a escuta pausa — senão ele se ouviria. O WebSocket usa o `wsproto` (Python
+  puro).
+- **Porcupine** (Picovoice): o código continua (com AccessKey e `solis.ppn` em
+  `%LOCALAPPDATA%\Solis\voz\porcupine\`, ele ouve a palavra na CPU, quadro a quadro), mas está sem
+  uso: a conta do Picovoice agora pede e-mail de empresa e é um teste de 7 dias.
 
 ## Avisos na hora
 

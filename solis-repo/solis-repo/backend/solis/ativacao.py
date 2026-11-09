@@ -1,26 +1,30 @@
 """A palavra de ativação: "Solis", e o Solis começa a ouvir — sem clicar.
 
-Camada 1 da voz (docs/ESCOPO.md → "Voz e a GPU"): só reconhece a palavra, não
-entende mais nada, e roda na CPU com custo mínimo. O motor é o Porcupine
-(Picovoice), escolhido pelo Matheus: a palavra "Solis" em português é gerada
-no console deles, sem treino nosso; pede uma AccessKey (conta pessoal grátis).
-O openWakeWord, aberto, não tem "Solis" pronto e treinar pede o PyTorch, que o
-Controle Inteligente de Aplicativos bloqueia.
+O navegador mantém o microfone aberto e manda o áudio (PCM 16 bits, 16 kHz,
+mono) por um WebSocket, em quadros de 512 amostras. Dois motores acham a
+palavra:
 
-O caminho: o navegador mantém o microfone aberto e manda o áudio (PCM 16 bits,
-16 kHz, mono) por um WebSocket; aqui ele passa pelo Porcupine em quadros de 512
-amostras. Ao ouvir a palavra, o que vem depois é guardado até a pessoa parar de
-falar (energia baixa por FIM_SILENCIO), vai pro Whisper (voz.py), e o texto
-volta pro navegador, que manda a mensagem. Nada vai pro disco: o áudio só
-existe em memória, e antes da palavra nem é guardado.
+- **Whisper** (o de hoje): a energia do som separa os trechos de fala; os
+  primeiros PREVIA segundos de cada trecho vão pro Whisper (voz.py), e se o
+  texto começa com "Solis", o trecho vira comando. Funciona sem nada do
+  Matheus, mas a GPU trabalha a cada trecho de fala que o microfone pega (TV,
+  conversa no cômodo) — é a ponte até um modelo só da palavra.
+- **Porcupine** (Picovoice), se houver AccessKey e o modelo .ppn: ouve a palavra
+  na CPU, quadro a quadro. Ficou sem uso: a conta agora é só pra empresas, com
+  teste de 7 dias. O openWakeWord (aberto) é o próximo candidato, com um modelo
+  "Solis" treinado fora daqui (o PyTorch é bloqueado pelo Controle de Aplicativo).
 
-A chave fica selada no cofre (como as dos cérebros). O modelo da palavra
-(.ppn) e o de português ficam em %LOCALAPPDATA%\\Solis\\voz\\porcupine.
+Depois da palavra, o que vem é guardado até a pessoa parar de falar (energia
+baixa por FIM_SILENCIO), vai pro Whisper, e o texto volta pro navegador, que
+manda a mensagem. Nada vai pro disco: o áudio só existe em memória.
 """
 import array
 import logging
 import math
 import os
+import re
+import unicodedata
+from collections import deque
 from pathlib import Path
 
 import httpx
@@ -45,6 +49,10 @@ FIM_SILENCIO = 0.9
 COMANDO_MAX = 15.0
 INICIO_MAX = 5.0  # sem falar nada depois da palavra: desiste
 
+# Motor Whisper. PROVISÓRIO até medir com a voz do Matheus.
+PREVIA = 2.0  # segundos do começo do trecho que vão pro Whisper procurar a palavra
+ANTES = 0.3  # segundos guardados antes do som subir (o "S" de Solis é baixo)
+
 
 class SemConfiguracao(Exception):
     """Falta a chave, o modelo da palavra ou o de português."""
@@ -67,7 +75,7 @@ def chave() -> str | None:
 
 def estado() -> dict:
     """O que falta pra escuta funcionar — a tela mostra isso."""
-    return {'chave': bool(chave()), 'palavra': PALAVRA.exists(), 'idioma': IDIOMA.exists()}
+    return {'chave': bool(chave()), 'palavra': PALAVRA.exists(), 'idioma': IDIOMA.exists(), 'motor': motor()}
 
 
 def baixar_idioma(transporte: httpx.BaseTransport | None = None) -> None:
@@ -133,6 +141,29 @@ def apagar() -> None:
     PALAVRA.unlink(missing_ok=True)
 
 
+# — A palavra no texto ——————————————————————————————————————————————————————————
+
+def _sem_acento(texto: str) -> str:
+    """Minúsculas e sem acento, letra por letra — o mesmo tamanho do original,
+    pra o que for achado aqui ser cortado lá."""
+    return ''.join((unicodedata.normalize('NFD', c)[0] if c.isalpha() else c).lower() for c in texto)
+
+
+# "Solis", como o Whisper costuma escrever (Sólis, Solís, Sollis, Solys), no
+# começo da frase ou depois de um chamado ("ei, Solis").
+_PALAVRA = re.compile(r"^[\s\W]*(?:(?:ei|hey|oi|ola|ok|e ai)[\s,!.]+)?sol+[eiy]s+e?\b[\s,!.:;?-]*")
+
+
+def palavra_no_inicio(texto: str) -> tuple[bool, str]:
+    """(achou, o resto): "Solis, me lembra de pagar a luz." → (True, "Me lembra
+    de pagar a luz.")."""
+    m = _PALAVRA.match(_sem_acento(texto))
+    if not m:
+        return False, texto.strip()
+    resto = texto[m.end():].strip()
+    return True, resto[:1].upper() + resto[1:]
+
+
 # — A escuta ——————————————————————————————————————————————————————————————————————
 
 def _energia(quadro: array.array) -> float:
@@ -143,43 +174,84 @@ def _energia(quadro: array.array) -> float:
     return 10 * math.log10(soma / (32768.0 ** 2) + 1e-12)
 
 
-class Escuta:
-    """Uma escuta (uma conexão): alimentada com áudio, devolve eventos —
-    'ativou' quando ouve a palavra, 'comando' com o áudio do que veio depois.
-    Separada do WebSocket pra ser testada com áudio de arquivo."""
+def motor() -> str | None:
+    """Quem vai achar a palavra: 'porcupine' (se configurado), 'whisper' (se
+    o modelo está na pasta) ou None."""
+    if chave() and PALAVRA.exists():
+        return 'porcupine'
+    from . import voz
+    return 'whisper' if voz.disponivel() else None
 
-    def __init__(self, motor=None):
-        if motor is None:
-            k = chave()
-            if not (k and PALAVRA.exists()):
-                raise SemConfiguracao('falta a chave ou o modelo da palavra')
-            baixar_idioma()
-            motor = _criar(k, PALAVRA)
-        self.motor = motor
-        self.n = motor.frame_length
+
+class Escuta:
+    """Uma escuta (uma conexão): alimentada com áudio, devolve eventos.
+
+    Com o Porcupine: 'ativou', depois ('comando', wav) com o que veio depois
+    (ou None se a pessoa não falou).
+    Com o Whisper (motor None): ('previa', wav) com o começo de um trecho de
+    fala ainda em curso, ou ('frase', wav) com um trecho curto que já acabou.
+    Quem recebe transcreve e responde com confirmar() — achou a palavra — ou
+    descartar(). Confirmado, o trecho segue como comando até a pessoa parar.
+
+    alimentar() é um gerador: entre um evento e o próximo quadro, quem chama
+    decide (confirmar/descartar), e o quadro seguinte já vê a decisão. Separada
+    do WebSocket pra ser testada com áudio de arquivo."""
+
+    def __init__(self, motor_=None, whisper=False):
+        if motor_ is None and not whisper:
+            qual = motor()
+            if qual is None:
+                raise SemConfiguracao('falta o modelo do Whisper (ou a chave e o modelo do Porcupine)')
+            if qual == 'porcupine':
+                baixar_idioma()
+                motor_ = _criar(chave(), PALAVRA)
+        self.motor = motor_
+        self.n = motor_.frame_length if motor_ else 512
         self.sobra = array.array('h')
         self.comando: array.array | None = None
         self.fala = 0.0  # segundos de voz no comando
         self.silencio = 0.0  # segundos de silêncio seguidos no fim
-        self.piso = -60.0  # ruído de fundo, aprendido antes da palavra
+        self.piso = -60.0  # ruído de fundo, aprendido fora do comando
         self.ativacoes = 0
+        # Whisper: o trecho de fala em curso, ainda sem saber se tem a palavra.
+        self.antes: deque = deque(maxlen=max(1, round(ANTES * TAXA / self.n)))
+        self.trecho: array.array | None = None
+        self.t_fala = self.t_silencio = 0.0
+        self.previa_feita = False
+        self.trechos = 0  # quantos foram pro Whisper (pra medir o custo)
 
     def fechar(self):
         try:
-            self.motor.delete()
+            if self.motor:
+                self.motor.delete()
         except Exception:
             pass
 
-    def alimentar(self, pcm: bytes) -> list[tuple[str, bytes | None]]:
+    def alimentar(self, pcm: bytes):
         self.sobra.frombytes(pcm[: len(pcm) - len(pcm) % 2])
-        eventos = []
         while len(self.sobra) >= self.n:
             quadro = self.sobra[: self.n]
             del self.sobra[: self.n]
             evento = self._quadro(quadro)
             if evento:
-                eventos.append(evento)
-        return eventos
+                yield evento
+
+    def confirmar(self):
+        """A palavra estava no trecho: ele vira o começo do comando (ou, se o
+        trecho já acabou só com "Solis", o comando começa vazio)."""
+        self.ativacoes += 1
+        if self.trecho is not None:
+            self.comando, self.fala, self.silencio = self.trecho, self.t_fala, self.t_silencio
+            self.trecho = None
+        else:
+            self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
+
+    def descartar(self):
+        """Sem a palavra: o resto do trecho é ignorado até ele acabar."""
+        self.previa_feita = True
+
+    def _e_fala(self, db: float) -> bool:
+        return db > max(self.piso + 12, -45)
 
     def _quadro(self, quadro: array.array):
         dur = self.n / TAXA
@@ -187,13 +259,15 @@ class Escuta:
         if self.comando is None:
             # O piso de ruído acompanha o ambiente devagar, só fora do comando.
             self.piso = 0.98 * self.piso + 0.02 * db
-            if self.motor.process(quadro) >= 0:
-                self.ativacoes += 1
-                self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
-                return ('ativou', None)
-            return None
+            if self.motor is not None:
+                if self.motor.process(quadro) >= 0:
+                    self.ativacoes += 1
+                    self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
+                    return ('ativou', None)
+                return None
+            return self._trecho(quadro, db, dur)
         self.comando.extend(quadro)
-        if db > max(self.piso + 12, -45):
+        if self._e_fala(db):
             self.fala += dur
             self.silencio = 0.0
         else:
@@ -204,6 +278,40 @@ class Escuta:
         if acabou or desistiu:
             audio, self.comando = self.comando, None
             return ('comando', None if desistiu else _wav(audio))
+        return None
+
+    def _trecho(self, quadro: array.array, db: float, dur: float):
+        """Whisper: junta um trecho de fala e manda o começo dele pra conferir."""
+        fala = self._e_fala(db)
+        if self.trecho is None:
+            self.antes.append(quadro)
+            if not fala:
+                return None
+            self.trecho = array.array('h')
+            for q in self.antes:
+                self.trecho.extend(q)
+            self.antes.clear()
+            self.t_fala, self.t_silencio, self.previa_feita = dur, 0.0, False
+            return None
+        self.trecho.extend(quadro)
+        if fala:
+            self.t_fala += dur
+            self.t_silencio = 0.0
+        else:
+            self.t_silencio += dur
+        total = len(self.trecho) / TAXA
+        if self.t_silencio >= FIM_SILENCIO or total >= COMANDO_MAX:
+            trecho, self.trecho = self.trecho, None
+            if self.previa_feita or self.t_fala < FALA_MINIMA / 2:
+                return None  # já conferido (sem a palavra), ou só um estalo
+            self.trechos += 1
+            return ('frase', _wav(trecho))
+        # A prévia só sai com a pessoa ainda falando: trecho que está acabando
+        # vai inteiro como 'frase' (senão "Solis" + pausa viraria prévia).
+        if not self.previa_feita and fala and total >= PREVIA:
+            self.previa_feita = True
+            self.trechos += 1
+            return ('previa', _wav(self.trecho))
         return None
 
 

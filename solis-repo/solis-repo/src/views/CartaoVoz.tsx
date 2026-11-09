@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Botao, Interruptor } from '../components/Controles';
+import { Interruptor } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { definirEscutaLigada, escutaLigada } from '../escuta';
 import { definirFalaAutomatica, falaAutomatica } from '../fala';
 import {
   ajustarFala,
   amostraDeVoz,
-  apagarAtivacao,
-  enviarPalavraAtivacao,
   estadoAtivacao,
-  guardarChaveAtivacao,
   lerAjustesFala,
   listarCerebros,
   type AjustesFala,
@@ -53,164 +50,45 @@ function Linha({ rotulo, dica, children }: { rotulo: string; dica?: ReactNode; c
   );
 }
 
-/** Ação em texto dentro da linha — a mesma do cartão Cérebros (aprovada). */
-function Acao({ destaque, ...resto }: React.ButtonHTMLAttributes<HTMLButtonElement> & { destaque?: boolean }) {
-  return (
-    <button
-      type="button"
-      {...resto}
-      className={destaque ? 'text-accent hover:underline' : 'text-text-secondary hover:text-text-primary hover:underline'}
-    />
-  );
-}
-
-/** "Solis" pra ouvir, sem clicar (backend/solis/ativacao.py). PROVISÓRIO:
- *  a AccessKey (campo de senha, como as chaves dos Cérebros), o modelo .ppn do
- *  console do Picovoice e o interruptor — que só liga com os dois no lugar. */
+/** "Solis" pra ouvir, sem clicar (backend/solis/ativacao.py). PROVISÓRIO: a
+ *  linha é a mesma das outras do cartão (aprovadas), com o interruptor da
+ *  "Responder falando"; o que muda é só o texto, que diz o estado. Quem ouve a
+ *  palavra hoje é o Whisper, o mesmo do microfone — nada a configurar. */
 function PalavraAtivacao() {
   const [estado, definirEstado] = useState<EstadoAtivacao | null | undefined>(undefined);
-  const [colando, definirColando] = useState(false);
-  const [chave, definirChave] = useState('');
-  const [conferindo, definirConferindo] = useState(false);
-  const [erro, definirErro] = useState<string | null>(null);
   const [ligada, definirLigada] = useState(escutaLigada);
-  const arquivo = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     estadoAtivacao().then((r) => definirEstado(r.estado === 'ok' ? r.ativacao : null));
   }, []);
 
-  const pronta = !!estado?.chave && !!estado?.palavra;
-
-  async function resultado(r: Awaited<ReturnType<typeof estadoAtivacao>>) {
-    if (r.estado === 'ok') {
-      definirEstado(r.ativacao);
-      definirErro(null);
-      return true;
-    }
-    definirErro(r.estado === 'recusada' ? `O Picovoice recusou: ${r.motivo.slice(0, 160)}` : 'Servidor do Solis desligado.');
-    return false;
-  }
-
-  async function salvarChave() {
-    definirConferindo(true);
-    const ok = await resultado(await guardarChaveAtivacao(chave));
-    definirConferindo(false);
-    if (ok) {
-      definirColando(false);
-      definirChave('');
-    }
-  }
-
-  const situacao = !estado
-    ? null
-    : pronta
-      ? ligada
-        ? 'Ligada: o microfone fica aberto e o Solis acorda quando ouve "Solis". O áudio só vai pro servidor do Solis, aqui no computador.'
-        : 'Pronta. Ligue pra o Solis ouvir a palavra.'
-      : `Falta ${[!estado.chave && 'a AccessKey', !estado.palavra && 'o modelo da palavra (.ppn)'].filter(Boolean).join(' e ')}, do console.picovoice.ai.`;
+  const pronta = !!estado?.motor;
+  const dica =
+    estado === undefined
+      ? ' '
+      : estado === null
+        ? 'Servidor do Solis desligado.'
+        : !pronta
+          ? 'Falta o modelo do Whisper, o mesmo do microfone.'
+          : ligada
+            ? 'Ligada: diga "Solis" e o pedido, sem clicar. Cada fala que o microfone pega passa pelo Whisper, aqui no computador; nada sai dele.'
+            : 'Diga "Solis" e o pedido, sem clicar. O microfone fica aberto enquanto estiver ligada.';
 
   return (
-    <div
-      className="flex items-start justify-between border-t border-divider"
-      style={{ paddingTop: 'var(--cfg-linha-pad)', paddingBottom: 'var(--cfg-linha-pad)', gap: 'var(--cer-controles-gap)' }}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="text-text-primary" style={{ fontSize: 'var(--cfg-rotulo)' }}>Palavra de ativação</div>
-        <div
-          className="text-text-secondary"
-          style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)', textWrap: 'pretty' }}
-        >
-          {estado === null ? 'Servidor do Solis desligado.' : situacao}
-        </div>
-        {estado && !colando && (
-          <div className="flex" style={{ gap: 'var(--cer-controles-gap)', fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)' }}>
-            <Acao destaque={!estado.chave} onClick={() => definirColando(true)}>
-              {estado.chave ? 'Trocar chave' : 'Colar chave'}
-            </Acao>
-            <Acao destaque={!estado.palavra} onClick={() => arquivo.current?.click()}>
-              {estado.palavra ? 'Trocar modelo' : 'Enviar modelo (.ppn)'}
-            </Acao>
-            {(estado.chave || estado.palavra) && (
-              <Acao
-                onClick={async () => {
-                  definirEscutaLigada(false);
-                  definirLigada(false);
-                  await resultado(await apagarAtivacao());
-                }}
-              >
-                Remover
-              </Acao>
-            )}
-            <input
-              ref={arquivo}
-              type="file"
-              accept=".ppn"
-              hidden
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (f) await resultado(await enviarPalavraAtivacao(f));
-              }}
-            />
-          </div>
-        )}
-        {colando && (
-          <div style={{ marginTop: 'var(--mac-botao-top)', maxWidth: 'var(--cer-texto-max)' }}>
-            <input
-              autoFocus
-              type="password"
-              value={chave}
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(e) => definirChave(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && chave.trim()) salvarChave();
-                else if (e.key === 'Escape') definirColando(false);
-              }}
-              placeholder="Cole a AccessKey do Picovoice"
-              aria-label="AccessKey do Picovoice"
-              className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-              style={{ fontSize: 'var(--cfg-dica)', borderRadius: 'var(--mac-campo-raio)', padding: 'var(--mac-campo-py) var(--mac-campo-px)' }}
-            />
-            <div className="flex items-center flex-wrap" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
-              <Botao tipo="destaque" onClick={salvarChave} disabled={conferindo || !chave.trim()}>
-                {conferindo ? 'Conferindo…' : 'Salvar'}
-              </Botao>
-              <Botao onClick={() => definirColando(false)}>Cancelar</Botao>
-              <a
-                href="https://console.picovoice.ai/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent hover:underline"
-                style={{ fontSize: 'var(--mac-botao-texto)', marginLeft: 'var(--mac-botao-px)' }}
-              >
-                Abrir o console do Picovoice
-              </a>
-            </div>
-          </div>
-        )}
-        {erro && (
-          <p className="text-[var(--erro)]" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mac-botao-top)' }}>
-            {erro}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0">
-        <Interruptor
-          ligado={ligada && pronta}
-          rotulo="Ouvir a palavra Solis"
-          aoTrocar={
-            pronta
-              ? (v) => {
-                  definirLigada(v);
-                  definirEscutaLigada(v);
-                }
-              : undefined
-          }
-        />
-      </div>
-    </div>
+    <Linha rotulo="Palavra de ativação" dica={dica}>
+      <Interruptor
+        ligado={ligada && pronta}
+        rotulo="Ouvir a palavra Solis"
+        aoTrocar={
+          pronta
+            ? (v) => {
+                definirLigada(v);
+                definirEscutaLigada(v);
+              }
+            : undefined
+        }
+      />
+    </Linha>
   );
 }
 

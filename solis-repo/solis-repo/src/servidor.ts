@@ -642,31 +642,16 @@ export async function amostraDeVoz(voz: string): Promise<{ audio: Blob; voz: str
 /** O endereço do WebSocket da escuta (o mesmo servidor, em ws://). */
 export const urlEscuta = () => `${BASE.replace(/^http/, 'ws')}/escuta`;
 
-export type EstadoAtivacao = { chave: boolean; palavra: boolean; idioma: boolean };
-export type ResultadoAtivacao = { estado: 'ok'; ativacao: EstadoAtivacao } | { estado: 'recusada'; motivo: string } | { estado: 'sem-servidor' };
+/** `motor`: quem ouve a palavra — 'whisper' (hoje), 'porcupine' (se um dia
+ *  houver chave) ou null (falta o modelo). */
+export type EstadoAtivacao = { chave: boolean; palavra: boolean; idioma: boolean; motor: 'whisper' | 'porcupine' | null };
 
-async function enviarAtivacao(caminho: string, init: RequestInit): Promise<ResultadoAtivacao> {
+export async function estadoAtivacao(): Promise<{ estado: 'ok'; ativacao: EstadoAtivacao } | { estado: 'sem-servidor' }> {
   try {
-    const r = await fetch(`${BASE}${caminho}`, init);
-    if (r.status === 400) return { estado: 'recusada', motivo: ((await r.json()) as { motivo: string }).motivo };
+    const r = await fetch(`${BASE}/ativacao`);
     if (!r.ok) return { estado: 'sem-servidor' };
     return { estado: 'ok', ativacao: (await r.json()) as EstadoAtivacao };
   } catch {
     return { estado: 'sem-servidor' };
   }
 }
-
-export const estadoAtivacao = () => enviarAtivacao('/ativacao', {});
-
-/** A AccessKey do Picovoice, colada pelo Matheus. Nunca volta do servidor. */
-export const guardarChaveAtivacao = (chave: string) =>
-  enviarAtivacao('/ativacao/chave', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chave }),
-  });
-
-/** O arquivo .ppn da palavra, como veio do console. */
-export const enviarPalavraAtivacao = (arquivo: File) => enviarAtivacao('/ativacao/palavra', { method: 'PUT', body: arquivo });
-
-export const apagarAtivacao = () => enviarAtivacao('/ativacao', { method: 'DELETE' });

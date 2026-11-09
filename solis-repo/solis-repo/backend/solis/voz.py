@@ -125,6 +125,18 @@ def vocabulario(modelos_instalados: list[str] | None = None) -> str:
     return ', '.join(termos[:VOCABULARIO_MAX]) + '.'
 
 
+def eco_do_vocabulario(texto: str, vocab: str | None) -> bool:
+    """O Whisper, diante de som que não é fala (um zumbido que varia, música),
+    às vezes devolve o próprio vocabulário: "Matheus, Solis, Ollama, Claude".
+    Três palavras ou mais, quase todas do vocabulário, é eco — não fala. Um
+    "Solis." sozinho passa (é a palavra de ativação)."""
+    if not vocab:
+        return False
+    nomes = {n.strip(' .').lower() for n in vocab.split(',')}
+    palavras = [p for p in (x.strip(' .,!?;:').lower() for x in texto.split()) if p]
+    return len(palavras) >= 3 and sum(p in nomes for p in palavras) / len(palavras) >= 0.6
+
+
 def disponivel() -> bool:
     try:
         import faster_whisper  # noqa: F401
@@ -202,6 +214,9 @@ def transcrever_agora(audio: bytes, vocab: str | None = None) -> dict:
             _carregar()
             texto, info = _transcrever(som, vocab)
         _ultimo_uso = time.monotonic()
+        if eco_do_vocabulario(texto, vocab):
+            log.info('whisper devolveu o vocabulário (som que não é fala); ignorado')
+            texto = ''
         return {'texto': texto, 'segundos': round(info.duration, 1), 'duracao': round(time.perf_counter() - t0, 2),
                 'modelo': MODELO, 'onde': _dispositivo}
 

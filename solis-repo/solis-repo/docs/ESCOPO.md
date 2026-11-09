@@ -313,15 +313,17 @@ das outras.
    (`design/fala-validacao.png`). Seletor em Configurações → Voz (voz do Gemini com amostra, Flash ou
    Flash-Lite, e "Responder falando"), com as peças já aprovadas da tela; aprovado pelo Matheus
    pelos prints (`design/voz-configuracoes-validacao.png`).
-2. **Palavra de ativação** ("Solis"): feita com o **Porcupine** (escolha do Matheus). O
-   openWakeWord não tem "Solis" pronto e treinar pede o PyTorch, bloqueado aqui; o Porcupine treina a
-   palavra no console deles e a DLL carrega sob o Controle de Aplicativo. O navegador manda o
-   microfone pro servidor do Solis (só em 127.0.0.1) por WebSocket; depois da palavra, um bipe, a
-   caixa mostra "Ouvindo… pode falar", o Whisper transcreve e a mensagem vai sozinha — com a resposta
-   falada se "Responder falando" estiver ligado. Testado de ponta a ponta com áudio falso. Linha em
-   Configurações → Voz (chave, modelo `.ppn`, interruptor): PROVISÓRIO, prints em
-   `design/ativacao-validacao.png`. Falta: a chave e o modelo do Matheus, e com eles medir CPU,
-   alarmes falsos e o fim da fala com a voz real.
+2. **Palavra de ativação** ("Solis"): hoje quem ouve é o **Whisper**. O Matheus escolheu o
+   Porcupine, mas a conta do Picovoice passou a pedir e-mail de empresa e virou teste de 7 dias; a
+   decisão dele foi "Whisper agora e depois focamos em ajustar". O navegador manda o microfone pro
+   servidor do Solis (só em 127.0.0.1) por WebSocket; o começo de cada trecho de fala vai pro
+   Whisper, e se começa com "Solis", um bipe, a caixa mostra "Ouvindo… pode falar" e a mensagem vai
+   sozinha — com a resposta falada se "Responder falando" estiver ligado. Medido com vozes
+   sintéticas: 31/32 acordaram, 0/40 alarmes falsos; a mensagem chega 4 a 5 s depois do fim da fala.
+   O custo: a GPU trabalha a cada trecho de fala que o microfone pega. Linha em Configurações → Voz
+   (só o interruptor): PROVISÓRIO, prints em `design/ativacao-validacao.png`. Falta: medir com a
+   voz real do Matheus e ajustar (tempo de resposta, fim da fala); depois, o openWakeWord com um
+   modelo "Solis" treinado no Colab, pra GPU não trabalhar à toa.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 
 ### Controle do PC e visão da tela
@@ -383,7 +385,7 @@ cabe inteiro vai em parte pra RAM (offload) e fica várias vezes mais lento:
 
 | Função | Candidatos | Observação |
 |---|---|---|
-| Palavra de ativação | **Porcupine** (escolhido); openWakeWord (aberto) | Treinar "Solis" no openWakeWord pede o PyTorch, bloqueado aqui |
+| Palavra de ativação | **Whisper** (hoje); openWakeWord (aberto, modelo treinado no Colab); Porcupine (agora só empresas) | Treinar "Solis" no openWakeWord aqui pede o PyTorch, bloqueado |
 | Detector de voz | Silero VAD | Já vem junto do openWakeWord e do faster-whisper |
 | Transcrição | faster-whisper (Whisper otimizado), whisper.cpp | O tamanho do modelo é a troca entre precisão e velocidade |
 | Voz | Kokoro (82M, tem vozes pt-BR), Piper (mais leve) | Testar os dois em português antes de escolher |

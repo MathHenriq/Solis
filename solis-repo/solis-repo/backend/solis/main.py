@@ -636,6 +636,13 @@ async def apagar_ativacao():
     return ativacao.estado()
 
 
+async def _transcrever_escuta(audio: bytes) -> str:
+    try:
+        return (await voz.transcrever(audio))['texto']
+    except (voz.SemModelo, voz.AudioRuim):
+        return ''
+
+
 @app.websocket('/escuta')
 async def escuta(ws: WebSocket):
     """O microfone aberto do navegador: áudio PCM 16 bits, 16 kHz, mono, em
@@ -664,16 +671,27 @@ async def escuta(ws: WebSocket):
                 continue
             if pausada or not msg.get('bytes'):
                 continue
+            # Gerador: cada decisão (confirmar/descartar) vale já pro quadro seguinte.
             for tipo, audio in escutando.alimentar(msg['bytes']):
                 if tipo == 'ativou':
                     await ws.send_json({'tipo': 'ativou'})
+                elif tipo in ('previa', 'frase'):
+                    # Whisper: o começo de um trecho de fala tem "Solis"?
+                    achou, resto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                    if not achou:
+                        escutando.descartar()
+                        continue
+                    await ws.send_json({'tipo': 'ativou'})
+                    if tipo == 'frase' and resto:
+                        # "Solis, que horas são?" de uma vez, e acabou: já é o comando.
+                        await ws.send_json({'tipo': 'texto', 'texto': resto})
+                    else:
+                        escutando.confirmar()
                 elif audio is None:
                     await ws.send_json({'tipo': 'nada'})
                 else:
-                    try:
-                        texto = (await voz.transcrever(audio))['texto']
-                    except (voz.SemModelo, voz.AudioRuim):
-                        texto = ''
+                    # O comando pode trazer a própria palavra no começo (veio do trecho).
+                    _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
                     await ws.send_json({'tipo': 'texto', 'texto': texto} if texto else {'tipo': 'nada'})
     except WebSocketDisconnect:
         pass
