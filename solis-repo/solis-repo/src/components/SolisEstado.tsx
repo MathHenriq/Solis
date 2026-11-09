@@ -1,4 +1,8 @@
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import tokens from '../../docs/solis-tokens.json';
+import { registrarAlvo } from '../nivel';
+
+const CORTE_CAUDA = tokens.states.glow.reativo.corteCauda;
 
 /** Camada 3 da assinatura (SOLIS_SIGNATURE.md): o símbolo com glow reativo.
  *
@@ -57,12 +61,16 @@ export function SolisEstado({
   className = '',
   style,
   halo = 'folha',
+  reativo = false,
 }: {
   estado?: EstadoSolis;
   tamanho?: number | string;
   className?: string;
   style?: CSSProperties;
   halo?: keyof typeof HALO;
+  /** Escutando, com o brilho seguindo o nível do microfone (src/nivel.ts) em
+   *  vez do ciclo fixo do keyframe. */
+  reativo?: boolean;
 }) {
   // useId e não o nome do estado: cada instância tem o desfoque da própria
   // largura, e dois filtros com o mesmo id fariam um usar o do outro.
@@ -80,6 +88,10 @@ export function SolisEstado({
     const w = caixa.current?.getBoundingClientRect().width;
     if (w) definirLargura(w);
   }, []);
+  const brilho = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (reativo && brilho.current) return registrarAlvo(brilho.current);
+  }, [reativo]);
   const k = LARGURA_MEDIDA / largura;
   const h = HALO[halo];
   return (
@@ -90,35 +102,52 @@ export function SolisEstado({
       role="img"
       aria-label="Solis"
     >
-      <svg className="solis-brilho" data-estado={estado} viewBox="0 0 384.91 220.85" fillRule="evenodd" aria-hidden>
-        <defs>
-          {/* x/y/width/height generosos: o halo largo passa MUITO do bounding box
-              do caminho, e a região padrão do filtro (-10%/120%) o corta seco.
-              Em y mais ainda: o símbolo é baixo, e o halo do avatar (3 desvios =
-              ~2,4 alturas dele) aparecia cortado num disco. */}
-          <filter id={id} x="-140%" y="-300%" width="380%" height="700%" colorInterpolationFilters="sRGB">
-            <feGaussianBlur in="SourceGraphic" stdDeviation={h.pertoBlur * k} result="perto" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation={h.longeBlur * k} result="longe" />
-            <feFlood floodColor="#FFA733" result="corPerto" />
-            <feComposite in="corPerto" in2="perto" operator="in" result="pertoTingido" />
-            <feFlood floodColor={h.longeCor} result="corLonge" />
-            <feComposite in="corLonge" in2="longe" operator="in" result="longeTingido" />
-            <feComponentTransfer in="pertoTingido" result="pertoGanho">
-              <feFuncA type="linear" slope={h.pertoGanho * k} />
-            </feComponentTransfer>
-            <feComponentTransfer in="longeTingido" result="longeGanho">
-              <feFuncA type="linear" slope={h.longeGanho * k} />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode in="longeGanho" />
-              <feMergeNode in="pertoGanho" />
-            </feMerge>
-          </filter>
-        </defs>
-        <g filter={`url(#${id})`}>
-          <path d={CAMINHO} fill="currentColor" />
-        </g>
-      </svg>
+      {/* A camada que anima é uma div em volta do SVG, não o <svg>: as
+          transições do brilho reativo no próprio <svg> rodavam no main thread
+          (medido gravando: ~240 recálculos de estilo a mais em 6 s); na div,
+          vão pro compositor como os keyframes. */}
+      <div
+        ref={brilho}
+        className="solis-brilho"
+        data-estado={reativo ? 'listening' : estado}
+        data-reativo={reativo || undefined}
+        aria-hidden
+      >
+        <svg viewBox="0 0 384.91 220.85" fillRule="evenodd">
+          <defs>
+            {/* x/y/width/height generosos: o halo largo passa MUITO do bounding box
+                do caminho, e a região padrão do filtro (-10%/120%) o corta seco.
+                Em y mais ainda: o símbolo é baixo, e o halo do avatar (3 desvios =
+                ~2,4 alturas dele) aparecia cortado num disco. */}
+            <filter id={id} x="-140%" y="-300%" width="380%" height="700%" colorInterpolationFilters="sRGB">
+              <feGaussianBlur in="SourceGraphic" stdDeviation={h.pertoBlur * k} result="perto" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation={h.longeBlur * k} result="longe" />
+              <feFlood floodColor="#FFA733" result="corPerto" />
+              <feComposite in="corPerto" in2="perto" operator="in" result="pertoTingido" />
+              <feFlood floodColor={h.longeCor} result="corLonge" />
+              <feComposite in="corLonge" in2="longe" operator="in" result="longeTingido" />
+              <feComponentTransfer in="pertoTingido" result="pertoGanho">
+                <feFuncA type="linear" slope={h.pertoGanho * k} />
+              </feComponentTransfer>
+              <feComponentTransfer in="longeTingido" result="longeGanho">
+                {/* Reativo (o logo): o desfoque do navegador trunca a gaussiana
+                    por volta de 3 desvios, e o ganho alto do halo pequeno
+                    deixava esse corte visível no pico da voz — um degrau de 4
+                    níveis no fundo claro, em contorno de octógono. O intercept
+                    tira essa cauda antes do corte (states.glow.reativo). */}
+                <feFuncA type="linear" slope={h.longeGanho * k} intercept={reativo ? -CORTE_CAUDA : 0} />
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode in="longeGanho" />
+                <feMergeNode in="pertoGanho" />
+              </feMerge>
+            </filter>
+          </defs>
+          <g filter={`url(#${id})`}>
+            <path d={CAMINHO} fill="currentColor" />
+          </g>
+        </svg>
+      </div>
 
       <svg className="solis-arte" viewBox="0 0 384.91 220.85" fillRule="evenodd" aria-hidden>
         <path d={CAMINHO} fill="currentColor" />

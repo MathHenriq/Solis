@@ -1,5 +1,5 @@
 import { Icone } from './icons';
-import { SolisSimbolo } from './SolisSimbolo';
+import { SimboloDoLogo } from './SimboloDoLogo';
 
 /** Cabeçalho do modo "barra de ícones".
  *
@@ -31,9 +31,9 @@ export function TopoIcones({ aoNova, aoAlternarLista }: { aoNova?: () => void; a
           da última letra: sem ele a caixa é assimétrica e centralizá-la não
           centralizaria a palavra. */}
       <div className="relative mx-auto">
-        <SolisSimbolo
+        <SimboloDoLogo
           className="absolute right-full top-1/2 -translate-y-1/2 mr-lg text-text-primary"
-          style={{ width: 48, height: 'auto' }}
+          style={{ width: 48 }}
         />
         <span
           className="font-wordmark text-text-primary"

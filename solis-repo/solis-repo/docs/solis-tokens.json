@@ -607,6 +607,22 @@
       "farColor": "#E85F0A",
       "farGain": "0.6",
       "artColor": "#FFF0D6",
+      "reativo": {
+        "_status": "PROVISORIO - desenho proprio (09/11/2026), aguardando aprovacao pelos prints e calibracao com o microfone do Matheus.",
+        "_onde": "O simbolo do logo (sidebar e barra do topo) enquanto o Solis ouve: apertar pra falar, ou depois da palavra Solis. O nivel e medido no navegador por um AnalyserNode (src/nivel.ts), nunca pelo Whisper, que responde segundos depois.",
+        "_mapa": "RMS da janela do analisador (2048 amostras, ~43 ms a 48 kHz) em dBFS: abaixo de pisoDb e silencio (brilho minimo), acima de tetoDb e o maximo. Media movel com pesoNovo pro valor novo (o brilho respira, nao tremula). A faixa de opacity e scale e a do estado listening (states.motion.listening) - o scale minimo, pelo mesmo motivo de la: o halo descola da arte se crescer.",
+        "_medida": "Medido nas vozes sinteticas da palavra de ativacao (edge-tts, 4 vozes, 1686 janelas de 43 ms): fala p10 -39,3, mediana -22,2, p90 -14,9 dBFS. pisoDb fica abaixo do p10 (as consoantes baixas ainda acendem um pouco) e tetoDb no p90 (a mediana da fala da 0,75 do brilho). O microfone real pode ficar mais baixo ou mais alto: calibrar.",
+        "pisoDb": -45,
+        "tetoDb": -15,
+        "pesoNovo": 0.3,
+        "passoMs": 80,
+        "corteCauda": 0.03,
+        "_corteCauda": "Alfa tirada do halo de longe depois do ganho (intercept do feFuncA). O desfoque do navegador trunca a gaussiana por volta de 3 desvios; com o ganho do halo do avatar reescalado pra 48-60px (~4x), a cauda cortada virava um degrau de 4 niveis no fundo claro no pico da voz (medido: B 242 -> 238 em 1 px, contorno octogonal). Com 0,03 a cauda chega a zero antes do corte. So no reativo: o avatar aprovado da thread nao muda.",
+        "_passo": "O nivel vira estilo a cada passoMs, e a transicao do CSS (passoMs, linear) anda entre um e outro. Medido gravando, 6 s de fala continua no microfone simulado: ~300 recalculos de estilo e ~200 ms de main thread (~33 ms por segundo), contra ~54 e ~48 ms do brilho por keyframe; zero quando nao esta ouvindo. A Web Animations API deu o mesmo. So mudanca visivel (1% de opacidade) e escrita, entao o silencio nao custa.",
+
+        "opacity": [0.35, 1.0],
+        "scale": [1.0, 1.022]
+      },
       "avatar": {
         "_fonte": "O simbolo pensando no tamanho de avatar (34px), ajustado contra referencias/telas/20-conversa-etapas.png. Os valores acima sao do simbolo de 190px; no avatar o traco tem ~1px e o mesmo filtro embacava o vao entre o arco e o sol e nao passava de 8px. Ajuste por busca em grade (design/_ajustar-brilho.mjs, rascunho fora do repositorio), comparando o perfil de luminancia abaixo da base e acima do topo, de 1 a 23px, com o da referencia na escala do app: erro medio de 5 niveis.",
         "_unidades": "Como os de cima: unidades do desenho a 190px de largura. O SolisEstado multiplica desfoque E ganho por 190/largura real - o ganho porque o traco afina na mesma proporcao.",

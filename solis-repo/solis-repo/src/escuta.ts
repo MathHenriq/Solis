@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { aoMudarFala } from './fala';
+import { criarAnalisador, definirFonte } from './nivel';
 import { urlEscuta } from './servidor';
 
 /** A escuta da palavra "Solis": o microfone fica aberto e o áudio vai pro
@@ -70,6 +71,7 @@ export function useEscuta(aoTexto: (texto: string) => void) {
     let ws: WebSocket | null = null;
     let espera: number | undefined;
     let pausada = false;
+    let analisador: AnalyserNode | null = null;
     const pararDeOuvirFala = aoMudarFala((falando) => {
       pausada = falando;
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ pausa: falando }));
@@ -90,18 +92,23 @@ export function useEscuta(aoTexto: (texto: string) => void) {
         if (msg.tipo === 'ativou') {
           definirEstado('ouvindo');
           if (contexto) bipe(contexto);
+          definirFonte(analisador);
         } else if (msg.tipo === 'texto') {
+          definirFonte(null);
           definirEstado('esperando');
           if (msg.texto) aoTextoAtual.current(msg.texto);
         } else if (msg.tipo === 'nada') {
+          definirFonte(null);
           definirEstado('esperando');
         } else if (msg.tipo === 'erro') {
+          definirFonte(null);
           definirErro(msg.motivo ?? 'a escuta não ligou');
           definirEstado('erro');
           fim = true; // configuração faltando: não adianta reconectar
         }
       };
       ws.onclose = () => {
+        definirFonte(null);
         if (fim) return;
         // Servidor reiniciando ou fora: tenta de novo, cada vez mais devagar.
         espera = window.setTimeout(() => conectar(tentativa + 1), Math.min(30_000, 1000 * 2 ** tentativa));
@@ -117,7 +124,9 @@ export function useEscuta(aoTexto: (texto: string) => void) {
         no.port.onmessage = (e) => {
           if (!pausada && ws?.readyState === WebSocket.OPEN) ws.send(e.data as ArrayBuffer);
         };
-        contexto.createMediaStreamSource(fluxo).connect(no);
+        const origem = contexto.createMediaStreamSource(fluxo);
+        origem.connect(no);
+        analisador = criarAnalisador(contexto, origem);
         if (fim) return;
         conectar();
       } catch {
@@ -128,6 +137,7 @@ export function useEscuta(aoTexto: (texto: string) => void) {
 
     return () => {
       fim = true;
+      definirFonte(null);
       pararDeOuvirFala();
       window.clearTimeout(espera);
       ws?.close();

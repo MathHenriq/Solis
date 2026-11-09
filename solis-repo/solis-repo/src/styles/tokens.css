@@ -325,6 +325,7 @@ body { background: var(--canvas); color: var(--text-primary); font-family: var(-
 .solis-estado { position: relative; display: block; }
 .solis-estado > svg { display: block; width: 100%; height: auto; overflow: visible; }
 .solis-brilho { position: absolute; inset: 0; color: #FFA733; will-change: transform, opacity; }
+.solis-brilho > svg { display: block; width: 100%; height: auto; overflow: visible; }
 .solis-arte { position: relative; color: #FFF0D6; }
 
 @keyframes solis-idle {
@@ -356,6 +357,10 @@ body { background: var(--canvas); color: var(--text-primary); font-family: var(-
   50%      { opacity: 0.88; transform: scale(1.008); }
 }
 .solis-brilho[data-estado="executing"] { animation: solis-executing 0.9s ease-in-out infinite; }
+
+/* Reativo (states.glow.reativo, PROVISORIO): opacity e transform vem do nivel do
+ * microfone, escritos por src/nivel.ts; o keyframe sai. Parte do minimo. */
+.solis-brilho[data-reativo] { animation: none; opacity: 0.35; transition: opacity 80ms linear, transform 80ms linear; }
 
 @media (prefers-reduced-motion: reduce) {
   /* PERFORMANCE.md: todas as duracoes vao a ~0 */

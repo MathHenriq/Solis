@@ -55,6 +55,7 @@ def _estados(w):
     w('.solis-estado { position: relative; display: block; }')
     w('.solis-estado > svg { display: block; width: 100%; height: auto; overflow: visible; }')
     w('.solis-brilho { position: absolute; inset: 0; color: %s; will-change: transform, opacity; }' % G['nearColor'])
+    w('.solis-brilho > svg { display: block; width: 100%; height: auto; overflow: visible; }')
     w('.solis-arte { position: relative; color: %s; }' % G['artColor'])
     for est in T['states']['order']:
         p = M[est]
@@ -65,6 +66,12 @@ def _estados(w):
         w('}')
         w('.solis-brilho[data-estado="%s"] { animation: solis-%s %s ease-in-out infinite; }'
           % (est, est, p['duration']))
+    R = G['reativo']
+    w('')
+    w('/* Reativo (states.glow.reativo, PROVISORIO): opacity e transform vem do nivel do')
+    w(' * microfone, escritos por src/nivel.ts; o keyframe sai. Parte do minimo. */')
+    w('.solis-brilho[data-reativo] { animation: none; opacity: %s; transition: opacity %sms linear, transform %sms linear; }'
+      % (R['opacity'][0], R['passoMs'], R['passoMs']))
 
 L = []
 w = L.append

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { criarAnalisador, definirFonte } from './nivel';
 import { transcreverAudio } from './servidor';
 
 /** Apertar pra falar: um clique no microfone começa a ouvir, outro para, e o
@@ -49,9 +50,15 @@ export function useVoz(aoTexto: (texto: string) => void) {
       return;
     }
     const partes: Blob[] = [];
+    // O brilho do símbolo segue esta voz (nivel.ts) — uma cópia do microfone
+    // medida aqui mesmo, sem esperar o Whisper.
+    const contexto = new AudioContext();
+    definirFonte(criarAnalisador(contexto, contexto.createMediaStreamSource(fluxo)));
     const g = new MediaRecorder(fluxo);
     g.ondataavailable = (e) => e.data.size && partes.push(e.data);
     g.onstop = async () => {
+      definirFonte(null);
+      contexto.close();
       fluxo.getTracks().forEach((t) => t.stop());
       window.clearTimeout(limite.current);
       gravador.current = null;

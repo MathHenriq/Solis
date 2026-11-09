@@ -325,7 +325,12 @@ das outras.
    (`design/ativacao-validacao.png`). Falta: medir com a
    voz real do Matheus e ajustar (tempo de resposta, fim da fala); depois, o openWakeWord com um
    modelo "Solis" treinado no Colab, pra GPU não trabalhar à toa.
-3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
+3. **Camada 3 da assinatura**: o brilho do símbolo do logo seguindo a voz enquanto o Solis ouve
+   (microfone ou palavra "Solis"), medido no navegador, sem esperar o Whisper. Feito em
+   09/11/2026, PROVISÓRIO: prints em `design/brilho-voz-validacao.png`; os limites do nível saíram
+   de vozes sintéticas e precisam de calibração com o microfone do Matheus. Detalhes e custo medido
+   em `docs/SOLIS_SIGNATURE.md`. De quebra: o pulso do microfone passou pro ícone (custava ~330 ms
+   de main thread em 6 s com o mouse em cima — `docs/PERFORMANCE.md` 1.1).
 
 ### Controle do PC e visão da tela
 

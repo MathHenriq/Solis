@@ -1,7 +1,7 @@
 import { ITENS_NAV } from '../nav-items';
 import { Icone } from './icons';
 import { ListaConversas, type PropsLista } from './ListaConversas';
-import { SolisSimbolo } from './SolisSimbolo';
+import { SimboloDoLogo } from './SimboloDoLogo';
 
 /** Sidebar compacta da Fase 2.
  *
@@ -32,11 +32,10 @@ export function Sidebar({
           proporcional a ela: mexer no token reescala o bloco inteiro sem tocar em
           mais nada. Ver solis-tokens.json → layout.sidebar._blocoDoLogo. */}
       <div className="flex flex-col items-center" style={{ paddingTop: 'var(--sidebar-padding-top)' }}>
-        <SolisSimbolo
+        <SimboloDoLogo
           className="text-text-primary opacity-90"
           style={{
             width: 'var(--sidebar-logo)',
-            height: 'auto',
             // Deslocamento óptico medido na referência: o símbolo não fica no
             // centro geométrico da coluna, fica um pouco à esquerda. Proporcional
             // à largura pra não virar um valor solto quando o logo mudar.

@@ -121,6 +121,26 @@ function tick() {
 
 ---
 
+### Feito (09/11/2026) — PROVISÓRIO até o Matheus aprovar os prints
+
+- **Onde:** o símbolo do logo — no topo da Sidebar e na barra do topo da navegação por ícones —,
+  porque é o único símbolo que está em toda tela. Parado, é o SolisSimbolo de sempre; ouvindo
+  (apertar pra falar, ou depois da palavra "Solis"), ganha a camada de brilho com o halo do avatar
+  (`states.glow.avatar`) e a arte na cor do tema. A troca não move 1px.
+- **O nível** (`src/nivel.ts`): um AnalyserNode na mesma captura do microfone, RMS de 2048 amostras
+  (~43 ms) em dBFS, de -45 (brilho mínimo) a -15 (máximo), média móvel com 30% pro valor novo,
+  opacity 0,35–1,0 e scale 1,0–1,022 (a faixa do `listening`). Os limites saíram da medição das vozes
+  sintéticas (fala p10 -39, mediana -22, p90 -15 dBFS); com o microfone real, calibrar.
+- **Custo medido** (6 s de fala contínua no microfone simulado): ~300 recálculos de estilo e ~33 ms de
+  main thread por segundo, só enquanto ouve — o brilho por keyframe custa ~9 ms. O nível vira estilo a
+  cada 80 ms e a transição do CSS anda entre um e outro; só mudança visível é escrita. A camada que
+  anima é uma `div` em volta do SVG: no próprio `<svg>` a transição rodava no main thread.
+- **Corte da cauda:** com o ganho do halo do avatar reescalado pra 48–60 px, o truncamento do desfoque
+  do navegador virava um degrau de 4 níveis em contorno octogonal no fundo claro. O halo do logo tira
+  0,03 de alfa antes (`corteCauda`), e a borda vai a zero aos poucos (máximo 2 níveis entre vizinhos).
+- **Movimento reduzido:** a intensidade continua dizendo o nível, sem escala.
+- Folha: `design/brilho-voz-validacao.png` (3 temas × 2 navegações: parado, silêncio e pico da voz).
+
 ## Composição das camadas — exemplo
 
 Um usuário fala com o Solis:
