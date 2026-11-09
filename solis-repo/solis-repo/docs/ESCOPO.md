@@ -311,8 +311,8 @@ das outras.
    de 2026, o dobro em 2027 — uns US$ 2 a 3 por mês com 20 respostas faladas por dia; e no pago o
    Google não usa o conteúdo (no grátis, usa). O botão de ouvir foi aprovado pelos prints
    (`design/fala-validacao.png`). Seletor em Configurações → Voz (voz do Gemini com amostra, Flash ou
-   Flash-Lite, e "Responder falando"), com as peças já aprovadas da tela; PROVISÓRIO até o aval
-   (`design/voz-configuracoes-validacao.png`).
+   Flash-Lite, e "Responder falando"), com as peças já aprovadas da tela; aprovado pelo Matheus
+   pelos prints (`design/voz-configuracoes-validacao.png`).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 

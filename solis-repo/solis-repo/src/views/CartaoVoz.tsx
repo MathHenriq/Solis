@@ -6,7 +6,8 @@ import { ajustarFala, amostraDeVoz, lerAjustesFala, listarCerebros, type Ajustes
 
 /** Configurações → Voz: como o Solis fala as respostas.
  *
- *  Desenho próprio, PROVISÓRIO até o aval — com as peças já aprovadas da tela:
+ *  Desenho próprio, aprovado pelo Matheus em 09/11/2026
+ *  (design/voz-configuracoes-validacao.png) — com as peças já aprovadas da tela:
  *  a moldura e as linhas do cartão Aparência (layout.configuracoes), o
  *  segmentado da Navegação e o interruptor da imagem de fundo. Nenhuma medida
  *  nova. O seletor de voz é o select do sistema, na largura e altura do
