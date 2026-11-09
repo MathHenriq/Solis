@@ -176,7 +176,7 @@ export function BotaoContorno({
       type="button"
       onClick={onClick}
       className="flex items-center gap-sm border border-divider rounded-md text-text-primary shrink-0"
-      style={{ height: 'var(--cfg-sw-l)', paddingLeft: 20, paddingRight: 20, fontSize: 'var(--cfg-rotulo)' }}
+      style={{ height: 'var(--mem-acao-h)', paddingLeft: 20, paddingRight: 20, fontSize: 'var(--cfg-rotulo)' }}
     >
       {children}
     </button>

@@ -139,6 +139,7 @@ for chave, var in [('padLeft','--mem-pad-l'), ('padRight','--mem-pad-r'),
                    ('originSize','--mem-origem'), ('dateSize','--mem-data'),
                    ('textMaxWidth','--mem-texto-max')]:
     w('  %s: %s;' % (var, mem[chave]))
+w('  --mem-acao-h: %s;' % mem['actionHeight'])
 w('  /* Acoes da Memoria (corrigir, esquecer). Ver layout.memoria.acoes - desenho proprio. */')
 ma = T['layout']['memoria']['acoes']
 for chave, var in [('iconSize','--mac-icone'), ('iconHit','--mac-alvo'), ('dateGap','--mac-data-gap'),
@@ -181,6 +182,12 @@ for chave, var in [('cardTop','--cfg-card-top'), ('cardPadding','--cfg-card-pad'
                    ('switchHeight','--cfg-sw-h')]:
     w('  %s: %s;' % (var, cfg[chave]))
 w('  --cfg-mini-razao: %s;' % cfg['thumbRatio'])
+w('  /* Menu do Conhecimento - desenho proprio, PROVISORIO. Ver layout.conhecimento. */')
+kn = T['layout']['conhecimento']
+for chave, var in [('menuWidth','--kn-menu-l'), ('menuPad','--kn-menu-pad'), ('menuRadius','--kn-menu-raio'),
+                   ('menuItemHeight','--kn-menu-item-h'), ('menuItemPadX','--kn-menu-item-px'),
+                   ('menuIconGap','--kn-menu-icone-gap'), ('menuTop','--kn-menu-top')]:
+    w('  %s: %s;' % (var, kn[chave]))
 w('  /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */')
 for chave, var in [('cardGap','--cer-cartao-gap'), ('orderIcon','--cer-seta'), ('orderHit','--cer-seta-alvo'),
                    ('controlsGap','--cer-controles-gap'), ('positionWidth','--cer-posicao'),

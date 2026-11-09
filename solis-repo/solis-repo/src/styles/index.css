@@ -190,6 +190,15 @@ main {
   padding-bottom: calc(var(--barra-h) + var(--barra-base) + 24px);
 }
 
+/* O aviso de baixo (Memória esquecida, fonte removida, com Desfazer). Ele é
+   absoluto no main, e no modo 'icones' o fim do main fica atrás da barra: o
+   aviso sumia inteiro por baixo dela e o Desfazer não recebia o clique (visto
+   no Conhecimento, 08/11/2026 — a fonte foi removida de verdade). */
+.solis-aviso { bottom: var(--mac-aviso-base); }
+:root[data-nav="icones"] .solis-aviso {
+  bottom: calc(var(--barra-h) + var(--barra-base) + var(--mac-aviso-base));
+}
+
 /* A coluna da Conversa fica ancorada a 191px da sidebar — foi assim que a
    referência 01-conversa.png foi medida, numa janela de 1440. Mas a âncora só é
    uma proporção enquanto o composer ainda cresce com a janela: passado o teto

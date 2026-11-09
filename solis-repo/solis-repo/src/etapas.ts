@@ -40,11 +40,16 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
   }
   saida.push({
     estado: 'feita',
+    // Os arquivos só aparecem quando algum entrou: "nenhum trecho dos seus
+    // arquivos" em toda resposta seria ruído pra quem nem tem arquivo.
     texto:
       'Busquei na memória: ' +
       plural(memoria.memorias ?? 0, 'memória', 'memórias', 'nenhuma memória') +
-      ' e ' +
-      plural(memoria.trechos ?? 0, 'trecho de conversa antiga', 'trechos de conversas antigas', 'nenhum trecho de conversa antiga'),
+      (memoria.arquivos ? ', ' : ' e ') +
+      plural(memoria.trechos ?? 0, 'trecho de conversa antiga', 'trechos de conversas antigas', 'nenhum trecho de conversa antiga') +
+      (memoria.arquivos
+        ? ' e ' + plural(memoria.arquivos, 'trecho dos seus arquivos', 'trechos dos seus arquivos', '')
+        : ''),
   });
 
   // Cada tentativa começa num `cerebro` e acaba na primeira palavra ou numa queda.

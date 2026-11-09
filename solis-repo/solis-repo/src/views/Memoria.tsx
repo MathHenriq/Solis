@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Botao } from '../components/Controles';
+import { quando } from '../datas';
 import { Icone } from '../components/icons';
 import { EstadoVazio } from '../components/Tela';
 import {
@@ -28,25 +29,6 @@ import {
  *  Corrigir, esquecer e o cadeado da privada são desenho próprio, sem
  *  referência (layout.memoria.acoes): as ações só aparecem no hover ou no foco,
  *  e tudo acontece no próprio item, sem janela no meio da tela. */
-
-const MES = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' });
-
-/** "hoje", "ontem", "há 3 dias", e a data a partir de uma semana — como a
- *  referência escreve. Conta dias de calendário, não blocos de 24h: uma memória
- *  das 23h é "ontem" à 1h da manhã seguinte. */
-function quando(iso: string): string {
-  const d = new Date(iso);
-  const hoje = new Date();
-  const dias = Math.round(
-    (new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime() -
-      new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
-      86_400_000,
-  );
-  if (dias <= 0) return 'hoje';
-  if (dias === 1) return 'ontem';
-  if (dias < 7) return `há ${dias} dias`;
-  return MES.format(d).replace('.', '');
-}
 
 /** Quanto o Desfazer fica na tela; o esquecer só vai pro servidor depois. */
 const DESFAZER_MS = 6000;
@@ -431,9 +413,8 @@ export function Memoria() {
       {esquecida && (
         <div
           role="status"
-          className="absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary border border-divider bg-canvas"
+          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary border border-divider bg-canvas"
           style={{
-            bottom: 'var(--mac-aviso-base)',
             height: 'var(--mac-aviso-h)',
             padding: '0 var(--mac-aviso-px)',
             borderRadius: 'var(--mac-aviso-raio)',

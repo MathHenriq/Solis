@@ -68,6 +68,7 @@
   --mem-origem: 14px;
   --mem-data: 15px;
   --mem-texto-max: 540px;
+  --mem-acao-h: 40px;
   /* Acoes da Memoria (corrigir, esquecer). Ver layout.memoria.acoes - desenho proprio. */
   --mac-icone: 16px;
   --mac-alvo: 28px;
@@ -128,6 +129,14 @@
   --cfg-sw-l: 79px;
   --cfg-sw-h: 41px;
   --cfg-mini-razao: 1.53;
+  /* Menu do Conhecimento - desenho proprio, PROVISORIO. Ver layout.conhecimento. */
+  --kn-menu-l: 236px;
+  --kn-menu-pad: 6px;
+  --kn-menu-raio: 10px;
+  --kn-menu-item-h: 36px;
+  --kn-menu-item-px: 12px;
+  --kn-menu-icone-gap: 10px;
+  --kn-menu-top: 4px;
   /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */
   --cer-cartao-gap: 30px;
   --cer-seta: 16px;

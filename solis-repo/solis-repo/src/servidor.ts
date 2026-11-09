@@ -184,6 +184,8 @@ export type Etapa = {
   motivo?: string;
   memorias?: number;
   trechos?: number;
+  /** Trechos dos arquivos do Conhecimento que entraram no pedido. */
+  arquivos?: number;
   novas?: number;
   /** As memórias guardadas depois da resposta. */
   textos?: string[];
@@ -326,4 +328,72 @@ export async function conversar(conversa: number | null, texto: string, ouvintes
     /* conexão caiu no meio: fica o que chegou */
   }
   return falha;
+}
+
+/** Um arquivo do Conhecimento. `indexados < trechos` = ainda virando vetor
+ *  (o "Indexando… 64%" da tela). `paginas` só no PDF. */
+export type Documento = {
+  id: number;
+  nome: string;
+  tipo: 'pdf' | 'nota';
+  paginas: number | null;
+  bytes: number;
+  privado: boolean;
+  criado: string;
+  trechos: number;
+  indexados: number;
+};
+
+export async function listarDocumentos(busca = ''): Promise<Resultado<Documento[]>> {
+  try {
+    const r = await fetch(`${BASE}/conhecimento${busca.trim() ? `?q=${encodeURIComponent(busca)}` : ''}`);
+    if (!r.ok) return { estado: 'sem-servidor' };
+    return { estado: 'ok', dados: ((await r.json()) as { documentos: Documento[] }).documentos };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
+export type ResultadoArquivo =
+  | { estado: 'ok'; documento: Documento }
+  | { estado: 'nao-leu'; motivo: string }
+  | { estado: 'ja-existe' }
+  | { estado: 'sem-servidor' };
+
+/** O arquivo vai cru no corpo, como está no disco; o servidor lê e corta. */
+export async function adicionarDocumento(arquivo: File, privado = false): Promise<ResultadoArquivo> {
+  try {
+    const r = await fetch(
+      `${BASE}/conhecimento?nome=${encodeURIComponent(arquivo.name)}&privado=${privado}`,
+      { method: 'POST', body: arquivo },
+    );
+    if (r.ok) return { estado: 'ok', documento: ((await r.json()) as { documento: Documento }).documento };
+    const corpo = (await r.json().catch(() => ({}))) as { erro?: string; motivo?: string };
+    if (corpo.erro === 'nao_leu') return { estado: 'nao-leu', motivo: corpo.motivo ?? '' };
+    if (corpo.erro === 'ja_existe') return { estado: 'ja-existe' };
+    return { estado: 'sem-servidor' };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
+export async function marcarDocumentoPrivado(id: number, privado: boolean): Promise<Documento | null> {
+  try {
+    const r = await fetch(`${BASE}/conhecimento/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ privado }),
+    });
+    return r.ok ? ((await r.json()) as { documento: Documento }).documento : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function apagarDocumento(id: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/conhecimento/${id}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
 }
