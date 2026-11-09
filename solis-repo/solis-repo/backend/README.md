@@ -43,8 +43,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |
 | `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
-| `GET /conhecimento` | os arquivos do Conhecimento, do mais novo pro mais antigo: `nome`, `tipo` (`pdf` ou `nota`), `paginas`, `privado`, `trechos` e `indexados` (quantos já viraram vetor). `?q=` busca no nome e no texto (de fonte privada, só no nome) |
-| `POST /conhecimento?nome=...&privado=false` | o arquivo cru no corpo (não multipart). Lê, corta em trechos e guarda; os vetores saem em segundo plano. `400` com `nao_leu` e o `motivo` (formato, PDF escaneado, com senha, vazio), `409` com `ja_existe` se o mesmo conteúdo já entrou |
+| `GET /conhecimento` | os arquivos do Conhecimento, do mais novo pro mais antigo: `nome`, `tipo` (`pdf` ou `nota`), `paginas`, `privado`, `trechos` e `indexados` (quantos já viraram vetor), `escaneadas` e `lidas` (páginas-imagem e quantas o OCR já leu) e `leitura_parada` (`ollama`, `ocr` ou `null`). `?q=` busca no nome e no texto (de fonte privada, só no nome) |
+| `POST /conhecimento?nome=...&privado=false` | o arquivo cru no corpo (não multipart). Lê, corta em trechos e guarda; os vetores saem em segundo plano. `400` com `nao_leu` e o `motivo` (formato, PDF sem texto nem imagem, com senha, vazio). Página escaneada entra na fila do OCR, `409` com `ja_existe` se o mesmo conteúdo já entrou |
 | `POST /conhecimento/pagina` | `{"url", "privado"}` → baixa o endereço (com ou sem `https://`), tira o conteúdo principal e guarda como os arquivos; endereço de PDF entra como PDF. Os mesmos erros do `POST /conhecimento` (o `motivo` diz: 404, precisa de login, não é página, montada por JavaScript) |
 | `PATCH /conhecimento/{id}` | `{"privado"}` → sela (ou abre) o nome e o texto e tira (ou põe) do índice de busca |
 | `DELETE /conhecimento/{id}` | apaga o documento e os trechos |
@@ -254,12 +254,32 @@ O Matheus entrega PDFs, `.md`, `.txt` e páginas da web pela tela Conhecimento
 
 - **O que fica:** só o texto, cortado em trechos de ~200 palavras com 40 de sobra entre um e o
   próximo (uma ideia que cai na emenda continua inteira em algum dos dois). No PDF, cada trecho
-  sabe a página. O arquivo original não é copiado. O mesmo conteúdo não entra duas vezes (hash).
+  sabe a página. O arquivo original não é copiado (a exceção é o PDF com página escaneada, guardado
+  só até o OCR ler a última). O mesmo conteúdo não entra duas vezes (hash).
 - **Página web** pela `trafilatura`: só o conteúdo principal, sem menu, rodapé e anúncio (o
   parser HTML da biblioteca padrão traria tudo junto). A página é identificada pelo endereço, que
   vai junto da fonte no pedido. Página montada por JavaScript ou atrás de login não tem o que ler.
-- **PDF** pela `pypdf` (Python puro). PDF escaneado é imagem: sem OCR não há texto, e ele é
-  recusado dizendo isso em vez de entrar vazio.
+- **PDF** pela `pypdf` (Python puro). Página com menos de 20 caracteres de texto e com imagem é
+  escaneada: o PDF entra na hora, e essas páginas vão pra uma fila que o OCR lê em segundo plano.
+- **OCR** (`solis/ocr.py`): o modelo de visão (`SOLIS_MODELO_VISAO`, padrão `qwen3.5:9b`) lê
+  cada página renderizada a 150 dpi pelo PDFium (`pypdfium2`). Escolhido medindo, em 3 páginas de
+  texto conhecido num PDF só de imagem (acerto por palavra):
+
+  | Leitor | Digitalização boa (200 dpi) | Ruim (150 dpi, 10 pt, torta, JPEG forte) | Por página |
+  |---|---|---|---|
+  | OCR do Windows | 0,98 a 1,00 | 0,30 a 0,80 | 0,6 a 0,8 s, CPU |
+  | qwen3.5:9b | 1,00 | 1,00 | 6 a 26 s, GPU |
+  | gemma3:12b | 0,99 a 1,00 | — | 18 a 40 s, GPU |
+
+  O OCR do Windows (`ocr_windows.ps1`, pelo PowerShell: o pacote WinRT pro Python é bloqueado pelo
+  Controle de Aplicativo do Windows) é a reserva: lê quando o modelo de visão não está instalado,
+  ou quando ele repete até o limite de saída. Não dá pra saber quando o Windows errou sem o texto
+  certo, por isso ele não é o primeiro. A imagem vai pela entrada padrão: página de documento
+  privado não passa pelo disco. Com o Ollama fora a fila espera (a página não fica lida pior pra
+  sempre). Uma leitura por vez; cada `GET /conhecimento` retoma a fila se ela parou.
+- **OCR e indexação não andam juntos:** indexar entre as páginas deixava o OCR 2,5× mais lento
+  (16 s contra 6 a 7 s por página, medido — o modelo de embeddings e o de visão disputam a GPU).
+  Enquanto o OCR lê, os trechos de arquivo esperam; a indexação roda quando a fila acaba.
 - **Vetores:** cada trecho vira vetor no `indexar_pendentes`, depois das memórias e mensagens
   (um PDF grande são centenas de trechos, e o que acabou de ser dito não pode esperar). A tela
   mostra o progresso real (`indexados` / `trechos`) e diz quando parou (Ollama fora). Enquanto

@@ -8,6 +8,8 @@ O esquema base é criado na primeira conexão (CREATE ... IF NOT EXISTS). O que
 mudou depois entra por MIGRACOES, guiadas por PRAGMA user_version: um banco que
 já existe no notebook não ganha coluna nova com IF NOT EXISTS.
 """
+import base64
+import binascii
 import json
 import os
 import re
@@ -233,6 +235,15 @@ MIGRACOES = [
     CREATE TRIGGER trechos_fts_apaga AFTER DELETE ON trechos BEGIN
         DELETE FROM trechos_fts WHERE rowid = old.id;
     END;
+    """,
+    # 10 — PDF escaneado: as páginas que são só imagem esperam o OCR, que roda em
+    # segundo plano (ocr.py). `escaneadas` é quantas eram; `faltam`, as que ainda
+    # não foram lidas (JSON); `original`, o PDF em base64 — selado se privado —
+    # guardado só enquanto falta página, e apagado quando a última é lida.
+    """
+    ALTER TABLE documentos ADD COLUMN escaneadas INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE documentos ADD COLUMN faltam TEXT;
+    ALTER TABLE documentos ADD COLUMN original TEXT;
     """,
 ]
 
@@ -692,16 +703,27 @@ class Duplicado(Exception):
 def adicionar_documento(
     nome: str, tipo: str, paginas: int | None, tamanho: int, hash_: str,
     trechos: list[tuple[int | None, str]], privado: bool = False, url: str | None = None,
+    escaneadas: list[int] | None = None, original: bytes | None = None,
 ) -> int:
-    """Guarda o documento e os trechos (página, texto), ainda sem vetor."""
+    """Guarda o documento e os trechos (página, texto), ainda sem vetor. As
+    `escaneadas` (páginas que são imagem) ficam na fila do OCR, com o
+    `original` guardado até a última ser lida."""
     existente = _con().execute('SELECT id FROM documentos WHERE hash = ?', (hash_,)).fetchone()
     if existente:
         raise Duplicado(existente['id'])
     selar = cofre.selar if privado else (lambda t: t)
+    fila = sorted(set(escaneadas or []))
+    if fila and original is None:
+        raise ValueError('página escaneada sem o PDF original pra ler depois')
     with _con() as c:
         doc = c.execute(
-            'INSERT INTO documentos (nome, tipo, paginas, bytes, hash, privado, criado, url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            (selar(nome), tipo, paginas, tamanho, hash_, int(privado), _agora(), selar(url) if url else None),
+            'INSERT INTO documentos (nome, tipo, paginas, bytes, hash, privado, criado, url, escaneadas, faltam, original) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                selar(nome), tipo, paginas, tamanho, hash_, int(privado), _agora(), selar(url) if url else None,
+                len(fila), json.dumps(fila) if fila else None,
+                selar(base64.b64encode(original).decode()) if fila else None,
+            ),
         ).lastrowid
         c.executemany(
             'INSERT INTO trechos (documento, ordem, pagina, texto) VALUES (?, ?, ?, ?)',
@@ -714,15 +736,18 @@ def documentos() -> list[dict]:
     """Do mais novo pro mais antigo, com quantos trechos têm e quantos já
     viraram vetor — a diferença é o "Indexando…" da tela."""
     linhas = _con().execute(
-        'SELECT d.id, d.nome, d.tipo, d.paginas, d.bytes, d.privado, d.criado, d.url, '
+        'SELECT d.id, d.nome, d.tipo, d.paginas, d.bytes, d.privado, d.criado, d.url, d.escaneadas, d.faltam, '
         'COUNT(t.id) AS trechos, COUNT(t.vetor) AS indexados '
         'FROM documentos d LEFT JOIN trechos t ON t.documento = d.id '
         'GROUP BY d.id ORDER BY d.criado DESC, d.id DESC'
     )
-    return [
-        {**dict(l), 'nome': cofre.abrir(l['nome']), 'url': cofre.abrir(l['url']), 'privado': bool(l['privado'])}
-        for l in linhas
-    ]
+    docs = []
+    for l in linhas:
+        d = {**dict(l), 'nome': cofre.abrir(l['nome']), 'url': cofre.abrir(l['url']), 'privado': bool(l['privado'])}
+        # `lidas` de `escaneadas`: o "Lendo as páginas escaneadas…" da tela.
+        d['lidas'] = d['escaneadas'] - len(json.loads(d.pop('faltam') or '[]'))
+        docs.append(d)
+    return docs
 
 
 def buscar_documentos(busca: str) -> list[dict]:
@@ -766,7 +791,7 @@ def apagar_documento(documento: int) -> bool:
 
 def marcar_documento_privado(documento: int, privado: bool) -> bool:
     """Sela (ou abre) o nome e os trechos e tira (ou põe) o texto no índice."""
-    l = _con().execute('SELECT nome, url, privado FROM documentos WHERE id = ?', (documento,)).fetchone()
+    l = _con().execute('SELECT nome, url, privado, original FROM documentos WHERE id = ?', (documento,)).fetchone()
     if l is None:
         return False
     if bool(l['privado']) == privado:
@@ -775,21 +800,61 @@ def marcar_documento_privado(documento: int, privado: bool) -> bool:
     with _con() as c:
         if privado:
             c.execute(
-                'UPDATE documentos SET privado = 1, nome = ?, url = ? WHERE id = ?',
-                (cofre.selar(l['nome']), cofre.selar(l['url']), documento),
+                'UPDATE documentos SET privado = 1, nome = ?, url = ?, original = ? WHERE id = ?',
+                (cofre.selar(l['nome']), cofre.selar(l['url']), cofre.selar(l['original']), documento),
             )
             c.executemany('UPDATE trechos SET texto = ? WHERE id = ?', [(cofre.selar(t['texto']), t['id']) for t in trechos])
             c.executemany('DELETE FROM trechos_fts WHERE rowid = ?', [(t['id'],) for t in trechos])
         else:
             c.execute(
-                'UPDATE documentos SET privado = 0, nome = ?, url = ? WHERE id = ?',
-                (cofre.abrir(l['nome']), cofre.abrir(l['url']), documento),
+                'UPDATE documentos SET privado = 0, nome = ?, url = ?, original = ? WHERE id = ?',
+                (cofre.abrir(l['nome']), cofre.abrir(l['url']), cofre.abrir(l['original']), documento),
             )
             abertos = [(t['id'], cofre.abrir(t['texto'])) for t in trechos]
             c.executemany('UPDATE trechos SET texto = ? WHERE id = ?', [(texto, i) for i, texto in abertos])
             c.executemany('INSERT INTO trechos_fts(rowid, texto) VALUES (?, ?)', abertos)
     if privado:
         _limpar_rastros(_con())
+    return True
+
+
+def escaneado_pendente() -> dict | None:
+    """O documento mais antigo com página esperando o OCR: id, as páginas que
+    faltam e o PDF original. None se a fila está vazia. Um original que não abre
+    (banco copiado de outra conta do Windows) sai da fila — senão ficaria nela
+    pra sempre."""
+    for l in _con().execute('SELECT id, faltam, original FROM documentos WHERE faltam IS NOT NULL ORDER BY id').fetchall():
+        try:
+            original = base64.b64decode(cofre.abrir(l['original']) or '', validate=True)
+        except (binascii.Error, ValueError):
+            original = b''
+        if not original:
+            with _con() as c:
+                c.execute('UPDATE documentos SET faltam = NULL, original = NULL WHERE id = ?', (l['id'],))
+            continue
+        return {'id': l['id'], 'faltam': json.loads(l['faltam']), 'original': original}
+    return None
+
+
+def guardar_pagina_lida(documento: int, pagina: int, textos: list[str]) -> bool:
+    """Os trechos de uma página lida pelo OCR, e a página sai da fila; com a
+    última, o original é apagado. Sela conforme o documento é privado AGORA (pode
+    ter mudado durante a leitura). False se o documento foi removido."""
+    l = _con().execute('SELECT privado, faltam FROM documentos WHERE id = ?', (documento,)).fetchone()
+    if l is None or l['faltam'] is None:
+        return False
+    faltam = [p for p in json.loads(l['faltam']) if p != pagina]
+    selar = cofre.selar if l['privado'] else (lambda t: t)
+    proxima = _con().execute('SELECT COALESCE(MAX(ordem) + 1, 0) FROM trechos WHERE documento = ?', (documento,)).fetchone()[0]
+    with _con() as c:
+        c.executemany(
+            'INSERT INTO trechos (documento, ordem, pagina, texto) VALUES (?, ?, ?, ?)',
+            [(documento, proxima + i, pagina, selar(t)) for i, t in enumerate(textos)],
+        )
+        if faltam:
+            c.execute('UPDATE documentos SET faltam = ? WHERE id = ?', (json.dumps(faltam), documento))
+        else:
+            c.execute('UPDATE documentos SET faltam = NULL, original = NULL WHERE id = ?', (documento,))
     return True
 
 

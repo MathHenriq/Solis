@@ -237,7 +237,13 @@ das outras.
   Trocar de modelo refaz todos os vetores sozinho. Conferido de ponta a ponta: com o qwen3:8b, a
   resposta segue a página do FastAPI; o llama3.2:3b ignora os trechos (limite do modelo).
 - [ ] Calibrar o piso (0,37) com os arquivos e as conversas de verdade do Matheus.
-- [ ] PDF escaneado (precisa de OCR).
+- [x] PDF escaneado (09/11/2026): as páginas-imagem entram numa fila e o qwen3.5:9b lê em segundo
+  plano; o OCR do Windows é a reserva. Medidos os leitores com texto conhecido (tabela em
+  `backend/README.md` → Conhecimento): o do Windows desaba em digitalização ruim (0,30 a 0,80 das
+  palavras), o modelo de visão acertou todas. O cartão mostra "Lendo as páginas escaneadas… X%" com a
+  mesma barra da indexação (`design/conhecimento-ocr-validacao.png`). Custo: 6 a 26 s de GPU por
+  página — um livro escaneado de 200 páginas é meia hora de GPU, a mesma disputa de VRAM anotada em
+  "Questões pra depois".
 
 ### Voz
 

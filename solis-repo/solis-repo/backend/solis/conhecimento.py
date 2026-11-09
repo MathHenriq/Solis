@@ -7,12 +7,12 @@ arquivo e a página.
 
 Formatos: PDF (pela pypdf, Python puro), texto (.md, .txt) e página web (pela
 trafilatura, que tira só o conteúdo principal — sem menu, rodapé e anúncio; o
-parser HTML da biblioteca padrão traria tudo junto). PDF escaneado não tem
-texto — é imagem — e sem OCR não há o que ler: é recusado com esse motivo, em
-vez de entrar vazio.
+parser HTML da biblioteca padrão traria tudo junto). Página escaneada não tem
+texto — é imagem: entra na fila do OCR (ocr.py), que a lê em segundo plano.
 
 O arquivo original não é copiado: fica onde está. O Solis guarda o texto
-extraído, que é o que ele usa.
+extraído, que é o que ele usa — a exceção é o PDF com página escaneada, guardado
+só até o OCR ler a última.
 """
 import hashlib
 import io
@@ -54,7 +54,20 @@ def _limpo(texto: str) -> str:
     return ' '.join(texto.split())
 
 
-def _paginas_pdf(dados: bytes) -> list[str]:
+# Menos que isto de texto numa página com imagem = página escaneada. Scanner que
+# já faz OCR põe o texto por baixo da imagem: essa página lê direto, sem fila.
+TEXTO_MINIMO = 20
+
+
+def _tem_imagem(pagina) -> bool:
+    try:
+        return len(pagina.images) > 0
+    except Exception:  # recurso quebrado na página: sem imagem que dê pra ler
+        return False
+
+
+def _paginas_pdf(dados: bytes) -> list[tuple[str, bool]]:
+    """(texto, é escaneada) de cada página."""
     from pypdf import PdfReader
     from pypdf.errors import PdfReadError
 
@@ -65,7 +78,11 @@ def _paginas_pdf(dados: bytes) -> list[str]:
                 leitor.decrypt('')  # muitos PDFs "protegidos" abrem sem senha
             except Exception:
                 raise NaoLeu('o PDF tem senha') from None
-        return [p.extract_text() or '' for p in leitor.pages]
+        paginas = []
+        for p in leitor.pages:
+            texto = p.extract_text() or ''
+            paginas.append((texto, len(texto.strip()) < TEXTO_MINIMO and _tem_imagem(p)))
+        return paginas
     except NaoLeu:
         raise
     except (PdfReadError, ValueError, KeyError, OSError) as e:
@@ -89,8 +106,9 @@ def cortar(texto: str) -> list[str]:
     return [' '.join(palavras[i : i + PALAVRAS]) for i in range(0, len(palavras) - SOBRA, passo)]
 
 
-def ler(nome: str, dados: bytes) -> tuple[str, int | None, list[tuple[int | None, str]]]:
-    """(tipo, páginas, trechos como (página, texto)). NaoLeu se não deu."""
+def ler(nome: str, dados: bytes) -> tuple[str, int | None, list[tuple[int | None, str]], list[int]]:
+    """(tipo, páginas, trechos como (página, texto), páginas escaneadas que
+    esperam o OCR). NaoLeu se não deu."""
     tipo = tipo_de(nome)
     if tipo is None:
         raise NaoLeu('o Solis lê PDF, .md e .txt')
@@ -98,14 +116,17 @@ def ler(nome: str, dados: bytes) -> tuple[str, int | None, list[tuple[int | None
         raise NaoLeu('o arquivo passa de 50 MB')
     if tipo == 'pdf':
         paginas = _paginas_pdf(dados)
-        trechos = [(n, t) for n, pagina in enumerate(paginas, 1) for t in cortar(_limpo(pagina))]
-        if not trechos:
-            raise NaoLeu('o PDF não tem texto (parece escaneado; ler imagem ainda não dá)')
-        return tipo, len(paginas), trechos
+        escaneadas = [n for n, (_, imagem) in enumerate(paginas, 1) if imagem]
+        trechos = [
+            (n, t) for n, (texto, imagem) in enumerate(paginas, 1) if not imagem for t in cortar(_limpo(texto))
+        ]
+        if not trechos and not escaneadas:
+            raise NaoLeu('o PDF não tem texto nem imagem pra ler')
+        return tipo, len(paginas), trechos, escaneadas
     trechos = [(None, t) for t in cortar(_limpo(_texto(dados)))]
     if not trechos:
         raise NaoLeu('o arquivo está vazio')
-    return tipo, None, trechos
+    return tipo, None, trechos, []
 
 
 def preparar(nome: str, dados: bytes) -> dict:
@@ -115,16 +136,18 @@ def preparar(nome: str, dados: bytes) -> dict:
     várias threads ao mesmo tempo embaralha as transações (visto ao mandar
     seis arquivos juntos: "cannot commit - no transaction is active", e
     documento guardado sem os trechos)."""
-    tipo, paginas, trechos = ler(nome, dados)
-    return {'tipo': tipo, 'paginas': paginas, 'trechos': trechos,
-            'tamanho': len(dados), 'hash': hashlib.sha256(dados).hexdigest()}
+    tipo, paginas, trechos, escaneadas = ler(nome, dados)
+    return {'tipo': tipo, 'paginas': paginas, 'trechos': trechos, 'escaneadas': escaneadas,
+            'tamanho': len(dados), 'hash': hashlib.sha256(dados).hexdigest(),
+            # O PDF fica guardado só se o OCR ainda vai precisar dele.
+            'original': dados if escaneadas else None}
 
 
 def guardar(nome: str, lido: dict, privado: bool = False) -> int:
     """A parte do banco — na mesma thread de todo o resto do servidor."""
     return banco.adicionar_documento(
         nome, lido['tipo'], lido['paginas'], lido['tamanho'], lido['hash'], lido['trechos'], privado,
-        url=lido.get('url'),
+        url=lido.get('url'), escaneadas=lido.get('escaneadas'), original=lido.get('original'),
     )
 
 

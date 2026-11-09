@@ -62,8 +62,8 @@ def test_corta_em_janelas_com_sobra():
 
 
 def test_le_pdf_com_a_pagina_de_cada_trecho():
-    tipo, paginas, trechos = conhecimento.ler('guia.pdf', pdf_com('Tauri sobe o servidor', 'SQLite guarda tudo'))
-    assert (tipo, paginas) == ('pdf', 2)
+    tipo, paginas, trechos, escaneadas = conhecimento.ler('guia.pdf', pdf_com('Tauri sobe o servidor', 'SQLite guarda tudo'))
+    assert (tipo, paginas, escaneadas) == ('pdf', 2, [])
     assert trechos == [(1, 'Tauri sobe o servidor'), (2, 'SQLite guarda tudo')]
 
 
@@ -74,7 +74,8 @@ def test_pdf_sem_texto_e_recusado_dizendo_por_que():
     w.add_blank_page(612, 792)
     buf = io.BytesIO()
     w.write(buf)
-    with pytest.raises(conhecimento.NaoLeu, match='escaneado'):
+    # Página em branco: sem texto e sem imagem (a escaneada vai pro OCR, test_ocr.py).
+    with pytest.raises(conhecimento.NaoLeu, match='nem imagem'):
         conhecimento.ler('scan.pdf', buf.getvalue())
     with pytest.raises(conhecimento.NaoLeu, match='corrompido'):
         conhecimento.ler('falso.pdf', b'isto nao e pdf')

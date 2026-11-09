@@ -5,6 +5,7 @@ nada pra tela: devolve bytes e números crus, e quem decide "4,7 GB" ou "128k"
 é o front.
 """
 import asyncio
+import base64
 import json
 import os
 from collections.abc import AsyncIterator
@@ -301,6 +302,42 @@ async def responder_texto(
     pensar: bool | None = None,
 ) -> str:
     return await _perguntar(modelo, instrucao, texto, None, transporte, pensar)
+
+
+async def ler_imagem(
+    modelo: str,
+    imagem: bytes,
+    instrucao: str,
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> tuple[str, bool]:
+    """(texto, cortado) de um modelo de visão. `cortado` = bateu no limite de
+    saída, que num OCR quer dizer repetição: nenhuma página tem 4096 tokens.
+
+    Sem raciocínio (o qwen3.5 pensa por padrão, e transcrever não precisa) e
+    com 8192 de contexto: uma página A4 a 150 dpi já é mais de mil tokens de
+    imagem, e o padrão do Ollama cortaria a resposta de uma página cheia."""
+    corpo = {
+        'model': modelo,
+        'stream': False,
+        'think': False,
+        'options': {'temperature': 0, 'num_ctx': 8192, 'num_predict': 4096},
+        'messages': [{'role': 'user', 'content': instrucao, 'images': [base64.b64encode(imagem).decode()]}],
+    }
+    try:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+            r = await c.post('/api/chat', json=corpo)
+            if r.status_code == 400 and 'think' in r.text:
+                # Modelo de visão que não pensa (gemma3) recusa o `think`.
+                del corpo['think']
+                r = await c.post('/api/chat', json=corpo)
+    except httpx.HTTPError as e:
+        raise OllamaIndisponivel() from e
+    if r.status_code == 404:
+        raise ModeloInexistente()
+    if not r.is_success:
+        raise OllamaIndisponivel()
+    dados = r.json()
+    return dados['message']['content'], dados.get('done_reason') == 'length'
 
 
 async def embeddings(

@@ -122,8 +122,11 @@ async def indexar_pendentes() -> int:
             banco.guardar_vetores(tipo, [(p['id'], _bytes(v)) for p, v in zip(pendentes, vetores)])
             total += len(pendentes)
     # Os trechos dos arquivos por último: um PDF grande são centenas, e a
-    # memória do que acabou de ser dito não pode esperar por eles.
-    while pendentes := banco.trechos_sem_vetor(LOTE):
+    # memória do que acabou de ser dito não pode esperar por eles. Enquanto o
+    # OCR lê página escaneada, esperam também: ver ocr.lendo().
+    from . import ocr  # aqui dentro: o ocr importa este módulo
+
+    while not ocr.lendo() and (pendentes := banco.trechos_sem_vetor(LOTE)):
         try:
             vetores = await ollama.embeddings(MODELO, [DOCUMENTO + p['texto'] for p in pendentes])
         except (ollama.OllamaIndisponivel, ollama.ModeloInexistente):

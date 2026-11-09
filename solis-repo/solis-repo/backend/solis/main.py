@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, banco, busca, cerebros, conhecimento, memoria, ollama, resumo, roteador
+from . import apis, banco, busca, cerebros, conhecimento, memoria, ocr, ollama, resumo, roteador
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -52,8 +52,11 @@ async def _vida(_app):
     # Começa a indexar o que estiver pendente — inclusive refazer todos os
     # vetores, se o modelo de embeddings mudou (busca.conferir_modelo).
     indexacao = asyncio.create_task(busca.indexar_se_livre())
+    # E a ler as páginas escaneadas que ficaram na fila quando o servidor caiu.
+    leitura = asyncio.create_task(ocr.ler_se_livre())
     yield
     indexacao.cancel()
+    leitura.cancel()
 
 
 app = FastAPI(title='Solis', lifespan=_vida)
@@ -402,7 +405,14 @@ async def listar_conhecimento(fundo: BackgroundTasks, q: str = ''):
     documentos = banco.documentos()
     if any(d['indexados'] < d['trechos'] for d in documentos):
         fundo.add_task(busca.indexar_se_livre)
-    return {'documentos': banco.buscar_documentos(q) if q.strip() else documentos}
+    # O mesmo pras páginas escaneadas: a fila volta a andar quando o Ollama volta.
+    if any(d['lidas'] < d['escaneadas'] for d in documentos):
+        fundo.add_task(ocr.ler_se_livre)
+    lista = banco.buscar_documentos(q) if q.strip() else documentos
+    for d in lista:
+        # Por que a leitura não anda: 'ollama' (fora) ou 'ocr' (nada lê aqui).
+        d['leitura_parada'] = ocr.parado if d['lidas'] < d['escaneadas'] else None
+    return {'documentos': lista}
 
 
 @app.post('/conhecimento')
@@ -421,6 +431,8 @@ async def adicionar_conhecimento(request: Request, nome: str, fundo: BackgroundT
     except banco.Duplicado as e:
         return JSONResponse({'erro': 'ja_existe', 'documento': e.documento}, status_code=409)
     fundo.add_task(busca.indexar_se_livre)
+    if lido['escaneadas']:
+        fundo.add_task(ocr.ler_se_livre)
     return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
 
 
@@ -442,6 +454,8 @@ async def adicionar_pagina(corpo: Pagina, fundo: BackgroundTasks):
     except banco.Duplicado as e:
         return JSONResponse({'erro': 'ja_existe', 'documento': e.documento}, status_code=409)
     fundo.add_task(busca.indexar_se_livre)
+    if lido.get('escaneadas'):
+        fundo.add_task(ocr.ler_se_livre)
     return {'documento': next(d for d in banco.documentos() if d['id'] == documento)}
 
 
