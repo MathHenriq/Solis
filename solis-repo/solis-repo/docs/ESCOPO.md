@@ -80,7 +80,7 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 
 ### O que ainda é provisório
 
-- Agenda e Ferramentas mostram dados de exemplo (Tarefas já tem dados reais, 09/11/2026).
+- Ferramentas mostra dados de exemplo (Tarefas e Agenda já têm dados reais, 09/11/2026).
 - O piso de similaridade da busca foi escolhido sem dados reais; precisa calibrar no notebook.
 - O servidor precisa ser ligado à mão (`npm run backend`).
 
@@ -212,7 +212,7 @@ das outras.
   liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
   aprovado pelo Matheus pelos prints (`design/cerebros-validacao.png`).
 
-### Tarefas e Agenda — Tarefas feita e aprovada (09/11/2026), Agenda a seguir
+### Tarefas e Agenda — feitas (09/11/2026); Tarefas aprovada, Agenda aguardando o aval
 
 - [x] Tarefas no banco, pela tela (nova, editar com data e hora, marcar, apagar com Desfazer) e
   tiradas da conversa: "me lembra de pagar a luz dia 15" vira tarefa com o prazo em data, e o chip
@@ -223,7 +223,22 @@ das outras.
   com elas. Tarefa de saúde ou dinheiro é privada e nunca vai pra nuvem.
 - [x] Desenho novo da tela aprovado pelo Matheus pelos prints (`design/tarefas-validacao.png`): Nova
   tarefa, editar e apagar no hover, os grupos Atrasadas e Sem data, e o chip na conversa.
-- [ ] Agenda com compromissos de verdade (a próxima tela).
+- [x] Agenda com compromissos de verdade: pela tela (novo, editar com dia, hora, duração e lugar,
+  apagar com Desfazer, navegar pelos dias) e tirados da conversa, separados das tarefas ("quinta às
+  15h tenho consulta" é compromisso; "pagar a luz dia 15" é tarefa). Medido no qwen3:8b em 22
+  mensagens: 18/18 compromissos, 18/18 tarefas, 22/22 memórias. Os dos próximos 7 dias vão no pedido
+  ao modelo: "o que eu tenho amanhã?" responde com eles. No dia de hoje, o que está acontecendo (ou
+  o próximo) vira o cartão em destaque da referência.
+- [x] A tela foi remedida contra a referência 16 (`layout.agenda`): a versão estática tinha os
+  botões com 79px de altura (a largura do interruptor, o mesmo erro do Adicionar fonte), o título de
+  cada compromisso em 20px em vez do corpo de 16, a linha do tempo quebrada, sem as divisórias, e o
+  cartão da vez sem envolver a hora.
+- [ ] Aval do Matheus no desenho novo da Agenda (`design/agenda-validacao.png`): Novo compromisso,
+  editar e apagar no hover, a edição com duração e lugar, "dia todo", o dia livre e o chip "Na
+  agenda". PROVISÓRIO até lá.
+- Limites conhecidos: compromisso que se repete ("toda terça às 19h") vira só a próxima vez; e o
+  Solis não avisa na hora (não há notificação) — o compromisso fica na Agenda e no pedido ao
+  modelo, mas nada toca às 9h.
 - Limite conhecido: a tarefa (e a memória) sensível é detectada DEPOIS da resposta. Se a mensagem não
   diz "privado" e um cérebro de nuvem está na frente, ela já foi pra nuvem — "quinta tenho consulta
   com o dentista" foi respondida pelo Claude no teste. O que fica guardado depois é selado e não volta

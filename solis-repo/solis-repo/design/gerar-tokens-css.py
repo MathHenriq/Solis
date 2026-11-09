@@ -193,6 +193,17 @@ w('  /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */')
 tf = T['layout']['tarefas']
 for chave, var in [('dateWidth', '--tf-data-l'), ('timeWidth', '--tf-hora-l')]:
     w('  %s: %s;' % (var, tf[chave]))
+w('  /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */')
+ag = T['layout']['agenda']
+for chave, var in [('listIndent', '--ag-recuo'), ('lineX', '--ag-linha-x'), ('titleX', '--ag-titulo-x'),
+                   ('rowPadTop', '--ag-pad-cima'), ('rowPadBottom', '--ag-pad-baixo'), ('subGap', '--ag-sub-gap'),
+                   ('dot', '--ag-ponto'), ('dotNow', '--ag-ponto-vez'), ('lineWidth', '--ag-linha-l'),
+                   ('lineColor', '--ag-linha-cor'), ('dotColor', '--ag-ponto-cor'), ('cardOutLeft', '--ag-cartao-esq'),
+                   ('cardOutRight', '--ag-cartao-dir'), ('cardMarginY', '--ag-cartao-my'), ('cardPadY', '--ag-cartao-py'),
+                   ('cardRadius', '--ag-cartao-raio'), ('cardBorder', '--ag-cartao-borda'), ('arrowWidth', '--ag-seta-l'),
+                   ('todayWidth', '--ag-hoje-l'), ('buttonGap', '--ag-botoes-gap'), ('durationWidth', '--ag-duracao-l'),
+                   ('placeWidth', '--ag-onde-l')]:
+    w('  %s: %s;' % (var, ag[chave]))
 w('  /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */')
 for chave, var in [('cardGap','--cer-cartao-gap'), ('orderIcon','--cer-seta'), ('orderHit','--cer-seta-alvo'),
                    ('controlsGap','--cer-controles-gap'), ('positionWidth','--cer-posicao'),

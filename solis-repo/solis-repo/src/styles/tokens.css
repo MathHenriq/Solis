@@ -141,6 +141,29 @@
   /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */
   --tf-data-l: 148px;
   --tf-hora-l: 104px;
+  /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */
+  --ag-recuo: 24px;
+  --ag-linha-x: 80px;
+  --ag-titulo-x: 115px;
+  --ag-pad-cima: 25px;
+  --ag-pad-baixo: 23px;
+  --ag-sub-gap: 4px;
+  --ag-ponto: 9px;
+  --ag-ponto-vez: 11px;
+  --ag-linha-l: 1px;
+  --ag-linha-cor: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+  --ag-ponto-cor: color-mix(in srgb, var(--text-primary) 75%, var(--canvas));
+  --ag-cartao-esq: 28px;
+  --ag-cartao-dir: 12px;
+  --ag-cartao-my: 4px;
+  --ag-cartao-py: 19px;
+  --ag-cartao-raio: 9px;
+  --ag-cartao-borda: color-mix(in srgb, var(--text-primary) 15%, var(--canvas));
+  --ag-seta-l: 49px;
+  --ag-hoje-l: 84px;
+  --ag-botoes-gap: 12px;
+  --ag-duracao-l: 112px;
+  --ag-onde-l: 190px;
   /* Cartao Cerebros - desenho proprio, aprovado. Ver layout.configuracoes.cerebros. */
   --cer-cartao-gap: 30px;
   --cer-seta: 16px;

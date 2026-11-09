@@ -191,6 +191,8 @@ export type Etapa = {
   textos?: string[];
   /** As tarefas tiradas da mensagem depois da resposta. */
   tarefas?: { texto: string; prazo: string | null; hora: string | null }[];
+  /** Os compromissos tirados da mensagem depois da resposta. */
+  compromissos?: { titulo: string; dia: string; hora: string | null }[];
   vetores?: number;
   resumiu?: boolean;
   /** O título que a conversa ganhou. */
@@ -477,6 +479,65 @@ export const mudarTarefa = (id: number, campos: CamposTarefa) => enviarTarefa(`$
 export async function apagarTarefa(id: number): Promise<boolean> {
   try {
     return (await fetch(`${BASE}/tarefas/${id}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
+// — Agenda ————————————————————————————————————————————————————————————————————————
+
+export type Compromisso = {
+  id: number;
+  titulo: string;
+  /** Data local, AAAA-MM-DD. */
+  dia: string;
+  /** HH:MM de início. Null: o dia todo. */
+  hora: string | null;
+  /** Minutos. Null: não dito. */
+  duracao: number | null;
+  onde: string | null;
+  conversa: number | null;
+  origem: string | null;
+  privado: boolean;
+  criado: string;
+};
+
+export type CamposCompromisso = {
+  titulo?: string;
+  dia?: string;
+  hora?: string | null;
+  duracao?: number | null;
+  onde?: string | null;
+};
+
+export async function listarAgenda(de: string, ate = de): Promise<Resultado<Compromisso[]>> {
+  try {
+    const r = await fetch(`${BASE}/agenda?de=${de}&ate=${ate}`);
+    if (!r.ok) return { estado: 'sem-servidor' };
+    return { estado: 'ok', dados: ((await r.json()) as { compromissos: Compromisso[] }).compromissos };
+  } catch {
+    return { estado: 'sem-servidor' };
+  }
+}
+
+async function enviarCompromisso(url: string, metodo: 'POST' | 'PATCH', campos: CamposCompromisso): Promise<Compromisso | null> {
+  try {
+    const r = await fetch(url, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(campos) });
+    return r.ok ? ((await r.json()) as { compromisso: Compromisso }).compromisso : null;
+  } catch {
+    return null;
+  }
+}
+
+export const criarCompromisso = (campos: CamposCompromisso & { titulo: string; dia: string }) =>
+  enviarCompromisso(`${BASE}/agenda`, 'POST', campos);
+
+export const mudarCompromisso = (id: number, campos: CamposCompromisso) =>
+  enviarCompromisso(`${BASE}/agenda/${id}`, 'PATCH', campos);
+
+export async function apagarCompromisso(id: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/agenda/${id}`, { method: 'DELETE' })).ok;
   } catch {
     return false;
   }

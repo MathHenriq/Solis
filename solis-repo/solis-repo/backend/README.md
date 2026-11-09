@@ -52,6 +52,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /tarefas` | `{"texto", "prazo", "hora", "privada"}` → cria. `400` com `texto_vazio`, `prazo_invalido` ou `hora_invalida` |
 | `PATCH /tarefas/{id}` | só o que vier muda: `{"feita": true}` marca, `{"prazo": ""}` tira o prazo e a hora junto. `404` se não existe |
 | `DELETE /tarefas/{id}` | apaga |
+| `GET /agenda?de=AAAA-MM-DD&ate=AAAA-MM-DD` | os compromissos do período (sem `ate`, só o dia), do dia inteiro pro mais tarde: `titulo`, `dia`, `hora` (null = dia todo), `duracao` (minutos), `onde`, `conversa` e `origem`, `privado` |
+| `POST /agenda` | `{"titulo", "dia", "hora", "duracao", "onde", "privado"}` → cria. `400` com `titulo_vazio`, `dia_invalido`, `hora_invalida` ou `duracao_invalida` |
+| `PATCH /agenda/{id}` | só o que vier muda; `{"onde": ""}` tira o lugar. `404` se não existe |
+| `DELETE /agenda/{id}` | apaga |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
 | `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
@@ -319,6 +323,15 @@ no código:
 
 As 20 abertas mais próximas do prazo vão em cada pedido ao modelo, com a data de hoje; a privada não
 vai pra nuvem. Conversa importada não vira tarefa.
+
+**Compromissos (Agenda).** A mesma pergunta tira também os compromissos: o que tem dia (e quase
+sempre hora) em que o Matheus vai estar em algum lugar — reunião, consulta, aula, viagem —, com a
+duração e o lugar se ditos. "Pagar", "entregar", "marcar a consulta" continuam tarefa. Medido no
+qwen3:8b em 22 mensagens (09/11/2026): 18/18 compromissos, 18/18 tarefas, 22/22 memórias, ~13 s. No
+código: mensagem que cancela, desmarca ou adia não cria compromisso, e a tarefa que repete um
+compromisso sai. Os dos próximos 7 dias (até 20) vão no pedido ao modelo; o privado (pedido de
+sigilo, memória privada da mesma mensagem, ou saúde e dinheiro no título) não vai pra nuvem.
+Repetição ("toda terça") não existe ainda: vira a próxima.
 
 ## Busca por significado
 

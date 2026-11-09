@@ -60,3 +60,26 @@ export function rotuloPrazo(prazo: string, hora: string | null, hoje = diaLocal(
             : `${d} ${MESES[m - 1]}`;
   return hora ? `${dia}, ${horaCurta(hora)}` : dia;
 }
+
+/** "45 min", "1h", "1h30" — como a referência 16 escreve a duração. */
+export function duracaoCurta(minutos: number): string {
+  if (minutos < 60) return `${minutos} min`;
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+const DIAS_LONGOS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const MESES_LONGOS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+/** "Sexta, 14 de março" — o subtítulo da Agenda. */
+export function diaPorExtenso(dia: string): string {
+  const [y, m, d] = dia.split('-').map(Number);
+  return `${DIAS_LONGOS[new Date(y, m - 1, d).getDay()]}, ${d} de ${MESES_LONGOS[m - 1]}`;
+}
+
+/** O dia `n` dias depois (ou antes) de `dia`, AAAA-MM-DD. */
+export function somarDias(dia: string, n: number): string {
+  const [y, m, d] = dia.split('-').map(Number);
+  return diaLocal(new Date(y, m - 1, d + n));
+}

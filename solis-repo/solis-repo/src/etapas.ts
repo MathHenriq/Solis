@@ -110,6 +110,13 @@ export function depois(etapas: Etapa[]): string[] {
     const minuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(corpo) ? corpo.charAt(0).toLowerCase() + corpo.slice(1) : corpo;
     avisos.push(`Tarefa anotada: ${minuscula}${t.prazo ? ` · ${rotuloPrazo(t.prazo, t.hora)}` : ''}`);
   }
+  // PROVISÓRIO: o do compromisso, no mesmo desenho. "Na agenda: consulta com o
+  // dentista · quinta, 15h".
+  for (const c of etapas.find((e) => e.etapa === 'aprendizado')?.compromissos ?? []) {
+    const corpo = c.titulo.trim().replace(/\.$/, '');
+    const minuscula = /^[A-ZÀ-Ú][a-zà-ú]/.test(corpo) ? corpo.charAt(0).toLowerCase() + corpo.slice(1) : corpo;
+    avisos.push(`Na agenda: ${minuscula} · ${rotuloPrazo(c.dia, c.hora)}`);
+  }
   // PROVISÓRIO: a referência só mostra o chip de memória. O de resumo segue o
   // mesmo desenho e precisa do aval do Matheus.
   if (etapas.find((e) => e.etapa === 'resumo')?.resumiu) avisos.push('Conversa resumida: o começo virou resumo');
