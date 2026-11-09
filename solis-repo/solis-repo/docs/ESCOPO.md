@@ -80,7 +80,7 @@ Tudo escuta só em `127.0.0.1`: nada sai da máquina e nada entra pela rede.
 
 ### O que ainda é provisório
 
-- Tarefas, Agenda, Conhecimento e Ferramentas mostram dados de exemplo.
+- Tarefas, Agenda e Ferramentas mostram dados de exemplo.
 - O piso de similaridade da busca foi escolhido sem dados reais; precisa calibrar no notebook.
 - O servidor precisa ser ligado à mão (`npm run backend`).
 
@@ -223,10 +223,14 @@ das outras.
 - Dividir um modelo só entre as duas placas pela rede existe, mas a rede vira gargalo: cada
   máquina com um papel compensa mais.
 
-### Conhecimento: os seus arquivos
+### Conhecimento: os seus arquivos — feito (08/11/2026), falta conferir com os seus arquivos
 
-A tela Conhecimento indexa PDFs, notas e textos: cada arquivo é cortado em trechos, cada
-trecho vira vetor, e entra na mesma busca das memórias.
+- [x] PDF, `.md` e `.txt` pela tela: cada arquivo vira trechos com a página, cada trecho vira
+  vetor, e os mais ligados à mensagem entram na resposta com o nome do arquivo e a página.
+- [x] Progresso real da indexação, aviso quando ela para, busca pelo nome e pelo texto.
+- [x] Fonte privada: selada, fora do índice e fora da nuvem. Remover com Desfazer.
+- [ ] Calibrar o piso (0,65) com os arquivos de verdade do Matheus.
+- [ ] Página web (a referência 17 mostra; ainda não existe) e PDF escaneado (precisa de OCR).
 
 ### Voz
 

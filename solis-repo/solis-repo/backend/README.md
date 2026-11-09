@@ -43,6 +43,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |
 | `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
+| `GET /conhecimento` | os arquivos do Conhecimento, do mais novo pro mais antigo: `nome`, `tipo` (`pdf` ou `nota`), `paginas`, `privado`, `trechos` e `indexados` (quantos já viraram vetor). `?q=` busca no nome e no texto (de fonte privada, só no nome) |
+| `POST /conhecimento?nome=...&privado=false` | o arquivo cru no corpo (não multipart). Lê, corta em trechos e guarda; os vetores saem em segundo plano. `400` com `nao_leu` e o `motivo` (formato, PDF escaneado, com senha, vazio), `409` com `ja_existe` se o mesmo conteúdo já entrou |
+| `PATCH /conhecimento/{id}` | `{"privado"}` → sela (ou abre) o nome e o texto e tira (ou põe) do índice de busca |
+| `DELETE /conhecimento/{id}` | apaga o documento e os trechos |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
 | `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
@@ -241,6 +245,28 @@ python -m solis.importar C:\caminho\da\exportacao.zip --aprender --modelo qwen3:
 Formatos lidos de exportações reais por outros projetos — nenhum dos dois serviços publica o
 esquema. O do Claude ainda precisa ser conferido com um arquivo seu: se a importação dele
 disser "0 conversas novas" com o arquivo cheio, é o leitor que precisa de ajuste.
+
+## Conhecimento: os arquivos
+
+O Matheus entrega PDFs, `.md` e `.txt` pela tela Conhecimento (`solis/conhecimento.py`).
+
+- **O que fica:** só o texto, cortado em trechos de ~200 palavras com 40 de sobra entre um e o
+  próximo (uma ideia que cai na emenda continua inteira em algum dos dois). No PDF, cada trecho
+  sabe a página. O arquivo original não é copiado. O mesmo conteúdo não entra duas vezes (hash).
+- **PDF** pela `pypdf` (Python puro). PDF escaneado é imagem: sem OCR não há texto, e ele é
+  recusado dizendo isso em vez de entrar vazio.
+- **Vetores:** cada trecho vira vetor no `indexar_pendentes`, depois das memórias e mensagens
+  (um PDF grande são centenas de trechos, e o que acabou de ser dito não pode esperar). A tela
+  mostra o progresso real (`indexados` / `trechos`) e diz quando parou (Ollama fora).
+- **Na resposta:** até 4 trechos com similaridade de pelo menos 0,65 entram no pedido, com o nome
+  do arquivo e a página, numa seção própria. O piso foi medido (`busca.py`): perguntas sobre os
+  arquivos deram 0,68 a 0,82, perguntas sem relação 0,56 a 0,60. Falta calibrar com arquivos de
+  verdade.
+- **Privado:** fonte marcada como privada tem o nome e o texto selados pelo cofre, fica fora do
+  índice de busca e nunca vai pros cérebros de nuvem — o mesmo filtro dos trechos de conversa.
+- **Banco:** a conexão é uma só, então ler o PDF roda numa thread mas guardar não — escrever de
+  várias threads embaralhava as transações quando vários arquivos chegavam juntos.
+- O MCP (`buscar_na_memoria`) devolve os trechos de arquivo à parte, com o nome e a página.
 
 ## Busca por significado
 
