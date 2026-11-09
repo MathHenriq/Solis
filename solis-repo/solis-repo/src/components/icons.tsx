@@ -51,6 +51,9 @@ const CAMINHOS = {
   // Adicionados na rodada que fechou as telas restantes. Mesmo grid 24x24 e
   // mesmo traço 2 dos anteriores, desenhados contra a ampliação de cada glifo
   // nas referências 13- a 18-.
+  // Desenho próprio (o Solis falando): o quadrado do parar, no traço 2 do grid.
+  'parar':
+    'M8.4 6h7.2A2.4 2.4 0 0 1 18 8.4v7.2a2.4 2.4 0 0 1-2.4 2.4H8.4A2.4 2.4 0 0 1 6 15.6V8.4A2.4 2.4 0 0 1 8.4 6z',
   'fala':
     'M11 5 6.5 8.8H3.4A1.4 1.4 0 0 0 2 10.2v3.6a1.4 1.4 0 0 0 1.4 1.4h3.1L11 19z M15.5 9.2a4 4 0 0 1 0 5.6 M18.4 6.3a8 8 0 0 1 0 11.4',
   'visao':

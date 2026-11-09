@@ -294,6 +294,18 @@ das outras.
    primeira fala (2,5 s são o modelo subindo). Conferido pelo Matheus com a voz dele no headset
    (09/11/2026): saiu bem. Os estados do microfone (ouvindo, transcrevendo, erro) aprovados pelos
    prints (`design/voz-validacao.png`).
+   **O Solis falando — feito (09/11/2026), aguardando o aval do botão:** um alto-falante na linha
+   de cada resposta, e a resposta de uma mensagem ditada é falada sozinha. Cadeia de vozes: Gemini TTS
+   (quando houver a chave do Gemini) → Ava, a voz do Copilot (sem chave, português e inglês) → Kokoro
+   local (sem internet). Privado (conversa com algo privado, saúde, dinheiro) só na local.
+   Como se chegou nisso: medidas 8 vozes locais pelo que o Whisper entende de volta (Kokoro 11,7%,
+   Maria do Windows 13,7%, Piper 20 a 28% de perda) e ouvidas pelo Matheus — todas "horrendas" em
+   português. O Chatterbox Multilingual pelo ONNX ficou melhor mas ainda esquisito, 5× mais lento que
+   a fala na CPU e entrando em repetição; a versão original e o XTTS pedem o PyTorch, que o Controle
+   Inteligente de Aplicativos do Windows bloqueia (o WSL2 é o caminho pra destravar sem desligar a
+   proteção — decisão do Matheus). Decisão dele: nuvem melhor na frente, Ava de reserva nas duas
+   línguas, a local não sai. Falta: a chave do Gemini (e ouvir as vozes dele pra escolher), e o aval
+   dos prints (`design/fala-validacao.png`, PROVISÓRIO).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 

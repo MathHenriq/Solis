@@ -54,7 +54,7 @@ export default function App() {
   const TELAS: Record<string, () => ReactElement> = {
     conversa: () =>
       conversa.turnos.length ? (
-        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} />
+        <Thread turnos={conversa.turnos} respondendo={conversa.respondendo} aoEnviar={conversa.enviar} conversa={conversa.conversa} />
       ) : (
         <Conversa aoEnviar={conversa.enviar} />
       ),

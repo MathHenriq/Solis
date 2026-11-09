@@ -6,6 +6,7 @@ import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
 import { NOMES_CEREBRO } from '../servidor';
+import { respostaFalada, useFala } from '../fala';
 import { useVoz } from '../voz';
 
 
@@ -137,7 +138,49 @@ function Paragrafo({ bloco, fim }: { bloco: ReactNode; fim?: ReactNode }) {
  *  estado real) e as etapas aparecem embaixo do cabeçalho; quando o texto
  *  começa, elas recolhem numa linha acima dele, e o que veio depois da resposta
  *  (memória guardada) aparece embaixo do texto. Ref. 20-conversa-etapas.png. */
-function RespostaSolis({ t }: { t: Turno }) {
+/** Ouvir a resposta. Desenho próprio, PROVISÓRIO até o aval: o alto-falante no
+ *  fim da linha da hora, que aparece no hover (como as ações da Memória) e fica
+ *  à vista enquanto fala; falando, vira o quadrado de parar em accent. */
+function BotaoOuvir({
+  falando,
+  preparando,
+  falhou,
+  aoOuvir,
+  aoParar,
+}: {
+  falando: boolean;
+  preparando: boolean;
+  falhou: boolean;
+  aoOuvir: () => void;
+  aoParar: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={falando ? aoParar : aoOuvir}
+        title={falando ? 'Parar' : 'Ouvir'}
+        aria-label={falando ? 'Parar de falar' : 'Ouvir a resposta'}
+        aria-pressed={falando}
+        className={`inline-flex items-center justify-center align-middle transition-opacity
+                    ${falando ? 'text-accent opacity-100' : 'text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 focus:opacity-100'}
+                    ${preparando ? 'solis-ouvindo' : ''}`}
+        style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)', marginLeft: 4, marginTop: -4, marginBottom: -4 }}
+      >
+        <Icone nome={falando ? 'parar' : 'fala'} tamanho="var(--mac-icone)" />
+      </button>
+      {falhou && <span className="text-[var(--erro)]"> · não consegui falar</span>}
+    </>
+  );
+}
+
+function RespostaSolis({
+  t,
+  ouvir,
+}: {
+  t: Turno;
+  ouvir?: { falando: boolean; preparando: boolean; falhou: boolean; aoOuvir: () => void; aoParar: () => void };
+}) {
   const [aberta, definirAberta] = useState(false);
   const etapas = t.etapas ?? [];
   const vivo = !!t.digitando;
@@ -145,7 +188,7 @@ function RespostaSolis({ t }: { t: Turno }) {
   // Fora disto, a coluna do texto: avatar + respiro, a mesma da resposta.
   const coluna = 'calc(var(--th-avatar) + var(--th-avatar-gap))';
   return (
-    <div style={{ marginTop: 'var(--th-turno-gap)' }}>
+    <div className="group" style={{ marginTop: 'var(--th-turno-gap)' }}>
       {!pensando && etapas.length > 0 && (
         <div style={{ paddingLeft: coluna }}>
           <DobraEtapas etapas={etapas} vivo={vivo} aberta={aberta} aoAlternar={() => definirAberta((a) => !a)} />
@@ -176,6 +219,7 @@ function RespostaSolis({ t }: { t: Turno }) {
             {t.hora}
             {/* Só quem não é o local: o local é o normal, não precisa de nome. */}
             {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
+            {ouvir && !vivo && !t.falha && t.texto && <BotaoOuvir {...ouvir} />}
           </div>
           {pensando ? (
             <div style={{ marginTop: 'var(--et-cabecalho)' }}>
@@ -203,17 +247,33 @@ export function Thread({
   turnos,
   respondendo,
   aoEnviar,
+  conversa = null,
 }: {
   turnos: Turno[];
   respondendo: boolean;
   aoEnviar: (texto: string) => void;
+  conversa?: number | null;
 }) {
   const [rascunho, definirRascunho] = useState('');
   const campo = useRef<HTMLInputElement>(null);
+  // O rascunho veio da voz: a resposta desta mensagem é falada sozinha.
+  const ditado = useRef(false);
   const voz = useVoz((texto) => {
     definirRascunho((r) => (r.trim() ? `${r.trimEnd()} ${texto}` : texto));
+    ditado.current = true;
     campo.current?.focus();
   });
+  const fala = useFala(conversa);
+  // Falou, ouve: quando a resposta de uma mensagem ditada termina de chegar,
+  // ela é lida em voz alta.
+  const ultima = turnos[turnos.length - 1];
+  useEffect(() => {
+    if (!ultima || ultima.de !== 'solis' || ultima.digitando || ultima.falha || !ultima.texto) return;
+    if (!respostaFalada.proxima) return;
+    respostaFalada.proxima = false;
+    fala.ouvir(ultima.id, ultima.texto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ultima?.id, ultima?.digitando]);
   const rolagem = useRef<HTMLDivElement>(null);
   // A thread segue o texto que chega SÓ se a pessoa está no fim dela. Quem rolou
   // pra cima pra reler não pode ser puxado de volta a cada pedaço.
@@ -259,7 +319,17 @@ export function Thread({
                 </div>
               </div>
             ) : (
-              <RespostaSolis key={t.id} t={t} />
+              <RespostaSolis
+                key={t.id}
+                t={t}
+                ouvir={{
+                  falando: fala.falando === t.id,
+                  preparando: fala.falando === t.id && fala.preparando,
+                  falhou: fala.falhou === t.id,
+                  aoOuvir: () => fala.ouvir(t.id, t.texto),
+                  aoParar: fala.parar,
+                }}
+              />
             ),
           )}
           <div style={{ height: 'var(--th-turno-gap)' }} />
@@ -283,6 +353,8 @@ export function Thread({
             // envio espera — duas perguntas cruzadas embaralhariam a thread.
             if (respondendo || !rascunho.trim()) return;
             grudada.current = true;
+            respostaFalada.proxima = ditado.current;
+            ditado.current = false;
             aoEnviar(rascunho);
             definirRascunho('');
           }}

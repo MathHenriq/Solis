@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Icone, type NomeIcone } from '../components/icons';
+import { respostaFalada } from '../fala';
 import { useVoz, type EstadoVoz } from '../voz';
 
 /** Tela de Conversa — estado de abertura.
@@ -47,10 +48,12 @@ function Acoes({
 export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = {}) {
   const [rascunho, definirRascunho] = useState('');
   const campo = useRef<HTMLInputElement>(null);
+  const ditado = useRef(false);
   // A fala transcrita entra na caixa (depois do que já estava escrito), e a
-  // pessoa confere antes de enviar.
+  // pessoa confere antes de enviar. Mensagem ditada tem a resposta falada.
   const voz = useVoz((texto) => {
     definirRascunho((r) => (r.trim() ? `${r.trimEnd()} ${texto}` : texto));
+    ditado.current = true;
     campo.current?.focus();
   });
   return (
@@ -95,7 +98,9 @@ export function Conversa({ aoEnviar }: { aoEnviar?: (texto: string) => void } = 
             e.preventDefault();
             // A primeira mensagem é o que abre a thread — o shell troca de
             // estado assim que a conversa deixa de estar vazia.
-            if (rascunho.trim()) aoEnviar?.(rascunho);
+            if (!rascunho.trim()) return;
+            respostaFalada.proxima = ditado.current;
+            aoEnviar?.(rascunho);
           }}
         >
           {/* Espelho do bloco de ações, à esquerda do campo.

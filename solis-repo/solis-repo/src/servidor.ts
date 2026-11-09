@@ -562,3 +562,35 @@ export async function transcreverAudio(audio: Blob): Promise<ResultadoVoz> {
     return { estado: 'sem-servidor' };
   }
 }
+
+// — Fala ——————————————————————————————————————————————————————————————————————————
+
+/** A resposta em pedaços pra falar: o primeiro é curto, pra começar logo. */
+export async function partesDaFala(texto: string): Promise<string[] | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/partes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto }),
+    });
+    return r.ok ? ((await r.json()) as { partes: string[] }).partes : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Um pedaço em áudio, pela cadeia de vozes do servidor (nuvem → reserva →
+ *  local). `conversa` deixa o servidor decidir se pode ir pra nuvem. */
+export async function falarTexto(texto: string, conversa: number | null): Promise<{ audio: Blob; voz: string } | null> {
+  try {
+    const r = await fetch(`${BASE}/fala`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto, conversa }),
+    });
+    if (!r.ok) return null;
+    return { audio: await r.blob(), voz: r.headers.get('X-Solis-Voz') ?? '' };
+  } catch {
+    return null;
+  }
+}
