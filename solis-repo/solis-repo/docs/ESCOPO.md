@@ -294,7 +294,7 @@ das outras.
    primeira fala (2,5 s são o modelo subindo). Conferido pelo Matheus com a voz dele no headset
    (09/11/2026): saiu bem. Os estados do microfone (ouvindo, transcrevendo, erro) aprovados pelos
    prints (`design/voz-validacao.png`).
-   **O Solis falando — feito (09/11/2026), aguardando o aval do botão:** um alto-falante na linha
+   **O Solis falando — feito e aprovado (09/11/2026):** um alto-falante na linha
    de cada resposta, e a resposta de uma mensagem ditada é falada sozinha. Cadeia de vozes: Gemini TTS
    (quando houver a chave do Gemini) → Ava, a voz do Copilot (sem chave, português e inglês) → Kokoro
    local (sem internet). Privado (conversa com algo privado, saúde, dinheiro) só na local.
@@ -309,8 +309,9 @@ das outras.
    dia (cada resposta são 2 a 4) — pouco pra se acostumar; o limite do Lite está por descobrir no
    uso. Pago, pelo preço oficial: US$ 0,0015 (Lite) ou 0,00225 (Flash) a cada 10 s de fala até o fim
    de 2026, o dobro em 2027 — uns US$ 2 a 3 por mês com 20 respostas faladas por dia; e no pago o
-   Google não usa o conteúdo (no grátis, usa). Falta o aval do botão (`design/fala-validacao.png`,
-   PROVISÓRIO) e o seletor de voz em Configurações (hoje é pela rota `/fala/ajustes`).
+   Google não usa o conteúdo (no grátis, usa). O botão de ouvir foi aprovado pelos prints
+   (`design/fala-validacao.png`). Falta o seletor de voz em Configurações (hoje é pela rota
+   `/fala/ajustes`).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 

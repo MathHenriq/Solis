@@ -138,7 +138,8 @@ function Paragrafo({ bloco, fim }: { bloco: ReactNode; fim?: ReactNode }) {
  *  estado real) e as etapas aparecem embaixo do cabeçalho; quando o texto
  *  começa, elas recolhem numa linha acima dele, e o que veio depois da resposta
  *  (memória guardada) aparece embaixo do texto. Ref. 20-conversa-etapas.png. */
-/** Ouvir a resposta. Desenho próprio, PROVISÓRIO até o aval: o alto-falante no
+/** Ouvir a resposta. Desenho próprio, aprovado pelo Matheus em 09/11/2026
+ *  (design/fala-validacao.png): o alto-falante no
  *  fim da linha da hora, que aparece no hover (como as ações da Memória) e fica
  *  à vista enquanto fala; falando, vira o quadrado de parar em accent. */
 function BotaoOuvir({
