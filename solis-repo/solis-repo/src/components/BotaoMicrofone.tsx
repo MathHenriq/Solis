@@ -5,7 +5,8 @@ import { Icone } from './icons';
  *  accent pulsando (só opacidade — docs/PERFORMANCE.md); transcrevendo, apagado
  *  e sem clique.
  *
- *  PROVISÓRIO: os estados de ouvir e transcrever são desenho próprio, sem
+ *  Desenho próprio, aprovado pelo Matheus em 09/11/2026 (design/voz-validacao.png):
+ *  os estados de ouvir e transcrever não têm
  *  referência — a Camada 3 da assinatura (o glow reagindo ao áudio) vem depois. */
 export function BotaoMicrofone({
   estado,

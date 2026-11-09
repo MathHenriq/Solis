@@ -292,7 +292,8 @@ das outras.
    com o large-v3-turbo ocupando 455 MB de placa em vez de 1,2 GB; 0,5 s por frase na GPU, ~4 s na
    CPU (tabela em `backend/solis/voz.py`). De ponta a ponta no app: transcrito e na caixa em 4,5 s na
    primeira fala (2,5 s são o modelo subindo). Conferido pelo Matheus com a voz dele no headset
-   (09/11/2026): saiu bem. Falta o aval dos prints (`design/voz-validacao.png`, PROVISÓRIO).
+   (09/11/2026): saiu bem. Os estados do microfone (ouvindo, transcrevendo, erro) aprovados pelos
+   prints (`design/voz-validacao.png`).
 2. **Palavra de ativação** ("Solis") depois.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.
 
