@@ -236,9 +236,14 @@ das outras.
 - [x] Desenho novo da Agenda aprovado pelo Matheus pelos prints (`design/agenda-validacao.png`): Novo
   compromisso, editar e apagar no hover, a edição com duração e lugar, "dia todo", o dia livre e o
   chip "Na agenda".
-- Limites conhecidos: compromisso que se repete ("toda terça às 19h") vira só a próxima vez; e o
-  Solis não avisa na hora (não há notificação) — o compromisso fica na Agenda e no pedido ao
-  modelo, mas nada toca às 9h.
+- [x] Avisos na hora (09/11/2026): a notificação do Windows 10 minutos antes do compromisso, na hora
+  da tarefa, e um resumo às 8h com as tarefas do dia sem hora e os compromissos de dia inteiro. Sai
+  do servidor (o front roda no navegador), pelo PowerShell do sistema; o privado não mostra o
+  título. Conferido no notebook: o aviso saiu 1 s depois de o servidor subir, e chega à Central de
+  Notificações em 0,8 s. Enquanto o Solis não for um app instalado, o aviso aparece em nome do
+  "Windows PowerShell" (com "Solis" na linha de baixo): ter nome e ícone próprios pede o app de
+  verdade (Tauri, .msi), que registra a identidade dele no Windows.
+- Limite conhecido: compromisso que se repete ("toda terça às 19h") vira só a próxima vez.
 - Limite conhecido: a tarefa (e a memória) sensível é detectada DEPOIS da resposta. Se a mensagem não
   diz "privado" e um cérebro de nuvem está na frente, ela já foi pra nuvem — "quinta tenho consulta
   com o dentista" foi respondida pelo Claude no teste. O que fica guardado depois é selado e não volta

@@ -15,7 +15,7 @@ import os
 import re
 import sqlite3
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import cofre
@@ -278,6 +278,14 @@ MIGRACOES = [
         criado   TEXT NOT NULL
     );
     CREATE INDEX compromissos_por_dia ON compromissos (dia, hora);
+    """,
+    # 13 — os avisos do Windows já mostrados (avisos.py), pela chave: o item e a
+    # hora do aviso. É o que impede repetir, inclusive depois de religar.
+    """
+    CREATE TABLE avisos (
+        chave    TEXT PRIMARY KEY,
+        mostrado TEXT NOT NULL
+    );
     """,
 ]
 
@@ -998,6 +1006,21 @@ def mudar_compromisso(id_: int, **campos) -> dict | None:
 def apagar_compromisso(id_: int) -> bool:
     with _con() as c:
         return c.execute('DELETE FROM compromissos WHERE id = ?', (id_,)).rowcount > 0
+
+
+# — Avisos ——————————————————————————————————————————————————————————————————————————
+
+def avisos_mostrados() -> set[str]:
+    return {l['chave'] for l in _con().execute('SELECT chave FROM avisos')}
+
+
+def marcar_aviso(chave: str) -> None:
+    """Anota o aviso mostrado. Os de mais de 30 dias saem: nenhum aviso volta a
+    valer depois de tanto tempo, e a tabela não cresce pra sempre."""
+    with _con() as c:
+        c.execute('INSERT OR IGNORE INTO avisos (chave, mostrado) VALUES (?, ?)', (chave, _agora()))
+        limite = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat(timespec='seconds')
+        c.execute('DELETE FROM avisos WHERE mostrado < ?', (limite,))
 
 
 def escaneado_pendente() -> dict | None:

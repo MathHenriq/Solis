@@ -134,8 +134,9 @@ def test_migracao_12_num_banco_antigo(tmp_path):
     caminho = tmp_path / 'velho.db'
     banco.usar(caminho)
     banco._con().execute('DROP TABLE compromissos')
+    banco._con().execute('DROP TABLE avisos')
     banco._con().execute('PRAGMA user_version = 11')
     banco._con().commit()
     banco.usar(caminho)
-    assert banco._con().execute('PRAGMA user_version').fetchone()[0] == 12
+    assert banco._con().execute('PRAGMA user_version').fetchone()[0] == len(banco.MIGRACOES)
     assert banco.compromissos('2000-01-01', '2100-01-01') == []

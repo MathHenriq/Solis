@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, banco, busca, cerebros, conhecimento, memoria, ocr, ollama, resumo, roteador
+from . import apis, avisos, banco, busca, cerebros, conhecimento, memoria, ocr, ollama, resumo, roteador
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -56,9 +56,12 @@ async def _vida(_app):
     indexacao = asyncio.create_task(busca.indexar_se_livre())
     # E a ler as páginas escaneadas que ficaram na fila quando o servidor caiu.
     leitura = asyncio.create_task(ocr.ler_se_livre())
+    # E a vigiar a Agenda e as Tarefas: o aviso do Windows na hora.
+    vigia = asyncio.create_task(avisos.vigiar())
     yield
     indexacao.cancel()
     leitura.cancel()
+    vigia.cancel()
 
 
 app = FastAPI(title='Solis', lifespan=_vida)

@@ -333,6 +333,25 @@ compromisso sai. Os dos próximos 7 dias (até 20) vão no pedido ao modelo; o p
 sigilo, memória privada da mesma mensagem, ou saúde e dinheiro no título) não vai pra nuvem.
 Repetição ("toda terça") não existe ainda: vira a próxima.
 
+## Avisos na hora
+
+`solis/avisos.py`, um laço do servidor que confere a cada 30 s. A notificação do Windows sai pelo
+`avisar_windows.ps1` (PowerShell do sistema: o pacote WinRT pro Python é bloqueado pelo Controle de
+Aplicativo do Windows, como no OCR).
+
+| O quê | Quando | Se o servidor ligou depois |
+|---|---|---|
+| Compromisso com hora | 10 min antes | avisa até o compromisso começar |
+| Tarefa com hora | na hora | avisa até 1 h depois |
+| Resumo do dia (tarefas sem hora, compromissos de dia inteiro) | 8h, um aviso só | avisa até as 20h |
+
+Cada aviso mostrado fica anotado (tabela `avisos`, migração 13) pela chave do item e da hora: nada
+se repete, nem depois de religar, e mudar a hora de um compromisso faz ele avisar na hora nova. Aviso
+que falha não é anotado e tenta de novo na volta seguinte. Item privado não mostra o título nem o
+lugar (o aviso aparece até na tela bloqueada). Desligar: o ajuste `avisos` = `false`, ou
+`SOLIS_AVISOS=0`. Enquanto o Solis não é um app instalado, o aviso sai em nome do "Windows
+PowerShell", com "Solis" na linha de atribuição.
+
 ## Busca por significado
 
 Cada memória, cada mensagem e cada trecho de arquivo vira um vetor com o **`embeddinggemma`**

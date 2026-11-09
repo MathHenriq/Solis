@@ -21,6 +21,19 @@ def sem_ollama_de_verdade(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def sem_aviso_de_verdade(monkeypatch):
+    """Nenhum teste põe notificação na tela do Matheus: o aviso "sai" numa lista."""
+    from solis import avisos
+    mostrados = []
+
+    async def falso(titulo, texto, tag):
+        mostrados.append({'titulo': titulo, 'texto': texto, 'tag': tag})
+        return True
+    monkeypatch.setattr(avisos, 'mostrar', falso)
+    return mostrados
+
+
+@pytest.fixture(autouse=True)
 def sem_ocr_de_verdade(monkeypatch):
     """O OCR do Windows sobe um PowerShell: só o teste dele, marcado, o chama."""
     async def sem(png):
