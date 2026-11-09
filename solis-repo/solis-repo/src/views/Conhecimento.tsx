@@ -23,7 +23,8 @@ import {
  *  O servidor lê o arquivo (PDF, .md, .txt), guarda o texto em trechos e faz um
  *  vetor de cada um; o "Indexando… 64%" é a conta real de trechos com vetor. A
  *  página escaneada passa antes pelo OCR: "Lendo as páginas escaneadas… 40%" é
- *  a conta de páginas lidas — a mesma barra, sem desenho novo.
+ *  a conta de páginas lidas — a mesma barra, sem desenho novo (aprovado em
+ *  09/11/2026, design/conhecimento-ocr-validacao.png).
  *
  *  Desenho próprio, aprovado pelo Matheus em 08/11/2026 (design/conhecimento-validacao.png,
  *  layout.conhecimento): o menu dos três pontos e

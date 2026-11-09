@@ -241,7 +241,7 @@ das outras.
   plano; o OCR do Windows é a reserva. Medidos os leitores com texto conhecido (tabela em
   `backend/README.md` → Conhecimento): o do Windows desaba em digitalização ruim (0,30 a 0,80 das
   palavras), o modelo de visão acertou todas. O cartão mostra "Lendo as páginas escaneadas… X%" com a
-  mesma barra da indexação (`design/conhecimento-ocr-validacao.png`). Custo: 6 a 26 s de GPU por
+  mesma barra da indexação, aprovado pelo Matheus pelos prints (`design/conhecimento-ocr-validacao.png`). Custo: 6 a 26 s de GPU por
   página — um livro escaneado de 200 páginas é meia hora de GPU, a mesma disputa de VRAM anotada em
   "Questões pra depois".
 
