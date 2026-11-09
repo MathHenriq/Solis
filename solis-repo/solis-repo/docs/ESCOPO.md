@@ -230,7 +230,12 @@ das outras.
 - [x] Progresso real da indexação, aviso quando ela para, busca pelo nome e pelo texto.
 - [x] Fonte privada: selada, fora do índice e fora da nuvem. Remover com Desfazer.
 - [ ] Calibrar o piso (0,65) com os arquivos de verdade do Matheus.
-- [ ] Página web (a referência 17 mostra; ainda não existe) e PDF escaneado (precisa de OCR).
+- [x] Página web (09/11/2026): só o conteúdo principal, pela `trafilatura`.
+- [ ] PDF escaneado (precisa de OCR).
+- [ ] **Pergunta em português não acha texto em inglês.** Medido (09/11): a pergunta sobre a
+  página do FastAPI deu 0,57 em português e 0,79 em inglês; perguntas sem relação dão 0,56 a
+  0,58. O `nomic-embed-text` quase não liga as duas línguas. Saída: um modelo de embeddings
+  multilíngue (trocar exige refazer todos os vetores).
 
 ### Voz
 

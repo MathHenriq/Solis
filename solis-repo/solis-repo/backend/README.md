@@ -45,6 +45,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
 | `GET /conhecimento` | os arquivos do Conhecimento, do mais novo pro mais antigo: `nome`, `tipo` (`pdf` ou `nota`), `paginas`, `privado`, `trechos` e `indexados` (quantos já viraram vetor). `?q=` busca no nome e no texto (de fonte privada, só no nome) |
 | `POST /conhecimento?nome=...&privado=false` | o arquivo cru no corpo (não multipart). Lê, corta em trechos e guarda; os vetores saem em segundo plano. `400` com `nao_leu` e o `motivo` (formato, PDF escaneado, com senha, vazio), `409` com `ja_existe` se o mesmo conteúdo já entrou |
+| `POST /conhecimento/pagina` | `{"url", "privado"}` → baixa o endereço (com ou sem `https://`), tira o conteúdo principal e guarda como os arquivos; endereço de PDF entra como PDF. Os mesmos erros do `POST /conhecimento` (o `motivo` diz: 404, precisa de login, não é página, montada por JavaScript) |
 | `PATCH /conhecimento/{id}` | `{"privado"}` → sela (ou abre) o nome e o texto e tira (ou põe) do índice de busca |
 | `DELETE /conhecimento/{id}` | apaga o documento e os trechos |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
@@ -248,16 +249,22 @@ disser "0 conversas novas" com o arquivo cheio, é o leitor que precisa de ajust
 
 ## Conhecimento: os arquivos
 
-O Matheus entrega PDFs, `.md` e `.txt` pela tela Conhecimento (`solis/conhecimento.py`).
+O Matheus entrega PDFs, `.md`, `.txt` e páginas da web pela tela Conhecimento
+(`solis/conhecimento.py`).
 
 - **O que fica:** só o texto, cortado em trechos de ~200 palavras com 40 de sobra entre um e o
   próximo (uma ideia que cai na emenda continua inteira em algum dos dois). No PDF, cada trecho
   sabe a página. O arquivo original não é copiado. O mesmo conteúdo não entra duas vezes (hash).
+- **Página web** pela `trafilatura`: só o conteúdo principal, sem menu, rodapé e anúncio (o
+  parser HTML da biblioteca padrão traria tudo junto). A página é identificada pelo endereço, que
+  vai junto da fonte no pedido. Página montada por JavaScript ou atrás de login não tem o que ler.
 - **PDF** pela `pypdf` (Python puro). PDF escaneado é imagem: sem OCR não há texto, e ele é
   recusado dizendo isso em vez de entrar vazio.
 - **Vetores:** cada trecho vira vetor no `indexar_pendentes`, depois das memórias e mensagens
   (um PDF grande são centenas de trechos, e o que acabou de ser dito não pode esperar). A tela
-  mostra o progresso real (`indexados` / `trechos`) e diz quando parou (Ollama fora).
+  mostra o progresso real (`indexados` / `trechos`) e diz quando parou (Ollama fora). Enquanto
+  falta trecho, cada `GET /conhecimento` tenta indexar de novo (uma indexação por vez): quando o
+  Ollama volta, a indexação anda sozinha.
 - **Na resposta:** até 4 trechos com similaridade de pelo menos 0,65 entram no pedido, com o nome
   do arquivo e a página, numa seção própria. O piso foi medido (`busca.py`): perguntas sobre os
   arquivos deram 0,68 a 0,82, perguntas sem relação 0,56 a 0,60. Falta calibrar com arquivos de
