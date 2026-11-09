@@ -350,7 +350,7 @@
       }
     },
     "conhecimento": {
-      "_status": "PROVISORIO - desenho proprio (08/11/2026). A grade e os cartoes sao os da referencia 17 (ja no codigo). Novos, sem referencia: o menu dos tres pontos (privado, remover), no padrao discreto dos menus do Claude, e o aviso embaixo, que e o mesmo da Memoria (layout.memoria.acoes, toast*).",
+      "_status": "Desenho proprio (08/11/2026), aprovado pelo Matheus pelos prints no mesmo dia (design/conhecimento-validacao.png). A grade e os cartoes sao os da referencia 17 (ja no codigo). Novos, sem referencia: o menu dos tres pontos (privado, remover), no padrao discreto dos menus do Claude, e o aviso embaixo, que e o mesmo da Memoria (layout.memoria.acoes, toast*).",
       "menuWidth": "236px",
       "menuPad": "6px",
       "menuRadius": "10px",

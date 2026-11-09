@@ -182,7 +182,7 @@ for chave, var in [('cardTop','--cfg-card-top'), ('cardPadding','--cfg-card-pad'
                    ('switchHeight','--cfg-sw-h')]:
     w('  %s: %s;' % (var, cfg[chave]))
 w('  --cfg-mini-razao: %s;' % cfg['thumbRatio'])
-w('  /* Menu do Conhecimento - desenho proprio, PROVISORIO. Ver layout.conhecimento. */')
+w('  /* Menu do Conhecimento - desenho proprio, aprovado. Ver layout.conhecimento. */')
 kn = T['layout']['conhecimento']
 for chave, var in [('menuWidth','--kn-menu-l'), ('menuPad','--kn-menu-pad'), ('menuRadius','--kn-menu-raio'),
                    ('menuItemHeight','--kn-menu-item-h'), ('menuItemPadX','--kn-menu-item-px'),

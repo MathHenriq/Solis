@@ -21,7 +21,8 @@ import {
  *  O servidor lê o arquivo (PDF, .md, .txt), guarda o texto em trechos e faz um
  *  vetor de cada um; o "Indexando… 64%" é a conta real de trechos com vetor.
  *
- *  PROVISÓRIO (desenho próprio, layout.conhecimento): o menu dos três pontos e
+ *  Desenho próprio, aprovado pelo Matheus em 08/11/2026 (design/conhecimento-validacao.png,
+ *  layout.conhecimento): o menu dos três pontos e
  *  o aviso de baixo. "Página web" da referência ainda não existe. */
 
 const DESFAZER_MS = 6000;
