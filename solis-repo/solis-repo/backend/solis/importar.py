@@ -10,7 +10,7 @@ Três etapas, cada uma podendo parar e continuar depois:
 
 1. Ler e guardar as conversas — rápido. Importar o mesmo arquivo de novo não
    duplica nada: cada conversa guarda o id que tinha no serviço de origem.
-2. Vetorizar as mensagens pra busca — precisa do Ollama com o nomic-embed-text.
+2. Vetorizar as mensagens pra busca — precisa do Ollama com o modelo de embeddings (busca.MODELO).
    Com anos de histórico, leva um tempo; o que faltar entra na próxima vez.
 3. Com --aprender: tirar memórias de cada conversa, uma por uma, no modelo
    local. É a etapa lenta (uma chamada ao modelo por conversa). Ctrl+C a
@@ -175,7 +175,7 @@ def main(argv=None) -> None:
     print('Vetorizando pra busca (precisa do Ollama)...')
     n = asyncio.run(busca.indexar_pendentes())
     sobra = len(banco.sem_vetor('mensagem', 1))
-    print(f'  {n} vetorizadas.' + (' Faltou parte: o Ollama ou o nomic-embed-text não respondeu; rode de novo depois.' if sobra else ''))
+    print(f'  {n} vetorizadas.' + (' Faltou parte: o Ollama ou o modelo de embeddings não respondeu; rode de novo depois.' if sobra else ''))
 
     if args.aprender:
         print(f'Tirando memórias com {args.modelo} (Ctrl+C pra parar; rodar de novo continua)...')

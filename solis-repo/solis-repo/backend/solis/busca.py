@@ -22,12 +22,40 @@ from . import banco, ollama
 
 log = logging.getLogger('solis.busca')
 
-# nomic-embed-text: pequeno (274 MB), roda até na CPU, e já está instalado.
-MODELO = os.environ.get('SOLIS_EMBEDDING', 'nomic-embed-text')
-
-# O nomic foi treinado com esses prefixos; sem eles a busca piora.
-DOCUMENTO = 'search_document: '
-PERGUNTA = 'search_query: '
+# O modelo de embeddings, escolhido medindo (09/11/2026, ver docs/ESCOPO.md →
+# Conhecimento): 10 perguntas em português contra páginas reais em inglês e
+# textos em português, mais 5 sem relação nenhuma.
+#
+#   modelo                 fonte certa  menor certo  maior ruído  folga
+#   nomic-embed-text       7/10         0,54         0,65         −0,10
+#   qwen3-embedding:0.6b   10/10        0,38         0,42         −0,03  (11× mais lento)
+#   bge-m3                 9/10         0,48         0,56         −0,09
+#   embeddinggemma         10/10        0,45         0,29         +0,16
+#
+# O nomic quase não liga português com inglês: "como rodo uma tarefa depois de
+# devolver a resposta no FastAPI?" dava 0,57 na página certa, nota de ruído. O
+# embeddinggemma (621 MB, roda na CPU) é o único em que um piso separa o que
+# importa do que não importa. Cada modelo tem os prefixos com que foi treinado
+# — sem eles a busca piora — e o seu piso, que é medido, não adivinhado.
+MODELOS = {
+    'embeddinggemma': {
+        'pergunta': 'task: search result | query: ',
+        'documento': 'title: none | text: ',
+        # No meio da folga medida (0,29 a 0,45). PROVISÓRIO: calibrar com os
+        # arquivos e as conversas de verdade.
+        'piso': 0.37,
+    },
+    'nomic-embed-text': {
+        'pergunta': 'search_query: ',
+        'documento': 'search_document: ',
+        'piso_trecho': 0.55,
+        'piso': 0.65,  # medido em 08/11 (0,56–0,60 ruído, 0,68–0,82 certo)
+    },
+}
+MODELO = os.environ.get('SOLIS_EMBEDDING', 'embeddinggemma')
+_CONF = MODELOS.get(MODELO.split(':')[0], {})
+DOCUMENTO = _CONF.get('documento', '')
+PERGUNTA = _CONF.get('pergunta', '')
 
 # Até aqui, todas as memórias vão — caber é barato e não perde nada.
 TODAS_ATE = 30
@@ -36,23 +64,14 @@ TODAS_ATE = 30
 MEMORIAS_PARECIDAS = 12
 MEMORIAS_RECENTES = 5
 # Trechos de conversas antigas, e só os que passam do piso de similaridade.
+# Alto demais e nada antigo aparece; baixo demais e entra ruído.
 TRECHOS = 5
-# PROVISÓRIO: piso escolhido no escuro. Precisa ser calibrado com dados reais
-# no notebook — alto demais e nada antigo aparece; baixo demais e entra ruído.
-PISO_TRECHO = 0.55
+PISO_TRECHO = _CONF.get('piso_trecho', _CONF.get('piso', 0.5))
 TRECHO_MAX = 400
 # Trechos dos arquivos do Conhecimento. Um trecho de arquivo tem ~200 palavras
 # (conhecimento.PALAVRAS), então vai inteiro.
-#
-# Piso medido com o nomic-embed-text (08/11/2026, 6 arquivos de teste, 5
-# perguntas): as perguntas sobre os arquivos deram 0,68 a 0,82; as sem relação
-# ("qual a capital da França?", "me lembra de comprar pão") deram 0,56 a 0,60 —
-# o nomic tem um fundo alto, e com 0,55 elas puxavam 2 a 4 trechos de ruído.
-# 0,65 fica entre os dois grupos. PROVISÓRIO: calibrar com os arquivos de
-# verdade do Matheus. O mesmo fundo alto sugere que o PISO_TRECHO das conversas
-# (0,55) também deixa ruído passar.
 ARQUIVOS = 4
-PISO_ARQUIVO = 0.65
+PISO_ARQUIVO = _CONF.get('piso', 0.5)
 
 LOTE = 64
 
@@ -70,9 +89,23 @@ def _matriz(pares: list[tuple[int, bytes]]) -> tuple[list[int], np.ndarray]:
     return [r for r, _ in pares], np.stack([np.frombuffer(b, dtype=np.float32) for _, b in pares])
 
 
+def conferir_modelo() -> None:
+    """Vetores de modelos diferentes não se comparam (nem o tamanho bate: 768
+    no gemma, 1024 em outros). Se os guardados não são do MODELO de agora, saem
+    todos e são refeitos pelo indexar_pendentes — o texto fica, só o vetor é
+    refeito. Banco de antes desta marca: os vetores eram do nomic."""
+    if banco.ajuste('modelo_vetores') == MODELO:
+        return
+    if banco.tem_vetores():
+        log.warning('vetores feitos por outro modelo; refazendo todos com %s', MODELO)
+        banco.apagar_vetores()
+    banco.guardar_ajuste('modelo_vetores', MODELO)
+
+
 async def indexar_pendentes() -> int:
     """Vetoriza o que ainda não tem vetor. Roda depois de cada resposta; o que
     falhar fica pendente e entra na próxima. Devolve quantos indexou."""
+    conferir_modelo()
     total = 0
     for tipo in ('memoria', 'mensagem'):
         while pendentes := banco.sem_vetor(tipo, LOTE):
@@ -119,6 +152,8 @@ async def indexar_se_livre() -> int:
 
 
 async def _consulta(texto: str) -> np.ndarray | None:
+    # Toda busca passa aqui: nunca comparar a pergunta com vetores de outro modelo.
+    conferir_modelo()
     try:
         [v] = await ollama.embeddings(MODELO, [PERGUNTA + texto])
     except (ollama.OllamaIndisponivel, ollama.ModeloInexistente):

@@ -49,7 +49,11 @@ async def _vida(_app):
     # Na subida do servidor, e não na importação: os testes importam o app sem
     # subir, e não podem escrever log no %APPDATA% de verdade.
     _ligar_log()
+    # Começa a indexar o que estiver pendente — inclusive refazer todos os
+    # vetores, se o modelo de embeddings mudou (busca.conferir_modelo).
+    indexacao = asyncio.create_task(busca.indexar_se_livre())
     yield
+    indexacao.cancel()
 
 
 app = FastAPI(title='Solis', lifespan=_vida)

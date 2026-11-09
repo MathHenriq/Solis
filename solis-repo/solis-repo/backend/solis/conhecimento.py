@@ -34,7 +34,7 @@ NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Solis/0.1'
 
 # Trechos de ~200 palavras, com 40 de sobra entre um e o próximo: uma ideia que
 # cai na emenda continua inteira em algum dos dois. ~200 palavras cabem com
-# folga no nomic-embed-text e são o bastante pra ter sentido sozinhas.
+# folga no modelo de embeddings e são o bastante pra ter sentido sozinhas.
 PALAVRAS = 200
 SOBRA = 40
 

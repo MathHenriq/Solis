@@ -821,3 +821,19 @@ def trechos_por_id(ids: list[int]) -> list[dict]:
          'privado': bool(l['privado'])}
         for l in linhas
     ]
+
+
+def tem_vetores() -> bool:
+    c = _con()
+    return bool(
+        c.execute('SELECT 1 FROM vetores LIMIT 1').fetchone()
+        or c.execute('SELECT 1 FROM trechos WHERE vetor IS NOT NULL LIMIT 1').fetchone()
+    )
+
+
+def apagar_vetores() -> None:
+    """Todos os vetores, de memória, mensagem e trecho — pra serem refeitos por
+    outro modelo de embeddings. Nenhum texto é tocado."""
+    with _con() as c:
+        c.execute('DELETE FROM vetores')
+        c.execute('UPDATE trechos SET vetor = NULL')

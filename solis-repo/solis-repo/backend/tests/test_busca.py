@@ -181,3 +181,39 @@ def test_extrator_recebe_as_memorias_do_mesmo_assunto(embeddings_falsos):
     assert parecidas[0]['texto'] == 'Trabalha na Syngenta.'
     todas = asyncio.run(busca.memorias_parecidas('saí da syngenta', 30))
     assert 'Gosta de chá.' in [m['texto'] for m in todas]  # a sem vetor não some
+
+
+def test_trocar_o_modelo_refaz_todos_os_vetores(embeddings_falsos, monkeypatch):
+    """Vetores de modelos diferentes não se comparam: ao trocar, os velhos saem
+    e todos são refeitos, sem perder texto."""
+    from solis import conhecimento
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    conversa_com('falando de python')
+    conhecimento.adicionar('a.txt', b'nfe e python')
+    asyncio.run(busca.indexar_pendentes())
+    assert banco.ajuste('modelo_vetores') == busca.MODELO
+    antes = len(embeddings_falsos)
+
+    monkeypatch.setattr(busca, 'MODELO', 'outro-modelo')
+    asyncio.run(busca.indexar_pendentes())
+    assert banco.ajuste('modelo_vetores') == 'outro-modelo'
+    refeitos = sum(len(lote) for lote in embeddings_falsos[antes:])
+    assert refeitos == 3  # a memória, a mensagem e o trecho
+    assert len(banco.memorias()) == 1 and banco.documentos()[0]['indexados'] == 1
+
+
+def test_banco_antigo_sem_marca_tem_os_vetores_refeitos(embeddings_falsos):
+    """Antes da marca, os vetores eram do nomic: não servem pro modelo novo."""
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    asyncio.run(busca.indexar_pendentes())
+    banco.apagar_ajuste('modelo_vetores')  # como um banco de antes
+    busca.conferir_modelo()
+    assert not banco.tem_vetores()
+    assert banco.ajuste('modelo_vetores') == busca.MODELO
+
+
+def test_cada_modelo_com_os_seus_prefixos():
+    assert busca.MODELOS['embeddinggemma']['pergunta'].startswith('task: search result')
+    if busca.MODELO == 'embeddinggemma':
+        assert (busca.PERGUNTA, busca.DOCUMENTO) == ('task: search result | query: ', 'title: none | text: ')
+        assert busca.PISO_ARQUIVO == busca.PISO_TRECHO == 0.37
