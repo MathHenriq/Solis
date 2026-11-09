@@ -30,7 +30,8 @@ export function definirEscutaLigada(ligada: boolean) {
 }
 
 /** Um bipe curto e baixo quando a palavra é ouvida: a pessoa precisa saber que
- *  o Solis está ouvindo, mesmo olhando pra outra janela. PROVISÓRIO. */
+ *  o Solis está ouvindo, mesmo olhando pra outra janela. Aprovado com a linha em Configurações
+ *  (09/11/2026). */
 function bipe(contexto: AudioContext) {
   const o = contexto.createOscillator();
   const g = contexto.createGain();

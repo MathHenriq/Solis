@@ -321,7 +321,8 @@ das outras.
    sozinha — com a resposta falada se "Responder falando" estiver ligado. Medido com vozes
    sintéticas: 31/32 acordaram, 0/40 alarmes falsos; a mensagem chega 4 a 5 s depois do fim da fala.
    O custo: a GPU trabalha a cada trecho de fala que o microfone pega. Linha em Configurações → Voz
-   (só o interruptor): PROVISÓRIO, prints em `design/ativacao-validacao.png`. Falta: medir com a
+   (só o interruptor), o "Ouvindo… pode falar" e o bipe: aprovados pelo Matheus pelos prints
+   (`design/ativacao-validacao.png`). Falta: medir com a
    voz real do Matheus e ajustar (tempo de resposta, fim da fala); depois, o openWakeWord com um
    modelo "Solis" treinado no Colab, pra GPU não trabalhar à toa.
 3. **Camada 3 da assinatura**: o glow do símbolo reagindo ao áudio.

@@ -50,7 +50,8 @@ function Linha({ rotulo, dica, children }: { rotulo: string; dica?: ReactNode; c
   );
 }
 
-/** "Solis" pra ouvir, sem clicar (backend/solis/ativacao.py). PROVISÓRIO: a
+/** "Solis" pra ouvir, sem clicar (backend/solis/ativacao.py). Aprovada pelo
+ *  Matheus pelos prints em 09/11/2026 (design/ativacao-validacao.png): a
  *  linha é a mesma das outras do cartão (aprovadas), com o interruptor da
  *  "Responder falando"; o que muda é só o texto, que diz o estado. Quem ouve a
  *  palavra hoje é o Whisper, o mesmo do microfone — nada a configurar. */
