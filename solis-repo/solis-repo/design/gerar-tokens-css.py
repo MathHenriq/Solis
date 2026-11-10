@@ -200,12 +200,15 @@ w('  /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */')
 tf = T['layout']['tarefas']
 for chave, var in [('dateWidth', '--tf-data-l'), ('timeWidth', '--tf-hora-l')]:
     w('  %s: %s;' % (var, tf[chave]))
-w('  /* Chamada (o Solis aparecendo) - desenho proprio, PROVISORIO. Ver layout.chamada. */')
+w('  /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */')
 ch = T['layout']['chamada']
-for chave, var in [('symbol', '--ch-simbolo'), ('bottom', '--ch-baixo'), ('ringStroke', '--ch-anel-traco'),
-                   ('horizonWidth', '--ch-horizonte-l'), ('captionMax', '--ch-legenda-max')]:
+for chave, var in [('top', '--ch-topo'), ('fill', '--ch-fundo'), ('text', '--ch-texto'), ('textMuted', '--ch-texto-2'),
+                   ('radiusTiny', '--ch-raio-min'), ('radiusCompact', '--ch-raio-pilula'), ('radiusOpen', '--ch-raio-aberta'),
+                   ('symbolOpen', '--ch-simbolo'), ('symbolSmall', '--ch-simbolo-p'), ('spring', '--ch-mola')]:
     w('  %s: %s;' % (var, ch[chave]))
-for chave, var in [('enterMs', '--ch-entrada'), ('exitMs', '--ch-saida'), ('waveMs', '--ch-onda'), ('waveStaggerMs', '--ch-onda-passo')]:
+for chave, pre in [('tiny', '--ch-min'), ('compact', '--ch-pilula'), ('listening', '--ch-ouvindo'), ('answer', '--ch-resposta')]:
+    w('  %s-l: %s; %s-a: %s;' % (pre, ch[chave][0], pre, ch[chave][1]))
+for chave, var in [('morphMs', '--ch-forma'), ('contentMs', '--ch-conteudo'), ('contentDelayMs', '--ch-conteudo-atraso')]:
     w('  %s: %sms;' % (var, ch[chave]))
 w('  /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */')
 ag = T['layout']['agenda']

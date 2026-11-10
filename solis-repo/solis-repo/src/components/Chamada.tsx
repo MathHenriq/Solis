@@ -1,22 +1,20 @@
-import { useEffect, useRef } from 'react';
-import { registrarAlvo } from '../nivel';
+import { useEffect, useState } from 'react';
 import { SolisEstado, type EstadoSolis } from './SolisEstado';
 
-/** O Solis aparecendo quando é chamado ("Solis" ou, depois, o atalho global).
- *  PROVISÓRIO: desenho próprio, aguardando aprovação pelos prints
- *  (layout.chamada no solis-tokens.json, onde estão os números e o porquê).
+/** O Solis aparecendo quando é chamado: uma ilha preta no topo da tela.
+ *  PROVISÓRIO: desenho próprio, aguardando aprovação pelos prints. Pedido do
+ *  Matheus (10/11/2026): a lógica da ilha do iPhone — uma cápsula que desce do
+ *  alto e muda de forma com mola, conforme o que está acontecendo. O desenho é
+ *  do Solis (símbolo, brilho reativo, textos). Números e porquês em
+ *  layout.chamada.
  *
- *  As fases, todas só com transform e opacity (PERFORMANCE.md):
- *  - `ouvindo`: o sol nasce da linha do horizonte (a linha cresce do centro, o
- *    símbolo sobe de trás dela), os anéis saem em ondas, e o brilho e os anéis
- *    seguem a voz (src/nivel.ts — a Camada 3 aprovada);
- *  - `pensando`: as ondas param, o brilho respira devagar (thinking), e a frase
- *    ouvida fica embaixo, como legenda;
- *  - `respondendo`: o brilho acompanha a resposta (responding);
- *  - `saindo`: o sol se põe e a linha recolhe.
+ *  - `ouvindo`: aberta, o símbolo no meio, o brilho seguindo a voz;
+ *  - `pensando`: pílula fina — o símbolo pequeno e a frase ouvida;
+ *  - `respondendo`: larga — o símbolo pequeno e o começo da resposta;
+ *  - `saindo`: volta a pílula pequena e sobe pra dentro da borda.
  *
- *  Hoje aparece por cima do app web. No app Tauri (docs/PLANO.md, bloco 1) é o
- *  conteúdo da janela pequena e transparente que fica por cima de tudo. */
+ *  Hoje aparece no topo do app web. No app Tauri é o conteúdo da janela
+ *  transparente que fica por cima de tudo (docs/PLANO.md, bloco 1). */
 
 export type FaseChamada = 'ouvindo' | 'pensando' | 'respondendo' | 'saindo';
 
@@ -27,50 +25,61 @@ const ESTADO: Record<FaseChamada, EstadoSolis> = {
   saindo: 'responding',
 };
 
-/** Centro do sol no desenho do símbolo (viewBox 384,91 × 220,85): os anéis
- *  são semicírculos em volta dele, apoiados na mesma altura. */
-const CENTRO = { x: 192.5, y: 168 };
-const RAIOS = [178, 214, 250]; // layout.chamada.ringRadii
+/** O começo da resposta, sem a marcação do markdown. */
+function plano(texto: string) {
+  return texto.replace(/[*_`#>]+/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
+}
 
-export function Chamada({ fase, legenda, comSidebar = false }: { fase: FaseChamada; legenda?: string; comSidebar?: boolean }) {
-  const aneis = useRef<HTMLDivElement>(null);
-  // Ouvindo, a intensidade dos anéis segue a voz, como o brilho do símbolo.
+export function Chamada({
+  fase,
+  legenda,
+  resposta,
+  comSidebar = false,
+}: {
+  fase: FaseChamada;
+  legenda?: string;
+  resposta?: string;
+  comSidebar?: boolean;
+}) {
+  // Nasce pequena e escondida acima da borda; no quadro seguinte toma a forma
+  // da fase, e a transição com mola faz o resto.
+  const [entrando, definirEntrando] = useState(true);
   useEffect(() => {
-    if (fase === 'ouvindo' && aneis.current) return registrarAlvo(aneis.current);
-  }, [fase]);
+    let q = requestAnimationFrame(() => {
+      q = requestAnimationFrame(() => definirEntrando(false));
+    });
+    return () => cancelAnimationFrame(q);
+  }, []);
 
   return (
-    <div
-      className="solis-chamada pointer-events-none"
-      data-fase={fase}
-      data-sidebar={comSidebar || undefined}
-      role="status"
-      aria-live="polite"
-    >
-      <span className="sr-only">{fase === 'ouvindo' ? 'Solis ouvindo' : fase === 'pensando' ? 'Solis pensando' : ''}</span>
-      <div className="solis-chamada-palco">
-        {/* Cada anel numa div própria: transform num elemento de dentro de um
-            SVG roda no main thread; numa div, vai pro compositor. */}
-        <div ref={aneis} className="solis-chamada-aneis" aria-hidden>
-          {RAIOS.map((r, i) => (
-            <div key={r} className="solis-chamada-anel" style={{ animationDelay: `calc(var(--ch-onda-passo) * ${i})` }}>
-              <svg viewBox="0 0 384.91 220.85">
-                <path d={`M ${CENTRO.x - r} ${CENTRO.y} A ${r} ${r} 0 0 1 ${CENTRO.x + r} ${CENTRO.y}`} />
-              </svg>
-            </div>
-          ))}
-        </div>
-        <div className="solis-chamada-sol">
-          <SolisEstado
-            estado={ESTADO[fase]}
-            reativo={fase === 'ouvindo'}
-            halo="avatar"
-            className="[&_.solis-arte]:text-text-primary"
-          />
-        </div>
+    <div className="solis-ilha-faixa pointer-events-none" data-sidebar={comSidebar || undefined}>
+      <div
+        className="solis-ilha"
+        data-fase={fase}
+        data-entrando={entrando || undefined}
+        role="status"
+        aria-live="polite"
+        aria-label={fase === 'ouvindo' ? 'Solis ouvindo' : fase === 'pensando' ? 'Solis pensando' : 'Solis respondendo'}
+      >
+        {fase === 'ouvindo' && (
+          <div key="ouvindo" className="solis-ilha-conteudo solis-ilha-aberta">
+            <SolisEstado estado="listening" reativo halo="avatar" style={{ width: 'var(--ch-simbolo)' }} />
+            <span className="solis-ilha-dica">Pode falar</span>
+          </div>
+        )}
+        {fase === 'pensando' && (
+          <div key="pensando" className="solis-ilha-conteudo solis-ilha-linha">
+            <SolisEstado estado={ESTADO.pensando} halo="avatar" className="shrink-0" style={{ width: 'var(--ch-simbolo-p)' }} />
+            <span className="solis-ilha-frase">{legenda ?? 'Pensando…'}</span>
+          </div>
+        )}
+        {fase === 'respondendo' && (
+          <div key="respondendo" className="solis-ilha-conteudo solis-ilha-resposta">
+            <SolisEstado estado={ESTADO.respondendo} halo="avatar" className="shrink-0" style={{ width: 'var(--ch-simbolo-p)' }} />
+            <p className="solis-ilha-texto">{resposta ? plano(resposta) : legenda}</p>
+          </div>
+        )}
       </div>
-      <div className="solis-chamada-horizonte" aria-hidden />
-      {legenda && fase !== 'ouvindo' && <p className="solis-chamada-legenda">{legenda}</p>}
     </div>
   );
 }

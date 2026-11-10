@@ -141,16 +141,24 @@
   /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */
   --tf-data-l: 148px;
   --tf-hora-l: 104px;
-  /* Chamada (o Solis aparecendo) - desenho proprio, PROVISORIO. Ver layout.chamada. */
-  --ch-simbolo: 112px;
-  --ch-baixo: 22vh;
-  --ch-anel-traco: 1.5px;
-  --ch-horizonte-l: 220px;
-  --ch-legenda-max: 520px;
-  --ch-entrada: 640ms;
-  --ch-saida: 480ms;
-  --ch-onda: 2400ms;
-  --ch-onda-passo: 800ms;
+  /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */
+  --ch-topo: 10px;
+  --ch-fundo: #000000;
+  --ch-texto: #F5F1EA;
+  --ch-texto-2: #A39C92;
+  --ch-raio-min: 16px;
+  --ch-raio-pilula: 20px;
+  --ch-raio-aberta: 40px;
+  --ch-simbolo: 64px;
+  --ch-simbolo-p: 26px;
+  --ch-mola: linear(0, 0.068, 0.224, 0.41, 0.591, 0.747, 0.868, 0.954, 1.009, 1.04, 1.053, 1.053, 1.047, 1.038, 1.028, 1.018, 1.011, 1.005, 1.001, 0.999, 0.997, 0.997, 0.997, 0.998, 1);
+  --ch-min-l: 120px; --ch-min-a: 32px;
+  --ch-pilula-l: 300px; --ch-pilula-a: 40px;
+  --ch-ouvindo-l: 280px; --ch-ouvindo-a: 132px;
+  --ch-resposta-l: 460px; --ch-resposta-a: 112px;
+  --ch-forma: 560ms;
+  --ch-conteudo: 220ms;
+  --ch-conteudo-atraso: 140ms;
   /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */
   --ag-recuo: 24px;
   --ag-linha-x: 80px;

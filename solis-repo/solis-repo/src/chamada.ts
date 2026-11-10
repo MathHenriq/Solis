@@ -12,16 +12,16 @@ import { aoMudarFala } from './fala';
  *  - acabou (sem resposta chegando e sem fala), ou não ouviu nada → `saindo`,
  *    e some depois do tempo da saída (layout.chamada.exitMs). */
 
-const SAIDA_MS = 480; // layout.chamada.exitMs
+const SAIDA_MS = 520; // a saída da ilha: forma 260 ms + subir 300 ms depois de 160 (index.css)
 
 /** Só em desenvolvimento: `?chamada=pensando&legenda=...` fixa uma fase, pra
  *  fotografar a animação sem microfone, Whisper nem modelo. */
-function forcada(): { fase: FaseChamada; legenda?: string } | null {
+function forcada(): { fase: FaseChamada; legenda?: string; resposta?: string } | null {
   if (!import.meta.env.DEV) return null;
   const q = new URLSearchParams(window.location.search);
   const f = q.get('chamada');
   return f && ['ouvindo', 'pensando', 'respondendo', 'saindo'].includes(f)
-    ? { fase: f as FaseChamada, legenda: q.get('legenda') ?? undefined }
+    ? { fase: f as FaseChamada, legenda: q.get('legenda') ?? undefined, resposta: q.get('resposta') ?? undefined }
     : null;
 }
 
@@ -34,6 +34,13 @@ export function useChamada(escuta: EstadoEscuta, respondendo: boolean, comTexto:
   faseAtual.current = fase;
 
   useEffect(() => aoMudarFala(definirFalando), []);
+
+  // Só em desenvolvimento, com ?chamada=: trocar a fase pela página, pra
+  // fotografar a forma mudando de uma fase pra outra.
+  useEffect(() => {
+    if (!teste) return;
+    (window as unknown as { __faseChamada?: (f: FaseChamada | null) => void }).__faseChamada = definirFase;
+  }, [teste]);
 
   // A palavra foi ouvida.
   useEffect(() => {
@@ -67,5 +74,5 @@ export function useChamada(escuta: EstadoEscuta, respondendo: boolean, comTexto:
     definirFase('pensando');
   };
 
-  return { fase, legenda, enviado };
+  return { fase, legenda, enviado, resposta: teste?.resposta };
 }

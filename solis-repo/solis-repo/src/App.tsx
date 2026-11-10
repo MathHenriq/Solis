@@ -101,7 +101,12 @@ export default function App() {
       {!comSidebar && <GavetaConversas {...lista} visivel={gaveta} aoFechar={() => definirGaveta(false)} />}
       {(TELAS[tela] ?? TELAS.conversa)()}
       {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
-      {chamada.fase && <Chamada fase={chamada.fase} legenda={chamada.legenda} comSidebar={comSidebar} />}
+      {chamada.fase && <Chamada
+          fase={chamada.fase}
+          legenda={chamada.legenda}
+          resposta={chamada.resposta ?? (ultimo?.de === 'solis' ? ultimo.texto : undefined)}
+          comSidebar={comSidebar}
+        />}
     </div>
   );
 }

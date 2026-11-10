@@ -321,62 +321,54 @@ main {
   .solis-ouvindo > svg { animation: none; }
 }
 
-/* A chamada (src/components/Chamada.tsx): o Solis aparecendo quando é chamado.
-   PROVISÓRIO — desenho próprio, números e porquês em layout.chamada. Só
-   transform e opacity. O símbolo tem 384,91 × 220,85 no desenho: a altura dele
-   é 0,5738 da largura, e o centro do sol fica em 50% × 76% da caixa. */
-.solis-chamada {
-  position: fixed; left: 0; right: 0; bottom: var(--ch-baixo); z-index: 50;
-  display: flex; flex-direction: column; align-items: center;
+/* A chamada (src/components/Chamada.tsx): a ilha preta no topo. PROVISÓRIO —
+   desenho próprio, números e porquês em layout.chamada. A forma anima width,
+   height e border-radius com a mola (não é laço: 560 ms por troca, num elemento
+   pequeno — ver layout.chamada._custo); o conteúdo entra depois que a forma
+   começou a abrir e sai antes de ela fechar. */
+.solis-ilha-faixa {
+  position: fixed; top: var(--ch-topo); left: 0; right: 0; z-index: 50;
+  display: flex; justify-content: center;
 }
-/* Com a sidebar, centrada na área do conteúdo, como a tela embaixo dela. */
-.solis-chamada[data-sidebar] { left: var(--sidebar-width); }
-.solis-chamada-palco {
-  position: relative; overflow: hidden;
-  width: calc(var(--ch-simbolo) * 2.3);
-  height: calc(var(--ch-simbolo) * 1.05);
+.solis-ilha-faixa[data-sidebar] { left: var(--sidebar-width); }
+.solis-ilha {
+  position: relative; overflow: hidden; background: var(--ch-fundo); color: var(--ch-texto);
+  /* O contorno de 1px só aparece sobre o tema escuro, onde a ilha preta
+     sumiria no fundo; sobre os claros, é preto no preto. */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .28), inset 0 0 0 1px rgba(255, 255, 255, .07);
+  transition:
+    width var(--ch-forma) var(--ch-mola), height var(--ch-forma) var(--ch-mola),
+    border-radius var(--ch-forma) var(--ch-mola), transform var(--ch-forma) var(--ch-mola),
+    opacity 200ms ease-out;
 }
-.solis-chamada-sol, .solis-chamada-aneis {
-  position: absolute; bottom: 0; left: 50%; width: var(--ch-simbolo); margin-left: calc(var(--ch-simbolo) / -2);
+.solis-ilha[data-fase="ouvindo"] { width: var(--ch-ouvindo-l); height: var(--ch-ouvindo-a); border-radius: var(--ch-raio-aberta); }
+.solis-ilha[data-fase="pensando"] { width: var(--ch-pilula-l); height: var(--ch-pilula-a); border-radius: var(--ch-raio-pilula); }
+.solis-ilha[data-fase="respondendo"] { width: var(--ch-resposta-l); height: var(--ch-resposta-a); border-radius: var(--ch-raio-aberta); }
+.solis-ilha[data-fase="saindo"], .solis-ilha[data-entrando] {
+  width: var(--ch-min-l); height: var(--ch-min-a); border-radius: var(--ch-raio-min);
 }
-.solis-chamada-sol { animation: solis-nascer var(--ch-entrada) cubic-bezier(.2, .7, .2, 1) both; }
-.solis-chamada-aneis { height: calc(var(--ch-simbolo) * 0.5738); transition: opacity 400ms ease-out; }
-.solis-chamada-anel {
-  position: absolute; inset: 0; transform-origin: 50% 76%; opacity: 0;
-  animation: solis-onda var(--ch-onda) ease-out infinite;
-  will-change: transform, opacity;
+/* Nascendo, ela está acima da borda; saindo, volta pra lá — mais rápido, sem mola. */
+.solis-ilha[data-entrando] { transform: translateY(calc(-100% - var(--ch-topo))); opacity: 0; transition: none; }
+.solis-ilha[data-fase="saindo"] {
+  transform: translateY(calc(-100% - var(--ch-topo))); opacity: 0;
+  transition: width 260ms ease-in, height 260ms ease-in, border-radius 260ms ease-in,
+    transform 300ms ease-in 160ms, opacity 200ms ease-in 260ms;
 }
-.solis-chamada-anel > svg { display: block; width: 100%; height: auto; overflow: visible; }
-.solis-chamada-anel path { fill: none; stroke: var(--accent); stroke-width: var(--ch-anel-traco); vector-effect: non-scaling-stroke; }
-.solis-chamada-horizonte {
-  width: var(--ch-horizonte-l); height: 1px; margin-top: -1px;
-  background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
-  animation: solis-horizonte var(--ch-entrada) cubic-bezier(.2, .7, .2, 1) both;
+.solis-ilha-conteudo {
+  position: absolute; inset: 0;
+  animation: solis-ilha-entra var(--ch-conteudo) ease-out var(--ch-conteudo-atraso) both;
 }
-.solis-chamada-legenda {
-  margin-top: 14px; max-width: var(--ch-legenda-max); padding: 0 16px; text-align: center;
-  font-size: var(--cfg-dica); color: var(--text-secondary);
-  animation: solis-legenda 300ms ease-out both;
+.solis-ilha-aberta { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.solis-ilha-linha { display: flex; align-items: center; gap: 10px; padding: 0 16px 0 12px; }
+.solis-ilha-resposta { display: flex; align-items: flex-start; gap: 12px; padding: 18px 22px 0 18px; }
+.solis-ilha-dica { font-size: var(--cfg-dica); color: var(--ch-texto-2); }
+.solis-ilha-frase { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--cfg-dica); color: var(--ch-texto); }
+.solis-ilha-texto {
+  min-width: 0; flex: 1; margin: 0; font-size: var(--cfg-dica); line-height: 1.45; color: var(--ch-texto);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-/* Fora do ouvindo, as ondas param (o nível deixa de escrever e o CSS assume). */
-.solis-chamada:not([data-fase="ouvindo"]) .solis-chamada-aneis { opacity: 0; }
-.solis-chamada[data-fase="saindo"] .solis-chamada-sol { animation: solis-por var(--ch-saida) cubic-bezier(.5, 0, .75, 0) both; }
-.solis-chamada[data-fase="saindo"] .solis-chamada-horizonte { animation: solis-horizonte-sai var(--ch-saida) ease-in both; }
-.solis-chamada[data-fase="saindo"] .solis-chamada-legenda { opacity: 0; transition: opacity var(--ch-saida) ease-in; }
-@keyframes solis-nascer { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes solis-por { from { transform: none; opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
-@keyframes solis-horizonte { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes solis-horizonte-sai { from { transform: none; opacity: 1; } to { transform: scaleX(0); opacity: 0; } }
-@keyframes solis-onda {
-  0% { opacity: 0; transform: scale(.86); }
-  30% { opacity: .55; }
-  100% { opacity: 0; transform: scale(1.06); }
-}
-@keyframes solis-legenda { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes solis-ilha-entra { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  /* Sem ondas nem nascer: os anéis ficam parados e fracos, e o nível continua
-     dito pela intensidade (nivel.ts). Sem isto, a regra global (0,01 ms)
-     faria as ondas piscarem. */
-  .solis-chamada-anel { animation: none; opacity: .35; transform: none; }
-  .solis-chamada-sol, .solis-chamada-horizonte { animation: none; }
+  /* Sem mola: a forma troca direto, e o conteúdo só aparece. */
+  .solis-ilha, .solis-ilha[data-fase="saindo"] { transition: opacity 120ms linear; }
 }
