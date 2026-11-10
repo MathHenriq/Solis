@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, resumo, roteador, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, pc, resumo, roteador, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -697,6 +697,47 @@ async def escuta(ws: WebSocket):
         pass
     finally:
         escutando.fechar()
+
+
+# — Controle do PC (pc.py) ————————————————————————————————————————————————————————
+
+def _estado_pc() -> dict:
+    return {'ligada': pc.ligada(), 'pastas': pc.pastas(), 'disponivel': pc.disponivel()}
+
+
+@app.get('/pc')
+async def estado_pc():
+    """A ferramenta Arquivos: ligada, as pastas autorizadas, e se está valendo."""
+    return _estado_pc()
+
+
+class PastasPc(BaseModel):
+    pastas: list[str]
+
+
+@app.put('/pc/pastas')
+async def guardar_pastas_pc(corpo: PastasPc):
+    try:
+        pc.guardar_pastas(corpo.pastas)
+    except ValueError as e:
+        return JSONResponse({'erro': 'pasta_invalida', 'motivo': str(e)}, status_code=400)
+    return _estado_pc()
+
+
+class LigadaPc(BaseModel):
+    ligada: bool
+
+
+@app.put('/pc/ligada')
+async def ligar_pc(corpo: LigadaPc):
+    pc.ligar(corpo.ligada)
+    return _estado_pc()
+
+
+@app.get('/pc/registro')
+async def registro_pc(limite: int = 50):
+    """O que o Solis fez no computador, do mais novo pro mais antigo."""
+    return banco.acoes(max(1, min(limite, 500)))
 
 
 # — Agenda ————————————————————————————————————————————————————————————————————————

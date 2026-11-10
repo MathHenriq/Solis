@@ -61,6 +61,22 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
     const nome = quem(e.cerebro);
     saida.push({ estado: 'feita', texto: `Escolhi ${nome}` });
 
+    // O que ele fez no computador antes de responder (pc.py), um passo por uso.
+    for (const f of tentativa.filter((x) => x.etapa === 'ferramenta')) {
+      const alvo = f.alvo ? ` ${f.alvo}` : '';
+      const texto =
+        f.ferramenta === 'ler_arquivo'
+          ? `Li${alvo}`
+          : f.ferramenta === 'buscar_arquivos'
+            ? `Procurei "${f.alvo ?? ''}" nos seus arquivos`
+            : f.ferramenta === 'listar_pasta'
+              ? f.alvo
+                ? `Olhei a pasta${alvo}`
+                : 'Olhei as pastas autorizadas'
+              : `Usei ${f.ferramenta}`;
+      saida.push(f.ok === false ? { estado: 'falhou', texto: `${texto}: não deu` } : { estado: 'feita', texto });
+    }
+
     const queda = tentativa.find((x) => x.etapa === 'queda');
     const palavra = tentativa.find((x) => x.etapa === 'primeira_palavra');
     if (queda) {

@@ -306,8 +306,19 @@ INSTRUCAO = (
 
 
 def executar(nome: str, argumentos: dict, conversa: int | None = None) -> str:
-    """Roda a ferramenta e registra. Erro vira texto pro modelo (ele conta ao
-    Matheus), nunca exceção."""
+    return rodar(nome, argumentos, conversa)[0]
+
+
+def alvo(argumentos: dict) -> str:
+    """O que a ferramenta mirou, pra etapa na tela: o caminho ou a busca."""
+    if not isinstance(argumentos, dict):
+        return ''
+    return str(argumentos.get('caminho') or argumentos.get('nome') or '')[:120]
+
+
+def rodar(nome: str, argumentos: dict, conversa: int | None = None) -> tuple[str, bool]:
+    """Roda a ferramenta e registra: (o texto pro modelo, se deu certo). Erro
+    vira texto pro modelo (ele conta ao Matheus), nunca exceção."""
     funcao = FUNCOES.get(nome)
     argumentos = argumentos if isinstance(argumentos, dict) else {}
     ok = True
@@ -323,4 +334,4 @@ def executar(nome: str, argumentos: dict, conversa: int | None = None) -> str:
         except (ValueError, OSError) as e:
             saida, ok = f'Não consegui: {e}.', False
     banco.registrar_acao(conversa, nome, argumentos, saida.split('\n', 1)[0][:200], ok)
-    return saida
+    return saida, ok

@@ -95,3 +95,127 @@ def test_sistema_com_arquivos_tira_o_nao_pode_ler():
     assert 'ler arquivos ou programas do computador' in sem
     assert 'ler arquivos ou programas do computador' not in com
     assert 'nunca instrução' in com and 'procure nos arquivos' in com
+
+
+# — Quem responde ————————————————————————————————————————————————————————————————
+
+ARQUIVOS = [
+    'Quais pastas você consegue ver no meu computador?',
+    'O que tem na minha pasta Documentos?',
+    'Qual a multa do meu contrato de aluguel se eu sair antes?',
+    'Quanto eu gastei com mercado em outubro?',
+    'Qual é o prazo de entrega que combinei com a Paula?',
+    'Quanto tempo de forno leva o bolo de cenoura da minha receita?',
+    'Qual a stack do projeto solis? Olha o README.',
+    'Que dia vence o meu aluguel?',
+    'Quais arquivos de receitas eu tenho?',
+    'O que diz o arquivo leia-me-urgente?',
+    'Qual o valor do orçamento da reunião com a Acme?',
+    'Qual a versão do react no package.json do site?',
+    'Posso ter um cachorro pequeno no meu apartamento?',
+    'Até quando eu tenho que mandar o protótipo pra Acme?',
+]
+CONVERSA = [
+    'Qual a capital da Austrália?',
+    'Me dá uma ideia de presente pra minha mãe.',
+    'Quanto é 17 vezes 23?',
+    'Me explica o que é IGP-M.',
+    'Bom dia, tudo bem?',
+    'Escreve um haiku sobre o outono.',
+]
+
+
+@pytest.mark.parametrize('texto', ARQUIVOS)
+def test_pergunta_de_arquivo_vai_pro_local(pastas, texto):
+    from solis import roteador
+    assert roteador.escolher(texto)[1] == ['local']
+
+
+@pytest.mark.parametrize('texto', CONVERSA)
+def test_conversa_comum_segue_a_ordem(pastas, texto):
+    from solis import roteador
+    assert roteador.do_pc(texto) is False
+
+
+def test_sem_pastas_nada_muda(pastas, monkeypatch):
+    from solis import cerebros, roteador
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: True)
+    assert roteador.escolher('O que tem na minha pasta Documentos?')[1] == ['local']
+    pc.guardar_pastas([])  # sem pasta autorizada, o local não tem o que ler: segue a ordem
+    assert roteador.escolher('O que tem na minha pasta Documentos?')[1][0] != 'local'
+
+
+# — Rotas ————————————————————————————————————————————————————————————————————————
+
+def test_rotas_das_pastas_e_do_registro(pastas):
+    from fastapi.testclient import TestClient
+    from solis import main
+    docs, _ = pastas
+    c = TestClient(main.app)
+    assert c.get('/pc').json() == {'ligada': True, 'pastas': [str(docs.resolve())], 'disponivel': True}
+    assert c.put('/pc/pastas', json={'pastas': ['C:/nao/existe']}).status_code == 400
+    assert c.put('/pc/ligada', json={'ligada': False}).json()['disponivel'] is False
+    pc.executar('listar_pasta', {'caminho': 'Documentos'}, conversa=3)
+    registro = c.get('/pc/registro').json()
+    assert registro[0]['ferramenta'] == 'listar_pasta' and registro[0]['conversa'] == 3
+
+
+# — O laço das ferramentas, com um Ollama simulado ————————————————————————————
+
+def test_conversa_usa_ferramenta_e_responde(pastas):
+    import asyncio
+    import json
+
+    import httpx
+
+    from solis.etapas import Etapas
+
+    pedidos = []
+
+    def ollama_falso(request: httpx.Request) -> httpx.Response:
+        corpo = json.loads(request.content)
+        pedidos.append(corpo)
+        if len(pedidos) == 1:
+            assert corpo['tools'] and 'ler arquivos ou programas do computador' not in corpo['messages'][0]['content']
+            linhas = [{'message': {'content': '', 'tool_calls': [{'function': {
+                'name': 'ler_arquivo', 'arguments': {'caminho': 'Documentos/contratos/contrato-aluguel.txt'}}}]}, 'done': True}]
+        else:
+            # O resultado da ferramenta voltou como mensagem `tool`.
+            assert corpo['messages'][-1]['role'] == 'tool' and 'multa de 3' in corpo['messages'][-1]['content']
+            linhas = [{'message': {'content': 'A multa é de 3 aluguéis.'}, 'done': False}, {'message': {'content': ''}, 'done': True}]
+        return httpx.Response(200, content='\n'.join(json.dumps(l) for l in linhas).encode())
+
+    async def rodar():
+        etapas = Etapas(5)
+        fluxo = await ollama.conversar(
+            'qwen3:8b', [{'papel': 'pessoa', 'texto': 'qual a multa?'}], transporte=httpx.MockTransport(ollama_falso),
+            etapas=etapas, ferramentas=True, conversa=5,
+        )
+        return ''.join([p async for p in fluxo]), etapas.lista
+
+    texto, lista = asyncio.run(rodar())
+    assert texto == 'A multa é de 3 aluguéis.'
+    assert len(pedidos) == 2
+    usada = [e for e in lista if e['etapa'] == 'ferramenta']
+    assert usada == [{**usada[0], 'ferramenta': 'ler_arquivo', 'alvo': 'Documentos/contratos/contrato-aluguel.txt', 'ok': True}]
+    assert banco.acoes()[0]['conversa'] == 5
+
+
+def test_sem_ferramentas_o_pedido_nao_leva_tools(pastas):
+    import asyncio
+    import json
+
+    import httpx
+
+    corpos = []
+
+    def ollama_falso(request):
+        corpos.append(json.loads(request.content))
+        return httpx.Response(200, content=json.dumps({'message': {'content': 'oi'}, 'done': True}).encode())
+
+    async def rodar():
+        fluxo = await ollama.conversar('qwen3:8b', [{'papel': 'pessoa', 'texto': 'oi'}], transporte=httpx.MockTransport(ollama_falso))
+        return ''.join([p async for p in fluxo])
+
+    assert asyncio.run(rodar()) == 'oi'
+    assert 'tools' not in corpos[0]

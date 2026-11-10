@@ -26,6 +26,9 @@ TIMEOUT = httpx.Timeout(8.0, connect=2.0)
 # carrega o modelo na memória, e um 14B frio passa disso fácil. O limite vale
 # ENTRE pedaços — um modelo que travou no meio ainda é cortado, só que em 2 min.
 TIMEOUT_CONVERSA = httpx.Timeout(120.0, connect=2.0)
+# Rodadas de ferramenta numa resposta: na medição o qwen3:8b usou no máximo 4
+# (buscar, listar, listar, ler). Passou disso, ele está andando em círculo.
+RODADAS_MAX = 6
 
 # Quem o Solis é e, sobretudo, o que ele NÃO consegue fazer. O modelo não sabe
 # o que o app em volta dele faz: sem esta lista, perguntado se tem internet, ele
@@ -239,54 +242,92 @@ async def conversar(
     resumo: str | None = None,
     transporte: httpx.AsyncBaseTransport | None = None,
     etapas=MUDA,
+    ferramentas: bool = False,
+    conversa: int | None = None,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
+    Com `ferramentas`, o modelo pode ler os arquivos das pastas autorizadas
+    (pc.py), em rodadas, e cada uso vira a etapa `ferramenta`.
 
     O erro de conexão e o de modelo inexistente são levantados AQUI, antes do
     primeiro pedaço — depois que o streaming começa já não dá pra trocar o
     status da resposta HTTP. Um corte no meio só encerra o texto onde parou.
     """
-    corpo = {
-        'model': modelo,
-        'stream': True,
-        'messages': [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo)}]
-        + [{'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens],
-    }
+    mensagens_ollama = [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo, arquivos=ferramentas)}] + [
+        {'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens
+    ]
+    corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama}
+    if ferramentas:
+        from . import pc
+        corpo['tools'] = pc.FERRAMENTAS
     cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte)
-    try:
-        r = await cliente.send(cliente.build_request('POST', '/api/chat', json=corpo), stream=True)
-    except httpx.HTTPError as e:
-        await cliente.aclose()
-        raise OllamaIndisponivel() from e
 
-    if r.status_code == 404:
-        await r.aclose()
+    async def abrir():
+        try:
+            r = await cliente.send(cliente.build_request('POST', '/api/chat', json=corpo), stream=True)
+        except httpx.HTTPError as e:
+            raise OllamaIndisponivel() from e
+        if r.status_code == 404:
+            await r.aclose()
+            raise ModeloInexistente()
+        if not r.is_success:
+            await r.aclose()
+            raise OllamaIndisponivel()
+        return r
+
+    try:
+        r = await abrir()
+    except (OllamaIndisponivel, ModeloInexistente):
         await cliente.aclose()
-        raise ModeloInexistente()
-    if not r.is_success:
-        await r.aclose()
-        await cliente.aclose()
-        raise OllamaIndisponivel()
+        raise
 
     async def pedacos() -> AsyncIterator[str]:
+        nonlocal r
         pensou = False
         try:
-            # Um JSON por linha. Modelos que "pensam" (qwen3) mandam o raciocínio
-            # em `message.thinking`; só `content` é resposta, o resto fica de fora.
-            async for linha in r.aiter_lines():
-                if not linha:
-                    continue
-                parte = json.loads(linha)
-                if 'error' in parte:
-                    break
-                texto = parte.get('message', {}).get('content', '')
-                if parte.get('message', {}).get('thinking') and not pensou:
-                    etapas.marcar('pensando', cerebro='local')
-                    pensou = True
-                if texto:
-                    yield texto
-                if parte.get('done'):
-                    break
+            # Com as ferramentas (pc.py), uma resposta pode ter várias rodadas: o
+            # modelo pede uma ferramenta, ela roda aqui, o resultado volta como
+            # mensagem `tool`, e ele segue — até responder sem pedir nada.
+            for rodada in range(RODADAS_MAX + 1):
+                chamadas: list[dict] = []
+                dito = ''
+                # Um JSON por linha. Modelos que "pensam" (qwen3) mandam o raciocínio
+                # em `message.thinking`; só `content` é resposta, o resto fica de fora.
+                async for linha in r.aiter_lines():
+                    if not linha:
+                        continue
+                    parte = json.loads(linha)
+                    if 'error' in parte:
+                        break
+                    msg = parte.get('message', {})
+                    chamadas += msg.get('tool_calls') or []
+                    texto = msg.get('content', '')
+                    if msg.get('thinking') and not pensou:
+                        etapas.marcar('pensando', cerebro='local')
+                        pensou = True
+                    if texto:
+                        dito += texto
+                        yield texto
+                    if parte.get('done'):
+                        break
+                await r.aclose()
+                if not chamadas:
+                    return
+                if rodada == RODADAS_MAX:
+                    yield '\n\nParei de procurar: foram muitas tentativas seguidas sem chegar numa resposta.'
+                    return
+                from . import pc
+                mensagens_ollama.append({'role': 'assistant', 'content': dito, 'tool_calls': chamadas})
+                for c in chamadas:
+                    f = c.get('function') or {}
+                    nome, argumentos = f.get('name', ''), f.get('arguments') or {}
+                    saida, ok = await asyncio.to_thread(pc.rodar, nome, argumentos, conversa)
+                    etapas.marcar('ferramenta', ferramenta=nome, alvo=pc.alvo(argumentos), ok=ok)
+                    mensagens_ollama.append({'role': 'tool', 'content': saida, 'tool_name': nome})
+                try:
+                    r = await abrir()
+                except (OllamaIndisponivel, ModeloInexistente):
+                    return
         except httpx.HTTPError:
             pass
         finally:

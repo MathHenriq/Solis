@@ -17,9 +17,10 @@ privada (no histórico ou como trecho antigo), e o resumo de uma conversa que
 tenha qualquer coisa privada — não dá pra saber o que um resumo carrega.
 """
 import os
+import re
 from collections.abc import AsyncIterator
 
-from . import banco, cerebros, memoria, ollama
+from . import banco, cerebros, memoria, ollama, pc
 from .etapas import MUDA
 
 # Preferência do Matheus: os modelos mais fortes primeiro; o local quando a cota
@@ -93,12 +94,32 @@ class NinguemRespondeu(Exception):
         self.ordem, self.erros = ordem, erros
 
 
+# Pergunta sobre os arquivos do Matheus vai pro local: só ele tem as
+# ferramentas do PC (pc.py), e o que ele lê não sai da máquina. Regra escrita,
+# como a do privado: os nomes de arquivo e de pasta, e as coisas da vida dele
+# que costumam morar num arquivo ("meu contrato", "a reunião", "gastei").
+# PROVISÓRIO: conferida nas 22 frases da medição das ferramentas (tests/test_pc.py).
+_DO_PC = re.compile(
+    r'\b(arquivos?|pastas?|documentos?|planilhas?|pdfs?|readme|computador|meu pc|desktop|downloads)\b'
+    r'|\b[\w-]+\.(txt|md|pdf|csv|json|docx?|xlsx?|pptx?|py|ts|js)\b'
+    r'|\b(meu|minha|meus|minhas|do meu|da minha)\s+(contrato|aluguel|receita|receitas|notas?|projetos?|relat[oó]rios?|curr[ií]culo|extrato|boletos?|contas?|gastos?|planilha|apartamento|casa)\b'
+    r'|\b(reuni[aã]o|gastei|combinei|or[cç]amento|prot[oó]tipo)\b',
+    re.IGNORECASE,
+)
+
+
+def do_pc(texto: str) -> bool:
+    return bool(_DO_PC.search(texto))
+
+
 def escolher(texto: str) -> tuple[str, list[str], bool]:
     """(texto sem o comando, ordem a tentar, se foi forçado)."""
     primeira, _, resto = texto.strip().partition(' ')
     if primeira.lower() in COMANDOS and resto.strip():
         return resto.strip(), [COMANDOS[primeira.lower()]], True
     if memoria.eh_privado(texto):
+        return texto, ['local'], False
+    if pc.disponivel() and do_pc(texto):
         return texto, ['local'], False
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
@@ -137,7 +158,10 @@ async def responder(
                 if not modelo_local:
                     raise ollama.OllamaIndisponivel()
                 fluxo = await _primeira_palavra(
-                    await ollama.conversar(modelo_local, historico, memorias, trechos, resumo, etapas=etapas),
+                    await ollama.conversar(
+                        modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
+                        ferramentas=pc.disponivel(), conversa=conversa,
+                    ),
                     etapas,
                 )
             else:

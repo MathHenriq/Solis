@@ -198,6 +198,11 @@ export type Etapa = {
   /** O título que a conversa ganhou. */
   titulo?: string;
   cortada?: boolean;
+  /** Etapa `ferramenta`: qual (listar_pasta, buscar_arquivos, ler_arquivo), em
+   *  quê (o caminho ou a busca) e se deu certo. */
+  ferramenta?: string;
+  alvo?: string;
+  ok?: boolean;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
