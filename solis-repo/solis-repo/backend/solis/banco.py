@@ -287,6 +287,20 @@ MIGRACOES = [
         mostrado TEXT NOT NULL
     );
     """,
+    # 14 — o registro do que o Solis fez no computador (pc.py): cada ferramenta
+    # chamada, com o que foi pedido e a primeira linha do resultado.
+    """
+    CREATE TABLE acoes (
+        id         INTEGER PRIMARY KEY,
+        quando     TEXT NOT NULL,
+        conversa   INTEGER,
+        ferramenta TEXT NOT NULL,
+        argumentos TEXT NOT NULL,
+        resultado  TEXT NOT NULL,
+        ok         INTEGER NOT NULL
+    );
+    CREATE INDEX acoes_quando ON acoes (quando);
+    """,
 ]
 
 
@@ -1021,6 +1035,31 @@ def marcar_aviso(chave: str) -> None:
         c.execute('INSERT OR IGNORE INTO avisos (chave, mostrado) VALUES (?, ?)', (chave, _agora()))
         limite = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat(timespec='seconds')
         c.execute('DELETE FROM avisos WHERE mostrado < ?', (limite,))
+
+
+def registrar_acao(conversa: int | None, ferramenta: str, argumentos: dict, resultado: str, ok: bool) -> None:
+    """Uma linha no registro do que o Solis fez no computador. O de mais de 90
+    dias sai."""
+    with _con() as c:
+        c.execute(
+            'INSERT INTO acoes (quando, conversa, ferramenta, argumentos, resultado, ok) VALUES (?, ?, ?, ?, ?, ?)',
+            (_agora(), conversa, ferramenta, json.dumps(argumentos, ensure_ascii=False), resultado, int(ok)),
+        )
+        limite = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat(timespec='seconds')
+        c.execute('DELETE FROM acoes WHERE quando < ?', (limite,))
+
+
+def acoes(limite: int = 50) -> list[dict]:
+    """O registro, do mais novo pro mais antigo."""
+    linhas = _con().execute(
+        'SELECT id, quando, conversa, ferramenta, argumentos, resultado, ok FROM acoes ORDER BY id DESC LIMIT ?',
+        (limite,),
+    ).fetchall()
+    return [
+        {'id': l[0], 'quando': l[1], 'conversa': l[2], 'ferramenta': l[3], 'argumentos': json.loads(l[4]),
+         'resultado': l[5], 'ok': bool(l[6])}
+        for l in linhas
+    ]
 
 
 def escaneado_pendente() -> dict | None:

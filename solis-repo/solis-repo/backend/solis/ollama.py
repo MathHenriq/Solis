@@ -128,8 +128,27 @@ def _fonte(arquivo: dict) -> str:
     return f'{arquivo["nome"]}, pág. {arquivo["pagina"]}' if arquivo.get('pagina') else arquivo['nome']
 
 
-def sistema(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
-    return f'{SISTEMA}\n\n{contexto(memorias, trechos, resumo)}'
+# Com a ferramenta Arquivos ligada (pc.py), a frase do que ele NÃO pode muda:
+# com ela no lugar, o qwen3:8b respondia "não tenho acesso a arquivos" sem
+# tentar (4 de 12 perguntas sobre arquivos, medido).
+NAO_PODE = 'acessar a internet e ler arquivos ou programas do computador.'
+NAO_PODE_COM_ARQUIVOS = (
+    'acessar a internet, rodar programas e criar, mudar ou apagar arquivos. Ler arquivos você '
+    'pode, nas pastas que o Matheus autorizou.'
+)
+
+
+def sistema(
+    memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None, arquivos: bool = False,
+) -> str:
+    if not arquivos:
+        return f'{SISTEMA}\n\n{contexto(memorias, trechos, resumo)}'
+    from . import pc
+    base = SISTEMA.replace(NAO_PODE, NAO_PODE_COM_ARQUIVOS).replace(
+        'Quando não souber algo, diga que não sabe.',
+        'Quando não souber algo da vida dele, procure nos arquivos; se não achar, diga que não sabe.',
+    )
+    return f'{base}\n\n{pc.INSTRUCAO}\n\n{contexto(memorias, trechos, resumo)}'
 
 
 PAPEIS = {'pessoa': 'user', 'solis': 'assistant'}
