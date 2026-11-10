@@ -141,6 +141,16 @@
   /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */
   --tf-data-l: 148px;
   --tf-hora-l: 104px;
+  /* Chamada (o Solis aparecendo) - desenho proprio, PROVISORIO. Ver layout.chamada. */
+  --ch-simbolo: 112px;
+  --ch-baixo: 22vh;
+  --ch-anel-traco: 1.5px;
+  --ch-horizonte-l: 220px;
+  --ch-legenda-max: 520px;
+  --ch-entrada: 640ms;
+  --ch-saida: 480ms;
+  --ch-onda: 2400ms;
+  --ch-onda-passo: 800ms;
   /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */
   --ag-recuo: 24px;
   --ag-linha-x: 80px;

@@ -320,3 +320,63 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .solis-ouvindo > svg { animation: none; }
 }
+
+/* A chamada (src/components/Chamada.tsx): o Solis aparecendo quando é chamado.
+   PROVISÓRIO — desenho próprio, números e porquês em layout.chamada. Só
+   transform e opacity. O símbolo tem 384,91 × 220,85 no desenho: a altura dele
+   é 0,5738 da largura, e o centro do sol fica em 50% × 76% da caixa. */
+.solis-chamada {
+  position: fixed; left: 0; right: 0; bottom: var(--ch-baixo); z-index: 50;
+  display: flex; flex-direction: column; align-items: center;
+}
+/* Com a sidebar, centrada na área do conteúdo, como a tela embaixo dela. */
+.solis-chamada[data-sidebar] { left: var(--sidebar-width); }
+.solis-chamada-palco {
+  position: relative; overflow: hidden;
+  width: calc(var(--ch-simbolo) * 2.3);
+  height: calc(var(--ch-simbolo) * 1.05);
+}
+.solis-chamada-sol, .solis-chamada-aneis {
+  position: absolute; bottom: 0; left: 50%; width: var(--ch-simbolo); margin-left: calc(var(--ch-simbolo) / -2);
+}
+.solis-chamada-sol { animation: solis-nascer var(--ch-entrada) cubic-bezier(.2, .7, .2, 1) both; }
+.solis-chamada-aneis { height: calc(var(--ch-simbolo) * 0.5738); transition: opacity 400ms ease-out; }
+.solis-chamada-anel {
+  position: absolute; inset: 0; transform-origin: 50% 76%; opacity: 0;
+  animation: solis-onda var(--ch-onda) ease-out infinite;
+  will-change: transform, opacity;
+}
+.solis-chamada-anel > svg { display: block; width: 100%; height: auto; overflow: visible; }
+.solis-chamada-anel path { fill: none; stroke: var(--accent); stroke-width: var(--ch-anel-traco); vector-effect: non-scaling-stroke; }
+.solis-chamada-horizonte {
+  width: var(--ch-horizonte-l); height: 1px; margin-top: -1px;
+  background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
+  animation: solis-horizonte var(--ch-entrada) cubic-bezier(.2, .7, .2, 1) both;
+}
+.solis-chamada-legenda {
+  margin-top: 14px; max-width: var(--ch-legenda-max); padding: 0 16px; text-align: center;
+  font-size: var(--cfg-dica); color: var(--text-secondary);
+  animation: solis-legenda 300ms ease-out both;
+}
+/* Fora do ouvindo, as ondas param (o nível deixa de escrever e o CSS assume). */
+.solis-chamada:not([data-fase="ouvindo"]) .solis-chamada-aneis { opacity: 0; }
+.solis-chamada[data-fase="saindo"] .solis-chamada-sol { animation: solis-por var(--ch-saida) cubic-bezier(.5, 0, .75, 0) both; }
+.solis-chamada[data-fase="saindo"] .solis-chamada-horizonte { animation: solis-horizonte-sai var(--ch-saida) ease-in both; }
+.solis-chamada[data-fase="saindo"] .solis-chamada-legenda { opacity: 0; transition: opacity var(--ch-saida) ease-in; }
+@keyframes solis-nascer { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes solis-por { from { transform: none; opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+@keyframes solis-horizonte { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes solis-horizonte-sai { from { transform: none; opacity: 1; } to { transform: scaleX(0); opacity: 0; } }
+@keyframes solis-onda {
+  0% { opacity: 0; transform: scale(.86); }
+  30% { opacity: .55; }
+  100% { opacity: 0; transform: scale(1.06); }
+}
+@keyframes solis-legenda { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  /* Sem ondas nem nascer: os anéis ficam parados e fracos, e o nível continua
+     dito pela intensidade (nivel.ts). Sem isto, a regra global (0,01 ms)
+     faria as ondas piscarem. */
+  .solis-chamada-anel { animation: none; opacity: .35; transform: none; }
+  .solis-chamada-sol, .solis-chamada-horizonte { animation: none; }
+}

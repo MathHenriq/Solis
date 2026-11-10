@@ -1,9 +1,11 @@
 import { useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
+import { Chamada } from './components/Chamada';
 import { Horizonte } from './components/Horizonte';
 import { GavetaConversas, type PropsLista } from './components/ListaConversas';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
+import { useChamada } from './chamada';
 import { useConversa } from './conversa';
 import { useEscuta } from './escuta';
 import { falaAutomatica, respostaFalada } from './fala';
@@ -37,8 +39,12 @@ export default function App() {
     definirTela('conversa');
     respostaFalada.proxima = falaAutomatica();
     conversa.enviar(texto);
+    chamada.enviado(texto);
   });
   const ouvindo = escuta.estado === 'ouvindo';
+  // O Solis aparecendo quando é chamado (components/Chamada.tsx).
+  const ultimo = conversa.turnos[conversa.turnos.length - 1];
+  const chamada = useChamada(escuta.estado, conversa.respondendo, !!(ultimo?.de === 'solis' && ultimo.texto));
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
@@ -95,6 +101,7 @@ export default function App() {
       {!comSidebar && <GavetaConversas {...lista} visivel={gaveta} aoFechar={() => definirGaveta(false)} />}
       {(TELAS[tela] ?? TELAS.conversa)()}
       {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
+      {chamada.fase && <Chamada fase={chamada.fase} legenda={chamada.legenda} comSidebar={comSidebar} />}
     </div>
   );
 }

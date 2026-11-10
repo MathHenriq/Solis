@@ -200,6 +200,13 @@ w('  /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */')
 tf = T['layout']['tarefas']
 for chave, var in [('dateWidth', '--tf-data-l'), ('timeWidth', '--tf-hora-l')]:
     w('  %s: %s;' % (var, tf[chave]))
+w('  /* Chamada (o Solis aparecendo) - desenho proprio, PROVISORIO. Ver layout.chamada. */')
+ch = T['layout']['chamada']
+for chave, var in [('symbol', '--ch-simbolo'), ('bottom', '--ch-baixo'), ('ringStroke', '--ch-anel-traco'),
+                   ('horizonWidth', '--ch-horizonte-l'), ('captionMax', '--ch-legenda-max')]:
+    w('  %s: %s;' % (var, ch[chave]))
+for chave, var in [('enterMs', '--ch-entrada'), ('exitMs', '--ch-saida'), ('waveMs', '--ch-onda'), ('waveStaggerMs', '--ch-onda-passo')]:
+    w('  %s: %sms;' % (var, ch[chave]))
 w('  /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */')
 ag = T['layout']['agenda']
 for chave, var in [('listIndent', '--ag-recuo'), ('lineX', '--ag-linha-x'), ('titleX', '--ag-titulo-x'),

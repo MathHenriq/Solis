@@ -507,6 +507,24 @@
       "activeTintClaro": "rgb(0 0 0 / 0.076)",
       "_tints": "Hover: o --mem-hover-forte que ja existe. Aberta: 10%, o mesmo veu medido pra conversa aberta na 19."
     },
+    "chamada": {
+      "_status": "PROVISORIO - desenho proprio (10/11/2026), aguardando aprovacao pelos prints. Base: os estados do simbolo ja aprovados (states.glow, states.motion, o brilho reativo) e os aneis da arte antiga do estado escutando (referencias/brand/_legado/states/solis-state-rings-strong.png), que o Matheus lembrou como a animacao que estava sendo criada.",
+      "_ideia": "Chamado pela palavra Solis, o sol nasce da linha do horizonte (a linha cresce do centro, o simbolo sobe de tras dela), os aneis se abrem em ondas e o brilho segue a voz; pensando, as ondas param e o brilho respira devagar (thinking); respondendo, o brilho acompanha (responding), e a frase ouvida fica embaixo como legenda; no fim, o sol se poe. So transform e opacity.",
+      "symbol": "112px",
+      "_symbol": "Entre o logo (60px) e a folha de estados (190px): visivel de longe sem virar um cartaz.",
+      "bottom": "22vh",
+      "_bottom": "No app web, acima da caixa de mensagem da Conversa. Na janela por cima de tudo do Tauri (PLANO.md), vira a posicao da janela.",
+      "ringRadii": [178, 214, 250],
+      "_ringRadii": "Em unidades do desenho do simbolo (largura 384,91): o arco de fora do simbolo tem raio ~144 em volta do sol; os aneis comecam um vao depois dele e seguem o espacamento da arte antiga (3 aneis com o mesmo passo).",
+      "ringStroke": "1.5px",
+      "horizonWidth": "220px",
+      "captionMax": "520px",
+      "enterMs": 640,
+      "exitMs": 480,
+      "waveMs": 2400,
+      "waveStaggerMs": 800,
+      "_tempos": "A entrada e um pouco mais lenta que a saida (o nascer tem peso, o por so sai do caminho). A onda dura 1,5x o ciclo do listening (1,6s), com um anel saindo a cada 800 ms: tres no ar ao mesmo tempo."
+    },
     "conversa": {
       "topPadding": "298px",
       "subtitleGap": "21px",
