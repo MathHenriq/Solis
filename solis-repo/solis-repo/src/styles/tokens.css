@@ -239,6 +239,10 @@
   --et-chip-top: 12px;
   --et-chip-borda: 53%;
   --et-chip-fundo: 6%;
+  --et-apr-py: 12px;
+  --et-apr-px: 16px;
+  --et-apr-raio: 8px;
+  --et-apr-gap: 16px;
   /* Lista de conversas na sidebar. Ver layout.recentes no JSON (PROVISORIO). */
   --rc-topo: 18px;
   --rc-recuo: 12px;

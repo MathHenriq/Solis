@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { depois, duracao, passos, segundos, type EtapaRecebida, type Passo } from '../etapas';
+import { aprovacoesPendentes, depois, duracao, passos, segundos, type EtapaRecebida, type Passo } from '../etapas';
+import { responderAprovacao, type Etapa } from '../servidor';
+import { Botao } from './Controles';
 import { Icone } from './icons';
 
 /** O que o Solis está fazendo enquanto responde, e o que fez depois.
@@ -11,7 +13,8 @@ import { Icone } from './icons';
  *      anel — embaixo do cabeçalho, enquanto ainda não há texto;
  *    - `DobraEtapas`: a linha recolhida "4 etapas · 3,1 s" ACIMA do cabeçalho,
  *      depois que o texto começou; abre a lista;
- *    - `AvisosDepois`: os chips de "Memória guardada" embaixo da resposta. */
+ *    - `AvisosDepois`: os chips de "Memória guardada" embaixo da resposta;
+ *    - `CartoesAprovacao`: o que o Claude quer fazer e precisa do Matheus. */
 
 /** O relógio da etapa atual anda de segundo em segundo enquanto há etapa viva.
  *  É estado, não animação: um re-render por segundo, nada em loop no CSS. */
@@ -150,6 +153,94 @@ export function AvisosDepois({ etapas }: { etapas: EtapaRecebida[] }) {
           <Icone nome="feito" tamanho={14} className="text-accent shrink-0" />
           <span className="truncate">{a}</span>
         </span>
+      ))}
+    </div>
+  );
+}
+
+/** O que o Claude quer fazer, dito pelo Matheus — o título do cartão. */
+const QUER: Record<string, string> = {
+  Write: 'O Claude quer criar ou reescrever um arquivo',
+  Edit: 'O Claude quer editar um arquivo',
+  MultiEdit: 'O Claude quer editar um arquivo',
+  NotebookEdit: 'O Claude quer editar um notebook',
+  Bash: 'O Claude quer rodar um comando no terminal',
+  PowerShell: 'O Claude quer rodar um comando no terminal',
+  Read: 'O Claude quer ler fora das pastas autorizadas',
+  Glob: 'O Claude quer procurar fora das pastas autorizadas',
+  Grep: 'O Claude quer procurar fora das pastas autorizadas',
+  LS: 'O Claude quer olhar fora das pastas autorizadas',
+};
+
+/** PROVISÓRIO — desenho próprio, sem referência (layout.thread.etapas._approval
+ *  no solis-tokens.json): precisa do aval do Matheus nos 3 temas e 2 navs.
+ *  Um cartão por pedido; some quando a resposta chega do servidor (a etapa
+ *  `aprovacao_resposta`), e o que foi respondido vira um passo da lista. */
+function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
+  const [enviando, definirEnviando] = useState(false);
+  const [falhou, definirFalhou] = useState(false);
+  const responder = async (aprovar: boolean) => {
+    definirEnviando(true);
+    definirFalhou(false);
+    // Deu certo: o cartão some quando a etapa de resposta chegar pelo stream.
+    if (!(await responderAprovacao(pedido.id ?? '', aprovar))) {
+      definirFalhou(true);
+      definirEnviando(false);
+    }
+  };
+  const titulo = QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`;
+  return (
+    <div
+      role="group"
+      aria-label={titulo}
+      className="flex items-center"
+      style={{
+        maxWidth: 'var(--th-texto-max)',
+        gap: 'var(--et-apr-gap)',
+        padding: 'var(--et-apr-py) var(--et-apr-px)',
+        borderRadius: 'var(--et-apr-raio)',
+        border: '1px solid color-mix(in srgb, var(--accent) var(--et-chip-borda), transparent)',
+        background: 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)',
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="text-text-primary" style={{ fontSize: 'var(--et-texto)' }}>
+          {titulo}
+        </div>
+        {pedido.alvo && (
+          <div
+            title={pedido.alvo}
+            className="text-text-secondary font-mono truncate"
+            style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}
+          >
+            {pedido.alvo}
+          </div>
+        )}
+        {falhou && (
+          <div className="text-[var(--erro)]" style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}>
+            Não consegui responder: o pedido já acabou ou o servidor caiu.
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
+        <Botao onClick={() => responder(false)} disabled={enviando}>
+          Recusar
+        </Botao>
+        <Botao tipo="destaque" onClick={() => responder(true)} disabled={enviando}>
+          Aprovar
+        </Botao>
+      </div>
+    </div>
+  );
+}
+
+export function CartoesAprovacao({ etapas }: { etapas: EtapaRecebida[] }) {
+  const pendentes = aprovacoesPendentes(etapas);
+  if (!pendentes.length) return null;
+  return (
+    <div className="flex flex-col" style={{ marginTop: 'var(--et-chip-top)', gap: 8 }}>
+      {pendentes.map((p) => (
+        <CartaoAprovacao key={p.id} pedido={p} />
       ))}
     </div>
   );

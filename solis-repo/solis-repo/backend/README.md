@@ -40,6 +40,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /conversas/{id}` | uma conversa, com as mensagens. `404` se não existir |
 | `POST /conversas` | cria uma conversa vazia e devolve o `id` |
 | `POST /conversas/{id}/mensagens` | `{"modelo", "texto"}` → guarda a mensagem, decide quem responde (modelo local, Claude ou Codex) e devolve eventos em NDJSON, um por linha: as etapas (ver abaixo), os pedaços do texto e, se ninguém responder, o erro. A resposta é guardada inteira mesmo se a janela fechar no meio. `404` se a conversa não existir; os outros erros chegam como o último evento: `{"erro": "ollama_indisponivel"}`, `{"erro": "modelo_inexistente"}` ou `{"erro": "cerebro_indisponivel", "cerebro": "Claude"}` (o cérebro pedido com `/claude` ou `/codex` falhou) |
+| `POST /aprovacoes/{id}` | `{"aprovar": true\|false}` → responde o cartão em que o Claude pediu pra escrever, editar, rodar comando ou ler fora das pastas autorizadas (etapa `aprovacao`). `404` (`aprovacao_inexistente`) se o pedido já foi respondido ou passou dos 10 minutos |
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |
 | `DELETE /memorias/{id}` | esquece uma memória. Se ela tinha substituído outra, a antiga volta a valer |
@@ -177,8 +178,18 @@ Cérebros.
   antigo) e o resumo de uma conversa que tenha algo privado.
 - **Extração de memória, vetores e resumo rodam sempre no modelo local**, qualquer que seja
   quem respondeu: leem o que é privado e não podem gastar cota.
-- Os CLIs rodam sem ferramentas (`--tools ""` no Claude, `--sandbox read-only` no Codex), numa
-  pasta vazia do Solis. O prompt vai pela entrada padrão, nunca pela linha de comando.
+- **O Claude responde pelo Claude Agent SDK, com ferramentas** (`solis/agente.py`, 11/11/2026 — o
+  primeiro marco do `docs/VISAO.md`): ler, escrever e editar arquivos, terminal, pesquisar e ler
+  na web, subagentes, e as do próprio Solis por MCP no processo (`mcp__solis__`: hora,
+  criar_lembrete, marcar_compromisso, ver_agenda, ver_tarefas, buscar_memoria — sem o que é
+  privado). Livre: a web, as do Solis e ler/buscar dentro das pastas autorizadas (Ferramentas →
+  Arquivos) e da pasta de trabalho (`%APPDATA%\Solis	rabalho`, onde ele roda). Pede aprovação
+  num cartão na conversa: escrever, editar, rodar comando, ler fora das pastas e o resto; sem
+  resposta em 10 minutos, é recusado. Cada resposta vai pro registro (`acoes`). O SDK roda numa
+  thread com laço Proactor (o do uvicorn com `--reload` não abre processos). Login: a conta do
+  Matheus, pelo mesmo CLI. `SOLIS_CLAUDE_AGENTE=0` volta ao CLI só de conversa (`--tools ""`).
+- O Codex roda sem ferramentas (`--sandbox read-only`), numa pasta vazia do Solis. O prompt vai
+  pela entrada padrão, nunca pela linha de comando.
 - Custo de tempo: cada mensagem sobe um processo do CLI. Medido no notebook (1º/11/2026), do
   pedido à primeira palavra: Claude 4,5 a 5,3 s, Codex 3,9 a 7,1 s, modelo local carregado 0,1 s.
   As etapas de cada resposta ficam no log (abaixo) — é lá que se vê onde foi o tempo.
@@ -197,6 +208,9 @@ mesmos eventos vão pra tela (no stream) e pro log do servidor — no terminal e
 | `primeira_linha` | o CLI escreveu a primeira linha — já subiu | `cerebro` |
 | `pensando` | o modelo começou a raciocinar (Claude, qwen3) | `cerebro` |
 | `primeira_palavra` | a primeira palavra da resposta chegou | `cerebro` |
+| `ferramenta` | uma ferramenta foi usada (pc.py no local; as do Claude pelo agente) | `ferramenta`, `alvo`, `ok` |
+| `aprovacao` | o Claude quer fazer algo que pede o Matheus: a tela mostra o cartão | `id`, `ferramenta`, `resumo`, `alvo` |
+| `aprovacao_resposta` | o Matheus respondeu o cartão (ou passou o tempo) | `id`, `aprovado` |
 | `queda` | este cérebro falhou; vai o próximo | `cerebro`, `motivo` |
 | `fim` | a resposta terminou; a tela libera o campo | `cerebro`, `cortada` se caiu no meio |
 | `titulo` | depois da resposta, só na primeira vez: o título que a conversa ganhou | `titulo` |

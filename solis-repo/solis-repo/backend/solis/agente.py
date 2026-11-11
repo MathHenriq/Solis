@@ -159,7 +159,8 @@ async def _decidir(nome: str, entrada: dict, por):
     id_ = uuid.uuid4().hex[:12]
     fut: concurrent.futures.Future = concurrent.futures.Future()
     _pendentes[id_] = fut
-    por('etapa', ('aprovacao', {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada)}))
+    por('etapa', ('aprovacao', {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
+                                'alvo': _alvo(nome, entrada, 1000)}))
     try:
         ok = await asyncio.wait_for(asyncio.wrap_future(fut), APROVACAO_MAX_S)
     except asyncio.TimeoutError:
@@ -237,10 +238,11 @@ async def _sessao(sistema: str, prompt: str, por) -> None:
                 por('custo', {'usd': m.total_cost_usd, 'turnos': m.num_turns, 'sessao': m.session_id})
 
 
-def _alvo(nome: str, entrada: dict) -> str:
-    for chave in ('file_path', 'path', 'pattern', 'query', 'url', 'command', 'description', 'texto', 'titulo', 'busca'):
+def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
+    for chave in ('file_path', 'notebook_path', 'path', 'pattern', 'query', 'url', 'command', 'description',
+                  'texto', 'titulo', 'busca'):
         if entrada.get(chave):
-            return str(entrada[chave])[:160]
+            return str(entrada[chave])[:limite]
     return ''
 
 

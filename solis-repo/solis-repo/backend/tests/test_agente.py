@@ -76,6 +76,7 @@ def test_ler_dentro_e_livre_e_fora_pede(pastas):
     resultado, mandados = _decidir('Read', {'file_path': 'C:/Windows/win.ini'}, responder=False)
     assert isinstance(resultado, PermissionResultDeny)
     assert mandados[0][1][0] == 'aprovacao' and mandados[0][1][1]['ferramenta'] == 'Read'
+    assert mandados[0][1][1]['alvo'] == 'C:/Windows/win.ini'
 
 
 def test_escrever_aprovado_e_registrado():

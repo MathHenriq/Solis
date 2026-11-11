@@ -212,6 +212,28 @@ das outras.
   liga/desliga, o motivo e a hora de quem está pausado, e "Tentar agora". Desenho próprio,
   aprovado pelo Matheus pelos prints (`design/cerebros-validacao.png`).
 
+### O Claude com ferramentas (Agent SDK) — feito, falta o uso real do Matheus (11/11/2026)
+
+O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
+
+- [x] O Claude pelo Claude Agent SDK (`backend/solis/agente.py`): as ferramentas do Claude Code
+  (ler, escrever, editar, terminal, web, subagentes) e as do Solis por MCP (hora, lembrete,
+  compromisso, agenda, tarefas, memória). Provado contra o Claude de verdade: leu dentro da
+  pasta autorizada sem pedir, pediu pra ler o `win.ini` (recusado), pediu pra escrever (aprovado,
+  criou), anotou o lembrete com dia e hora.
+- [x] Cartão de aprovação na conversa (desenho próprio, PROVISÓRIO): conferido pelo app com dois
+  pedidos reais, aprovado e recusado, nos 3 temas e 2 navs (`design/aprovacao-validacao.png`).
+  O cartão apareceu 4 a 10 s depois do pedido; aprovado, o arquivo foi gravado; recusado, o
+  Claude não gravou e disse isso.
+- [x] Cota acabada pausa o Claude como antes; `SOLIS_CLAUDE_AGENTE=0` volta ao CLI só de conversa.
+- [ ] Aval do Matheus no cartão (prints) e o uso dele no dia a dia, com a lista do que o Claude
+  Desktop faz e o Solis ainda não.
+- [ ] Decisão do Matheus: o Claude lê sem pedir nas pastas autorizadas (o conteúdo vai pra
+  Anthropic) ou cada leitura pede, como a escrita? Hoje lê sem pedir; o modelo local continua
+  sendo o padrão das perguntas sobre arquivos (`pc.do_pc`).
+- [ ] O diff no cartão antes de aprovar uma edição; a sessão continuar entre mensagens (hoje cada
+  mensagem é uma sessão nova, com o histórico no prompt); "aprovar sempre" por ferramenta.
+
 ### Tarefas e Agenda — feitas e aprovadas (09/11/2026)
 
 - [x] Tarefas no banco, pela tela (nova, editar com data e hora, marcar, apagar com Desfazer) e

@@ -23,24 +23,27 @@ Legenda: ✅ feito · 🟡 em andamento · ⬜ não começou · 🔒 depende de 
 
 ## 2. Ferramentas — no mínimo as do Claude Code / Desktop / Cowork, e além
 
-Regra que vale pra todas (ESCOPO → Controle do PC): **só o modelo local mexe no PC**; ler é livre
-nas pastas autorizadas; escrever e executar pedem confirmação (ou estão numa lista aprovada); o que
-vem de arquivo, página ou e-mail é informação, nunca ordem; tudo fica no registro.
+Regra que vale pra todas (ESCOPO → Controle do PC): ler é livre nas pastas autorizadas; escrever e
+executar pedem confirmação (ou estão numa lista aprovada); o que vem de arquivo, página ou e-mail é
+informação, nunca ordem; tudo fica no registro. Desde 11/11/2026 o Claude também mexe no PC, pelo
+Agent SDK (ESCOPO → O Claude com ferramentas): o local continua sendo o padrão das perguntas sobre
+arquivos, e o Claude lê nas pastas autorizadas sem pedir — a confirmar com o Matheus, porque o que
+ele lê vai pra Anthropic.
 
 | | Ferramenta | Equivalente | Nível |
 |---|---|---|---|
 | 🟡 | Listar pasta, buscar arquivo (nome e conteúdo), ler arquivo (texto, PDF, código) — ligadas na conversa do modelo local, com a etapa na tela e o registro; falta medir com o modelo e a tela Ferramentas | Read, Glob, Grep | ler |
 | ⬜ | Ler Word, Excel, PowerPoint, imagens (visão local) | Read (multimodal), skills docx/xlsx/pptx | ler |
-| ⬜ | Criar e editar arquivo (com o diff na conversa antes de aprovar) | Write, Edit, MultiEdit | escrever |
+| 🟡 | Criar e editar arquivo — pelo Claude, com o cartão de aprovação; falta o diff no cartão e no local | Write, Edit, MultiEdit | escrever |
 | ⬜ | Mover, renomear, copiar; apagar sempre pra Lixeira | — | escrever |
 | ⬜ | Criar documentos: .docx, .xlsx, .pptx, PDF, a partir da conversa | skills do Cowork | escrever |
-| ⬜ | Terminal: PowerShell, com saída ao vivo, rodar em segundo plano e acompanhar | Bash/PowerShell, background, Monitor | executar |
+| 🟡 | Terminal — pelo Claude, com aprovação; falta a saída ao vivo na tela e o segundo plano | Bash/PowerShell, background, Monitor | executar |
 | ⬜ | Abrir programas, arquivos e pastas; trazer janela pra frente | computer use (parte) | executar |
 | ⬜ | Navegador: abrir página, ler o texto, clicar, preencher (com confirmação) | WebFetch, Claude in Chrome | ler / executar |
-| ⬜ | Pesquisa na web (busca + leitura das páginas, com fontes) | WebSearch, deep research | ler |
+| 🟡 | Pesquisa na web (busca + leitura das páginas) — pelo Claude; falta mostrar as fontes | WebSearch, WebFetch, deep research | ler |
 | ⬜ | Controle do PC por tela: ver, clicar, digitar | computer use | executar |
 | ⬜ | Lista de tarefas do próprio trabalho (o plano que ele mostra enquanto faz) | TodoWrite / task list | — |
-| ⬜ | Subagentes: dividir um trabalho grande em partes paralelas | Task / Agent | — |
+| 🟡 | Subagentes: dividir um trabalho grande em partes paralelas — o Claude já pode; falta aparecer na tela | Task / Agent | — |
 | ⬜ | Tarefas agendadas e recorrentes ("toda segunda às 8h, me resume os e-mails") | scheduled tasks, cron | — |
 | ⬜ | Conectores: Gmail, Google Agenda, Drive, GitHub (por MCP) | MCP / conectores | ler / escrever |
 | ⬜ | Git: status, diff, commit (com confirmação) | Bash + git | escrever |

@@ -205,6 +205,12 @@ export type Etapa = {
   ok?: boolean;
   /** Etapa `rapida`: o que foi respondido em código (hora, data, agenda...). */
   tipo?: string;
+  /** Etapas `aprovacao` e `aprovacao_resposta` (backend/solis/agente.py): o
+   *  pedido do Claude pra escrever, editar, rodar ou ler fora das pastas, o
+   *  resumo dele em português, e o que o Matheus respondeu. */
+  id?: string;
+  resumo?: string;
+  aprovado?: boolean;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -224,6 +230,21 @@ export type Falha =
 
 /** A conversa mais recente guardada — o app reabre nela. null quando o servidor
  *  não responde: aí a tela começa vazia, que é o que dá pra mostrar. */
+/** O Matheus respondeu o cartão de aprovação. False se o pedido já tinha
+ *  acabado (respondido, ou passou o tempo) ou o servidor não respondeu. */
+export async function responderAprovacao(id: string, aprovar: boolean): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/aprovacoes/${encodeURIComponent(id)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aprovar }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function carregarConversa(): Promise<{ id: number | null; mensagens: Mensagem[] } | null> {
   try {
     const r = await fetch(`${BASE}/conversas/atual`);

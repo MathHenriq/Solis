@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { AvisosDepois, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
+import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
@@ -237,6 +237,7 @@ function RespostaSolis({
               </div>
             </div>
           )}
+          {vivo && <CartoesAprovacao etapas={etapas} />}
           <AvisosDepois etapas={etapas} />
         </div>
       </div>

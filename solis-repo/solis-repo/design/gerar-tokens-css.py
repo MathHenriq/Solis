@@ -256,7 +256,10 @@ for chave, var in [('textSize','--et-texto'), ('rowPitch','--et-passo'), ('textI
                    ('chipHeight','--et-chip-h'), ('chipTextSize','--et-chip-texto'),
                    ('chipPadX','--et-chip-px'), ('chipIconGap','--et-chip-icone-gap'),
                    ('chipRadius','--et-chip-raio'), ('chipTop','--et-chip-top'),
-                   ('chipBorderMix','--et-chip-borda'), ('chipFillMix','--et-chip-fundo')]:
+                   ('chipBorderMix','--et-chip-borda'), ('chipFillMix','--et-chip-fundo'),
+                   # PROVISÓRIO: o cartão de aprovação do agente (desenho próprio).
+                   ('approvalPadY','--et-apr-py'), ('approvalPadX','--et-apr-px'),
+                   ('approvalRadius','--et-apr-raio'), ('approvalGap','--et-apr-gap')]:
     w('  %s: %s;' % (var, et[chave]))
 w('  /* Lista de conversas na sidebar. Ver layout.recentes no JSON (PROVISORIO). */')
 rc = T['layout']['recentes']

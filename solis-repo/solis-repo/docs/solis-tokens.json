@@ -473,6 +473,11 @@
         "_chip": "Caixa da borda 374-845 x 371-408 (38px de altura). Texto: M com 12px de caixa alta e e com 9px de x-height (0,75 do corpo). Check a 17px da borda, texto 15px depois do check, 16px de folga a direita. Canto com ~8px de raio. Da linha de base da ultima linha da resposta ao topo do chip, 27px na imagem = 20px; a caixa da linha do corpo (16px x 1,55) ja poe 8px abaixo da base, entao a margem e 12px (conferido no app: 20px base-chip).",
         "chipBorderMix": "53%",
         "chipFillMix": "6%",
+        "approvalPadY": "12px",
+        "approvalPadX": "16px",
+        "approvalRadius": "8px",
+        "approvalGap": "16px",
+        "_approval": "PROVISORIO - desenho proprio (11/11/2026), sem referencia: o cartao em que o Claude pede pra escrever, editar, rodar comando ou ler fora das pastas autorizadas. Base: o pedido de permissao do Claude Desktop (um cartao discreto na conversa, o que vai ser feito em uma linha, os botoes a direita). Borda e fundo sao os do chip (chipBorderMix, chipFillMix) pra ser da mesma familia do 'Memoria guardada'; raio 8 = o do botao (layout.memoria.acoes), padding 12 = o do chip na vertical e 16 = o passo de spacing.md na horizontal, gap 16 entre o texto e os botoes. Texto: 14px (o das etapas) no que ele quer fazer e 13px (o da dobra) no caminho ou comando. Precisa do aval do Matheus nos 3 temas e 2 navs.",
         "_chipCor": "Borda #876122 contra o accent #F5BF34 da imagem sobre fundo #04050A: 53% de accent. Dentro #120F0E contra fora #04050A: ~6% de accent. Guardados como mistura com o accent do tema, nao como hex."
       }
     },
