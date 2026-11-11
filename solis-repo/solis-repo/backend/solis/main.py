@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, pc, resumo, roteador, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, pc, rapidas, resumo, roteador, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -275,6 +275,23 @@ async def _responder(
 ) -> None:
     resposta_id = None
     try:
+        # O básico (hora, data, lembrete, agenda, tarefas) sai em código, antes
+        # de tudo: sem busca na memória e sem modelo (rapidas.py). Comando na
+        # frente ("/claude que horas são") manda no lugar disso.
+        rapida = None if forcado else rapidas.responder(texto, datetime.now())
+        if rapida:
+            t = rapida['tarefa']
+            if t:
+                banco.adicionar_tarefa(t['texto'], t['prazo'], t['hora'], conversa, privada=rapida['privada'])
+            etapas.marcar('rapida', tipo=rapida['tipo'])
+            etapas.texto(rapida['texto'])
+            resposta_id = banco.adicionar(conversa, 'solis', rapida['texto'], privada=rapida['privada'], cerebro='solis')
+            etapas.marcar('fim', cerebro='solis')
+            if t:
+                # A mesma etapa do aprendizado: a tela mostra "Tarefa anotada".
+                etapas.marcar('aprendizado', novas=0, textos=[], tarefas=[t], compromissos=[])
+            return
+
         # Só o fim da conversa vai inteiro; o começo vai como resumo. O que ficou
         # de fora não se perde: está no banco, e a busca traz de volta o trecho.
         resumido, historico, desde = resumo.para_o_modelo(conversa)
@@ -284,13 +301,6 @@ async def _responder(
         # As tarefas abertas vão no pedido, na mesma lista dos trechos (o filtro
         # do que é privado antes da nuvem é o mesmo): "o que eu tenho pra hoje?"
         trechos = trechos + _tarefas_no_pedido() + _agenda_no_pedido()
-        rapido = memoria.lembrete_rapido(texto, datetime.now())
-        if rapido:
-            banco.adicionar_tarefa(
-                rapido['texto'], rapido['prazo'], rapido['hora'], conversa,
-                privada=memoria.eh_privado(texto) or bool(memoria.SENSIVEL.search(rapido['texto'])),
-            )
-            etapas.anotadas.append(rapido)
         pedida = memoria.hora_pedida(texto, datetime.now())
         if pedida:
             trechos.append({'lembrete': True, 'dia': pedida[0], 'hora': pedida[1], 'relativa': pedida[2], 'privada': False})

@@ -348,6 +348,16 @@ das outras.
    modelo da conversa fica guardado, e quente a primeira palavra sai em 0,06 a 0,9 s. Lembrete com
    hora ("me lembra de X daqui a 20 minutos") vira tarefa na hora, em código, antes da resposta —
    a extração de fundo levava ~25 s. Depois do "Solis", a escuta espera 8 s pelo pedido (eram 5).
+   Terceiro teste (11/11/2026, 10:38): ouviu "Quero ação" no lugar de "que horas são", buscou na
+   memória pra isso, inventou a hora (10:48 com o relógio em 10:38) e o aviso do Windows não saía
+   (o servidor com --reload não abre processos com asyncio; agora abre numa thread). Decisão: o
+   básico não passa pelo modelo. Hora, data, lembrete com hora, agenda e tarefas de hoje/amanhã são
+   respondidos em código (`rapidas.py`), em milissegundos, sem busca e sem modelo, e tolerantes aos
+   erros de ouvido medidos ("E horas são", "a manhã", "me lembro"). O Whisper passou pro
+   large-v3-turbo: em 24 comandos de voz baixa com ruído os três modelos erram 3, mas o small erra
+   longe ("E oração") e o turbo perto; custa 0,15 s a mais. A voz é o gargalo que sobra: 3 a 6 s
+   pra uma frase curta (o Gemini grátis acabou a cota do dia; a Ava leva 4 a 6 s; o Kokoro na
+   CPU, 5,6 s).
 
 ### Controle do PC e visão da tela
 

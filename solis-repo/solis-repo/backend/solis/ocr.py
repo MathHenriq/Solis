@@ -71,17 +71,18 @@ def renderizar(pdf, pagina: int, dpi: int) -> bytes:
 async def windows(png: bytes) -> str:
     if os.name != 'nt':
         raise SemLeitor('o OCR de reserva é o do Windows')
+    # Numa thread, pelo mesmo motivo dos avisos (avisos.mostrar).
     try:
-        proc = await asyncio.create_subprocess_exec(
-            'powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT)],
+            input=base64.b64encode(png), capture_output=True, timeout=TEMPO_WINDOWS,
         )
-        saida, erro = await asyncio.wait_for(proc.communicate(base64.b64encode(png)), TEMPO_WINDOWS)
-    except (OSError, asyncio.TimeoutError) as e:
+    except (OSError, subprocess.TimeoutExpired) as e:
         raise SemLeitor(f'o OCR do Windows não rodou: {e}') from e
     if proc.returncode:
-        raise SemLeitor(f'o OCR do Windows falhou: {erro.decode("utf-8", "replace").strip()[:200]}')
-    return saida.decode('utf-8', 'replace')
+        raise SemLeitor(f'o OCR do Windows falhou: {proc.stderr.decode("utf-8", "replace").strip()[:200]}')
+    return proc.stdout.decode('utf-8', 'replace')
 
 
 async def _tem_visao() -> bool:

@@ -28,8 +28,19 @@ export const segundos = (s: number) => `${s.toFixed(1).replace('.', ',')} s`;
  *  é o que deixa o relógio da etapa atual andar entre um evento e outro. */
 export type EtapaRecebida = Etapa & { recebida?: number };
 
+/** O que o Solis fez quando respondeu em código, sem modelo (rapidas.py). */
+const RAPIDA: Record<string, string> = {
+  hora: 'Vi a hora no relógio',
+  data: 'Vi a data no calendário',
+  agenda: 'Li a sua agenda',
+  tarefas: 'Li as suas tarefas',
+  lembrete: 'Anotei o lembrete',
+};
+
 export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now()): Passo[] {
   const saida: Passo[] = [];
+  const rapida = etapas.find((e) => e.etapa === 'rapida');
+  if (rapida) return [{ estado: 'feita', texto: RAPIDA[rapida.tipo ?? ''] ?? 'Respondi na hora' }];
   const memoria = etapas.find((e) => e.etapa === 'memoria');
   if (!memoria) {
     if (vivo) {

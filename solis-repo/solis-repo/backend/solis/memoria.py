@@ -266,14 +266,26 @@ def hora_pedida(mensagem: str, agora: dt.datetime) -> tuple[str, str, bool] | No
         if not (0 <= h < 24 and 0 <= mi < 60):
             return None
         quando = agora.replace(hour=h, minute=mi, second=0, microsecond=0)
-        if quando <= agora:
+        # O dia dito manda: "amanhã às 15h" dito de manhã é amanhã, não hoje;
+        # "quinta às 15h" é a próxima quinta (a conta do corrigir_data).
+        dito = _DIA_DITO.search(mensagem)
+        if dito and dito.group(0).lower().startswith('depois'):
+            quando += dt.timedelta(days=2)
+        elif dito:
+            quando += dt.timedelta(days=1)
+        elif DIA_DA_SEMANA.search(mensagem):
+            dia = corrigir_data(mensagem, (agora.date() + dt.timedelta(days=1)).isoformat(), agora)
+            quando = dt.datetime.combine(dt.date.fromisoformat(dia), quando.time())
+        elif quando <= agora:
             quando += dt.timedelta(days=1)
         return quando.date().isoformat(), f'{quando:%H:%M}', False
     return None
 
 
+_DIA_DITO = re.compile(r'\b(?:depois de amanh[aã]|amanh[aã])\b', re.I)
+
 _PEDIDO_LEMBRETE = re.compile(
-    r'\b(?:me\s+)?(?:lembra|lembre|lembrar|avisa|avise|chama|chame)(?:-me)?\s+(?:de\s+|pra\s+|para\s+|que\s+)?(.+)',
+    r'\b(?:me\s+)?(?:lembra|lembre|lembro|lembrar|avisa|avise|chama|chame)(?:-me)?\s+(?:de\s+|pra\s+|para\s+|que\s+)?(.+)',
     re.I,
 )
 
@@ -290,8 +302,9 @@ def lembrete_rapido(mensagem: str, agora: dt.datetime) -> dict | None:
         return None
     oque = m.group(1)
     # Tira a hora de onde estiver ("daqui a 20 minutos", "às 15h") e o que sobra.
-    for regex in (_DAQUI_HORA, _AS_HORA):
+    for regex in (_DAQUI_HORA, _AS_HORA, _DIA_DITO, DIA_DA_SEMANA):
         oque = regex.sub(' ', oque)
+    oque = re.sub(r'\b(?:hoje|na|no)\s*$', '', oque.strip(), flags=re.I)
     oque = re.sub(r'\s+', ' ', oque).strip(' .,!?;:-')
     oque = re.sub(r'\b(?:mais ou menos|por favor|tá|ta)$', '', oque, flags=re.I).strip(' .,!?;:-')
     oque = re.sub(r'^(?:de|pra|para|que)\s+', '', oque, flags=re.I)

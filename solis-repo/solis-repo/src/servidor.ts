@@ -203,6 +203,8 @@ export type Etapa = {
   ferramenta?: string;
   alvo?: string;
   ok?: boolean;
+  /** Etapa `rapida`: o que foi respondido em código (hora, data, agenda...). */
+  tipo?: string;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da

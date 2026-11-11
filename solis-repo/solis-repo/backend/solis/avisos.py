@@ -110,17 +110,21 @@ async def mostrar(titulo: str, texto: str, tag: str) -> bool:
         log.info('aviso (sem Windows): %s — %s', titulo, texto)
         return False
     corpo = json.dumps({'titulo': titulo, 'texto': texto, 'tag': tag[-64:]}, ensure_ascii=False).encode('utf-8')
+    # subprocess numa thread, e não asyncio.create_subprocess_exec: com o
+    # --reload do `npm run backend`, o uvicorn no Windows roda num laço que não
+    # abre processos (NotImplementedError) — e nenhum aviso saía (11/11/2026).
+    # É o mesmo motivo do cerebros.py.
     try:
-        proc = await asyncio.create_subprocess_exec(
-            'powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT)],
+            input=corpo, capture_output=True, timeout=30,
         )
-        saida, erro = await asyncio.wait_for(proc.communicate(corpo), 30)
-    except (OSError, asyncio.TimeoutError) as e:
+    except (OSError, subprocess.TimeoutExpired) as e:
         log.error('aviso não saiu: %s', e)
         return False
-    if proc.returncode or not saida.decode('utf-8', 'replace').startswith('ok'):
-        log.error('aviso não saiu: %s', erro.decode('utf-8', 'replace').strip()[:300])
+    if proc.returncode or not proc.stdout.decode('utf-8', 'replace').startswith('ok'):
+        log.error('aviso não saiu: %s', proc.stderr.decode('utf-8', 'replace').strip()[:300])
         return False
     return True
 

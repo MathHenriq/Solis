@@ -7,6 +7,7 @@ nada pra tela: devolve bytes e números crus, e quem decide "4,7 GB" ou "128k"
 import asyncio
 import base64
 import json
+import logging
 import os
 from datetime import date, datetime
 from collections.abc import AsyncIterator
@@ -14,6 +15,8 @@ from collections.abc import AsyncIterator
 import httpx
 
 from .etapas import MUDA
+
+log = logging.getLogger('solis.ollama')
 
 OLLAMA = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')
 
@@ -166,9 +169,7 @@ NAO_PODE_COM_ARQUIVOS = (
 VOZ = (
     'Esta mensagem veio pela voz e a sua resposta vai ser FALADA. Responda em uma ou duas frases '
     'curtas e diretas, como alguém respondendo em voz alta: sem listas, sem títulos, sem '
-    'markdown, sem repetir a pergunta e sem oferecer alternativas que ninguém pediu. '
-    'Se uma resposta anterior desta conversa disse que o Solis não consegue ver a hora, lembrar '
-    'ou avisar, ela estava errada: a hora está em Agora, e o Solis anota e avisa. Não repita.'
+    'markdown, sem repetir a pergunta e sem oferecer alternativas que ninguém pediu.'
 )
 
 
@@ -353,6 +354,14 @@ async def conversar(
                         dito += texto
                         yield texto
                     if parte.get('done'):
+                        # Os tempos do Ollama, pra achar a próxima demora: o
+                        # 9,5 s até a primeira palavra visto em 11/11/2026 não
+                        # se repetiu medido de fora.
+                        seg = lambda k: (parte.get(k) or 0) / 1e9  # noqa: E731
+                        if seg('total_duration') > 3:
+                            log.info('ollama %s: carregar %.1fs, ler o pedido %.1fs (%s tokens), escrever %.1fs',
+                                     modelo, seg('load_duration'), seg('prompt_eval_duration'),
+                                     parte.get('prompt_eval_count'), seg('eval_duration'))
                         break
                 await r.aclose()
                 if not chamadas:

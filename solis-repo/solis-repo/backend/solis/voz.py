@@ -41,7 +41,11 @@ from . import banco
 log = logging.getLogger('solis.voz')
 
 PASTA = Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'Solis' / 'whisper'
-MODELO = os.environ.get('SOLIS_WHISPER', 'faster-whisper-small')
+# O large-v3-turbo desde 11/11/2026: em comandos curtos com voz baixa e ruído
+# (24, medidos), os três erram 3, mas o small erra longe ("E oração" no lugar
+# de "que horas são") e o turbo erra perto ("E horas são", que o rapidas.py
+# entende). Custa 0,15 s a mais por comando (0,33 contra 0,18 s, mediana).
+MODELO = os.environ.get('SOLIS_WHISPER', 'faster-whisper-large-v3-turbo-ct2')
 # 'auto' tenta a GPU e cai pra CPU; 'cpu' e 'cuda' forçam.
 DISPOSITIVO = os.environ.get('SOLIS_WHISPER_DISPOSITIVO', 'auto')
 TIPOS = {'cuda': 'int8_float16', 'cpu': 'int8'}
