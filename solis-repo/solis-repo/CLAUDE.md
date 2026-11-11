@@ -7,6 +7,7 @@ Este arquivo é lido automaticamente pelo Claude Code em toda sessão. Ele é a 
 Assistente de IA pessoal, local-first, desktop. Stack: Tauri 2 · React + TypeScript + Vite · Tailwind · Python/FastAPI · SQLite+FTS5 · Ollama · Whisper · Piper · OpenCV.
 
 Documentos de apoio no repositório (ler quando a tarefa tocar cada um):
+- `docs/VISAO.md` — **ler antes de tudo**: o que o Solis é e pra onde vai, nas palavras do Matheus, e a barra de qualidade.
 - `docs/ESCOPO.md` — **ler primeiro**: o que já existe, o que é provisório e a ordem das próximas fases.
 - `backend/README.md` — o servidor local: como ligar, rotas, como a memória funciona.
 - `docs/HANDOFF.md` — índice mestre, ordem de leitura, o que está travado vs. provisório.
