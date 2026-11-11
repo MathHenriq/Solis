@@ -823,6 +823,7 @@ class ChaveFish(BaseModel):
 
 class VozFish(BaseModel):
     voz: str | None = None
+    nome: str | None = None
 
 
 class AmostraFish(BaseModel):
@@ -832,7 +833,8 @@ class AmostraFish(BaseModel):
 
 @app.get('/fala/fish')
 async def estado_fish():
-    return {'chave': fala.chave_fish() is not None, 'voz': fala.voz_fish(), 'modelo': fala.FISH_MODELO}
+    return {'chave': fala.chave_fish() is not None, 'voz': fala.voz_fish(), 'nome': fala.nome_voz_fish(),
+            'modelo': fala.FISH_MODELO}
 
 
 @app.put('/fala/fish/chave')
@@ -854,16 +856,18 @@ async def esquecer_chave_fish():
 
 
 @app.get('/fala/fish/vozes')
-async def vozes_fish():
+async def vozes_fish(q: str = '', pagina: int = 1, ordem: str = 'score', lingua: str = 'pt', etiqueta: str = ''):
+    """A biblioteca de vozes da Fish, por página. lingua vazia = todas."""
     try:
-        return {'vozes': await fala.vozes_fish()}
+        return await fala.vozes_fish(busca=q, pagina=pagina, ordem=ordem, lingua_=lingua or None,
+                                     etiqueta=etiqueta or None)
     except (fala.SemVoz, httpx.HTTPError) as e:
         return JSONResponse({'erro': 'sem_vozes', 'motivo': str(e)}, status_code=503)
 
 
 @app.put('/fala/fish/voz')
 async def escolher_voz_fish(corpo: VozFish):
-    fala.escolher_voz_fish(corpo.voz)
+    fala.escolher_voz_fish(corpo.voz, corpo.nome)
     return await estado_fish()
 
 

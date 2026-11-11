@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Botao, Interruptor } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { definirEscutaLigada, escutaLigada } from '../escuta';
+import { VozesFish } from './VozesFish';
 import { definirFalaAutomatica, falaAutomatica } from '../fala';
 import {
   ajustarFala,
@@ -12,9 +13,7 @@ import {
   estadoAtivacao,
   estadoFish,
   guardarChaveFish,
-  listarVozesFish,
   type EstadoFish,
-  type VozFish,
   lerAjustesFala,
   listarCerebros,
   type AjustesFala,
@@ -107,7 +106,7 @@ function PalavraAtivacao() {
  *  o campo de chave do cartão Cérebros. Precisa do aval do Matheus pelos prints. */
 function VozDaFish() {
   const [estado, definirEstado] = useState<EstadoFish | null | undefined>(undefined);
-  const [vozes, definirVozes] = useState<VozFish[] | null>(null);
+  const [escolhendo, definirEscolhendo] = useState(false);
   const [colando, definirColando] = useState(false);
   const [chave, definirChave] = useState('');
   const [conferindo, definirConferindo] = useState(false);
@@ -123,10 +122,6 @@ function VozDaFish() {
       tocando.current?.pause();
     };
   }, []);
-  useEffect(() => {
-    if (estado?.chave) listarVozesFish().then(definirVozes);
-  }, [estado?.chave]);
-
   if (!estado) return null;
 
   async function salvar() {
@@ -209,55 +204,46 @@ function VozDaFish() {
   }
 
   return (
-    <Linha
-      rotulo="Voz da Fish Audio (em teste)"
-      dica={
-        <>
-          {aviso ?? 'Fala antes do Gemini. Grátis por enquanto; o privado continua na voz local.'}{' '}
+    <>
+      <Linha
+        rotulo="Voz da Fish Audio (em teste)"
+        dica={
+          <>
+            {aviso ?? `Em uso: ${estado.nome ?? 'a padrão da Fish'}. Fala antes do Gemini; o privado continua na voz local.`}{' '}
+            <button
+              type="button"
+              className="text-accent hover:underline"
+              onClick={async () => definirEstado((await esquecerChaveFish()) ?? estado)}
+            >
+              Tirar a chave
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-center shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
           <button
             type="button"
-            className="text-accent hover:underline"
-            onClick={async () => definirEstado((await esquecerChaveFish()) ?? estado)}
+            onClick={ouvir}
+            disabled={ouvindo}
+            title="Ouvir a voz em uso"
+            aria-label="Ouvir a voz da Fish em uso"
+            className={`flex items-center justify-center ${ouvindo ? 'text-accent solis-ouvindo' : 'text-text-secondary hover:text-text-primary'}`}
+            style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)' }}
           >
-            Tirar a chave
+            <Icone nome="fala" tamanho="var(--mac-icone)" />
           </button>
-        </>
-      }
-    >
-      <div className="flex items-center shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
-        <button
-          type="button"
-          onClick={ouvir}
-          disabled={ouvindo}
-          title="Ouvir esta voz"
-          aria-label="Ouvir a voz da Fish"
-          className={`flex items-center justify-center ${ouvindo ? 'text-accent solis-ouvindo' : 'text-text-secondary hover:text-text-primary'}`}
-          style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)' }}
-        >
-          <Icone nome="fala" tamanho="var(--mac-icone)" />
-        </button>
-        <select
-          value={estado.voz ?? ''}
-          onChange={async (e) => definirEstado((await escolherVozFish(e.target.value || null)) ?? estado)}
-          aria-label="Voz da Fish Audio"
-          className="solis-data bg-canvas text-text-primary border border-divider outline-none focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-          style={{
-            width: 'var(--cfg-seg-l)',
-            height: 'var(--cfg-seg-h)',
-            borderRadius: 'var(--cfg-seg-raio)',
-            padding: '0 var(--mac-campo-px)',
-            fontSize: 'var(--cfg-rotulo)',
-          }}
-        >
-          <option value="">Padrão da Fish</option>
-          {(vozes ?? []).map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.nome}
-            </option>
-          ))}
-        </select>
-      </div>
-    </Linha>
+          <Botao onClick={() => definirEscolhendo((e) => !e)} aria-expanded={escolhendo}>
+            {escolhendo ? 'Fechar' : 'Escolher voz'}
+          </Botao>
+        </div>
+      </Linha>
+      {escolhendo && (
+        <VozesFish
+          emUso={estado.voz}
+          aoUsar={async (v) => definirEstado((await escolherVozFish(v.id, v.nome)) ?? estado)}
+        />
+      )}
+    </>
   );
 }
 

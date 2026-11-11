@@ -50,15 +50,34 @@ def test_erro_da_fish_vira_sem_voz_com_o_codigo():
 
 def test_vozes_em_portugues():
     _com_chave()
-    itens = {'total': 2, 'items': [
-        {'_id': 'a1', 'title': 'Narrador BR', 'task_count': 900, 'state': 'trained',
-         'samples': [{'audio': 'https://x/a1.mp3'}]},
+    itens = {'total': 2, 'has_more': True, 'items': [
+        {'_id': 'a1', 'title': ' Narrador BR ', 'description': 'Voz calma', 'tags': ['male', 'calm'], 'languages': ['pt'],
+         'task_count': 900, 'like_count': 12, 'state': 'trained', 'samples': [{'audio': 'https://x/a1.mp3'}]},
         {'_id': 'b2', 'title': 'Em treino', 'task_count': 5, 'state': 'training', 'samples': []},
+        {'_id': 'c3', 'title': 'Derrubada', 'state': 'trained', 'dmca_taken_down': True},
     ]}
     transporte, pedidos = _transporte(lambda req: httpx.Response(200, json=itens))
-    vozes = asyncio.run(fala.vozes_fish(transporte))
-    assert vozes == [{'id': 'a1', 'nome': 'Narrador BR', 'usos': 900, 'amostra': 'https://x/a1.mp3'}]
-    assert pedidos[0].url.params['language'] == 'pt'
+    r = asyncio.run(fala.vozes_fish(transporte, busca='narrador', pagina=2, ordem='task_count', etiqueta='male'))
+    assert r == {'tem_mais': True, 'vozes': [
+        {'id': 'a1', 'nome': 'Narrador BR', 'descricao': 'Voz calma', 'etiquetas': ['male', 'calm'], 'linguas': ['pt'],
+         'usos': 900, 'curtidas': 12, 'amostra': 'https://x/a1.mp3'}]}
+    q = pedidos[0].url.params
+    assert (q['language'], q['title'], q['page_number'], q['sort_by'], q['tag']) == ('pt', 'narrador', '2', 'task_count', 'male')
+
+
+def test_todas_as_linguas_e_ordem_desconhecida():
+    _com_chave()
+    transporte, pedidos = _transporte(lambda req: httpx.Response(200, json={'items': []}))
+    asyncio.run(fala.vozes_fish(transporte, lingua_=None, ordem='qualquer'))
+    q = pedidos[0].url.params
+    assert 'language' not in q and q['sort_by'] == 'score'
+
+
+def test_voz_escolhida_guarda_o_nome():
+    fala.escolher_voz_fish('a1', 'Narrador BR')
+    assert (fala.voz_fish(), fala.nome_voz_fish()) == ('a1', 'Narrador BR')
+    fala.escolher_voz_fish(None, 'qualquer')
+    assert (fala.voz_fish(), fala.nome_voz_fish()) == (None, None)
 
 
 def test_chave_so_e_guardada_se_a_fish_aceita():

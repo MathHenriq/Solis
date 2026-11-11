@@ -243,26 +243,41 @@ async def fish(
     return r.content
 
 
-async def vozes_fish(transporte: httpx.AsyncBaseTransport | None = None, chave: str | None = None) -> list[dict]:
-    """As vozes públicas em português mais usadas da biblioteca da Fish: id,
-    nome e o endereço de uma amostra (quando a voz tem)."""
+ORDENS_FISH = ('score', 'task_count', 'created_at')
+
+
+async def vozes_fish(
+    transporte: httpx.AsyncBaseTransport | None = None, chave: str | None = None, busca: str = '',
+    pagina: int = 1, ordem: str = 'score', lingua_: str | None = 'pt', etiqueta: str | None = None,
+) -> dict:
+    """Uma página da biblioteca pública de vozes da Fish: id, nome, descrição,
+    etiquetas, usos, curtidas e a amostra deles. `busca` procura no nome;
+    `ordem` é a da Fish (score = a nota deles; task_count = mais usadas;
+    created_at = mais novas); `etiqueta` filtra (male, female, calm...)."""
     chave = chave or chave_fish()
     if not chave:
         raise SemVoz('sem chave da Fish Audio')
+    params = {'sort_by': ordem if ordem in ORDENS_FISH else 'score', 'page_size': 20, 'page_number': max(1, pagina)}
+    if lingua_:
+        params['language'] = lingua_
+    if busca.strip():
+        params['title'] = busca.strip()[:80]
+    if etiqueta:
+        params['tag'] = etiqueta
     async with httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=transporte) as c:
-        r = await c.get(
-            FISH_VOZES_URL,
-            params={'language': 'pt', 'sort_by': 'task_count', 'page_size': 30},
-            headers={'Authorization': f'Bearer {chave}'},
-        )
+        r = await c.get(FISH_VOZES_URL, params=params, headers={'Authorization': f'Bearer {chave}'})
     if r.status_code >= 400:
         raise SemVoz(f'Fish respondeu {r.status_code}: {r.text[:160]}')
-    return [
-        {'id': v['_id'], 'nome': v.get('title') or v['_id'], 'usos': v.get('task_count', 0),
+    dados = r.json()
+    vozes = [
+        {'id': v['_id'], 'nome': (v.get('title') or v['_id']).strip(), 'descricao': (v.get('description') or '').strip()[:240],
+         'etiquetas': (v.get('tags') or [])[:8], 'linguas': v.get('languages') or [], 'usos': v.get('task_count', 0),
+         'curtidas': v.get('like_count', 0),
          'amostra': next((a.get('audio') for a in v.get('samples') or [] if a.get('audio')), None)}
-        for v in r.json().get('items', [])
-        if v.get('_id') and v.get('state', 'trained') == 'trained'
+        for v in dados.get('items', [])
+        if v.get('_id') and v.get('state', 'trained') == 'trained' and not v.get('dmca_taken_down')
     ]
+    return {'vozes': vozes, 'tem_mais': bool(dados.get('has_more'))}
 
 
 async def guardar_chave_fish(chave: str, transporte: httpx.AsyncBaseTransport | None = None) -> None:
@@ -286,9 +301,15 @@ def esquecer_chave_fish() -> None:
     _cache.clear()
 
 
-def escolher_voz_fish(voz: str | None) -> None:
+def escolher_voz_fish(voz: str | None, nome: str | None = None) -> None:
     banco.guardar_ajuste('voz_fish', voz or None)
+    # O nome vai junto: a tela mostra qual está em uso sem perguntar à Fish.
+    banco.guardar_ajuste('voz_fish_nome', (nome or '').strip()[:120] or None if voz else None)
     _cache.clear()
+
+
+def nome_voz_fish() -> str | None:
+    return banco.ajuste('voz_fish_nome')
 
 
 async def ava(texto: str, lingua_: str) -> bytes:

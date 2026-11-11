@@ -68,8 +68,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /fala/fluxo/{id}` | o áudio do pedaço, aos pedaços quando é a Fish (mp3), inteiro nas outras; quem falou em `X-Solis-Voz`. O id vale uma vez e por 2 min |
 | `GET /fala/fish` | a voz da Fish Audio (em teste): se há chave, a voz escolhida e o modelo |
 | `PUT /fala/fish/chave` | `{"chave"}` → confere nas vozes da conta e guarda selada; `400` (`chave_recusada`) se a Fish recusa. `DELETE` tira |
-| `GET /fala/fish/vozes` | as vozes públicas em português mais usadas: `id`, `nome`, `usos`, `amostra` |
-| `PUT /fala/fish/voz` | `{"voz"}` → o id da voz (null = a padrão da Fish) |
+| `GET /fala/fish/vozes` | `?q=&pagina=&ordem=score\|task_count\|created_at&lingua=pt&etiqueta=` → uma página (20) da biblioteca da Fish: `id`, `nome`, `descricao`, `etiquetas`, `linguas`, `usos`, `curtidas`, `amostra`, e `tem_mais`. `lingua` vazia = todas |
+| `PUT /fala/fish/voz` | `{"voz", "nome"}` → a voz em uso (null = a padrão da Fish); o nome vai pra tela |
 | `POST /fala/fish/amostra` | `{"texto"?, "voz"?}` → a Fish falando direto (mp3), sem a cadeia; o tempo em `X-Solis-Tempo` |
 | `POST /fala` | `{"texto", "conversa", "voz"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz` e por que as anteriores caíram em `X-Solis-Antes`. `voz` troca a do Gemini só neste pedido. `503` com `sem_voz` e os motivos se nenhuma voz deu |
 | `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |

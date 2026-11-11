@@ -738,8 +738,17 @@ export async function amostraDeVoz(voz: string): Promise<{ audio: Blob; voz: str
 
 // — Voz da Fish Audio (em teste) ——————————————————————————————————————————————————
 
-export type EstadoFish = { chave: boolean; voz: string | null; modelo: string };
-export type VozFish = { id: string; nome: string; usos: number; amostra: string | null };
+export type EstadoFish = { chave: boolean; voz: string | null; nome: string | null; modelo: string };
+export type VozFish = {
+  id: string;
+  nome: string;
+  descricao: string;
+  etiquetas: string[];
+  linguas: string[];
+  usos: number;
+  curtidas: number;
+  amostra: string | null;
+};
 
 export async function estadoFish(): Promise<EstadoFish | null> {
   try {
@@ -774,21 +783,35 @@ export async function esquecerChaveFish(): Promise<EstadoFish | null> {
   }
 }
 
-export async function listarVozesFish(): Promise<VozFish[] | null> {
+/** Uma página da biblioteca de vozes da Fish. `lingua` vazia = todas. */
+export async function listarVozesFish(filtro: {
+  busca: string;
+  pagina: number;
+  ordem: string;
+  lingua: string;
+  etiqueta: string;
+}): Promise<{ vozes: VozFish[]; tem_mais: boolean } | null> {
   try {
-    const r = await fetch(`${BASE}/fala/fish/vozes`);
-    return r.ok ? ((await r.json()) as { vozes: VozFish[] }).vozes : null;
+    const q = new URLSearchParams({
+      q: filtro.busca,
+      pagina: String(filtro.pagina),
+      ordem: filtro.ordem,
+      lingua: filtro.lingua,
+      etiqueta: filtro.etiqueta,
+    });
+    const r = await fetch(`${BASE}/fala/fish/vozes?${q}`);
+    return r.ok ? ((await r.json()) as { vozes: VozFish[]; tem_mais: boolean }) : null;
   } catch {
     return null;
   }
 }
 
-export async function escolherVozFish(voz: string | null): Promise<EstadoFish | null> {
+export async function escolherVozFish(voz: string | null, nome: string | null = null): Promise<EstadoFish | null> {
   try {
     const r = await fetch(`${BASE}/fala/fish/voz`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ voz }),
+      body: JSON.stringify({ voz, nome }),
     });
     return r.ok ? ((await r.json()) as EstadoFish) : null;
   } catch {

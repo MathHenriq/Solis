@@ -342,7 +342,13 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
    Media Source (`src/somAosPedacos.ts`) — o `<audio>` lendo direto da URL juntava ~2–3 s antes de
    tocar e não ganhava nada (medido). Primeiro som, do clique, num navegador: **0,85–1,7 s** aos
    pedaços contra 2,1–2,7 s inteiro. Falha antes do primeiro pedaço cai pra cadeia (inteiro).
-   **Falta:** o Matheus ouvir no app e dizer se ficou contínuo, e escolher a voz.
+   **Escolher a voz (11/11/2026, pedido do Matheus: "mais vozes, uma que faça mais sentido com o
+   Solis"):** Configurações → Voz → Escolher voz abre a biblioteca da Fish — busca pelo nome, as
+   etiquetas dela (masculinas, femininas, calmas, de conversa, narração, graves), português ou
+   todas, as três ordens dela, 20 por vez. "Ouvir" fala a mesma frase do Solis em toda voz. Abre
+   já buscando "assistente": vazia, a ordem da Fish começa nos clones de famosos. Conferido com a
+   biblioteca real; PROVISÓRIO (`design/voz-fish-vozes-validacao.png`).
+   **Falta:** o Matheus ouvir no app (contínuo?) e escolher a voz.
 
 1. **Apertar pra falar** primeiro. **Feito (09/11/2026):** um clique no microfone ouve, outro para,
    e o texto entra na caixa pra conferir antes de enviar (Esc desiste). Whisper local (`small`, pelo
