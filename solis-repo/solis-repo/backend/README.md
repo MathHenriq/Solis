@@ -183,7 +183,7 @@ Cérebros.
   na web, subagentes, e as do próprio Solis por MCP no processo (`mcp__solis__`: hora,
   criar_lembrete, marcar_compromisso, ver_agenda, ver_tarefas, buscar_memoria — sem o que é
   privado). Livre: a web, as do Solis e ler/buscar dentro das pastas autorizadas (Ferramentas →
-  Arquivos) e da pasta de trabalho (`%APPDATA%\Solis	rabalho`, onde ele roda). Pede aprovação
+  Arquivos) e da pasta de trabalho (`%APPDATA%\Solis\trabalho`, onde ele roda). Pede aprovação
   num cartão na conversa: escrever, editar, rodar comando, ler fora das pastas e o resto; sem
   resposta em 10 minutos, é recusado. Cada resposta vai pro registro (`acoes`). O SDK roda numa
   thread com laço Proactor (o do uvicorn com `--reload` não abre processos). Login: a conta do
