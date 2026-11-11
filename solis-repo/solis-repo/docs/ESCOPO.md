@@ -331,6 +331,17 @@ das outras.
    de vozes sintéticas e precisam de calibração com o microfone do Matheus. Detalhes e custo medido
    em `docs/SOLIS_SIGNATURE.md`. De quebra: o pulso do microfone passou pro ícone (custava ~330 ms
    de main thread em 6 s com o mouse em cima — `docs/PERFORMANCE.md` 1.1).
+4. **Voz rápida no local** (11/11/2026, pedido do Matheus depois do primeiro teste com a voz dele:
+   "que horas são" não precisa do Claude, e a voz falava demais). O pedido feito pela voz, com
+   resposta falada, vai primeiro pro modelo local, sem raciocínio e sem ferramentas; a nuvem fica
+   de reserva. Medido com o qwen3:8b: primeira palavra em 0,07 a 0,2 s e resposta inteira em
+   0,5 a 0,7 s, contra 7 a 10 s do Claude só até a primeira palavra; 13 de 14 pedidos certos
+   (hora, data, conta, agenda, tarefas, lembretes). Com raciocínio: 5 s. A hora de um lembrete
+   ("daqui a 30 minutos", "às 15h") é calculada em código antes da resposta, e a mesma vai pra
+   resposta falada e pro aviso. Pergunta de arquivo pela voz vai com raciocínio e ferramentas.
+   O modelo é carregado na GPU quando a escuta ouve "Solis", enquanto ainda falta o pedido.
+   Todo cérebro recebe a data e a hora, e os de nuvem respondem como o Solis (sabem que ele
+   anota lembretes e avisa na hora).
 
 ### Controle do PC e visão da tela
 

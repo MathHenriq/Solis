@@ -100,6 +100,17 @@ SISTEMA_NUVEM = (
 )
 
 
+def _modo_local(mensagem: str, voz: bool) -> dict:
+    """Ferramentas e raciocínio do modelo local. Pela voz, o caminho rápido:
+    sem raciocínio e sem ferramentas — o raciocínio custa ~5 s, e sem ele o
+    modelo usa mal as ferramentas (5 de 16 certas, medido). Pergunta de arquivo
+    pela voz vai com os dois: mais lenta, mas certa."""
+    arquivos = pc.disponivel() and do_pc(mensagem)
+    if voz and not arquivos:
+        return {'ferramentas': False, 'pensar': False}
+    return {'ferramentas': pc.disponivel()}
+
+
 class NinguemRespondeu(Exception):
     def __init__(self, ordem: list[str], erros: dict[str, Exception]):
         super().__init__(', '.join(f'{c}: {e}' for c, e in erros.items()))
@@ -124,8 +135,14 @@ def do_pc(texto: str) -> bool:
     return bool(_DO_PC.search(texto))
 
 
-def escolher(texto: str) -> tuple[str, list[str], bool]:
-    """(texto sem o comando, ordem a tentar, se foi forçado)."""
+def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
+    """(texto sem o comando, ordem a tentar, se foi forçado).
+
+    Pela voz (a resposta vai ser falada), o local vai primeiro e a nuvem fica
+    de reserva: medido em 11/11/2026, o qwen3:8b sem raciocínio dá a primeira
+    palavra em 0,07 s e a resposta em 0,6 s (mediana, 16 pedidos de voz, 12 de
+    13 certos; o lembrete com hora vem calculado em código) — o Claude levava 7
+    a 10 s só até a primeira palavra. "Que horas são" não precisa da nuvem."""
     primeira, _, resto = texto.strip().partition(' ')
     if primeira.lower() in COMANDOS and resto.strip():
         return resto.strip(), [COMANDOS[primeira.lower()]], True
@@ -133,6 +150,8 @@ def escolher(texto: str) -> tuple[str, list[str], bool]:
         return texto, ['local'], False
     if pc.disponivel() and do_pc(texto):
         return texto, ['local'], False
+    if voz:
+        return texto, ['local'] + [c for c in _ordem() if c != 'local' and cerebros.disponivel(c)], False
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 
@@ -175,7 +194,7 @@ async def responder(
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
-                        ferramentas=pc.disponivel(), conversa=conversa, voz=voz,
+                        conversa=conversa, voz=voz, **_modo_local(mensagem, voz),
                     ),
                     etapas,
                 )

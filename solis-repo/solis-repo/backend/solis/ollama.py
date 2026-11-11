@@ -46,8 +46,9 @@ SISTEMA = (
     'Quando ele disser algo que precisa fazer ("me lembra de pagar a luz dia 15", '
     '"tenho que entregar o relatório sexta"), depois da sua resposta isso vira uma '
     'tarefa na tela Tarefas, com o prazo — pode dizer que ficou anotado. Com hora ("daqui a '
-    '30 minutos", "às 15h"), o Solis avisa no Windows na hora: confirme a hora certa, contando '
-    'a partir de Agora. Marcar como '
+    '30 minutos", "às 15h"), o Solis avisa no Windows na hora: confirme com a hora certa, '
+    'contando a partir de Agora — por exemplo, se Agora é 10:12 e ele pede "daqui a 30 minutos", '
+    'responda "Anotado, te aviso às 10:42". Marcar como '
     'feita, mudar ou apagar uma tarefa você não consegue: é pela tela Tarefas. Do mesmo '
     'jeito, compromisso com dia marcado ("quinta às 15h tenho consulta") vai pra tela Agenda.\n\n'
     'Quando não souber algo, diga que não sabe. Responda em português do Brasil, '
@@ -84,7 +85,21 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
     arquivos = [t for t in trechos or [] if t.get('arquivo')]
     tarefas = [t for t in trechos or [] if t.get('tarefa')]
     agenda = [t for t in trechos or [] if t.get('compromisso')]
-    conversas = [t for t in trechos or [] if not t.get('arquivo') and not t.get('tarefa') and not t.get('compromisso')]
+    lembrete = next((t for t in trechos or [] if t.get('lembrete')), None)
+    conversas = [
+        t for t in trechos or [] if not t.get('arquivo') and not t.get('tarefa') and not t.get('compromisso') and not t.get('lembrete')
+    ]
+    if lembrete:
+        # memoria.hora_pedida: a conta feita em código, a mesma que vai pro aviso.
+        # Só a relativa ("daqui a 30 minutos") traz o dia; em "quinta às 15h" o
+        # dia é o que ele disse.
+        dia = ''
+        if lembrete.get('relativa'):
+            dia = 'hoje ' if lembrete['dia'] == agora.date().isoformat() else 'amanhã '
+        partes.append(
+            f'Esta mensagem pede um lembrete: a hora, já calculada pelo Solis, é {dia}às '
+            f'{lembrete["hora"]}. Use esta hora na resposta, sem refazer a conta.'
+        )
     if conversas:
         # Com data e autor: "o Solis disse" e "o Matheus disse" pesam diferente,
         # e "em março" responde "quando a gente falou disso?". O texto vai numa
@@ -265,6 +280,7 @@ async def conversar(
     ferramentas: bool = False,
     conversa: int | None = None,
     voz: bool = False,
+    pensar: bool | None = None,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
     Com `ferramentas`, o modelo pode ler os arquivos das pastas autorizadas
@@ -278,6 +294,11 @@ async def conversar(
         {'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens
     ]
     corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama}
+    # `pensar=False` desliga o raciocínio (qwen3): a voz rápida (roteador).
+    if pensar is not None:
+        corpo['think'] = pensar
+    if voz:
+        corpo['keep_alive'] = FICA_NA_VOZ
     if ferramentas:
         from . import pc
         corpo['tools'] = pc.FERRAMENTAS
@@ -356,6 +377,21 @@ async def conversar(
             await cliente.aclose()
 
     return pedacos()
+
+
+# Quanto o modelo fica na GPU depois de usado pela voz: o padrão do Ollama são
+# 5 minutos, e a segunda pergunta de uma conversa falada costuma vir depois.
+FICA_NA_VOZ = '15m'
+
+
+async def aquecer(modelo: str, transporte: httpx.AsyncBaseTransport | None = None) -> None:
+    """Carrega o modelo na GPU sem perguntar nada (um /api/chat sem mensagens).
+    Erro aqui não importa: é só pra adiantar."""
+    try:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+            await c.post('/api/chat', json={'model': modelo, 'messages': [], 'keep_alive': FICA_NA_VOZ})
+    except httpx.HTTPError:
+        pass
 
 
 async def _perguntar(

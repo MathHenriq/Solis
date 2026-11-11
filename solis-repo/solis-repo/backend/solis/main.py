@@ -209,6 +209,10 @@ async def criar_conversa():
     return {'id': banco.nova_conversa(), 'mensagens': []}
 
 
+# O modelo local da última mensagem: é o que a escuta aquece quando ouve "Solis".
+_ultimo_modelo: str | None = None
+
+
 class Envio(BaseModel):
     # O modelo local escolhido em Modelos locais. Vazio quando o Ollama está fora
     # — a conversa ainda pode ir pra um cérebro de nuvem.
@@ -229,7 +233,10 @@ async def enviar(conversa: int, envio: Envio):
         return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
 
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
-    texto, ordem, forcado = roteador.escolher(envio.texto)
+    texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
+    global _ultimo_modelo
+    if envio.modelo:
+        _ultimo_modelo = envio.modelo
 
     # A mensagem da pessoa é guardada antes de perguntar ao modelo: o que ela
     # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
@@ -276,6 +283,9 @@ async def _responder(
         # As tarefas abertas vão no pedido, na mesma lista dos trechos (o filtro
         # do que é privado antes da nuvem é o mesmo): "o que eu tenho pra hoje?"
         trechos = trechos + _tarefas_no_pedido() + _agenda_no_pedido()
+        pedida = memoria.hora_pedida(texto, datetime.now())
+        if pedida:
+            trechos.append({'lembrete': True, 'dia': pedida[0], 'hora': pedida[1], 'relativa': pedida[2], 'privada': False})
 
         try:
             fluxo, cerebro = await roteador.responder(
@@ -645,6 +655,15 @@ async def apagar_ativacao():
 ESCUTA_LOG = os.environ.get('SOLIS_ESCUTA_LOG') == '1'
 
 
+def _aquecer() -> None:
+    """Ouviu "Solis": carrega o modelo local enquanto a pessoa ainda fala o
+    pedido — a resposta não espera o modelo subir na GPU."""
+    if _ultimo_modelo:
+        tarefa = asyncio.create_task(ollama.aquecer(_ultimo_modelo))
+        _tarefas.add(tarefa)
+        tarefa.add_done_callback(_tarefas.discard)
+
+
 async def _transcrever_escuta(audio: bytes) -> str:
     try:
         texto = (await voz.transcrever(audio, vad=False))['texto']
@@ -687,6 +706,7 @@ async def escuta(ws: WebSocket):
             for tipo, audio in escutando.alimentar(msg['bytes']):
                 if tipo == 'ativou':
                     await ws.send_json({'tipo': 'ativou'})
+                    _aquecer()
                 elif tipo in ('previa', 'frase'):
                     # Whisper: o começo de um trecho de fala tem "Solis"?
                     achou, resto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
@@ -694,6 +714,7 @@ async def escuta(ws: WebSocket):
                         escutando.descartar()
                         continue
                     await ws.send_json({'tipo': 'ativou'})
+                    _aquecer()
                     if tipo == 'frase' and resto:
                         # "Solis, que horas são?" de uma vez, e acabou: já é o comando.
                         await ws.send_json({'tipo': 'texto', 'texto': resto})

@@ -220,6 +220,58 @@ DIA_DA_SEMANA = re.compile(r'\b(segunda|terça|terca|quarta|quinta|sexta|sábado
 DAQUI_A = re.compile(r'\b(?:daqui a|em|dentro de)\s+(\d+|' + '|'.join(NUMEROS) + r')\s+(dias?|semanas?)\b', re.I)
 
 
+# A hora de um lembrete, calculada em código antes da resposta (11/11/2026): o
+# modelo local sem raciocínio acertava "daqui a 30 minutos", mas em "às 15h"
+# respondia 15:13 — copiava os minutos de agora. A mesma hora vai pra resposta
+# (no contexto) e pra tarefa (aprender), então o que ele fala é o que avisa.
+_MINUTOS = {**NUMEROS, 'vinte': 20, 'trinta': 30, 'quarenta': 40, 'cinquenta': 50, 'meia': 30}
+_DAQUI_HORA = re.compile(
+    r'\b(?:daqui a|daqui|em|dentro de)\s+(?:mais ou menos\s+|uns\s+|umas\s+|uma\s+(?=meia))?'
+    r'(\d+|' + '|'.join(sorted(_MINUTOS, key=len, reverse=True)) + r')\s+'
+    r'(minutos?|min|horas?|hora)(\s+e\s+meia)?\b',
+    re.I,
+)
+_AS_HORA = re.compile(
+    r'\b(?:às|as|pras|para as|lá pelas|la pelas)\s+(\d{1,2})(?:[:h](\d{2}))?(?:\s*(?:h|hs|horas?))?'
+    r'(\s+da\s+(?:tarde|noite))?(?!\s*(?:minutos?|dias?))\b',
+    re.I,
+)
+
+
+def hora_pedida(mensagem: str, agora: dt.datetime) -> tuple[str, str, bool] | None:
+    """(dia, HH:MM) de um lembrete dito com hora: "daqui a 30 minutos", "daqui a
+    uma hora e meia", "em meia hora", "às 15h", "às 3 da tarde". None se a
+    mensagem não diz hora. Hora já passada hoje ("às 8h", dito às 10h) é amanhã.
+    O terceiro valor diz se é relativa ("daqui a"): só aí o dia vem daqui — em
+    "quinta às 15h", o dia é o da quinta (corrigir_data), e daqui vem só a hora."""
+    m = _DAQUI_HORA.search(mensagem)
+    if m:
+        n, unidade, e_meia = m.group(1).lower(), m.group(2).lower(), m.group(3)
+        valor = int(n) if n.isdigit() else _MINUTOS.get(n, 0)
+        if n == 'meia':
+            minutos = 30
+        elif unidade.startswith('hora'):
+            minutos = valor * 60 + (30 if e_meia else 0)
+        else:
+            minutos = valor
+        if minutos <= 0 or minutos > 24 * 60:
+            return None
+        quando = agora + dt.timedelta(minutes=minutos)
+        return quando.date().isoformat(), f'{quando:%H:%M}', True
+    m = _AS_HORA.search(mensagem)
+    if m:
+        h, mi = int(m.group(1)), int(m.group(2) or 0)
+        if m.group(3) and h < 12:
+            h += 12
+        if not (0 <= h < 24 and 0 <= mi < 60):
+            return None
+        quando = agora.replace(hour=h, minute=mi, second=0, microsecond=0)
+        if quando <= agora:
+            quando += dt.timedelta(days=1)
+        return quando.date().isoformat(), f'{quando:%H:%M}', False
+    return None
+
+
 def corrigir_data(mensagem: str, prazo: str | None, agora: dt.datetime) -> str | None:
     """O prazo do modelo, corrigido pela conta quando a mensagem diz o dia da
     semana ou "daqui a N dias/semanas" e o modelo errou a conta."""
@@ -413,10 +465,16 @@ async def aprender(
     # O sigilo das memórias desta mensagem vale pras tarefas dela; o de uma
     # tarefa sensível vale só pra ela (e tira a mensagem da nuvem).
     memoria_privada = saiu_privada
+    pedida = hora_pedida(mensagem, agora)
     for t in achadas:
         prazo, hora = _prazo(t, agora)
         if len(achadas) == 1:
             prazo = corrigir_data(mensagem, prazo, agora)
+            # A hora calculada em código vence a do modelo: é a que foi falada.
+            if pedida and pedida[2]:
+                prazo, hora = pedida[0], pedida[1]
+            elif pedida:
+                prazo, hora = prazo or pedida[0], pedida[1]
         texto_tarefa = t['texto'].strip().rstrip('.')
         sensivel = bool(SENSIVEL.search(texto_tarefa))
         banco.adicionar_tarefa(texto_tarefa, prazo, hora, conversa, privada=privado or memoria_privada or sensivel)
