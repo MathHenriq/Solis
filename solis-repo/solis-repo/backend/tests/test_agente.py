@@ -288,3 +288,10 @@ def test_o_modelo_escolhido_vai_pra_sessao(monkeypatch):
         por('texto', 'ok')
     _rodar(monkeypatch, sessao)
     assert (recebido['modelo'], recebido['esforco']) == ('haiku', 'low')
+
+
+def test_caminho_longo_guarda_o_nome_do_arquivo():
+    longo = 'C:/' + 'pasta/' * 40 + 'placa.png'
+    alvo = agente._alvo('Read', {'file_path': longo})
+    assert alvo.endswith('placa.png') and len(alvo) == 160
+    assert agente._alvo('Bash', {'command': 'x' * 300}) == 'x' * 160

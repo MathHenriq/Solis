@@ -172,6 +172,16 @@ def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 
+def nota_anexos(anexos: list[dict] | None) -> str:
+    """Os arquivos que o Matheus anexou, onde o modelo pode lê-los (o Claude,
+    com a ferramenta de ler: texto, PDF e imagem)."""
+    if not anexos:
+        return ''
+    return '\n\n[Arquivos anexados pelo Matheus — leia antes de responder:\n' + '\n'.join(
+        f'- {a["caminho"]}' for a in anexos
+    ) + ']'
+
+
 def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = False,
                  rotulo: str = 'Conversa até agora') -> str:
     """Tudo num texto só: os CLIs recebem um prompt, não uma lista de mensagens."""
@@ -181,7 +191,8 @@ def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = Fal
     anteriores = historico[:-1]  # a última é a própria mensagem nova
     if anteriores:
         linhas = '\n\n'.join(
-            f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in anteriores
+            f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}{nota_anexos(m.get("anexos"))}'
+            for m in anteriores
         )
         partes.append(f'{rotulo}:\n\n{linhas}')
     partes.append(f'Mensagem nova do Matheus:\n\n{mensagem}')

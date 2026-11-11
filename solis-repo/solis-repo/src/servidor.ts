@@ -221,8 +221,12 @@ export type Etapa = {
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
  *  pessoa e nas respostas antigas, de antes de existir mais de um. `etapas`:
  *  nulo nas falas da pessoa e nas respostas de antes das etapas existirem. */
+/** Um arquivo anexado a uma mensagem: mora na pasta de trabalho do Solis. */
+export type Anexo = { nome: string; caminho: string; tipo: string; tamanho: number };
+
 export type Mensagem = {
   id: number;
+  anexos?: Anexo[];
   papel: 'pessoa' | 'solis';
   texto: string;
   criada: string;
@@ -256,6 +260,20 @@ export async function guardarAjustesClaude(modelo: string | null, esforco: strin
       body: JSON.stringify({ modelo, esforco }),
     });
     return r.ok ? ((await r.json()) as AjustesClaude) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Manda um arquivo pro servidor antes da mensagem; o caminho volta e vai
+ *  junto com ela. null se não deu (servidor fora, grande demais). */
+export async function enviarAnexo(arquivo: File): Promise<Anexo | null> {
+  try {
+    const r = await fetch(`${BASE}/anexos?nome=${encodeURIComponent(arquivo.name || 'colado.png')}`, {
+      method: 'POST',
+      body: arquivo,
+    });
+    return r.ok ? ((await r.json()) as Anexo) : null;
   } catch {
     return null;
   }
@@ -354,6 +372,7 @@ export async function conversar(
   ouvintes: Ouvintes,
   voz = false,
   desde?: number,
+  anexos: string[] = [],
 ): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
@@ -373,7 +392,7 @@ export async function conversar(
     r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelo: modelo ?? '', texto, voz, ...(desde !== undefined ? { desde } : {}) }),
+      body: JSON.stringify({ modelo: modelo ?? '', texto, voz, anexos, ...(desde !== undefined ? { desde } : {}) }),
     });
   } catch {
     return { tipo: 'sem-servidor' };

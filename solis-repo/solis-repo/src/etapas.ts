@@ -12,7 +12,16 @@ export type Passo = {
   /** `falhou`: o cérebro não respondeu e o Solis passou pro próximo. */
   estado: 'feita' | 'atual' | 'futura' | 'falhou';
   texto: string;
+  /** O texto inteiro (o caminho completo), quando a linha mostra só o nome. */
+  titulo?: string;
 };
+
+/** "C:\...\anexos\2026-11-11\27922b54-placa.png" vira "placa.png": na
+ *  linha da etapa, o nome do arquivo (como no Claude); o caminho vai no title. */
+export function nomeDoArquivo(caminho: string): string {
+  const nome = caminho.split(/[\\/]/).pop() || caminho;
+  return /[\\/]anexos[\\/]/.test(caminho) ? nome.replace(/^[0-9a-f]{8}-/, '') : nome;
+}
 
 const quem = (c?: string) =>
   c === 'local' ? 'o modelo local' : NOMES_CEREBRO[c ?? ''] ? `o ${NOMES_CEREBRO[c ?? '']}` : 'o modelo';
@@ -41,7 +50,8 @@ const RAPIDA: Record<string, string> = {
  *  do Claude pelo Agent SDK (agente.py), inclusive as do próprio Solis. */
 export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
   const alvo = f.alvo ?? '';
-  const em = alvo ? ` ${alvo}` : '';
+  const ehArquivo = ['ler_arquivo', 'Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(f.ferramenta ?? '');
+  const em = alvo ? ` ${ehArquivo ? nomeDoArquivo(alvo) : alvo}` : '';
   switch (f.ferramenta) {
     case 'ler_arquivo':
     case 'Read':
@@ -142,7 +152,10 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
           continue;
         }
         const texto = textoFerramenta(f);
-        saida.push(f.ok === false ? { estado: 'falhou', texto: `${texto}: não deu` } : { estado: 'feita', texto });
+        const titulo = f.alvo || undefined;
+        saida.push(
+          f.ok === false ? { estado: 'falhou', texto: `${texto}: não deu`, titulo } : { estado: 'feita', texto, titulo },
+        );
       } else if (f.etapa === 'aprovacao_resposta') {
         const resumo = pedidos.get(f.id)?.resumo ?? 'o pedido';
         recusou = !f.aprovado;

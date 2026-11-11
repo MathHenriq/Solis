@@ -276,7 +276,11 @@ def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
     for chave in ('file_path', 'notebook_path', 'path', 'pattern', 'query', 'url', 'command', 'description',
                   'texto', 'titulo', 'busca'):
         if entrada.get(chave):
-            return str(entrada[chave])[:limite]
+            valor = str(entrada[chave])
+            if len(valor) > limite and chave in ('file_path', 'notebook_path', 'path'):
+                # Num caminho, o que importa é o fim (o nome do arquivo).
+                return '…' + valor[-(limite - 1):]
+            return valor[:limite]
     return ''
 
 

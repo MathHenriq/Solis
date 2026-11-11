@@ -74,7 +74,12 @@ export function ListaEtapas({ etapas, vivo }: { etapas: EtapaRecebida[]; vivo: b
           style={{ height: 'var(--et-passo)', fontSize: 'var(--et-texto)' }}
         >
           <Marca estado={p.estado} />
+          {/* Uma linha só, com reticências: um caminho ou comando longo
+              quebrava a linha e passava por cima da etapa de baixo (a
+              altura do passo é fixa). O texto inteiro fica no title. */}
           <span
+            title={p.titulo ?? p.texto}
+            className="truncate min-w-0"
             style={{
               marginLeft: 'calc(var(--et-recuo) - var(--et-icone) - 3px)',
               opacity: p.estado === 'futura' ? 'var(--et-futura)' : undefined,

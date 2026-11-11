@@ -7,6 +7,7 @@ import {
   carregarConversa,
   conversar,
   pararResposta,
+  type Anexo,
   type Falha,
   type Mensagem,
 } from './servidor';
@@ -36,6 +37,8 @@ export type Turno = {
   /** Fala da pessoa: o id dela no banco, pra editar ou refazer. Chega com a
    *  etapa `guardada`; sem ele, a fala não pode ser editada. */
   mensagem?: number;
+  /** Os arquivos que foram junto com a fala. */
+  anexos?: Anexo[];
 };
 
 /** ERROR_STATES.md §2: no lugar da resposta, dizendo quem falhou e o que fazer. */
@@ -75,6 +78,7 @@ const turnosDe = (mensagens: Mensagem[]): Turno[] =>
     cerebro: m.cerebro,
     etapas: m.etapas ?? undefined,
     mensagem: m.papel === 'pessoa' ? m.id : undefined,
+    anexos: m.anexos?.length ? m.anexos : undefined,
   }));
 
 export function useConversa() {
@@ -120,8 +124,9 @@ export function useConversa() {
   /** `desde`: editar ou refazer — a thread volta a antes da fala com esse id
    *  no banco (ela e tudo depois saem) e `texto` vai no lugar dela. */
   const enviar = useCallback(
-    async (texto: string, desde?: number) => {
-      const limpo = texto.trim();
+    async (texto: string, desde?: number, anexos?: Anexo[]) => {
+      // Só o anexo, sem texto, também vale (como no Claude).
+      const limpo = texto.trim() || (anexos?.length ? 'Veja o que eu anexei.' : '');
       if (!limpo || respondendo) return;
 
       if (limpo === COMANDO_NOVA && desde === undefined) {
@@ -136,7 +141,7 @@ export function useConversa() {
         const corte = desde === undefined ? -1 : ts.findIndex((t) => t.mensagem === desde);
         return [
           ...(corte === -1 ? ts : ts.slice(0, corte)),
-          { id: pessoa, de: 'pessoa', hora: agora, texto: semComando(limpo) },
+          { id: pessoa, de: 'pessoa', hora: agora, texto: semComando(limpo), anexos: anexos?.length ? anexos : undefined },
           { id, de: 'solis', hora: agora, texto: '', digitando: true, etapas: [] },
         ];
       });
@@ -173,7 +178,7 @@ export function useConversa() {
             definirRespondendo(false);
           }
         },
-      }, respostaFalada.proxima, desde);
+      }, respostaFalada.proxima, desde, anexos?.map((a) => a.caminho));
 
       // Depois do `fim` a próxima mensagem já pode estar respondendo: liberar o
       // campo de novo aqui o soltaria no meio dela.
@@ -194,7 +199,7 @@ export function useConversa() {
    *  dela mesma. */
   const refazer = useCallback(() => {
     const fala = [...turnos].reverse().find((t) => t.de === 'pessoa');
-    if (fala?.mensagem !== undefined) void enviar(fala.texto, fala.mensagem);
+    if (fala?.mensagem !== undefined) void enviar(fala.texto, fala.mensagem, fala.anexos);
   }, [turnos, enviar]);
 
   return { turnos, respondendo, enviar, conversa, abrir, nova, versao, parar, refazer };

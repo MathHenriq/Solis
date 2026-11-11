@@ -10,8 +10,11 @@ import contextlib
 import json
 import logging
 import os
+import mimetypes
 import re
+import uuid
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
@@ -246,6 +249,8 @@ class Envio(BaseModel):
     # Editar uma mensagem ou refazer a resposta: a conversa volta a antes da
     # mensagem `desde` (da pessoa), e esta vai no lugar dela.
     desde: int | None = None
+    # Os caminhos devolvidos por POST /anexos.
+    anexos: list[str] = []
 
 
 # Referência forte às respostas em andamento: sem ela o coletor de lixo pode
@@ -271,8 +276,19 @@ async def enviar(conversa: int, envio: Envio):
         # com o histórico de agora.
         banco.esquecer_sessao_claude(conversa)
 
+    anexos = []
+    for caminho in envio.anexos:
+        anexo = _anexo(caminho)
+        if anexo is None:
+            return JSONResponse({'erro': 'anexo_inexistente'}, status_code=400)
+        anexos.append(anexo)
+
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
+    if anexos and not forcado:
+        # Com anexo, o Claude primeiro: ele lê texto, PDF e imagem; o modelo
+        # local não enxerga imagem nem tem a pasta de trabalho.
+        ordem = sorted(ordem, key=lambda c: c != 'claude')
     global _ultimo_modelo
     if envio.modelo and envio.modelo != _ultimo_modelo:
         _ultimo_modelo = envio.modelo
@@ -282,6 +298,8 @@ async def enviar(conversa: int, envio: Envio):
     # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
     # guardado — é estado do sistema naquele momento, não fala de ninguém.
     mensagem_id = banco.adicionar(conversa, 'pessoa', texto, privada=memoria.eh_privado(texto))
+    if anexos:
+        banco.guardar_anexos(mensagem_id, anexos)
 
     # O trabalho roda numa tarefa própria e o stream só repassa as etapas que
     # ela marca. Duas razões: a tela vê cada etapa ENQUANTO acontece (a busca,
@@ -292,7 +310,9 @@ async def enviar(conversa: int, envio: Envio):
     # O id da mensagem guardada: é por ele que a tela edita ou refaz depois.
     etapas.marcar('guardada', pessoa=mensagem_id)
     parar = _paradas[conversa] = asyncio.Event()
-    tarefa = asyncio.create_task(_responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz))
+    tarefa = asyncio.create_task(
+        _responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz, anexos)
+    )
     _tarefas.add(tarefa)
     tarefa.add_done_callback(_tarefas.discard)
     tarefa.add_done_callback(lambda _: _paradas.pop(conversa, None) if _paradas.get(conversa) is parar else None)
@@ -304,6 +324,47 @@ async def enviar(conversa: int, envio: Envio):
     # NDJSON e não texto puro: junto do texto vão as etapas e o erro — que agora
     # chega com o stream já aberto, quando não dá mais pra mudar o status HTTP.
     return StreamingResponse(ndjson(), media_type='application/x-ndjson')
+
+
+# — Anexos ————————————————————————————————————————————————————————————————————————
+
+ANEXO_MAX = 50 * 1024 * 1024
+
+
+def _pasta_anexos() -> Path:
+    from . import agente
+    return agente._pasta_trabalho().resolve() / 'anexos'
+
+
+def _anexo(caminho: str) -> dict | None:
+    """O anexo que POST /anexos guardou — só dentro da pasta de anexos."""
+    try:
+        p = Path(caminho).resolve()
+    except OSError:
+        return None
+    if not p.is_file() or not p.is_relative_to(_pasta_anexos()):
+        return None
+    nome = p.name.split('-', 1)[1] if '-' in p.name else p.name
+    return {'nome': nome, 'caminho': str(p), 'tipo': mimetypes.guess_type(nome)[0] or 'application/octet-stream',
+            'tamanho': p.stat().st_size}
+
+
+@app.post('/anexos')
+async def anexar(request: Request, nome: str):
+    """O arquivo cru no corpo (como em /conhecimento), o nome na query. Vai pra
+    pasta de trabalho, em anexos/AAAA-MM-DD/, e o caminho volta pra tela, que o
+    manda com a mensagem."""
+    dados = await request.body()
+    if not dados:
+        return JSONResponse({'erro': 'vazio'}, status_code=400)
+    if len(dados) > ANEXO_MAX:
+        return JSONResponse({'erro': 'grande_demais', 'max': ANEXO_MAX}, status_code=413)
+    seguro = re.sub(r'[^\w.\- ]', '_', Path(nome).name).strip()[:120] or 'arquivo'
+    pasta = _pasta_anexos() / date.today().isoformat()
+    pasta.mkdir(parents=True, exist_ok=True)
+    caminho = pasta / f'{uuid.uuid4().hex[:8]}-{seguro}'
+    await asyncio.to_thread(caminho.write_bytes, dados)
+    return _anexo(str(caminho))
 
 
 @app.post('/conversas/{conversa}/parar')
@@ -345,6 +406,7 @@ async def _responder(
     forcado: bool,
     mensagem_id: int,
     voz: bool = False,
+    anexos: list[dict] | None = None,
 ) -> None:
     resposta_id = None
     parar = _paradas.get(conversa)
@@ -360,7 +422,7 @@ async def _responder(
         # O básico (hora, data, lembrete, agenda, tarefas) sai em código, antes
         # de tudo: sem busca na memória e sem modelo (rapidas.py). Comando na
         # frente ("/claude que horas são") manda no lugar disso.
-        rapida = None if forcado else rapidas.responder(texto, datetime.now())
+        rapida = None if forcado or anexos else rapidas.responder(texto, datetime.now())
         if rapida:
             t = rapida['tarefa']
             if t:
@@ -389,7 +451,8 @@ async def _responder(
 
         try:
             aberto, parada = await _ate_parar(
-                roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido, texto, etapas, voz=voz),
+                roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido,
+                                   texto + roteador.nota_anexos(anexos), etapas, voz=voz),
                 parar,
             )
             if parada:

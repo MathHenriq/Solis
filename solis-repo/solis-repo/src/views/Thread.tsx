@@ -7,7 +7,7 @@ import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import type { Turno } from '../conversa';
-import { NOMES_CEREBRO } from '../servidor';
+import { NOMES_CEREBRO, enviarAnexo, type Anexo } from '../servidor';
 import { falaAutomatica, respostaFalada, useFala } from '../fala';
 import { useVoz } from '../voz';
 
@@ -229,6 +229,41 @@ function BotaoCopiar({ texto }: { texto: string }) {
 /** A fala do Matheus, com o editar no hover: a fala vira um campo; Enviar
  *  manda o texto novo no lugar dela (o que vinha depois sai), Esc cancela.
  *  PROVISÓRIO — desenho próprio, base no Claude. */
+/** Um arquivo que vai (ou foi) junto com a fala. PROVISÓRIO — desenho
+ *  próprio, base no Claude: a ficha do arquivo acima do texto, no tamanho dos
+ *  chips da resposta (--et-chip-*), com a borda neutra. */
+function FichaAnexo({ nome, estado, aoRemover }: { nome: string; estado?: 'enviando' | 'falhou'; aoRemover?: () => void }) {
+  return (
+    <span
+      title={nome}
+      className={`inline-flex items-center border border-divider ${estado === 'falhou' ? 'text-[var(--erro)]' : 'text-text-primary'}`}
+      style={{
+        maxWidth: 260,
+        height: 'var(--et-chip-h)',
+        padding: '0 var(--et-chip-px)',
+        gap: 8,
+        fontSize: 'var(--et-chip-texto)',
+        borderRadius: 'var(--et-chip-raio)',
+        opacity: estado === 'enviando' ? 0.6 : 1,
+      }}
+    >
+      <Icone nome="documento" tamanho={14} className="text-text-secondary shrink-0" />
+      <span className="truncate">{estado === 'falhou' ? `${nome} — não foi` : nome}</span>
+      {aoRemover && (
+        <button
+          type="button"
+          onClick={aoRemover}
+          aria-label={`Tirar ${nome}`}
+          className="text-text-secondary hover:text-text-primary shrink-0"
+          style={{ marginRight: -4 }}
+        >
+          <Icone nome="adicionar" tamanho={14} style={{ transform: 'rotate(45deg)' }} />
+        </button>
+      )}
+    </span>
+  );
+}
+
 function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => void }) {
   const [editando, definirEditando] = useState(false);
   const [texto, definirTexto] = useState(t.texto);
@@ -274,22 +309,31 @@ function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => v
     );
   }
   return (
-    <div className="group flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
-      <span className="text-text-secondary shrink-0 flex items-center" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
-        {aoEditar && (
-          <BotaoAcao
-            icone="lapis"
-            rotulo="Editar a mensagem"
-            aoClicar={() => {
-              definirTexto(t.texto);
-              definirEditando(true);
-            }}
-          />
-        )}
-        <span style={{ marginLeft: aoEditar ? 6 : 0 }}>{t.hora}</span>
-      </span>
-      <div className="text-text-primary whitespace-pre-wrap" style={caixa}>
-        {t.texto}
+    <div style={{ marginTop: 'var(--th-turno-gap)' }}>
+      {t.anexos && (
+        <div className="flex flex-wrap justify-end" style={{ gap: 8, marginBottom: 8 }}>
+          {t.anexos.map((a) => (
+            <FichaAnexo key={a.caminho} nome={a.nome} />
+          ))}
+        </div>
+      )}
+      <div className="group flex items-start justify-end gap-lg">
+        <span className="text-text-secondary shrink-0 flex items-center" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
+          {aoEditar && (
+            <BotaoAcao
+              icone="lapis"
+              rotulo="Editar a mensagem"
+              aoClicar={() => {
+                definirTexto(t.texto);
+                definirEditando(true);
+              }}
+            />
+          )}
+          <span style={{ marginLeft: aoEditar ? 6 : 0 }}>{t.hora}</span>
+        </span>
+        <div className="text-text-primary whitespace-pre-wrap" style={caixa}>
+          {t.texto}
+        </div>
       </div>
     </div>
   );
@@ -382,7 +426,7 @@ export function Thread({
   turnos: Turno[];
   respondendo: boolean;
   /** `desde`: editar — a fala com esse id no banco sai, e o que vinha depois. */
-  aoEnviar: (texto: string, desde?: number) => void;
+  aoEnviar: (texto: string, desde?: number, anexos?: Anexo[]) => void;
   /** Para a resposta em andamento. */
   aoParar?: () => void;
   /** Refaz a última resposta. */
@@ -392,6 +436,21 @@ export function Thread({
   ouvindo?: boolean;
 }) {
   const [rascunho, definirRascunho] = useState('');
+  // Os arquivos que vão com a próxima mensagem: sobem assim que escolhidos
+  // (como no Claude), e a mensagem só sai quando todos subiram.
+  const [pendentes, definirPendentes] = useState<{ id: number; nome: string; estado: 'enviando' | 'pronto' | 'falhou'; anexo?: Anexo }[]>([]);
+  const seletor = useRef<HTMLInputElement>(null);
+  const anexar = (arquivos: FileList | File[]) => {
+    for (const arquivo of Array.from(arquivos)) {
+      const id = Math.random();
+      const nome = arquivo.name || 'colado.png';
+      definirPendentes((ps) => [...ps, { id, nome, estado: 'enviando' }]);
+      void enviarAnexo(arquivo).then((anexo) =>
+        definirPendentes((ps) => ps.map((p) => (p.id === id ? { ...p, estado: anexo ? 'pronto' : 'falhou', anexo: anexo ?? undefined } : p))),
+      );
+    }
+  };
+  const subindo = pendentes.some((p) => p.estado === 'enviando');
   const campo = useRef<HTMLInputElement>(null);
   // O rascunho veio da voz: a resposta desta mensagem é falada sozinha.
   const ditado = useRef(false);
@@ -422,7 +481,19 @@ export function Thread({
   }, [turnos]);
 
   return (
-    <main className="relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
+    <main
+      className="relative flex-1 flex flex-col overflow-hidden bg-canvas"
+      style={{ zIndex: 1 }}
+      // Arrastar arquivo pra conversa anexa, como no Claude.
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        anexar(e.dataTransfer.files);
+      }}
+    >
       {/* A thread rola e a primeira mensagem entra cortada pela borda de cima —
           é o corte que diz que há histórico acima. */}
       <div
@@ -440,7 +511,7 @@ export function Thread({
               <FalaPessoa
                 key={t.id}
                 t={t}
-                aoEditar={!respondendo && t.mensagem !== undefined ? (texto) => aoEnviar(texto, t.mensagem) : undefined}
+                aoEditar={!respondendo && t.mensagem !== undefined ? (texto) => aoEnviar(texto, t.mensagem, t.anexos) : undefined}
               />
             ) : (
               <RespostaSolis
@@ -471,6 +542,21 @@ export function Thread({
           paddingBottom: 'var(--th-composer-base)',
         }}
       >
+        {pendentes.length > 0 && (
+          <div
+            className="flex flex-wrap"
+            style={{ gap: 8, marginBottom: 8, width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
+          >
+            {pendentes.map((p) => (
+              <FichaAnexo
+                key={p.id}
+                nome={p.nome}
+                estado={p.estado === 'pronto' ? undefined : p.estado}
+                aoRemover={() => definirPendentes((ps) => ps.filter((x) => x.id !== p.id))}
+              />
+            ))}
+          </div>
+        )}
         <form
           className="flex items-center border border-divider rounded-composer"
           style={{ height: 'var(--th-composer-h)', width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
@@ -478,12 +564,14 @@ export function Thread({
             e.preventDefault();
             // O rascunho continua editável enquanto o Solis responde; só o
             // envio espera — duas perguntas cruzadas embaralhariam a thread.
-            if (respondendo || !rascunho.trim()) return;
+            const prontos = pendentes.flatMap((p) => (p.anexo ? [p.anexo] : []));
+            if (respondendo || subindo || (!rascunho.trim() && !prontos.length)) return;
             grudada.current = true;
             respostaFalada.proxima = ditado.current && falaAutomatica();
             ditado.current = false;
-            aoEnviar(rascunho);
+            aoEnviar(rascunho, undefined, prontos);
             definirRascunho('');
+            definirPendentes([]);
           }}
         >
           <input
@@ -491,11 +579,37 @@ export function Thread({
             autoFocus
             value={rascunho}
             onChange={(e) => definirRascunho(e.target.value)}
+            // Colar imagem (um print) anexa, como no Claude.
+            onPaste={(e) => {
+              if (!e.clipboardData.files.length) return;
+              e.preventDefault();
+              anexar(e.clipboardData.files);
+            }}
             className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
             style={{ paddingLeft: 29, fontSize: 'var(--mem-item-texto)' }}
             placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
+          <input
+            ref={seletor}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files) anexar(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => seletor.current?.click()}
+            aria-label="Anexar arquivo"
+            title="Anexar arquivo (ou arraste, ou cole uma imagem)"
+            className="flex items-center justify-center text-text-secondary hover:text-text-primary shrink-0"
+            style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)' }}
+          >
+            <Icone nome="adicionar" tamanho={22} />
+          </button>
           <EscolhaClaude />
           <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
           {/* Respondendo, o enviar vira o parar (como no Claude): o mesmo

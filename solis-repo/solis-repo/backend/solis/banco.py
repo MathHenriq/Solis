@@ -310,6 +310,19 @@ MIGRACOES = [
         quando   TEXT NOT NULL
     );
     """,
+    # 16 — os arquivos anexados a uma mensagem da pessoa (o arquivo mora na
+    # pasta de trabalho, em anexos/; aqui fica onde e o quê).
+    """
+    CREATE TABLE anexos (
+        id       INTEGER PRIMARY KEY,
+        mensagem INTEGER NOT NULL REFERENCES mensagens(id) ON DELETE CASCADE,
+        nome     TEXT NOT NULL,
+        caminho  TEXT NOT NULL,
+        tipo     TEXT NOT NULL,
+        tamanho  INTEGER NOT NULL
+    );
+    CREATE INDEX anexos_mensagem ON anexos (mensagem);
+    """,
 ]
 
 
@@ -530,16 +543,34 @@ def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
         'SELECT id, papel, texto, criada, privada, cerebro, etapas FROM mensagens '
         'WHERE conversa = ? AND id > ? ORDER BY id',
         (conversa, depois_de),
-    )
+    ).fetchall()
+    anexos: dict[int, list[dict]] = {}
+    for a in _con().execute(
+        'SELECT a.mensagem, a.nome, a.caminho, a.tipo, a.tamanho FROM anexos a '
+        'JOIN mensagens m ON m.id = a.mensagem WHERE m.conversa = ? AND m.id > ? ORDER BY a.id',
+        (conversa, depois_de),
+    ):
+        anexos.setdefault(a['mensagem'], []).append(
+            {'nome': a['nome'], 'caminho': a['caminho'], 'tipo': a['tipo'], 'tamanho': a['tamanho']}
+        )
     return [
         {
             **dict(l),
             'texto': cofre.abrir(l['texto']),
             'privada': bool(l['privada']),
             'etapas': _etapas(cofre.abrir(l['etapas'])),
+            'anexos': anexos.get(l['id'], []),
         }
         for l in linhas
     ]
+
+
+def guardar_anexos(mensagem: int, anexos: list[dict]) -> None:
+    with _con() as c:
+        c.executemany(
+            'INSERT INTO anexos (mensagem, nome, caminho, tipo, tamanho) VALUES (?, ?, ?, ?, ?)',
+            [(mensagem, a['nome'], a['caminho'], a['tipo'], a['tamanho']) for a in anexos],
+        )
 
 
 def _etapas(valor: str | None) -> list[dict] | None:

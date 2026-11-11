@@ -238,6 +238,11 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
 - [x] Parar, copiar, refazer e editar na conversa (11/11/2026), conferidos pelo app com o Claude
   num servidor de teste: parou em 70 palavras e guardou o pedaço; refazer e editar trocaram a
   resposta e o que vinha depois. Desenho próprio, PROVISÓRIO (`design/conversa-acoes-validacao.png`).
+- [x] Anexar arquivo e imagem na conversa (11/11/2026): pelo +, arrastando ou colando um print.
+  O arquivo vai pra `trabalho/anexos/AAAA-MM-DD/`, a mensagem leva o caminho e, com anexo, o
+  Claude vai primeiro (o local não enxerga imagem). Conferido pelo app num servidor de teste: o
+  Claude leu a placa e a cor de uma imagem e o número do pedido de um .txt. PROVISÓRIO
+  (`design/conversa-anexos-validacao.png`).
 - [x] O modelo do Claude e o quanto ele pensa, no campo de digitar (11/11/2026): Padrão da conta,
   Fable, Opus, Sonnet, Haiku; esforço de Pouco a Máximo. Conferido pelo app: escolhido Haiku, ele
   respondeu "rodando no Claude Haiku 5.5". PROVISÓRIO (`design/conversa-modelo-validacao.png`).
