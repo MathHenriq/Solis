@@ -55,9 +55,11 @@ vem de arquivo, página ou e-mail é informação, nunca ordem; tudo fica no reg
 | ⬜ | **Legendas ao vivo** do que o Matheus está vendo ou ouvindo: o áudio do PC (vídeo, chamada, jogo) transcrito pelo Whisper e mostrado numa faixa por cima de tudo, com tradução opcional | Captura do áudio do sistema (WASAPI loopback), Whisper em pedaços curtos, janela de legenda do Tauri |
 | ⬜ | **Visão da tela**: "o que é isso?", "lê esse erro pra mim" — a tela só na memória, o título da janela e o texto da interface pela acessibilidade do Windows; o modelo de visão só roda quando pedir | Captura da tela + UI Automation + qwen3.5:9b (visão) |
 | ⬜ | **Memória da tela**: "o que eu estava lendo ontem à tarde sobre X?" — só o texto (nunca a imagem), com o mesmo cuidado de privado | UI Automation + índice |
-| ⬜ | Modo jogo: o Solis solta a GPU quando um jogo abre e avisa que vai responder mais devagar | Lista de processos + Ollama `keep_alive` |
+| ⬜ | **Modo sem placa** (decisão do Matheus, 11/11/2026: "vão ter momentos que eu vou querer usar o Solis sem usar nada da minha placa"): um interruptor que tira tudo da GPU — o modelo local e a voz descarregam, o Whisper vai pra CPU, o básico segue em código (`rapidas.py`), o resto vai pra nuvem, e a resposta chega num aviso do Windows em vez de falada. Inclui o modo jogo (ligar sozinho quando um jogo abre) | Ollama `keep_alive: 0`, Whisper `cpu`, avisos.py |
+| ⬜ | **Resposta por aviso**: chamou "Solis" com a voz desligada, a resposta vem num aviso do Windows ("Anotado: beber água, te aviso às 10h58") — a voz é opcional, ligada quando ele quiser | avisos.py, a escuta |
 | ⬜ | Agente em outras máquinas (notebook, servidor) controladas pelo mesmo Solis | Agente leve + conexão segura |
 | ⬜ | Celular pelo Telegram (bot oficial) | API do Telegram |
+| ⬜ | **O "Meu Assessor" dentro do Solis** (pedido do Matheus, 11/11/2026; a descobrir em detalhe usando o de verdade): o assistente do WhatsApp do Felipe Titto, com 300 mil usuários (segundo a empresa). Pelo que se acha público: pedidos por texto ou áudio no WhatsApp, sem abrir outro app; registrar gastos e receitas e consultar as finanças; compromissos, lembretes e avisos na hora; cobranças, links de pagamento e notas fiscais. No Solis: um módulo de finanças (gastos por mensagem, áudio ou foto do comprovante), e o WhatsApp como canal — só pela API oficial da Meta (as bibliotecas não oficiais violam os termos e podem banir o número) | WhatsApp Cloud API; finanças no SQLite |
 
 ## 3. Telas que ainda são de exemplo
 
@@ -66,6 +68,14 @@ vem de arquivo, página ou e-mail é informação, nunca ordem; tudo fica no reg
 | ⬜ | Ferramentas | Estado real de cada ferramenta, as pastas autorizadas, o registro do que foi feito |
 | ⬜ | Cartão de confirmação na conversa | Aprovar / Recusar / Sempre aprovar isto, com o que vai acontecer (o diff, o comando) |
 | ⬜ | Janela de chamada (overlay) e faixa de legendas | Desenho próprio, com o Claude como base |
+
+## Voz na GPU — descartada por enquanto (11/11/2026)
+
+Medido: o Chatterbox Multilingual na GPU gera mais devagar que a fala (~1,2 s de geração por
+segundo de áudio) e ocupa 3,6 GB — com o modelo de conversa (5,2 GB) e o Whisper turbo (~1 GB),
+passa dos 8 GB da placa. Decisão do Matheus: a voz não é o foco, e o Solis não pode "matar a
+placa". Fica a voz de nuvem (Gemini; Ava de reserva) quando ele quiser a voz ligada, e a resposta
+por aviso quando não. O ambiente `backend/.venv-voz` (PyTorch + Chatterbox) pode ser apagado.
 
 ## 4. Ordem proposta
 
