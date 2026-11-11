@@ -238,6 +238,9 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
 - [x] Parar, copiar, refazer e editar na conversa (11/11/2026), conferidos pelo app com o Claude
   num servidor de teste: parou em 70 palavras e guardou o pedaço; refazer e editar trocaram a
   resposta e o que vinha depois. Desenho próprio, PROVISÓRIO (`design/conversa-acoes-validacao.png`).
+- [x] O modelo do Claude e o quanto ele pensa, no campo de digitar (11/11/2026): Padrão da conta,
+  Fable, Opus, Sonnet, Haiku; esforço de Pouco a Máximo. Conferido pelo app: escolhido Haiku, ele
+  respondeu "rodando no Claude Haiku 5.5". PROVISÓRIO (`design/conversa-modelo-validacao.png`).
 - [ ] **Defeito achado (11/11/2026):** o aprendizado vira pedido em tarefa — "Escreva um texto de
   500 palavras sobre o Sol" e "crie o arquivo nota.txt" viraram tarefas abertas; e uma memória
   antiga ("sair com os meninos") foi aprendida de novo numa conversa que não falava disso.

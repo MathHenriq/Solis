@@ -263,3 +263,28 @@ def test_sessao_que_nao_continua_recomeca_com_o_pedido_inteiro(monkeypatch):
     assert _cerebro_claude({'conversa': c, 'id': 'sumiu', 'prompt': 'pedido curto'}) == ['ok']
     assert chamadas == [('pedido curto', 'sumiu'), ('pedido inteiro', None)]
     assert banco.sessao_claude(c) == 'nova'
+
+
+# — O modelo e o quanto ele pensa ————————————————————————————————————————————————
+
+def test_ajustes_do_claude_pela_rota():
+    from fastapi.testclient import TestClient
+    from solis import main
+    c = TestClient(main.app)
+    assert c.get('/cerebros/claude/ajustes').json()['modelo'] is None
+    r = c.put('/cerebros/claude/ajustes', json={'modelo': 'opus', 'esforco': 'high'}).json()
+    assert (r['modelo'], r['esforco']) == ('opus', 'high') and 'haiku' in r['modelos']
+    assert c.put('/cerebros/claude/ajustes', json={'modelo': 'gpt', 'esforco': None}).status_code == 400
+    assert c.put('/cerebros/claude/ajustes', json={'modelo': None, 'esforco': 'turbo'}).status_code == 400
+    assert c.get('/cerebros/claude/ajustes').json()['modelo'] == 'opus'
+
+
+def test_o_modelo_escolhido_vai_pra_sessao(monkeypatch):
+    agente.guardar_ajustes('haiku', 'low')
+    recebido = {}
+
+    async def sessao(sistema, prompt, por, retomar=None, **kw):
+        recebido.update(kw)
+        por('texto', 'ok')
+    _rodar(monkeypatch, sessao)
+    assert (recebido['modelo'], recebido['esforco']) == ('haiku', 'low')

@@ -236,6 +236,31 @@ export type Falha =
 
 /** A conversa mais recente guardada — o app reabre nela. null quando o servidor
  *  não responde: aí a tela começa vazia, que é o que dá pra mostrar. */
+/** O modelo do Claude e o quanto ele pensa. null = o padrão da conta. */
+export type AjustesClaude = { modelo: string | null; esforco: string | null; modelos: string[]; esforcos: string[] };
+
+export async function lerAjustesClaude(): Promise<AjustesClaude | null> {
+  try {
+    const r = await fetch(`${BASE}/cerebros/claude/ajustes`);
+    return r.ok ? ((await r.json()) as AjustesClaude) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarAjustesClaude(modelo: string | null, esforco: string | null): Promise<AjustesClaude | null> {
+  try {
+    const r = await fetch(`${BASE}/cerebros/claude/ajustes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modelo, esforco }),
+    });
+    return r.ok ? ((await r.json()) as AjustesClaude) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Para a resposta em andamento. O que já chegou fica guardado. */
 export async function pararResposta(conversa: number): Promise<boolean> {
   try {

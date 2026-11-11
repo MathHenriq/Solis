@@ -143,6 +143,28 @@ async def ordenar_cerebros(ordem: Ordem):
     return _cerebros()
 
 
+class AjustesClaude(BaseModel):
+    modelo: str | None = None
+    esforco: str | None = None
+
+
+@app.get('/cerebros/claude/ajustes')
+async def ler_ajustes_claude():
+    """O modelo do Claude e o quanto ele pensa (None = o padrão da conta)."""
+    from . import agente
+    return {**agente.ajustes(), 'modelos': list(agente.MODELOS), 'esforcos': list(agente.ESFORCOS)}
+
+
+@app.put('/cerebros/claude/ajustes')
+async def guardar_ajustes_claude(corpo: AjustesClaude):
+    from . import agente
+    try:
+        agente.guardar_ajustes(corpo.modelo, corpo.esforco)
+    except ValueError as e:
+        return JSONResponse({'erro': f'{e}_invalido'}, status_code=400)
+    return await ler_ajustes_claude()
+
+
 @app.post('/cerebros/{nome}/retomar')
 async def retomar_cerebro(nome: str):
     if nome not in cerebros.NOMES:

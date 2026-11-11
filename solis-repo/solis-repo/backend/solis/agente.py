@@ -52,6 +52,27 @@ class AgenteFalhou(Exception):
     pass
 
 
+# O modelo e o quanto ele pensa, como o seletor do Claude Desktop. Os nomes
+# curtos são os do CLI (`claude --model`): sempre o mais novo de cada família.
+# None = o padrão da conta.
+MODELOS = ('fable', 'opus', 'sonnet', 'haiku')
+ESFORCOS = ('low', 'medium', 'high', 'xhigh', 'max')
+
+
+def ajustes() -> dict:
+    return {'modelo': banco.ajuste('claude_modelo'), 'esforco': banco.ajuste('claude_esforco')}
+
+
+def guardar_ajustes(modelo: str | None, esforco: str | None) -> dict:
+    if modelo is not None and modelo not in MODELOS:
+        raise ValueError('modelo')
+    if esforco is not None and esforco not in ESFORCOS:
+        raise ValueError('esforco')
+    banco.guardar_ajuste('claude_modelo', modelo)
+    banco.guardar_ajuste('claude_esforco', esforco)
+    return ajustes()
+
+
 def responder_aprovacao(id_: str, aprovado: bool) -> bool:
     """O Matheus respondeu o cartão. False se o pedido já não existe."""
     fut = _pendentes.get(id_)
@@ -174,7 +195,8 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None):
     return PermissionResultAllow() if ok else PermissionResultDeny(message='O Matheus recusou.')
 
 
-async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None) -> None:
+async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None,
+                  modelo: str | None = None, esforco: str | None = None) -> None:
     """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor.
     `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
     from claude_agent_sdk import (
@@ -206,6 +228,8 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         hooks={'PreToolUse': [HookMatcher(matcher='Read|Glob|Grep|LS', hooks=[leitura_fora])]},
         include_partial_messages=True,
         resume=retomar,
+        model=modelo,
+        effort=esforco,
         setting_sources=[],
         max_turns=RODADAS_MAX,
     )
@@ -268,11 +292,15 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
         laco.call_soon_threadsafe(fila.put_nowait, (tipo, valor))
 
     estado: dict = {}
+    escolha = ajustes()
+    if escolha['modelo'] or escolha['esforco']:
+        log.info('claude (agente): modelo %s, esforço %s', escolha['modelo'] or 'padrão', escolha['esforco'] or 'padrão')
 
     def na_thread():
         proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
         try:
-            proprio.run_until_complete(_sessao(sistema, prompt, por, retomar, estado=estado))
+            proprio.run_until_complete(_sessao(sistema, prompt, por, retomar, estado=estado,
+                                               modelo=escolha['modelo'], esforco=escolha['esforco']))
         except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
             if not estado.get('parado'):
                 log.exception('o agente do Claude falhou')

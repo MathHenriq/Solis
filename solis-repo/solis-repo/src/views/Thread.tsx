@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
+import { EscolhaClaude } from '../components/EscolhaClaude';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
@@ -495,6 +496,7 @@ export function Thread({
             placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
+          <EscolhaClaude />
           <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
           {/* Respondendo, o enviar vira o parar (como no Claude): o mesmo
               círculo, o quadrado no lugar do avião. */}
