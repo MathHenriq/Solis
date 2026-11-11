@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Interruptor } from '../components/Controles';
+import { Botao, Interruptor } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { definirEscutaLigada, escutaLigada } from '../escuta';
 import { definirFalaAutomatica, falaAutomatica } from '../fala';
 import {
   ajustarFala,
   amostraDeVoz,
+  amostraFish,
+  escolherVozFish,
+  esquecerChaveFish,
   estadoAtivacao,
+  estadoFish,
+  guardarChaveFish,
+  listarVozesFish,
+  type EstadoFish,
+  type VozFish,
   lerAjustesFala,
   listarCerebros,
   type AjustesFala,
@@ -93,6 +101,166 @@ function PalavraAtivacao() {
   );
 }
 
+/** A Fish Audio, em teste (11/11/2026, backend/solis/fala.py): quando tem
+ *  chave, fala antes do Gemini. PROVISÓRIO — desenho próprio, com as peças já
+ *  aprovadas do cartão: a linha, o "Ouvir", o select na medida do segmentado e
+ *  o campo de chave do cartão Cérebros. Precisa do aval do Matheus pelos prints. */
+function VozDaFish() {
+  const [estado, definirEstado] = useState<EstadoFish | null | undefined>(undefined);
+  const [vozes, definirVozes] = useState<VozFish[] | null>(null);
+  const [colando, definirColando] = useState(false);
+  const [chave, definirChave] = useState('');
+  const [conferindo, definirConferindo] = useState(false);
+  const [aviso, definirAviso] = useState<string | null>(null);
+  const [ouvindo, definirOuvindo] = useState(false);
+  const tocando = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    estadoFish().then((e) => vivo && definirEstado(e));
+    return () => {
+      vivo = false;
+      tocando.current?.pause();
+    };
+  }, []);
+  useEffect(() => {
+    if (estado?.chave) listarVozesFish().then(definirVozes);
+  }, [estado?.chave]);
+
+  if (!estado) return null;
+
+  async function salvar() {
+    definirConferindo(true);
+    definirAviso(null);
+    const r = await guardarChaveFish(chave);
+    definirConferindo(false);
+    if (r === 'recusada') definirAviso('A Fish recusou essa chave. Confira se copiou inteira.');
+    else if (!r) definirAviso('Não consegui falar com a Fish agora. Tente de novo em instantes.');
+    else {
+      definirEstado(r);
+      definirColando(false);
+      definirChave('');
+    }
+  }
+
+  async function ouvir() {
+    if (ouvindo || !estado) return;
+    tocando.current?.pause();
+    definirOuvindo(true);
+    definirAviso(null);
+    const r = await amostraFish(estado.voz);
+    if (!r || r === 'sem-voz') {
+      definirOuvindo(false);
+      definirAviso(r === 'sem-voz' ? 'A Fish não respondeu agora. Tente de novo em instantes.' : 'Não consegui tocar a amostra.');
+      return;
+    }
+    definirAviso(`A Fish levou ${r.segundos.toFixed(1).replace('.', ',')} s pra devolver essa frase.`);
+    const url = URL.createObjectURL(r.audio);
+    const el = new Audio(url);
+    tocando.current = el;
+    el.onended = el.onerror = () => {
+      URL.revokeObjectURL(url);
+      definirOuvindo(false);
+    };
+    el.play().catch(() => definirOuvindo(false));
+  }
+
+  if (!estado.chave) {
+    return (
+      <Linha
+        rotulo="Voz da Fish Audio (em teste)"
+        dica={
+          aviso ??
+          'Grátis por enquanto, sem data pra acabar. Com a chave, ela fala antes do Gemini (o privado continua na voz local).'
+        }
+      >
+        {!colando && <Botao onClick={() => definirColando(true)}>Colar a chave</Botao>}
+        {colando && (
+          <div className="flex items-center shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
+            <input
+              autoFocus
+              type="password"
+              value={chave}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => definirChave(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && chave.trim()) salvar();
+                else if (e.key === 'Escape') definirColando(false);
+              }}
+              placeholder="Cole a chave da Fish"
+              aria-label="Chave da Fish Audio"
+              className="bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+              style={{
+                width: 'var(--cfg-seg-l)',
+                fontSize: 'var(--cfg-dica)',
+                borderRadius: 'var(--mac-campo-raio)',
+                padding: 'var(--mac-campo-py) var(--mac-campo-px)',
+              }}
+            />
+            <Botao tipo="destaque" onClick={salvar} disabled={conferindo || !chave.trim()}>
+              {conferindo ? 'Conferindo…' : 'Salvar'}
+            </Botao>
+            <Botao onClick={() => definirColando(false)}>Cancelar</Botao>
+          </div>
+        )}
+      </Linha>
+    );
+  }
+
+  return (
+    <Linha
+      rotulo="Voz da Fish Audio (em teste)"
+      dica={
+        <>
+          {aviso ?? 'Fala antes do Gemini. Grátis por enquanto; o privado continua na voz local.'}{' '}
+          <button
+            type="button"
+            className="text-accent hover:underline"
+            onClick={async () => definirEstado((await esquecerChaveFish()) ?? estado)}
+          >
+            Tirar a chave
+          </button>
+        </>
+      }
+    >
+      <div className="flex items-center shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
+        <button
+          type="button"
+          onClick={ouvir}
+          disabled={ouvindo}
+          title="Ouvir esta voz"
+          aria-label="Ouvir a voz da Fish"
+          className={`flex items-center justify-center ${ouvindo ? 'text-accent solis-ouvindo' : 'text-text-secondary hover:text-text-primary'}`}
+          style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)' }}
+        >
+          <Icone nome="fala" tamanho="var(--mac-icone)" />
+        </button>
+        <select
+          value={estado.voz ?? ''}
+          onChange={async (e) => definirEstado((await escolherVozFish(e.target.value || null)) ?? estado)}
+          aria-label="Voz da Fish Audio"
+          className="solis-data bg-canvas text-text-primary border border-divider outline-none focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+          style={{
+            width: 'var(--cfg-seg-l)',
+            height: 'var(--cfg-seg-h)',
+            borderRadius: 'var(--cfg-seg-raio)',
+            padding: '0 var(--mac-campo-px)',
+            fontSize: 'var(--cfg-rotulo)',
+          }}
+        >
+          <option value="">Padrão da Fish</option>
+          {(vozes ?? []).map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+    </Linha>
+  );
+}
+
 export function CartaoVoz() {
   // undefined = perguntando; null = servidor desligado.
   const [ajustes, definirAjustes] = useState<AjustesFala | null | undefined>(undefined);
@@ -156,8 +324,9 @@ export function CartaoVoz() {
         className="text-text-secondary"
         style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)', textWrap: 'pretty' }}
       >
-        Como o Solis fala as respostas. Primeiro a voz do Gemini; se ele chegar ao limite do dia ou cair, a Ava; sem
-        internet, e sempre que a conversa tiver algo privado, a voz local.
+        Como o Solis fala as respostas. Primeiro a Fish Audio, se tiver a chave (em teste); depois a voz do Gemini; se
+        ele chegar ao limite do dia ou cair, a Ava; sem internet, e sempre que a conversa tiver algo privado, a voz
+        local.
       </p>
 
       {ajustes === null && (
@@ -168,6 +337,8 @@ export function CartaoVoz() {
 
       {ajustes && (
         <div style={{ marginTop: 'var(--cfg-linha-pad)' }}>
+          <VozDaFish />
+
           <Linha
             rotulo="Voz do Gemini"
             dica={

@@ -324,6 +324,15 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
 
 ### Voz
 
+0. **Fish Audio em teste (11/11/2026)** — pedido do Matheus depois do vídeo "Dei Voz pros Meus
+   Agentes de IA" (Fish Audio). A API dela tem um modelo grátis (`s2.1-pro-free`, o S2.1 Pro) por
+   "um período inicial", sem data certa, com uso justo; os pedidos podem ser usados pra melhorar o
+   modelo deles. Pago: US$ 15 por milhão de bytes de texto (~12 h de fala). Ligada como a primeira
+   voz da cadeia quando há chave (Configurações → Voz, PROVISÓRIO, `design/voz-fish-validacao.png`);
+   o privado continua na local. A chave é conferida nas vozes da conta (a lista pública aceita até
+   chave inventada — visto no teste). **Falta:** a chave do Matheus, medir tempo até o áudio e
+   qualidade do português contra Gemini, Ava e Kokoro, e ele ouvir e decidir.
+
 1. **Apertar pra falar** primeiro. **Feito (09/11/2026):** um clique no microfone ouve, outro para,
    e o texto entra na caixa pra conferir antes de enviar (Esc desiste). Whisper local (`small`, pelo
    faster-whisper) na GPU, com a cuBLAS que o Ollama já traz, e na CPU se a GPU não der. Medido em 8

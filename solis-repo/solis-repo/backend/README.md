@@ -64,6 +64,11 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /fala/ajustes` | a voz e o modelo do Gemini escolhidos, e as opções (`vozes`, `modelos`) |
 | `PUT /fala/ajustes` | `{"voz", "modelo"}` → guarda; trocar o modelo tira o Gemini do descanso (o limite é por modelo). `400` se a voz ou o modelo não existe |
 | `POST /fala/partes` | `{"texto"}` → `{"partes", "lingua"}`: a resposta em pedaços pra falar um de cada vez (o primeiro curto) |
+| `GET /fala/fish` | a voz da Fish Audio (em teste): se há chave, a voz escolhida e o modelo |
+| `PUT /fala/fish/chave` | `{"chave"}` → confere nas vozes da conta e guarda selada; `400` (`chave_recusada`) se a Fish recusa. `DELETE` tira |
+| `GET /fala/fish/vozes` | as vozes públicas em português mais usadas: `id`, `nome`, `usos`, `amostra` |
+| `PUT /fala/fish/voz` | `{"voz"}` → o id da voz (null = a padrão da Fish) |
+| `POST /fala/fish/amostra` | `{"texto"?, "voz"?}` → a Fish falando direto (mp3), sem a cadeia; o tempo em `X-Solis-Tempo` |
 | `POST /fala` | `{"texto", "conversa", "voz"}` → o áudio do pedaço (wav ou mp3), com quem falou em `X-Solis-Voz` e por que as anteriores caíram em `X-Solis-Antes`. `voz` troca a do Gemini só neste pedido. `503` com `sem_voz` e os motivos se nenhuma voz deu |
 | `GET /voz` | `{"disponivel", "modelo"}`: se o faster-whisper está instalado e o modelo na pasta |
 | `POST /voz` | o áudio cru no corpo (webm/opus do navegador, wav...) → `{"texto", "segundos", "duracao", "modelo", "onde"}`. Nada é guardado. `503` com `sem_modelo`, `400` com `audio_ruim` |

@@ -18,6 +18,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
+import httpx
 from fastapi import BackgroundTasks, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -779,6 +780,72 @@ async def falar(corpo: TextoFala):
         motivos = ' '.join('; '.join(fala.ultimos_motivos).split())
         cabecalhos['X-Solis-Antes'] = unicodedata.normalize('NFKD', motivos).encode('ascii', 'ignore').decode()[:500]
     return Response(audio, media_type=tipo, headers=cabecalhos)
+
+
+# — Voz da Fish Audio (em teste, fala.py) —————————————————————————————————————————
+
+class ChaveFish(BaseModel):
+    chave: str
+
+
+class VozFish(BaseModel):
+    voz: str | None = None
+
+
+class AmostraFish(BaseModel):
+    texto: str = 'Oi, Matheus! Eu sou o Solis. Anotei o seu lembrete pra amanhã às nove da manhã.'
+    voz: str | None = None
+
+
+@app.get('/fala/fish')
+async def estado_fish():
+    return {'chave': fala.chave_fish() is not None, 'voz': fala.voz_fish(), 'modelo': fala.FISH_MODELO}
+
+
+@app.put('/fala/fish/chave')
+async def guardar_chave_fish(corpo: ChaveFish):
+    """Confere a chave na Fish antes de guardar (selada, como as dos cérebros)."""
+    try:
+        await fala.guardar_chave_fish(corpo.chave)
+    except fala.SemVoz as e:
+        return JSONResponse({'erro': 'chave_recusada', 'motivo': str(e)}, status_code=400)
+    except httpx.HTTPError:
+        return JSONResponse({'erro': 'fish_fora'}, status_code=503)
+    return await estado_fish()
+
+
+@app.delete('/fala/fish/chave')
+async def esquecer_chave_fish():
+    fala.esquecer_chave_fish()
+    return await estado_fish()
+
+
+@app.get('/fala/fish/vozes')
+async def vozes_fish():
+    try:
+        return {'vozes': await fala.vozes_fish()}
+    except (fala.SemVoz, httpx.HTTPError) as e:
+        return JSONResponse({'erro': 'sem_vozes', 'motivo': str(e)}, status_code=503)
+
+
+@app.put('/fala/fish/voz')
+async def escolher_voz_fish(corpo: VozFish):
+    fala.escolher_voz_fish(corpo.voz)
+    return await estado_fish()
+
+
+@app.post('/fala/fish/amostra')
+async def amostra_fish(corpo: AmostraFish):
+    """A Fish falando direto, sem a cadeia — pra ouvir uma voz antes de
+    escolher. O tempo até o áudio vem no cabeçalho X-Solis-Tempo (segundos)."""
+    import time
+    t = time.perf_counter()
+    try:
+        audio = await fala.fish(fala.limpar(corpo.texto), fala.lingua(corpo.texto), voz=corpo.voz)
+    except (fala.SemVoz, httpx.HTTPError) as e:
+        return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
+    return Response(audio, media_type='audio/mpeg', headers={
+        'X-Solis-Tempo': f'{time.perf_counter() - t:.2f}', 'Access-Control-Expose-Headers': 'X-Solis-Tempo'})
 
 
 # — Palavra de ativação ———————————————————————————————————————————————————————————

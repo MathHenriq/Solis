@@ -21,6 +21,13 @@ A cadeia, na ordem:
    medido de 1,3 a 8 s até o primeiro áudio, e uma vez não respondeu.
 3. Kokoro local (kokoro-onnx): pf_dora em português, af_heart em inglês.
 
+Em teste (11/11/2026): a Fish Audio (S2.1 Pro), na frente da cadeia quando há
+chave colada (Configurações → Voz). O modelo s2.1-pro-free é grátis por "um
+período inicial" sem data certa, com uso justo; os pedidos podem ser usados
+pra melhorar o modelo deles (por isso, como as outras da nuvem, nunca o
+privado). Pago: US$ 15 por milhão de bytes de texto (SOLIS_FALA_FISH=s2.1-pro).
+Sem chave, a cadeia é a de sempre.
+
 Privado nunca vai pra nuvem: conversa com algo privado, ou texto de saúde,
 dinheiro ou documento (memoria.SENSIVEL), é falado só pela local.
 """
@@ -47,6 +54,9 @@ GEMINI_MODELO = os.environ.get('SOLIS_FALA_GEMINI', 'gemini-3.8-flash-lite-tts')
 GEMINI_VOZ = os.environ.get('SOLIS_FALA_GEMINI_VOZ', 'Aoede')  # escolhida pelo Matheus ouvindo (09/11/2026)
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions'
 AVA = 'en-US-AvaMultilingualNeural'
+FISH_URL = 'https://api.fish.audio/v1/tts'
+FISH_VOZES_URL = 'https://api.fish.audio/model'
+FISH_MODELO = os.environ.get('SOLIS_FALA_FISH', 's2.1-pro-free')
 KOKORO_VOZ = {'pt': ('pf_dora', 'pt-br'), 'en': ('af_heart', 'en-us')}
 TEMPO_NUVEM = 15.0  # segundos até desistir da nuvem e cair pra próxima
 PARTE_MAX = 280  # caracteres por pedaço: o primeiro áudio chega antes, e a fala segue
@@ -197,6 +207,90 @@ async def gemini(
     return base64.b64decode(audio[-1])
 
 
+def chave_fish() -> str | None:
+    from . import apis
+    return apis._chave_de('fish')
+
+
+def voz_fish() -> str | None:
+    """O id da voz da Fish escolhida (ajuste voz_fish); None = a padrão deles."""
+    return banco.ajuste('voz_fish')
+
+
+async def fish(
+    texto: str, lingua_: str, transporte: httpx.AsyncBaseTransport | None = None, voz: str | None = None,
+) -> bytes:
+    chave = chave_fish()
+    if not chave:
+        raise SemVoz('sem chave da Fish Audio')
+    corpo = {
+        'text': texto,
+        'format': 'mp3',
+        # balanced: menos espera até o primeiro áudio (a documentação fala em
+        # ~300 ms), com a mesma voz. O idioma só acerta a leitura de números e
+        # siglas — a voz é a da referência.
+        'latency': 'balanced',
+        'language': 'pt-BR' if lingua_ == 'pt' else 'en',
+    }
+    if voz or voz_fish():
+        corpo['reference_id'] = voz or voz_fish()
+    async with httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=transporte) as c:
+        r = await c.post(FISH_URL, json=corpo, headers={'Authorization': f'Bearer {chave}', 'model': FISH_MODELO})
+    if r.status_code >= 400:
+        raise SemVoz(f'Fish respondeu {r.status_code}: {r.text[:160]}')
+    if not r.content:
+        raise SemVoz('Fish não devolveu áudio')
+    return r.content
+
+
+async def vozes_fish(transporte: httpx.AsyncBaseTransport | None = None, chave: str | None = None) -> list[dict]:
+    """As vozes públicas em português mais usadas da biblioteca da Fish: id,
+    nome e o endereço de uma amostra (quando a voz tem)."""
+    chave = chave or chave_fish()
+    if not chave:
+        raise SemVoz('sem chave da Fish Audio')
+    async with httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=transporte) as c:
+        r = await c.get(
+            FISH_VOZES_URL,
+            params={'language': 'pt', 'sort_by': 'task_count', 'page_size': 30},
+            headers={'Authorization': f'Bearer {chave}'},
+        )
+    if r.status_code >= 400:
+        raise SemVoz(f'Fish respondeu {r.status_code}: {r.text[:160]}')
+    return [
+        {'id': v['_id'], 'nome': v.get('title') or v['_id'], 'usos': v.get('task_count', 0),
+         'amostra': next((a.get('audio') for a in v.get('samples') or [] if a.get('audio')), None)}
+        for v in r.json().get('items', [])
+        if v.get('_id') and v.get('state', 'trained') == 'trained'
+    ]
+
+
+async def guardar_chave_fish(chave: str, transporte: httpx.AsyncBaseTransport | None = None) -> None:
+    """Confere a chave na própria Fish e guarda
+    selada, como as dos cérebros. Chave recusada não é guardada."""
+    from . import cofre
+    # A lista pública de vozes responde até sem chave válida (conferido: 200
+    # com uma chave inventada); a das vozes da própria conta (self=true) não.
+    async with httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=transporte) as c:
+        r = await c.get(FISH_VOZES_URL, params={'self': 'true', 'page_size': 1},
+                        headers={'Authorization': f'Bearer {chave.strip()}'})
+    if r.status_code >= 400:
+        raise SemVoz(f'Fish recusou a chave ({r.status_code})')
+    banco.guardar_ajuste('chave:fish', cofre.selar(chave.strip()))
+    _fora_ate.pop('fish', None)
+    _cache.clear()
+
+
+def esquecer_chave_fish() -> None:
+    banco.apagar_ajuste('chave:fish')
+    _cache.clear()
+
+
+def escolher_voz_fish(voz: str | None) -> None:
+    banco.guardar_ajuste('voz_fish', voz or None)
+    _cache.clear()
+
+
 async def ava(texto: str, lingua_: str) -> bytes:
     import edge_tts
     audio = bytearray()
@@ -247,7 +341,7 @@ async def kokoro(texto: str, lingua_: str) -> bytes:
 
 
 # Nome, tipo do áudio, função. A ordem é a cadeia.
-NUVEM = [('gemini', 'audio/wav', gemini), ('ava', 'audio/mpeg', ava)]
+NUVEM = [('fish', 'audio/mpeg', fish), ('gemini', 'audio/wav', gemini), ('ava', 'audio/mpeg', ava)]
 LOCAL = [('kokoro', 'audio/wav', kokoro)]
 
 # A voz que falhou por limite ou chave fica fora até esta hora (como os cérebros).
@@ -266,7 +360,11 @@ async def falar(texto: str, conversa: int | None = None, voz: str | None = None)
         raise SemVoz('nada pra falar')
     lingua_ = lingua(texto)
     cadeia = LOCAL if privado(texto, conversa) else NUVEM + LOCAL
-    chave = (texto, voz or voz_gemini(), tuple(n for n, _, _ in cadeia))
+    if voz:
+        # Ouvir uma voz do Gemini antes de escolher: quem fala é o Gemini, não
+        # a Fish que viria antes dele na cadeia.
+        cadeia = [c for c in cadeia if c[0] != 'fish']
+    chave = (texto, voz or voz_gemini(), voz_fish(), tuple(n for n, _, _ in cadeia))
     if chave in _cache:
         _cache.move_to_end(chave)
         return _cache[chave]

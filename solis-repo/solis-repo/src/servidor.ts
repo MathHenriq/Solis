@@ -736,6 +736,82 @@ export async function amostraDeVoz(voz: string): Promise<{ audio: Blob; voz: str
   }
 }
 
+// — Voz da Fish Audio (em teste) ——————————————————————————————————————————————————
+
+export type EstadoFish = { chave: boolean; voz: string | null; modelo: string };
+export type VozFish = { id: string; nome: string; usos: number; amostra: string | null };
+
+export async function estadoFish(): Promise<EstadoFish | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/fish`);
+    return r.ok ? ((await r.json()) as EstadoFish) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A chave é conferida na Fish antes de guardar. 'recusada': a Fish não aceitou. */
+export async function guardarChaveFish(chave: string): Promise<EstadoFish | 'recusada' | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/fish/chave`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chave }),
+    });
+    if (r.status === 400) return 'recusada';
+    return r.ok ? ((await r.json()) as EstadoFish) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function esquecerChaveFish(): Promise<EstadoFish | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/fish/chave`, { method: 'DELETE' });
+    return r.ok ? ((await r.json()) as EstadoFish) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listarVozesFish(): Promise<VozFish[] | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/fish/vozes`);
+    return r.ok ? ((await r.json()) as { vozes: VozFish[] }).vozes : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function escolherVozFish(voz: string | null): Promise<EstadoFish | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/fish/voz`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voz }),
+    });
+    return r.ok ? ((await r.json()) as EstadoFish) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A Fish falando uma frase, direto (sem a cadeia), e quanto demorou. */
+export async function amostraFish(voz: string | null): Promise<{ audio: Blob; segundos: number } | 'sem-voz' | null> {
+  try {
+    const r = await fetch(`${BASE}/fala/fish/amostra`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voz }),
+    });
+    if (r.status === 503) return 'sem-voz';
+    if (!r.ok) return null;
+    return { audio: await r.blob(), segundos: Number(r.headers.get('X-Solis-Tempo') ?? 0) };
+  } catch {
+    return null;
+  }
+}
+
 // — Palavra de ativação ———————————————————————————————————————————————————————————
 
 /** O endereço do WebSocket da escuta (o mesmo servidor, em ws://). */
