@@ -330,8 +330,15 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
    modelo deles. Pago: US$ 15 por milhão de bytes de texto (~12 h de fala). Ligada como a primeira
    voz da cadeia quando há chave (Configurações → Voz, PROVISÓRIO, `design/voz-fish-validacao.png`);
    o privado continua na local. A chave é conferida nas vozes da conta (a lista pública aceita até
-   chave inventada — visto no teste). **Falta:** a chave do Matheus, medir tempo até o áudio e
-   qualidade do português contra Gemini, Ava e Kokoro, e ele ouvir e decidir.
+   chave inventada — visto no teste).
+   **Medido com a chave dele (11/11/2026)**, 4 frases iguais, até o áudio inteiro: Fish 3,1 a 3,4 s
+   de média (vozes padrão, Rafael, Beatriz, Verity — genéricas de assistente; a biblioteca pública
+   em português é quase toda clone de gente real ou personagem, e ficou de fora), Gemini 3,9 s, Ava
+   7,3 s (e falhou uma), Kokoro local 2,7 s. Lendo a Fish aos pedaços (`latency: balanced`), o
+   primeiro pedaço de áudio chega em **0,7–0,8 s** (`normal`: 2,8–3,1 s). Ou seja: a Fish só fica
+   rápida de verdade se o Solis tocar o áudio enquanto ele chega — hoje espera o pedaço inteiro.
+   **Falta:** o Matheus ouvir (`design/_amostras-voz/juntas/`, fora do git) e decidir a voz; tocar
+   aos pedaços (streaming) se a Fish ficar.
 
 1. **Apertar pra falar** primeiro. **Feito (09/11/2026):** um clique no microfone ouve, outro para,
    e o texto entra na caixa pra conferir antes de enviar (Esc desiste). Whisper local (`small`, pelo
