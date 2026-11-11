@@ -1,5 +1,6 @@
 import { Icone, type NomeIcone } from '../components/icons';
 import { LinhaLista, Tela } from '../components/Tela';
+import { LinhaArquivos, Registro, useArquivos } from './FerramentaArquivos';
 
 /** Ferramentas — o que o Solis pode e não pode fazer.
  *  Referência: referencias/telas/14-ferramentas.png.
@@ -29,7 +30,6 @@ const FERRAMENTAS: Ferramenta[] = [
   { id: 'fala', nome: 'Fala', descricao: 'Responder em voz alta', icone: 'fala', ligada: true },
   { id: 'visao', nome: 'Visão', descricao: 'Enxergar o que está na sua tela quando você pedir', icone: 'visao', ligada: false, negada: true },
   { id: 'web', nome: 'Web', descricao: 'Pesquisar na internet quando não souber', icone: 'web', ligada: true },
-  { id: 'arquivos', nome: 'Arquivos', descricao: 'Ler e escrever nas pastas que você autorizar', icone: 'arquivos', ligada: true },
   {
     id: 'terminal', nome: 'Terminal', descricao: 'Rodar comandos na sua máquina', icone: 'terminal', ligada: false,
     aviso: 'Desligada por padrão. Só ligue se souber o que está fazendo.',
@@ -59,37 +59,49 @@ function Interruptor({ ligado, desabilitado, rotulo }: { ligado: boolean; desabi
   );
 }
 
+/** Onde a linha Arquivos entra: depois da Web, como na referência 14. */
+const ANTES_DE_ARQUIVOS = FERRAMENTAS.findIndex((f) => f.id === 'terminal');
+
 export function Ferramentas() {
-  const ativas = FERRAMENTAS.filter((f) => f.ligada).length;
+  // Arquivos é a primeira de verdade (pc.py); as outras ainda são de exemplo.
+  const arquivos = useArquivos();
+  const ativas = FERRAMENTAS.filter((f) => f.ligada).length + (arquivos.estado?.ligada ? 1 : 0);
   return (
-    <Tela titulo="Ferramentas" subtitulo={`${ativas} de ${FERRAMENTAS.length} ativas`}>
-      {FERRAMENTAS.map((f) => (
-        <LinhaLista key={f.id}>
-          <div className="flex items-center gap-xl">
-            <span className="text-text-secondary shrink-0"><Icone nome={f.icone} tamanho={26} /></span>
-            <div className="flex-1">
-              <div className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>{f.nome}</div>
-              <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}>
-                {f.descricao}
-              </div>
-              {f.aviso && (
-                <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}>
-                  {f.aviso}
-                </div>
-              )}
-            </div>
-            {f.negada && (
-              <div className="text-right shrink-0" style={{ fontSize: 'var(--mem-data)' }}>
-                <div style={{ color: 'var(--erro)' }}>Permissão negada</div>
-                <button type="button" className="text-text-secondary underline" style={{ marginTop: 4 }}>
-                  Abrir configurações do sistema
-                </button>
-              </div>
-            )}
-            <Interruptor ligado={f.ligada} desabilitado={f.negada} rotulo={f.nome} />
-          </div>
-        </LinhaLista>
-      ))}
+    <Tela titulo="Ferramentas" subtitulo={`${ativas} de ${FERRAMENTAS.length + 1} ativas`}>
+      {FERRAMENTAS.slice(0, ANTES_DE_ARQUIVOS).map(linha)}
+      <LinhaArquivos estado={arquivos.estado} aoMudar={arquivos.definirEstado} />
+      {FERRAMENTAS.slice(ANTES_DE_ARQUIVOS).map(linha)}
+      <Registro acoes={arquivos.registro} />
     </Tela>
+  );
+}
+
+function linha(f: Ferramenta) {
+  return (
+    <LinhaLista key={f.id}>
+      <div className="flex items-center gap-xl">
+        <span className="text-text-secondary shrink-0"><Icone nome={f.icone} tamanho={26} /></span>
+        <div className="flex-1">
+          <div className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>{f.nome}</div>
+          <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}>
+            {f.descricao}
+          </div>
+          {f.aviso && (
+            <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}>
+              {f.aviso}
+            </div>
+          )}
+        </div>
+        {f.negada && (
+          <div className="text-right shrink-0" style={{ fontSize: 'var(--mem-data)' }}>
+            <div style={{ color: 'var(--erro)' }}>Permissão negada</div>
+            <button type="button" className="text-text-secondary underline" style={{ marginTop: 4 }}>
+              Abrir configurações do sistema
+            </button>
+          </div>
+        )}
+        <Interruptor ligado={f.ligada} desabilitado={f.negada} rotulo={f.nome} />
+      </div>
+    </LinhaLista>
   );
 }

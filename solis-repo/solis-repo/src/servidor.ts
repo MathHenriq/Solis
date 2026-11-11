@@ -660,3 +660,38 @@ export async function estadoAtivacao(): Promise<{ estado: 'ok'; ativacao: Estado
     return { estado: 'sem-servidor' };
   }
 }
+
+// — Controle do PC (backend/solis/pc.py) ——————————————————————————————————————————
+
+export type EstadoPc = { ligada: boolean; pastas: string[]; disponivel: boolean };
+export type AcaoPc = {
+  id: number;
+  quando: string;
+  conversa: number | null;
+  ferramenta: string;
+  argumentos: Record<string, unknown>;
+  resultado: string;
+  ok: boolean;
+};
+
+async function pedirPc<T>(caminho: string, init?: RequestInit): Promise<{ ok: true; dados: T } | { ok: false; motivo: string | null }> {
+  try {
+    const r = await fetch(`${BASE}${caminho}`, init);
+    if (r.status === 400) return { ok: false, motivo: ((await r.json()) as { motivo: string }).motivo };
+    if (!r.ok) return { ok: false, motivo: null };
+    return { ok: true, dados: (await r.json()) as T };
+  } catch {
+    return { ok: false, motivo: null };
+  }
+}
+
+const JSON_PUT = (corpo: unknown): RequestInit => ({
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(corpo),
+});
+
+export const estadoPc = () => pedirPc<EstadoPc>('/pc');
+export const guardarPastasPc = (pastas: string[]) => pedirPc<EstadoPc>('/pc/pastas', JSON_PUT({ pastas }));
+export const ligarPc = (ligada: boolean) => pedirPc<EstadoPc>('/pc/ligada', JSON_PUT({ ligada }));
+export const registroPc = (limite = 8) => pedirPc<AcaoPc[]>(`/pc/registro?limite=${limite}`);
