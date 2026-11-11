@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
+import { Botao } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
@@ -175,12 +176,133 @@ function BotaoOuvir({
   );
 }
 
+/** Ação pequena embaixo de uma fala (copiar, refazer, editar), no desenho do
+ *  Ouvir: aparece no hover da fala, some fora dele. PROVISÓRIO — desenho
+ *  próprio (11/11/2026), base no Claude: as ações discretas ao lado da hora. */
+function BotaoAcao({
+  icone,
+  rotulo,
+  aoClicar,
+  feito = false,
+}: {
+  icone: 'copiar' | 'refazer' | 'lapis' | 'feito';
+  rotulo: string;
+  aoClicar: () => void;
+  feito?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={aoClicar}
+      title={rotulo}
+      aria-label={rotulo}
+      className={`inline-flex items-center justify-center align-middle transition-opacity
+                  ${feito ? 'text-accent opacity-100' : 'text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
+      style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)', marginLeft: 4, marginTop: -4, marginBottom: -4 }}
+    >
+      <Icone nome={feito ? 'feito' : icone} tamanho="var(--mac-icone)" />
+    </button>
+  );
+}
+
+function BotaoCopiar({ texto }: { texto: string }) {
+  const [copiado, definirCopiado] = useState(false);
+  return (
+    <BotaoAcao
+      icone="copiar"
+      rotulo={copiado ? 'Copiado' : 'Copiar a resposta'}
+      feito={copiado}
+      aoClicar={async () => {
+        try {
+          await navigator.clipboard.writeText(texto);
+          definirCopiado(true);
+          setTimeout(() => definirCopiado(false), 1500);
+        } catch {
+          /* sem permissão de área de transferência: o botão só não confirma */
+        }
+      }}
+    />
+  );
+}
+
+/** A fala do Matheus, com o editar no hover: a fala vira um campo; Enviar
+ *  manda o texto novo no lugar dela (o que vinha depois sai), Esc cancela.
+ *  PROVISÓRIO — desenho próprio, base no Claude. */
+function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => void }) {
+  const [editando, definirEditando] = useState(false);
+  const [texto, definirTexto] = useState(t.texto);
+  const caixa = {
+    maxWidth: 'var(--th-balao-max)',
+    background: 'var(--mem-hover)',
+    borderRadius: 'var(--th-balao-raio)',
+    padding: 'var(--th-balao-py) var(--th-balao-px)',
+    fontSize: 'var(--mem-item-texto)',
+    lineHeight: 'var(--mem-item-lh)',
+  } as const;
+  if (editando && aoEditar) {
+    const mandar = () => {
+      if (!texto.trim()) return;
+      definirEditando(false);
+      aoEditar(texto);
+    };
+    return (
+      <div className="flex flex-col items-end" style={{ marginTop: 'var(--th-turno-gap)' }}>
+        <textarea
+          autoFocus
+          value={texto}
+          onChange={(e) => definirTexto(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') definirEditando(false);
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              mandar();
+            }
+          }}
+          aria-label="Editar a mensagem"
+          rows={Math.min(8, Math.max(2, texto.split('\n').length))}
+          className="text-text-primary bg-transparent outline-none resize-none w-full"
+          style={{ ...caixa, maxWidth: 'var(--th-balao-max)', border: '1px solid var(--divider)' }}
+        />
+        <div className="flex" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
+          <Botao onClick={() => definirEditando(false)}>Cancelar</Botao>
+          <Botao tipo="destaque" onClick={mandar} disabled={!texto.trim()}>
+            Enviar
+          </Botao>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="group flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
+      <span className="text-text-secondary shrink-0 flex items-center" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
+        {aoEditar && (
+          <BotaoAcao
+            icone="lapis"
+            rotulo="Editar a mensagem"
+            aoClicar={() => {
+              definirTexto(t.texto);
+              definirEditando(true);
+            }}
+          />
+        )}
+        <span style={{ marginLeft: aoEditar ? 6 : 0 }}>{t.hora}</span>
+      </span>
+      <div className="text-text-primary whitespace-pre-wrap" style={caixa}>
+        {t.texto}
+      </div>
+    </div>
+  );
+}
+
 function RespostaSolis({
   t,
   ouvir,
+  aoRefazer,
 }: {
   t: Turno;
   ouvir?: { falando: boolean; preparando: boolean; falhou: boolean; aoOuvir: () => void; aoParar: () => void };
+  /** Só na última resposta, e fora de uma resposta em andamento. */
+  aoRefazer?: () => void;
 }) {
   const [aberta, definirAberta] = useState(false);
   const etapas = t.etapas ?? [];
@@ -221,6 +343,8 @@ function RespostaSolis({
             {/* Só quem não é o local: o local é o normal, não precisa de nome. */}
             {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
             {ouvir && !vivo && !t.falha && t.texto && <BotaoOuvir {...ouvir} />}
+            {!vivo && !t.falha && t.texto && <BotaoCopiar texto={t.texto} />}
+            {!vivo && aoRefazer && <BotaoAcao icone="refazer" rotulo="Refazer a resposta" aoClicar={aoRefazer} />}
           </div>
           {pensando ? (
             <div style={{ marginTop: 'var(--et-cabecalho)' }}>
@@ -251,10 +375,17 @@ export function Thread({
   aoEnviar,
   conversa = null,
   ouvindo = false,
+  aoParar,
+  aoRefazer,
 }: {
   turnos: Turno[];
   respondendo: boolean;
-  aoEnviar: (texto: string) => void;
+  /** `desde`: editar — a fala com esse id no banco sai, e o que vinha depois. */
+  aoEnviar: (texto: string, desde?: number) => void;
+  /** Para a resposta em andamento. */
+  aoParar?: () => void;
+  /** Refaz a última resposta. */
+  aoRefazer?: () => void;
   conversa?: number | null;
   /** A palavra "Solis" foi ouvida e o que vem depois está sendo escutado. */
   ouvindo?: boolean;
@@ -303,30 +434,20 @@ export function Thread({
         style={{ paddingLeft: 'var(--mem-pad-l)', paddingRight: 'var(--mem-pad-r)', paddingTop: 'var(--th-turno-gap)' }}
       >
         <div style={{ maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}>
-          {turnos.map((t) =>
+          {turnos.map((t, i) =>
             t.de === 'pessoa' ? (
-              <div key={t.id} className="flex items-start justify-end gap-lg" style={{ marginTop: 'var(--th-turno-gap)' }}>
-                <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
-                  {t.hora}
-                </span>
-                <div
-                  className="text-text-primary whitespace-pre-wrap"
-                  style={{
-                    maxWidth: 'var(--th-balao-max)',
-                    background: 'var(--mem-hover)',
-                    borderRadius: 'var(--th-balao-raio)',
-                    padding: 'var(--th-balao-py) var(--th-balao-px)',
-                    fontSize: 'var(--mem-item-texto)',
-                    lineHeight: 'var(--mem-item-lh)',
-                  }}
-                >
-                  {t.texto}
-                </div>
-              </div>
+              <FalaPessoa
+                key={t.id}
+                t={t}
+                aoEditar={!respondendo && t.mensagem !== undefined ? (texto) => aoEnviar(texto, t.mensagem) : undefined}
+              />
             ) : (
               <RespostaSolis
                 key={t.id}
                 t={t}
+                aoRefazer={
+                  !respondendo && i === turnos.length - 1 && turnos[i - 1]?.mensagem !== undefined ? aoRefazer : undefined
+                }
                 ouvir={{
                   falando: fala.falando === t.id,
                   preparando: fala.falando === t.id && fala.preparando,
@@ -375,8 +496,11 @@ export function Thread({
             aria-label="Fale com o Solis"
           />
           <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
+          {/* Respondendo, o enviar vira o parar (como no Claude): o mesmo
+              círculo, o quadrado no lugar do avião. */}
           <button
-            type="submit"
+            type={respondendo && aoParar ? 'button' : 'submit'}
+            onClick={respondendo && aoParar ? aoParar : undefined}
             className="bg-accent text-canvas flex items-center justify-center shrink-0"
             style={{
               width: 52,
@@ -384,12 +508,12 @@ export function Thread({
               borderRadius: 999,
               marginLeft: 10,
               marginRight: 18,
-              opacity: respondendo ? 0.4 : 1,
+              opacity: respondendo && !aoParar ? 0.4 : 1,
             }}
-            aria-label="Enviar"
-            aria-disabled={respondendo}
+            aria-label={respondendo && aoParar ? 'Parar a resposta' : 'Enviar'}
+            aria-disabled={respondendo && !aoParar}
           >
-            <Icone nome="enviar" tamanho={22} />
+            <Icone nome={respondendo && aoParar ? 'parar' : 'enviar'} tamanho={22} />
           </button>
         </form>
       </div>

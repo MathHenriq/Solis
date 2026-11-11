@@ -148,7 +148,7 @@ def _ferramentas_solis():
     )
 
 
-async def _decidir(nome: str, entrada: dict, por):
+async def _decidir(nome: str, entrada: dict, por, ids: set | None = None):
     """O can_use_tool do SDK: livre, ou um cartão na conversa esperando o Matheus."""
     from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny
 
@@ -159,6 +159,8 @@ async def _decidir(nome: str, entrada: dict, por):
     id_ = uuid.uuid4().hex[:12]
     fut: concurrent.futures.Future = concurrent.futures.Future()
     _pendentes[id_] = fut
+    if ids is not None:
+        ids.add(id_)
     por('etapa', ('aprovacao', {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
                                 'alvo': _alvo(nome, entrada, 1000)}))
     try:
@@ -172,7 +174,7 @@ async def _decidir(nome: str, entrada: dict, por):
     return PermissionResultAllow() if ok else PermissionResultDeny(message='O Matheus recusou.')
 
 
-async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None) -> None:
+async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None) -> None:
     """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor.
     `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
     from claude_agent_sdk import (
@@ -180,9 +182,11 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None) ->
         StreamEvent, ToolResultBlock, ToolUseBlock, UserMessage,
     )
     usadas: dict[str, tuple[str, dict]] = {}
+    estado = estado if estado is not None else {}
+    estado.setdefault('aprovacoes', set())
 
     async def decidir(nome, entrada, contexto):
-        return await _decidir(nome, entrada, por)
+        return await _decidir(nome, entrada, por, estado['aprovacoes'])
 
     async def leitura_fora(dados, tool_use_id, contexto):
         """Ler é livre pro Claude Code; aqui, fora das pastas autorizadas, vira pedido."""
@@ -207,6 +211,10 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None) ->
     )
     pensou = False
     async with ClaudeSDKClient(options=opcoes) as cliente:
+        # Pra o Matheus poder parar no meio: o outro lado chama interrupt()
+        # neste laço (claude(), no finally).
+        estado['cliente'] = cliente
+        estado['laco'] = asyncio.get_running_loop()
         await cliente.query(prompt)
         async for m in cliente.receive_response():
             if isinstance(m, StreamEvent):
@@ -259,18 +267,51 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
     def por(tipo, valor=None):
         laco.call_soon_threadsafe(fila.put_nowait, (tipo, valor))
 
+    estado: dict = {}
+
     def na_thread():
         proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
         try:
-            proprio.run_until_complete(_sessao(sistema, prompt, por, retomar))
+            proprio.run_until_complete(_sessao(sistema, prompt, por, retomar, estado=estado))
         except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
-            log.exception('o agente do Claude falhou')
+            if not estado.get('parado'):
+                log.exception('o agente do Claude falhou')
             por('erro', e)
         finally:
             por('fim')
             proprio.close()
 
     threading.Thread(target=na_thread, name='solis-agente', daemon=True).start()
+    terminou = False
+    try:
+        async for item in _ler(fila, etapas, ao_sessao):
+            yield item
+        terminou = True
+    except AgenteFalhou:
+        terminou = True  # a sessão já acabou sozinha: não há o que interromper
+        raise
+    finally:
+        if not terminou:
+            _interromper(estado)
+
+
+def _interromper(estado: dict) -> None:
+    """O Matheus parou a resposta (ou ela caiu do lado de cá): a sessão do
+    Claude é interrompida no laço dela, e os cartões que ainda esperavam
+    viram recusa — senão a thread ficaria presa 10 minutos esperando."""
+    estado['parado'] = True
+    for id_ in list(estado.get('aprovacoes', ())):
+        responder_aprovacao(id_, False)
+    cliente, laco = estado.get('cliente'), estado.get('laco')
+    if cliente is not None and laco is not None and not laco.is_closed():
+        try:
+            asyncio.run_coroutine_threadsafe(cliente.interrupt(), laco)
+        except RuntimeError:  # o laço acabou de fechar: nada a interromper
+            pass
+    log.info('claude (agente): interrompido')
+
+
+async def _ler(fila: asyncio.Queue, etapas, ao_sessao) -> AsyncIterator[str]:
     while True:
         tipo, valor = await fila.get()
         if tipo == 'texto':

@@ -499,6 +499,28 @@ def _titulo(texto: str) -> str:
     return linha[:TITULO_MAX].rsplit(' ', 1)[0]
 
 
+def mensagem_da_pessoa(conversa: int, mensagem: int) -> bool:
+    return _con().execute(
+        "SELECT 1 FROM mensagens WHERE id = ? AND conversa = ? AND papel = 'pessoa'", (mensagem, conversa)
+    ).fetchone() is not None
+
+
+def apagar_desde(conversa: int, mensagem: int) -> int:
+    """Editar uma mensagem ou refazer a resposta: a conversa volta a antes dela.
+    Os vetores das mensagens saem junto; o resumo que já cobria alguma delas é
+    jogado fora (refaz quando a conversa crescer de novo). As memórias que
+    nasceram delas ficam: são fatos sobre o Matheus, não a conversa."""
+    with _con() as c:
+        c.execute(
+            "DELETE FROM vetores WHERE tipo = 'mensagem' AND ref IN "
+            '(SELECT id FROM mensagens WHERE conversa = ? AND id >= ?)',
+            (conversa, mensagem),
+        )
+        apagadas = c.execute('DELETE FROM mensagens WHERE conversa = ? AND id >= ?', (conversa, mensagem)).rowcount
+        c.execute('UPDATE conversas SET resumo = NULL, resumo_ate = 0 WHERE id = ? AND resumo_ate >= ?', (conversa, mensagem))
+    return apagadas
+
+
 def existe(conversa: int) -> bool:
     return _con().execute('SELECT 1 FROM conversas WHERE id = ?', (conversa,)).fetchone() is not None
 

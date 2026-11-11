@@ -127,7 +127,7 @@ def _rodar(monkeypatch, sessao):
 
 
 def test_ponte_texto_e_etapas(monkeypatch):
-    async def sessao(sistema, prompt, por, retomar=None):
+    async def sessao(sistema, prompt, por, retomar=None, **_):
         por('texto', 'Olá, ')
         por('etapa', ('ferramenta', {'ferramenta': 'Read', 'alvo': 'a.txt', 'ok': True}))
         por('texto', 'Matheus.')
@@ -138,7 +138,7 @@ def test_ponte_texto_e_etapas(monkeypatch):
 
 
 def test_ponte_erro_vira_agente_falhou(monkeypatch):
-    async def sessao(sistema, prompt, por, retomar=None):
+    async def sessao(sistema, prompt, por, retomar=None, **_):
         raise RuntimeError('sem login')
     with pytest.raises(agente.AgenteFalhou, match='sem login'):
         _rodar(monkeypatch, sessao)
@@ -148,7 +148,7 @@ def test_cota_acabada_pausa_o_claude(monkeypatch):
     pausas = []
     monkeypatch.setattr(cerebros, 'pausar', lambda nome, ate=None, motivo='': pausas.append((nome, ate, motivo)))
 
-    async def sessao(sistema, prompt, por, retomar=None):
+    async def sessao(sistema, prompt, por, retomar=None, **_):
         por('cota', 1_900_000_000)
     _rodar(monkeypatch, sessao)
     assert pausas == [('claude', 1_900_000_000, 'a cota acabou')]

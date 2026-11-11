@@ -29,9 +29,9 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 |---|---|---|---|
 | ✅ | Resposta saindo ao vivo, com as etapas | Thread, etapas | |
 | 🟡 | Markdown: títulos, listas, negrito, código | blocos e código; falta tabela, realce de sintaxe e copiar o código | P1 |
-| ⬜ | Parar a resposta no meio | — | P1 |
-| ⬜ | Copiar uma resposta | — | P1 |
-| ⬜ | Editar a mensagem e mandar de novo; refazer a resposta | — | P1 |
+| ✅ | Parar a resposta no meio | 11/11/2026: o enviar vira o parar; interrompe até o Claude no meio de uma ferramenta; o que chegou fica guardado. Provado pelo app | P1 |
+| ✅ | Copiar uma resposta | 11/11/2026, ao lado da hora; falta copiar só um bloco de código | P1 |
+| ✅ | Editar a mensagem e mandar de novo; refazer a resposta | 11/11/2026; diferente do Claude, a versão antiga não fica guardada como ramo (sai) | P1 |
 | ⬜ | Anexar arquivo e imagem na conversa (arrastar, colar) | só pela tela Conhecimento | P1 |
 | ⬜ | Escolher o modelo (Opus, Sonnet, Haiku) e o quanto ele pensa | sempre o padrão da conta | P1 |
 | ✅ | Lista de conversas e busca nelas | sidebar, busca | |

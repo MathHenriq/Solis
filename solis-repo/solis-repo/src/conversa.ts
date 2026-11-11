@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { EtapaRecebida } from './etapas';
 import { respostaFalada } from './fala';
-import { NOMES_CEREBRO, abrirConversa, carregarConversa, conversar, type Falha, type Mensagem } from './servidor';
+import {
+  NOMES_CEREBRO,
+  abrirConversa,
+  carregarConversa,
+  conversar,
+  pararResposta,
+  type Falha,
+  type Mensagem,
+} from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
  *  à troca de tela: ir a Modelos e voltar não pode apagar o que foi dito.
@@ -25,6 +33,9 @@ export type Turno = {
   cerebro?: string | null;
   /** O que o servidor fez pra responder, em ordem, com os tempos. */
   etapas?: EtapaRecebida[];
+  /** Fala da pessoa: o id dela no banco, pra editar ou refazer. Chega com a
+   *  etapa `guardada`; sem ele, a fala não pode ser editada. */
+  mensagem?: number;
 };
 
 /** ERROR_STATES.md §2: no lugar da resposta, dizendo quem falhou e o que fazer. */
@@ -63,6 +74,7 @@ const turnosDe = (mensagens: Mensagem[]): Turno[] =>
     hora: hora(new Date(m.criada)),
     cerebro: m.cerebro,
     etapas: m.etapas ?? undefined,
+    mensagem: m.papel === 'pessoa' ? m.id : undefined,
   }));
 
 export function useConversa() {
@@ -105,23 +117,29 @@ export function useConversa() {
     definirTurnos(turnosDe(c.mensagens));
   }, []);
 
+  /** `desde`: editar ou refazer — a thread volta a antes da fala com esse id
+   *  no banco (ela e tudo depois saem) e `texto` vai no lugar dela. */
   const enviar = useCallback(
-    async (texto: string) => {
+    async (texto: string, desde?: number) => {
       const limpo = texto.trim();
       if (!limpo || respondendo) return;
 
-      if (limpo === COMANDO_NOVA) {
+      if (limpo === COMANDO_NOVA && desde === undefined) {
         nova();
         return;
       }
 
       const agora = hora(new Date());
       const id = novoId();
-      definirTurnos((ts) => [
-        ...ts,
-        { id: novoId(), de: 'pessoa', hora: agora, texto: semComando(limpo) },
-        { id, de: 'solis', hora: agora, texto: '', digitando: true, etapas: [] },
-      ]);
+      const pessoa = novoId();
+      definirTurnos((ts) => {
+        const corte = desde === undefined ? -1 : ts.findIndex((t) => t.mensagem === desde);
+        return [
+          ...(corte === -1 ? ts : ts.slice(0, corte)),
+          { id: pessoa, de: 'pessoa', hora: agora, texto: semComando(limpo) },
+          { id, de: 'solis', hora: agora, texto: '', digitando: true, etapas: [] },
+        ];
+      });
       definirRespondendo(true);
       let terminou = false;
 
@@ -129,11 +147,20 @@ export function useConversa() {
         aoReceber: (pedaco) => mudar(id, (t) => ({ ...t, texto: t.texto + pedaco })),
         aoCriar: definirConversa,
         aoEtapa: (etapa) => {
+          if (etapa.etapa === 'guardada') {
+            mudar(pessoa, (t) => ({ ...t, mensagem: etapa.pessoa }));
+            return;
+          }
           mudar(id, (t) => ({
             ...t,
             etapas: [...(t.etapas ?? []), { ...etapa, recebida: Date.now() }],
             cerebro: etapa.etapa === 'primeira_palavra' ? etapa.cerebro : t.cerebro,
             digitando: etapa.etapa === 'fim' ? false : t.digitando,
+            // Parou antes da primeira palavra: no lugar da resposta, o aviso
+            // (texto secundário, como um erro — não é fala do Solis).
+            ...(etapa.etapa === 'fim' && etapa.parada && !t.texto
+              ? { texto: 'Você parou antes da resposta.', falha: true }
+              : {}),
           }));
           // A mensagem já está no banco quando a busca na memória termina: a
           // conversa entra (ou sobe) na lista do painel. E o título, quando o
@@ -146,7 +173,7 @@ export function useConversa() {
             definirRespondendo(false);
           }
         },
-      }, respostaFalada.proxima);
+      }, respostaFalada.proxima, desde);
 
       // Depois do `fim` a próxima mensagem já pode estar respondendo: liberar o
       // campo de novo aqui o soltaria no meio dela.
@@ -159,5 +186,16 @@ export function useConversa() {
     [conversa, respondendo, nova],
   );
 
-  return { turnos, respondendo, enviar, conversa, abrir, nova, versao };
+  const parar = useCallback(() => {
+    if (conversa !== null) void pararResposta(conversa);
+  }, [conversa]);
+
+  /** Refaz a última resposta: a última fala da pessoa vai de novo, no lugar
+   *  dela mesma. */
+  const refazer = useCallback(() => {
+    const fala = [...turnos].reverse().find((t) => t.de === 'pessoa');
+    if (fala?.mensagem !== undefined) void enviar(fala.texto, fala.mensagem);
+  }, [turnos, enviar]);
+
+  return { turnos, respondendo, enviar, conversa, abrir, nova, versao, parar, refazer };
 }

@@ -54,6 +54,12 @@ const CAMINHOS = {
   // Desenho próprio (o Solis falando): o quadrado do parar, no traço 2 do grid.
   'parar':
     'M8.4 6h7.2A2.4 2.4 0 0 1 18 8.4v7.2a2.4 2.4 0 0 1-2.4 2.4H8.4A2.4 2.4 0 0 1 6 15.6V8.4A2.4 2.4 0 0 1 8.4 6z',
+  // Desenho próprio (copiar e refazer a resposta, 11/11/2026), no traço 2 e
+  // no grid dos outros: as duas folhas do copiar, a seta que volta do refazer.
+  'copiar':
+    'M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2',
+  'refazer':
+    'M3 12a9 9 0 1 0 2.64-6.36L3 8.3 M3 3v5.3h5.3',
   'fala':
     'M11 5 6.5 8.8H3.4A1.4 1.4 0 0 0 2 10.2v3.6a1.4 1.4 0 0 0 1.4 1.4h3.1L11 19z M15.5 9.2a4 4 0 0 1 0 5.6 M18.4 6.3a8 8 0 0 1 0 11.4',
   'visao':

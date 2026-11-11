@@ -177,7 +177,8 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
   });
 
   const fim = etapas.find((e) => e.etapa === 'fim');
-  if (fim) saida.push({ estado: 'feita', texto: fim.cortada ? 'Escrevi a resposta, cortada no meio' : 'Escrevi a resposta' });
+  if (fim?.parada) saida.push({ estado: 'falhou', texto: 'Você parou a resposta' });
+  else if (fim) saida.push({ estado: 'feita', texto: fim.cortada ? 'Escrevi a resposta, cortada no meio' : 'Escrevi a resposta' });
   // Esperando o cartão, nada está sendo escrito: o passo atual é a aprovação.
   else if (vivo && aprovacoesPendentes(etapas).length) return saida;
   else if (vivo && etapas.some((e) => e.etapa === 'primeira_palavra'))

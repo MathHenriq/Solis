@@ -6,6 +6,7 @@ com ele por HTTP tanto no `npm run dev` quanto dentro do Tauri.
     npm run backend        # a partir da raiz do app
 """
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -220,17 +221,33 @@ class Envio(BaseModel):
     texto: str
     # Veio pela voz e a resposta vai ser falada: resposta curta (ollama.VOZ).
     voz: bool = False
+    # Editar uma mensagem ou refazer a resposta: a conversa volta a antes da
+    # mensagem `desde` (da pessoa), e esta vai no lugar dela.
+    desde: int | None = None
 
 
 # Referência forte às respostas em andamento: sem ela o coletor de lixo pode
 # levar uma tarefa no meio.
 _tarefas: set[asyncio.Task] = set()
 
+# A resposta em andamento de cada conversa, pra o Matheus poder parar no meio.
+_paradas: dict[int, asyncio.Event] = {}
+
 
 @app.post('/conversas/{conversa}/mensagens')
 async def enviar(conversa: int, envio: Envio):
     if not banco.existe(conversa):
         return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+
+    if envio.desde is not None:
+        if conversa in _paradas:
+            return JSONResponse({'erro': 'respondendo'}, status_code=409)
+        if not banco.mensagem_da_pessoa(conversa, envio.desde):
+            return JSONResponse({'erro': 'mensagem_inexistente'}, status_code=404)
+        banco.apagar_desde(conversa, envio.desde)
+        # A sessão do Claude viu o que foi apagado: a próxima começa outra,
+        # com o histórico de agora.
+        banco.esquecer_sessao_claude(conversa)
 
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
@@ -250,9 +267,13 @@ async def enviar(conversa: int, envio: Envio):
     # janela não corta nada — a resposta termina e é guardada inteira, e o
     # aprendizado roda do mesmo jeito.
     etapas = Etapas(conversa)
+    # O id da mensagem guardada: é por ele que a tela edita ou refaz depois.
+    etapas.marcar('guardada', pessoa=mensagem_id)
+    parar = _paradas[conversa] = asyncio.Event()
     tarefa = asyncio.create_task(_responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz))
     _tarefas.add(tarefa)
     tarefa.add_done_callback(_tarefas.discard)
+    tarefa.add_done_callback(lambda _: _paradas.pop(conversa, None) if _paradas.get(conversa) is parar else None)
 
     async def ndjson():
         async for evento in etapas.eventos():
@@ -261,6 +282,36 @@ async def enviar(conversa: int, envio: Envio):
     # NDJSON e não texto puro: junto do texto vão as etapas e o erro — que agora
     # chega com o stream já aberto, quando não dá mais pra mudar o status HTTP.
     return StreamingResponse(ndjson(), media_type='application/x-ndjson')
+
+
+@app.post('/conversas/{conversa}/parar')
+async def parar_resposta(conversa: int):
+    """O Matheus parou a resposta no meio. O que já chegou fica guardado."""
+    parar = _paradas.get(conversa)
+    if parar is None:
+        return JSONResponse({'erro': 'nada_respondendo'}, status_code=404)
+    parar.set()
+    return {'ok': True}
+
+
+async def _ate_parar(aguardavel, parar: asyncio.Event | None):
+    """(resultado, False) — ou (None, True) se o Matheus parou antes. Parar
+    cancela o que estava esperando: o modelo, o CLI ou a sessão do Claude, que
+    é interrompida (agente._interromper)."""
+    tarefa = asyncio.ensure_future(aguardavel)
+    if parar is None:
+        return await tarefa, False
+    espera = asyncio.ensure_future(parar.wait())
+    try:
+        await asyncio.wait({tarefa, espera}, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        espera.cancel()
+    if tarefa.done():
+        return tarefa.result(), False
+    tarefa.cancel()
+    with contextlib.suppress(BaseException):
+        await tarefa
+    return None, True
 
 
 async def _responder(
@@ -274,6 +325,15 @@ async def _responder(
     voz: bool = False,
 ) -> None:
     resposta_id = None
+    parar = _paradas.get(conversa)
+
+    def fim(**dados):
+        # A resposta acabou: a tela libera o campo aqui, e o servidor também —
+        # editar e refazer não esperam o título e o aprendizado, que seguem.
+        etapas.marcar('fim', **dados)
+        if _paradas.get(conversa) is parar:
+            _paradas.pop(conversa, None)
+
     try:
         # O básico (hora, data, lembrete, agenda, tarefas) sai em código, antes
         # de tudo: sem busca na memória e sem modelo (rapidas.py). Comando na
@@ -286,7 +346,7 @@ async def _responder(
             etapas.marcar('rapida', tipo=rapida['tipo'])
             etapas.texto(rapida['texto'])
             resposta_id = banco.adicionar(conversa, 'solis', rapida['texto'], privada=rapida['privada'], cerebro='solis')
-            etapas.marcar('fim', cerebro='solis')
+            fim(cerebro='solis')
             if t:
                 # A mesma etapa do aprendizado: a tela mostra "Tarefa anotada".
                 etapas.marcar('aprendizado', novas=0, textos=[], tarefas=[t], compromissos=[])
@@ -306,9 +366,14 @@ async def _responder(
             trechos.append({'lembrete': True, 'dia': pedida[0], 'hora': pedida[1], 'relativa': pedida[2], 'privada': False})
 
         try:
-            fluxo, cerebro = await roteador.responder(
-                ordem, modelo, conversa, historico, memorias, trechos, resumido, texto, etapas, voz=voz
+            aberto, parada = await _ate_parar(
+                roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido, texto, etapas, voz=voz),
+                parar,
             )
+            if parada:
+                fim(parada=True)
+                return
+            fluxo, cerebro = aberto
         except roteador.NinguemRespondeu as e:
             # Sem modelo nenhum não há extração — mas um pedido de guardar não
             # pode se perder por isso. Guarda a mensagem como veio.
@@ -318,19 +383,26 @@ async def _responder(
             return
 
         resposta = []
-        cortada = False
+        cortada = parada = False
         try:
-            async for pedaco in fluxo:
+            while True:
+                pedaco, parada = await _ate_parar(anext(fluxo, None), parar)
+                if parada or pedaco is None:
+                    break
                 resposta.append(pedaco)
                 etapas.texto(pedaco)
         except Exception:
             log.exception('a resposta da conversa %s caiu no meio', conversa)
             cortada = True
         finally:
+            if parada:
+                with contextlib.suppress(Exception):
+                    await fluxo.aclose()
             # finally: nem o servidor desligando no meio perde o que já chegou.
             if resposta:
                 resposta_id = banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro)
-        etapas.marcar('fim', cerebro=cerebro, **({'cortada': True} if cortada else {}))
+        fim(cerebro=cerebro, **({'cortada': True} if cortada else {}),
+                      **({'parada': True} if parada else {}))
 
         try:
             await _depois(etapas, modelo, conversa, texto, historico, mensagem_id)

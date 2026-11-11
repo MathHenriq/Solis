@@ -211,12 +211,18 @@ export type Etapa = {
   id?: string;
   resumo?: string;
   aprovado?: boolean;
+  /** Etapa `guardada`: o id da mensagem da pessoa no banco — é por ele que a
+   *  tela edita a mensagem ou refaz a resposta. */
+  pessoa?: number;
+  /** Etapa `fim`: o Matheus parou a resposta no meio. */
+  parada?: boolean;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
  *  pessoa e nas respostas antigas, de antes de existir mais de um. `etapas`:
  *  nulo nas falas da pessoa e nas respostas de antes das etapas existirem. */
 export type Mensagem = {
+  id: number;
   papel: 'pessoa' | 'solis';
   texto: string;
   criada: string;
@@ -230,6 +236,15 @@ export type Falha =
 
 /** A conversa mais recente guardada — o app reabre nela. null quando o servidor
  *  não responde: aí a tela começa vazia, que é o que dá pra mostrar. */
+/** Para a resposta em andamento. O que já chegou fica guardado. */
+export async function pararResposta(conversa: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/conversas/${conversa}/parar`, { method: 'POST' })).ok;
+  } catch {
+    return false;
+  }
+}
+
 /** O Matheus respondeu o cartão de aprovação. False se o pedido já tinha
  *  acabado (respondido, ou passou o tempo) ou o servidor não respondeu. */
 export async function responderAprovacao(id: string, aprovar: boolean): Promise<boolean> {
@@ -306,7 +321,15 @@ function falhaDoStream(e: { erro: string; cerebro?: string }): Falha {
  *  onde parou. */
 /** `voz`: a mensagem veio pela voz e a resposta vai ser falada — o servidor
  *  pede uma resposta curta e direta (ollama.VOZ). */
-export async function conversar(conversa: number | null, texto: string, ouvintes: Ouvintes, voz = false): Promise<Falha | null> {
+/** `desde`: editar uma mensagem ou refazer a resposta — a conversa volta a
+ *  antes da mensagem `desde` (da pessoa) e `texto` vai no lugar dela. */
+export async function conversar(
+  conversa: number | null,
+  texto: string,
+  ouvintes: Ouvintes,
+  voz = false,
+  desde?: number,
+): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
   // Ollama fora não é mais fim de conversa: o Claude ou o Codex ainda podem
@@ -325,14 +348,16 @@ export async function conversar(conversa: number | null, texto: string, ouvintes
     r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelo: modelo ?? '', texto, voz }),
+      body: JSON.stringify({ modelo: modelo ?? '', texto, voz, ...(desde !== undefined ? { desde } : {}) }),
     });
   } catch {
     return { tipo: 'sem-servidor' };
   }
   // A conversa sumir do banco (o arquivo foi apagado com o app aberto) não é
   // culpa de ninguém: começa outra e manda de novo.
-  if (r.status === 404) return conversar(null, texto, ouvintes, voz);
+  // Na edição, 404 é a mensagem que não existe mais: começar outra conversa
+  // jogaria fora o resto.
+  if (r.status === 404 && desde === undefined) return conversar(null, texto, ouvintes, voz);
   if (!r.ok || !r.body) return { tipo: 'sem-servidor' };
 
   // NDJSON: um evento por linha — {"texto"}, {"etapa"} ou {"erro"}. Uma linha

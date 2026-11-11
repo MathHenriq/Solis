@@ -235,6 +235,12 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
   próxima mensagem vai só com a memória de agora, o que outro modelo respondeu no meio e a
   mensagem nova. Sessão que não continua vira uma nova com o histórico inteiro. Provado pelo app
   (ver `docs/PARIDADE.md`).
+- [x] Parar, copiar, refazer e editar na conversa (11/11/2026), conferidos pelo app com o Claude
+  num servidor de teste: parou em 70 palavras e guardou o pedaço; refazer e editar trocaram a
+  resposta e o que vinha depois. Desenho próprio, PROVISÓRIO (`design/conversa-acoes-validacao.png`).
+- [ ] **Defeito achado (11/11/2026):** o aprendizado vira pedido em tarefa — "Escreva um texto de
+  500 palavras sobre o Sol" e "crie o arquivo nota.txt" viraram tarefas abertas; e uma memória
+  antiga ("sair com os meninos") foi aprendida de novo numa conversa que não falava disso.
 - [ ] O diff no cartão antes de aprovar uma edição; "aprovar sempre" por ferramenta. O resto do
   caminho está em `docs/PARIDADE.md`.
 

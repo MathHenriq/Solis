@@ -57,7 +57,7 @@ def test_que_horas_sao_nao_chama_modelo_nem_busca(monkeypatch):
     linhas = [json.loads(l) for l in r.text.splitlines() if l]
     texto = ''.join(l.get('texto', '') for l in linhas)
     assert texto.startswith('São ') and texto.endswith('.')
-    assert [l['etapa'] for l in linhas if 'etapa' in l] == ['rapida', 'fim']
+    assert [l['etapa'] for l in linhas if 'etapa' in l] == ['guardada', 'rapida', 'fim']
 
 
 def test_lembrete_pela_conversa_vira_tarefa_e_aparece_anotado(monkeypatch):

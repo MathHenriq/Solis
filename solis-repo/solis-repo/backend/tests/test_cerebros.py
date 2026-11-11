@@ -167,8 +167,8 @@ def test_cai_pro_proximo_e_diz_quem_respondeu(monkeypatch):
     assert texto(r) == 'resposta do codex'
     # As etapas dizem quem tentou, quem caiu e por quê, e quem respondeu.
     etapas = [(e['etapa'], e.get('cerebro')) for e in eventos(r) if 'etapa' in e]
-    assert etapas[:5] == [
-        ('memoria', None), ('cerebro', 'claude'), ('queda', 'claude'), ('cerebro', 'codex'), ('fim', 'codex'),
+    assert etapas[:6] == [
+        ('guardada', None), ('memoria', None), ('cerebro', 'claude'), ('queda', 'claude'), ('cerebro', 'codex'), ('fim', 'codex'),
     ]
     assert [e['motivo'] for e in eventos(r) if e.get('etapa') == 'queda'] == ['claude']
     assert [n for n, _ in recebido] == ['claude', 'codex']
