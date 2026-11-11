@@ -127,7 +127,7 @@ def _rodar(monkeypatch, sessao):
 
 
 def test_ponte_texto_e_etapas(monkeypatch):
-    async def sessao(sistema, prompt, por):
+    async def sessao(sistema, prompt, por, retomar=None):
         por('texto', 'Olá, ')
         por('etapa', ('ferramenta', {'ferramenta': 'Read', 'alvo': 'a.txt', 'ok': True}))
         por('texto', 'Matheus.')
@@ -138,7 +138,7 @@ def test_ponte_texto_e_etapas(monkeypatch):
 
 
 def test_ponte_erro_vira_agente_falhou(monkeypatch):
-    async def sessao(sistema, prompt, por):
+    async def sessao(sistema, prompt, por, retomar=None):
         raise RuntimeError('sem login')
     with pytest.raises(agente.AgenteFalhou, match='sem login'):
         _rodar(monkeypatch, sessao)
@@ -148,14 +148,14 @@ def test_cota_acabada_pausa_o_claude(monkeypatch):
     pausas = []
     monkeypatch.setattr(cerebros, 'pausar', lambda nome, ate=None, motivo='': pausas.append((nome, ate, motivo)))
 
-    async def sessao(sistema, prompt, por):
+    async def sessao(sistema, prompt, por, retomar=None):
         por('cota', 1_900_000_000)
     _rodar(monkeypatch, sessao)
     assert pausas == [('claude', 1_900_000_000, 'a cota acabou')]
 
 
 def test_cerebro_claude_usa_o_agente(monkeypatch):
-    async def falso(sistema, prompt, etapas):
+    async def falso(sistema, prompt, etapas, **_):
         yield 'pelo agente'
     monkeypatch.setattr(agente, 'claude', falso)
 
@@ -165,7 +165,7 @@ def test_cerebro_claude_usa_o_agente(monkeypatch):
 
 
 def test_falha_do_agente_vira_falha_do_cerebro(monkeypatch):
-    async def falso(sistema, prompt, etapas):
+    async def falso(sistema, prompt, etapas, **_):
         raise agente.AgenteFalhou('caiu')
         yield  # pragma: no cover
 
@@ -175,3 +175,91 @@ def test_falha_do_agente_vira_falha_do_cerebro(monkeypatch):
         return [p async for p in cerebros.claude('s', 'p')]
     with pytest.raises(cerebros.CerebroFalhou):
         asyncio.run(tudo())
+
+
+# — A sessão continua entre mensagens (docs/PARIDADE.md) ——————————————————————
+
+from solis import roteador  # noqa: E402
+
+
+def _msg(id_, papel, texto, cerebro=None, privada=False):
+    return {'id': id_, 'papel': papel, 'texto': texto, 'cerebro': cerebro, 'privada': privada}
+
+
+def test_banco_guarda_troca_e_esquece_a_sessao():
+    c = banco.nova_conversa()
+    assert banco.sessao_claude(c) is None
+    banco.guardar_sessao_claude(c, 'a')
+    banco.guardar_sessao_claude(c, 'b')
+    assert banco.sessao_claude(c) == 'b'
+    banco.esquecer_sessao_claude(c)
+    assert banco.sessao_claude(c) is None
+
+
+def test_sem_sessao_vai_o_pedido_inteiro():
+    c = banco.nova_conversa()
+    s = roteador.sessao_claude(c, [_msg(1, 'pessoa', 'oi')], [], [], 'oi')
+    assert s == {'conversa': c, 'id': None, 'prompt': None}
+
+
+def test_com_sessao_vai_so_o_que_ele_nao_viu():
+    c = banco.nova_conversa()
+    banco.guardar_sessao_claude(c, 'sessao-1')
+    historico = [
+        _msg(1, 'pessoa', 'leia o contrato'),
+        _msg(2, 'solis', 'li, o aluguel é 2300', 'claude'),
+        _msg(3, 'pessoa', 'que horas são'),
+        _msg(4, 'solis', 'são 10h', 'local'),
+        _msg(5, 'pessoa', 'segredo', privada=True),
+        _msg(6, 'pessoa', 'e a multa?'),
+    ]
+    s = roteador.sessao_claude(c, historico, [], [], 'e a multa?')
+    assert s['id'] == 'sessao-1'
+    assert 'são 10h' in s['prompt'] and 'que horas são' in s['prompt']
+    assert 'leia o contrato' not in s['prompt'] and 'aluguel' not in s['prompt']
+    assert 'segredo' not in s['prompt']
+    assert s['prompt'].rstrip().endswith('e a multa?')
+
+
+def test_sessao_sem_resposta_dele_no_historico_recomeca():
+    c = banco.nova_conversa()
+    banco.guardar_sessao_claude(c, 'velha')
+    historico = [_msg(1, 'pessoa', 'oi'), _msg(2, 'solis', 'oi', 'local'), _msg(3, 'pessoa', 'e aí')]
+    assert roteador.sessao_claude(c, historico, [], [], 'e aí')['id'] is None
+
+
+def _cerebro_claude(sessao):
+    async def tudo():
+        return [p async for p in cerebros.claude('s', 'pedido inteiro', sessao=sessao)]
+    return asyncio.run(tudo())
+
+
+def test_continua_a_sessao_e_guarda_a_nova(monkeypatch):
+    c = banco.nova_conversa()
+    chamadas = []
+
+    async def falso(sistema, prompt, etapas, retomar=None, ao_sessao=None):
+        chamadas.append((prompt, retomar))
+        ao_sessao('sessao-2')
+        yield 'ok'
+    monkeypatch.setattr(agente, 'claude', falso)
+    assert _cerebro_claude({'conversa': c, 'id': 'sessao-1', 'prompt': 'pedido curto'}) == ['ok']
+    assert chamadas == [('pedido curto', 'sessao-1')]
+    assert banco.sessao_claude(c) == 'sessao-2'
+
+
+def test_sessao_que_nao_continua_recomeca_com_o_pedido_inteiro(monkeypatch):
+    c = banco.nova_conversa()
+    banco.guardar_sessao_claude(c, 'sumiu')
+    chamadas = []
+
+    async def falso(sistema, prompt, etapas, retomar=None, ao_sessao=None):
+        chamadas.append((prompt, retomar))
+        if retomar:
+            raise agente.AgenteFalhou('No conversation found')
+        ao_sessao('nova')
+        yield 'ok'
+    monkeypatch.setattr(agente, 'claude', falso)
+    assert _cerebro_claude({'conversa': c, 'id': 'sumiu', 'prompt': 'pedido curto'}) == ['ok']
+    assert chamadas == [('pedido curto', 'sumiu'), ('pedido inteiro', None)]
+    assert banco.sessao_claude(c) == 'nova'

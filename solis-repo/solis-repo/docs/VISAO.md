@@ -28,7 +28,9 @@ Paridade com o Claude que ele usa hoje — as mesmas ferramentas funcionando igu
 e só então a próxima parte. O caminho: o **Claude Agent SDK** (o Claude Code como biblioteca)
 dentro do Solis, com as ferramentas embutidas (ler, escrever e editar arquivos, terminal, busca e
 leitura na web), subagentes, MCP (o próprio servidor de ferramentas do Solis: memória, agenda,
-tarefas, lembretes, o PC), sessões e permissões que viram o cartão de aprovação na tela.
+tarefas, lembretes, o PC), sessões e permissões que viram o cartão de aprovação na tela. A lista completa do que falta, item
+por item, está em `PARIDADE.md`: o marco é alcançado quando o Matheus não abre mais o Claude pra
+nada (11/11/2026).
 
 **Autenticação (política da Anthropic, lida na documentação oficial em 11/11/2026):** "Unless
 previously approved, Anthropic does not allow third party developers to offer claude.ai login or

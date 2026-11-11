@@ -172,7 +172,8 @@ def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 
-def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = False) -> str:
+def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = False,
+                 rotulo: str = 'Conversa até agora') -> str:
     """Tudo num texto só: os CLIs recebem um prompt, não uma lista de mensagens."""
     partes = [ollama.contexto(memorias, trechos, resumo)]
     if voz:
@@ -182,9 +183,37 @@ def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = Fal
         linhas = '\n\n'.join(
             f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in anteriores
         )
-        partes.append(f'Conversa até agora:\n\n{linhas}')
+        partes.append(f'{rotulo}:\n\n{linhas}')
     partes.append(f'Mensagem nova do Matheus:\n\n{mensagem}')
     return '\n\n---\n\n'.join(partes)
+
+
+def sessao_claude(conversa, historico, memorias, trechos, mensagem, voz: bool = False) -> dict:
+    """Como o Claude continua a conversa: a sessão dele (agente.py) e o pedido
+    curto — a memória de agora, o que outro cérebro respondeu depois da última
+    resposta dele, e a mensagem nova. Sem sessão, ou sem resposta dele no
+    histórico (a conversa foi resumida, ou ele nunca respondeu), `id` vem
+    vazio e vai o pedido inteiro, como pros outros."""
+    sessao = {'conversa': conversa, 'id': None, 'prompt': None}
+    id_ = banco.sessao_claude(conversa)
+    anteriores = historico[:-1]
+    if not id_ or not historico or any(m.get('id') is None for m in historico):
+        return sessao
+    ultimo = max((m['id'] for m in anteriores if m.get('cerebro') == 'claude'), default=None)
+    if ultimo is None:
+        return sessao
+    depois = [m for m in anteriores if m['id'] > ultimo and not m['privada']]
+    sessao['id'] = id_
+    sessao['prompt'] = prompt_nuvem(
+        [m for m in memorias if not m['privada']],
+        [t for t in trechos if not t['privada']],
+        None,
+        depois + historico[-1:],
+        mensagem,
+        voz=voz,
+        rotulo='Enquanto isso, na conversa (respondido por outro modelo)',
+    )
+    return sessao
 
 
 async def responder(
@@ -228,6 +257,8 @@ async def responder(
                         voz=voz,
                     ),
                     etapas,
+                    sessao=sessao_claude(conversa, historico, memorias, trechos, mensagem, voz)
+                    if nome == 'claude' else None,
                 )
             return fluxo, nome
         except (ollama.OllamaIndisponivel, ollama.ModeloInexistente, cerebros.CerebroFalhou) as e:

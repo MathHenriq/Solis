@@ -187,7 +187,10 @@ Cérebros.
   num cartão na conversa: escrever, editar, rodar comando, ler fora das pastas e o resto; sem
   resposta em 10 minutos, é recusado. Cada resposta vai pro registro (`acoes`). O SDK roda numa
   thread com laço Proactor (o do uvicorn com `--reload` não abre processos). Login: a conta do
-  Matheus, pelo mesmo CLI. `SOLIS_CLAUDE_AGENTE=0` volta ao CLI só de conversa (`--tools ""`).
+  Matheus, pelo mesmo CLI. Cada conversa guarda a sessão do Claude (`sessoes_claude`): a próxima
+  mensagem continua nela, com o que ele já leu e fez, e vai só com a memória de agora, o que outro
+  modelo respondeu no meio e a mensagem nova (`roteador.sessao_claude`); se a sessão não
+  continuar, começa outra com o histórico inteiro. `SOLIS_CLAUDE_AGENTE=0` volta ao CLI só de conversa (`--tools ""`).
 - O Codex roda sem ferramentas (`--sandbox read-only`), numa pasta vazia do Solis. O prompt vai
   pela entrada padrão, nunca pela linha de comando.
 - Custo de tempo: cada mensagem sobe um processo do CLI. Medido no notebook (1º/11/2026), do

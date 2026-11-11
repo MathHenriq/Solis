@@ -301,6 +301,15 @@ MIGRACOES = [
     );
     CREATE INDEX acoes_quando ON acoes (quando);
     """,
+    # 15 — a sessão do Claude (Agent SDK) de cada conversa: a próxima mensagem
+    # continua nela, com o que ele já leu e fez (agente.py, docs/PARIDADE.md).
+    """
+    CREATE TABLE sessoes_claude (
+        conversa INTEGER PRIMARY KEY REFERENCES conversas(id) ON DELETE CASCADE,
+        sessao   TEXT NOT NULL,
+        quando   TEXT NOT NULL
+    );
+    """,
 ]
 
 
@@ -1047,6 +1056,25 @@ def registrar_acao(conversa: int | None, ferramenta: str, argumentos: dict, resu
         )
         limite = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat(timespec='seconds')
         c.execute('DELETE FROM acoes WHERE quando < ?', (limite,))
+
+
+def sessao_claude(conversa: int) -> str | None:
+    linha = _con().execute('SELECT sessao FROM sessoes_claude WHERE conversa = ?', (conversa,)).fetchone()
+    return linha[0] if linha else None
+
+
+def guardar_sessao_claude(conversa: int, sessao: str) -> None:
+    with _con() as c:
+        c.execute(
+            'INSERT INTO sessoes_claude (conversa, sessao, quando) VALUES (?, ?, ?) '
+            'ON CONFLICT(conversa) DO UPDATE SET sessao = excluded.sessao, quando = excluded.quando',
+            (conversa, sessao, _agora()),
+        )
+
+
+def esquecer_sessao_claude(conversa: int) -> None:
+    with _con() as c:
+        c.execute('DELETE FROM sessoes_claude WHERE conversa = ?', (conversa,))
 
 
 def acoes(limite: int = 50) -> list[dict]:

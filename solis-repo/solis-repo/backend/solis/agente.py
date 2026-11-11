@@ -172,8 +172,9 @@ async def _decidir(nome: str, entrada: dict, por):
     return PermissionResultAllow() if ok else PermissionResultDeny(message='O Matheus recusou.')
 
 
-async def _sessao(sistema: str, prompt: str, por) -> None:
-    """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor."""
+async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None) -> None:
+    """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor.
+    `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
     from claude_agent_sdk import (
         AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, RateLimitEvent, ResultMessage,
         StreamEvent, ToolResultBlock, ToolUseBlock, UserMessage,
@@ -200,6 +201,7 @@ async def _sessao(sistema: str, prompt: str, por) -> None:
         can_use_tool=decidir,
         hooks={'PreToolUse': [HookMatcher(matcher='Read|Glob|Grep|LS', hooks=[leitura_fora])]},
         include_partial_messages=True,
+        resume=retomar,
         setting_sources=[],
         max_turns=RODADAS_MAX,
     )
@@ -246,9 +248,11 @@ def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
     return ''
 
 
-async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
+async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = None,
+                 ao_sessao=None) -> AsyncIterator[str]:
     """O texto da resposta em pedaços; as ferramentas e os pedidos de
-    aprovação viram etapas. Erro antes do primeiro pedaço: AgenteFalhou."""
+    aprovação viram etapas. Erro: AgenteFalhou. `retomar` continua uma sessão;
+    `ao_sessao(id)` recebe a sessão desta resposta, pra a próxima continuar."""
     laco = asyncio.get_running_loop()
     fila: asyncio.Queue = asyncio.Queue()
 
@@ -258,7 +262,7 @@ async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     def na_thread():
         proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
         try:
-            proprio.run_until_complete(_sessao(sistema, prompt, por))
+            proprio.run_until_complete(_sessao(sistema, prompt, por, retomar))
         except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
             log.exception('o agente do Claude falhou')
             por('erro', e)
@@ -276,6 +280,8 @@ async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
             etapas.marcar(etapa, **dados)
         elif tipo == 'custo':
             log.info('claude (agente): %s rodadas, US$ %.4f equivalente', valor['turnos'], valor['usd'] or 0)
+            if ao_sessao and valor.get('sessao'):
+                ao_sessao(valor['sessao'])
         elif tipo == 'cota':
             from . import cerebros
             cerebros.pausar('claude', valor, 'a cota acabou')

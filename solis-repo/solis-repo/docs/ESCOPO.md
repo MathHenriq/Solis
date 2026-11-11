@@ -231,8 +231,12 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
 - [ ] Decisão do Matheus: o Claude lê sem pedir nas pastas autorizadas (o conteúdo vai pra
   Anthropic) ou cada leitura pede, como a escrita? Hoje lê sem pedir; o modelo local continua
   sendo o padrão das perguntas sobre arquivos (`pc.do_pc`).
-- [ ] O diff no cartão antes de aprovar uma edição; a sessão continuar entre mensagens (hoje cada
-  mensagem é uma sessão nova, com o histórico no prompt); "aprovar sempre" por ferramenta.
+- [x] A sessão continua entre mensagens (11/11/2026): a conversa guarda a sessão do Claude, e a
+  próxima mensagem vai só com a memória de agora, o que outro modelo respondeu no meio e a
+  mensagem nova. Sessão que não continua vira uma nova com o histórico inteiro. Provado pelo app
+  (ver `docs/PARIDADE.md`).
+- [ ] O diff no cartão antes de aprovar uma edição; "aprovar sempre" por ferramenta. O resto do
+  caminho está em `docs/PARIDADE.md`.
 
 ### Tarefas e Agenda — feitas e aprovadas (09/11/2026)
 

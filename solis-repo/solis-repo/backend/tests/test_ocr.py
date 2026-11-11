@@ -226,6 +226,7 @@ def test_migracao_10_mantem_os_documentos(tmp_path):
     c.execute('DROP TABLE compromissos')
     c.execute('DROP TABLE avisos')
     c.execute('DROP TABLE acoes')
+    c.execute('DROP TABLE sessoes_claude')
     c.execute('PRAGMA user_version = 9')
     c.commit()
     banco.usar(caminho)

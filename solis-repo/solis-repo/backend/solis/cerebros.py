@@ -202,7 +202,7 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
             log.info('%s saiu com %s: %s', comando[0], proc.returncode, ''.join(erros)[-500:])
 
 
-async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
+async def claude(sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = None) -> AsyncIterator[str]:
     """O Claude com ferramentas, pelo Claude Agent SDK (agente.py) — o primeiro
     marco da VISAO. Sem o SDK instalado (ou com SOLIS_CLAUDE_AGENTE=0), o CLI
     só de conversa, como antes."""
@@ -214,8 +214,28 @@ async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
         async for pedaco in claude_sem_ferramentas(sistema, prompt, etapas):
             yield pedaco
         return
+    # `sessao` (roteador.sessao_claude): a conversa, a sessão dela e o pedido
+    # curto que a continua. Retomar que falha antes da primeira palavra (a
+    # sessão sumiu do disco, por exemplo) vira uma sessão nova com o pedido
+    # inteiro — o histórico vai no texto, como antes.
+    guardar = None
+    if sessao:
+        def guardar(id_: str, conversa: int = sessao['conversa']) -> None:
+            banco.guardar_sessao_claude(conversa, id_)
+    if sessao and sessao.get('id') and sessao.get('prompt'):
+        saiu = False
+        try:
+            async for pedaco in agente.claude(sistema, sessao['prompt'], etapas, retomar=sessao['id'], ao_sessao=guardar):
+                saiu = True
+                yield pedaco
+            return
+        except agente.AgenteFalhou as e:
+            if saiu:
+                raise CerebroFalhou(str(e)) from e
+            log.warning('a sessão %s do Claude não continuou (%s); começando outra', sessao['id'], e)
+            banco.esquecer_sessao_claude(sessao['conversa'])
     try:
-        async for pedaco in agente.claude(sistema, prompt, etapas):
+        async for pedaco in agente.claude(sistema, prompt, etapas, ao_sessao=guardar):
             yield pedaco
     except agente.AgenteFalhou as e:
         raise CerebroFalhou(str(e)) from e
@@ -297,14 +317,16 @@ async def codex(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
 EXECUTORES = {'claude': claude, 'codex': codex}
 
 
-async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
+async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = None) -> AsyncIterator[str]:
     """Começa a resposta e só devolve depois da primeira palavra.
 
     É aqui que a falha aparece — CLI sem login, cota acabada, erro — enquanto
     ainda dá pra tentar o próximo cérebro. Depois que o texto começa a ir pra
     tela, não dá mais pra trocar de quem responde."""
     if nome in EXECUTORES:
-        fluxo = EXECUTORES[nome](sistema, prompt, etapas)
+        # Só o Claude tem sessão; os outros recebem o histórico no pedido.
+        extra = {'sessao': sessao} if sessao and nome == 'claude' else {}
+        fluxo = EXECUTORES[nome](sistema, prompt, etapas, **extra)
     else:
         from . import apis
         fluxo = apis.responder(nome, sistema, prompt, etapas)

@@ -136,6 +136,7 @@ def test_migracao_12_num_banco_antigo(tmp_path):
     banco._con().execute('DROP TABLE compromissos')
     banco._con().execute('DROP TABLE avisos')
     banco._con().execute('DROP TABLE acoes')
+    banco._con().execute('DROP TABLE sessoes_claude')
     banco._con().execute('PRAGMA user_version = 11')
     banco._con().commit()
     banco.usar(caminho)

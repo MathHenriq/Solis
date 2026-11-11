@@ -131,7 +131,7 @@ def test_ordem_pula_quem_nao_esta_instalado(monkeypatch):
 
 def cerebro_falso(monkeypatch, respostas: dict, recebido: list):
     """`respostas`: nome → texto, ou None pra falhar."""
-    async def abrir(nome, sistema, prompt, etapas=None):
+    async def abrir(nome, sistema, prompt, etapas=None, sessao=None):
         recebido.append((nome, prompt))
         if respostas.get(nome) is None:
             raise cerebros.CerebroFalhou(nome)
