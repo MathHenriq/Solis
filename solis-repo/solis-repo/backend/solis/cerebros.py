@@ -42,6 +42,8 @@ NOMES = {
     'openrouter': 'OpenRouter',
 }
 CLIS = ('claude', 'codex')
+# O Claude pelo Agent SDK, com ferramentas (agente.py). 0 volta ao CLI só de conversa.
+USAR_AGENTE = __import__('os').environ.get('SOLIS_CLAUDE_AGENTE', '1') != '0'
 
 # Quanto esperar o CLI dar sinal de vida. Não há um prazo pra primeira palavra,
 # e sim dois, porque as duas demoras têm causas diferentes (medido no notebook,
@@ -201,6 +203,25 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
 
 
 async def claude(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
+    """O Claude com ferramentas, pelo Claude Agent SDK (agente.py) — o primeiro
+    marco da VISAO. Sem o SDK instalado (ou com SOLIS_CLAUDE_AGENTE=0), o CLI
+    só de conversa, como antes."""
+    try:
+        if not USAR_AGENTE:
+            raise ImportError('desligado')
+        from . import agente
+    except ImportError:
+        async for pedaco in claude_sem_ferramentas(sistema, prompt, etapas):
+            yield pedaco
+        return
+    try:
+        async for pedaco in agente.claude(sistema, prompt, etapas):
+            yield pedaco
+    except agente.AgenteFalhou as e:
+        raise CerebroFalhou(str(e)) from e
+
+
+async def claude_sem_ferramentas(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8', dir=_pasta()) as f:
         f.write(sistema)
     linhas = None

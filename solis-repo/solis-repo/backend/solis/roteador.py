@@ -111,6 +111,23 @@ def _modo_local(mensagem: str, voz: bool) -> dict:
     return {'ferramentas': pc.disponivel()}
 
 
+# O Claude responde pelo Agent SDK (agente.py), com ferramentas: o que o
+# SISTEMA_NUVEM diz que ele não faz, ele faz.
+SISTEMA_CLAUDE = SISTEMA_NUVEM.replace(
+    'Você não roda comandos nem acessa a internet nesta resposta. ',
+    'Você tem ferramentas: ler, escrever e editar arquivos (nas pastas que o Matheus autorizou, '
+    'e numa pasta de trabalho do Solis), rodar comandos, pesquisar e ler páginas na web, e as do '
+    'próprio Solis (mcp__solis__: hora, criar_lembrete, marcar_compromisso, ver_agenda, '
+    'ver_tarefas, buscar_memoria). Escrever, editar, rodar comandos e ler fora das pastas '
+    'autorizadas pedem a aprovação do Matheus na tela: peça sem medo, e se ele recusar, '
+    'respeite. Prefira as ferramentas do Solis pra lembretes e agenda. ',
+)
+
+
+def sistema_para(nome: str) -> str:
+    return SISTEMA_CLAUDE if nome == 'claude' else SISTEMA_NUVEM
+
+
 class NinguemRespondeu(Exception):
     def __init__(self, ordem: list[str], erros: dict[str, Exception]):
         super().__init__(', '.join(f'{c}: {e}' for c, e in erros.items()))
@@ -201,7 +218,7 @@ async def responder(
             else:
                 fluxo = await cerebros.abrir(
                     nome,
-                    SISTEMA_NUVEM,
+                    sistema_para(nome),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],

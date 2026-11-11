@@ -52,6 +52,13 @@ def texto(r) -> str:
     return ''.join(e.get('texto', '') for e in eventos(r))
 
 
+@pytest.fixture(autouse=True)
+def _cli_sem_ferramentas(monkeypatch):
+    """Estes testes simulam o CLI só de conversa — o caminho de reserva do
+    Claude. O agente (Agent SDK) tem os seus em test_agente.py."""
+    monkeypatch.setattr(cerebros, 'USAR_AGENTE', False)
+
+
 def test_claude_le_os_pedacos_do_stream(monkeypatch):
     recebido = []
     saida(monkeypatch, CLAUDE_REAL, recebido)

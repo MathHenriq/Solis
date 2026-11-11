@@ -752,6 +752,21 @@ async def escuta(ws: WebSocket):
         escutando.fechar()
 
 
+# — Aprovações do agente (agente.py) ——————————————————————————————————————————————
+
+class Aprovacao(BaseModel):
+    aprovar: bool
+
+
+@app.post('/aprovacoes/{id_}')
+async def responder_aprovacao(id_: str, corpo: Aprovacao):
+    """O Matheus respondeu o cartão de aprovação na conversa."""
+    from . import agente
+    if not agente.responder_aprovacao(id_, corpo.aprovar):
+        return JSONResponse({'erro': 'aprovacao_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
 # — Controle do PC (pc.py) ————————————————————————————————————————————————————————
 
 def _estado_pc() -> dict:
