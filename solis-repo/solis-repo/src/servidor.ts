@@ -678,17 +678,17 @@ export async function partesDaFala(texto: string): Promise<string[] | null> {
   }
 }
 
-/** Um pedaço em áudio, pela cadeia de vozes do servidor (nuvem → reserva →
- *  local). `conversa` deixa o servidor decidir se pode ir pra nuvem. */
-export async function falarTexto(texto: string, conversa: number | null): Promise<{ audio: Blob; voz: string } | null> {
+/** O endereço de onde um <audio> toca o pedaço enquanto ele chega (a Fish
+ *  manda aos pedaços; as outras vozes, inteiro). O texto vai no corpo do
+ *  POST, nunca na URL. null: servidor fora. */
+export async function prepararFala(texto: string, conversa: number | null): Promise<string | null> {
   try {
-    const r = await fetch(`${BASE}/fala`, {
+    const r = await fetch(`${BASE}/fala/fluxo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texto, conversa }),
     });
-    if (!r.ok) return null;
-    return { audio: await r.blob(), voz: r.headers.get('X-Solis-Voz') ?? '' };
+    return r.ok ? `${BASE}/fala/fluxo/${((await r.json()) as { id: string }).id}` : null;
   } catch {
     return null;
   }

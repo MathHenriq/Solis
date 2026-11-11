@@ -337,8 +337,12 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
    7,3 s (e falhou uma), Kokoro local 2,7 s. Lendo a Fish aos pedaços (`latency: balanced`), o
    primeiro pedaço de áudio chega em **0,7–0,8 s** (`normal`: 2,8–3,1 s). Ou seja: a Fish só fica
    rápida de verdade se o Solis tocar o áudio enquanto ele chega — hoje espera o pedaço inteiro.
-   **Falta:** o Matheus ouvir (`design/_amostras-voz/juntas/`, fora do git) e decidir a voz; tocar
-   aos pedaços (streaming) se a Fish ficar.
+   **Tocando aos pedaços (11/11/2026, pedido do Matheus):** o servidor repassa a Fish enquanto ela
+   gera (`GET /fala/fluxo/{id}`, primeiro byte em 0,66 s) e a tela põe cada pedaço no áudio pela
+   Media Source (`src/somAosPedacos.ts`) — o `<audio>` lendo direto da URL juntava ~2–3 s antes de
+   tocar e não ganhava nada (medido). Primeiro som, do clique, num navegador: **0,85–1,7 s** aos
+   pedaços contra 2,1–2,7 s inteiro. Falha antes do primeiro pedaço cai pra cadeia (inteiro).
+   **Falta:** o Matheus ouvir no app e dizer se ficou contínuo, e escolher a voz.
 
 1. **Apertar pra falar** primeiro. **Feito (09/11/2026):** um clique no microfone ouve, outro para,
    e o texto entra na caixa pra conferir antes de enviar (Esc desiste). Whisper local (`small`, pelo

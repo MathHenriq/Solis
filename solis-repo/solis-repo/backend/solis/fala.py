@@ -398,6 +398,84 @@ async def falar(texto: str, conversa: int | None = None, voz: str | None = None)
     raise SemVoz('; '.join(motivos) or 'nenhuma voz disponível')
 
 
+# Só os testes trocam: um transporte falso no lugar da rede.
+_transporte_fish: httpx.AsyncBaseTransport | None = None
+
+
+async def falar_aos_pedacos(texto: str, conversa: int | None = None):
+    """(áudio em pedaços, tipo, quem falou): como falar(), mas a Fish manda o
+    áudio enquanto gera — medido com a chave do Matheus (11/11/2026): o
+    primeiro pedaço em 0,7–0,8 s, contra ~3 s do áudio inteiro. Se a Fish
+    falhar antes do primeiro pedaço, segue a cadeia de sempre (inteiro).
+    Privado nunca chega aqui na Fish: a cadeia dele é só a local."""
+    limpo = limpar(texto)
+    if not limpo:
+        raise SemVoz('nada pra falar')
+    lingua_ = lingua(limpo)
+    chave_cache = (limpo, voz_gemini(), voz_fish(), tuple(n for n, _, _ in NUVEM + LOCAL))
+    nuvem = not privado(limpo, conversa)
+    if nuvem and chave_cache not in _cache and chave_fish() and _fora_ate.get('fish', 0) <= time.time():
+        try:
+            return await _fish_aos_pedacos(limpo, lingua_, chave_cache), 'audio/mpeg', 'fish'
+        except SemVoz as e:
+            log.info('fish aos pedaços falhou (%s): segue a cadeia', e)
+            if re.search(r'\b(401|403|429)\b', str(e)):
+                _fora_ate['fish'] = time.time() + 600
+        except httpx.HTTPError as e:
+            log.info('fish aos pedaços caiu (%s): segue a cadeia', type(e).__name__)
+    audio, tipo, quem = await falar(texto, conversa)
+
+    async def inteiro():
+        yield audio
+    return inteiro(), tipo, quem
+
+
+async def _fish_aos_pedacos(texto: str, lingua_: str, chave_cache) -> 'AsyncIterator[bytes]':
+    """Abre o pedido na Fish e espera o PRIMEIRO pedaço aqui — é aqui que a
+    falha aparece, enquanto ainda dá pra cair pra outra voz."""
+    corpo = {'text': texto, 'format': 'mp3', 'latency': 'balanced', 'language': 'pt-BR' if lingua_ == 'pt' else 'en'}
+    if voz_fish():
+        corpo['reference_id'] = voz_fish()
+    cliente = httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=_transporte_fish)
+    try:
+        r = await cliente.send(
+            cliente.build_request('POST', FISH_URL, json=corpo,
+                                  headers={'Authorization': f'Bearer {chave_fish()}', 'model': FISH_MODELO}),
+            stream=True,
+        )
+        if r.status_code >= 400:
+            corpo_erro = (await r.aread()).decode(errors='replace')[:160]
+            await r.aclose()
+            raise SemVoz(f'Fish respondeu {r.status_code}: {corpo_erro}')
+        pedacos = r.aiter_bytes()
+        primeiro = await anext(pedacos, b'')
+        if not primeiro:
+            await r.aclose()
+            raise SemVoz('Fish não devolveu áudio')
+    except BaseException:
+        await cliente.aclose()
+        raise
+
+    async def resto():
+        recebido = [primeiro]
+        completo = False
+        try:
+            yield primeiro
+            async for p in pedacos:
+                recebido.append(p)
+                yield p
+            completo = True
+        finally:
+            await r.aclose()
+            await cliente.aclose()
+            # Inteiro, entra no cache como os outros: repetir a frase é na hora.
+            if completo:
+                _cache[chave_cache] = (b''.join(recebido), 'audio/mpeg', 'fish')
+                while len(_cache) > CACHE_MAX:
+                    _cache.popitem(last=False)
+    return resto()
+
+
 def descarregar_se_ocioso() -> bool:
     global _kokoro
     with _kokoro_trava:

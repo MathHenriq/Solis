@@ -64,6 +64,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /fala/ajustes` | a voz e o modelo do Gemini escolhidos, e as opções (`vozes`, `modelos`) |
 | `PUT /fala/ajustes` | `{"voz", "modelo"}` → guarda; trocar o modelo tira o Gemini do descanso (o limite é por modelo). `400` se a voz ou o modelo não existe |
 | `POST /fala/partes` | `{"texto"}` → `{"partes", "lingua"}`: a resposta em pedaços pra falar um de cada vez (o primeiro curto) |
+| `POST /fala/fluxo` | `{"texto", "conversa"}` → um `id` pra tocar o pedaço enquanto chega (o texto no corpo, nunca na URL) |
+| `GET /fala/fluxo/{id}` | o áudio do pedaço, aos pedaços quando é a Fish (mp3), inteiro nas outras; quem falou em `X-Solis-Voz`. O id vale uma vez e por 2 min |
 | `GET /fala/fish` | a voz da Fish Audio (em teste): se há chave, a voz escolhida e o modelo |
 | `PUT /fala/fish/chave` | `{"chave"}` → confere nas vozes da conta e guarda selada; `400` (`chave_recusada`) se a Fish recusa. `DELETE` tira |
 | `GET /fala/fish/vozes` | as vozes públicas em português mais usadas: `id`, `nome`, `usos`, `amostra` |

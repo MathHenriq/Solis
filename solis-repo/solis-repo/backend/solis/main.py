@@ -782,6 +782,39 @@ async def falar(corpo: TextoFala):
     return Response(audio, media_type=tipo, headers=cabecalhos)
 
 
+# — Fala aos pedaços ——————————————————————————————————————————————————————————————
+# O <audio> do navegador toca enquanto o áudio chega, mas só por GET: a tela
+# guarda o pedido aqui (POST, o texto no corpo — nunca na URL, que vai pro log)
+# e o <audio> busca pelo id.
+
+_fluxos: dict[str, tuple[str, int | None, float]] = {}
+
+
+@app.post('/fala/fluxo')
+async def preparar_fluxo(corpo: TextoFala):
+    import time
+    agora = time.time()
+    for id_, (_, _, quando) in list(_fluxos.items()):
+        if agora - quando > 120:
+            _fluxos.pop(id_, None)
+    id_ = uuid.uuid4().hex
+    _fluxos[id_] = (corpo.texto, corpo.conversa, agora)
+    return {'id': id_}
+
+
+@app.get('/fala/fluxo/{id_}')
+async def tocar_fluxo(id_: str):
+    pedido = _fluxos.pop(id_, None)
+    if pedido is None:
+        return JSONResponse({'erro': 'fluxo_inexistente'}, status_code=404)
+    texto, conversa, _ = pedido
+    try:
+        pedacos, tipo, quem = await fala.falar_aos_pedacos(texto, conversa)
+    except fala.SemVoz as e:
+        return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
+    return StreamingResponse(pedacos, media_type=tipo, headers={'X-Solis-Voz': quem, 'Cache-Control': 'no-store'})
+
+
 # — Voz da Fish Audio (em teste, fala.py) —————————————————————————————————————————
 
 class ChaveFish(BaseModel):

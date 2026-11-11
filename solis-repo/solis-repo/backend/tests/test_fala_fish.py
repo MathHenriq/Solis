@@ -97,3 +97,90 @@ def test_ouvir_uma_voz_do_gemini_nao_passa_pela_fish(monkeypatch):
     assert asyncio.run(fala.falar('Oi, Matheus.', voz='Aoede'))[2] == 'gemini'
     assert asyncio.run(fala.falar('Oi de novo.'))[2] == 'fish'
     assert chamadas == ['gemini', 'fish']
+
+
+# — Aos pedaços ————————————————————————————————————————————————————————————————————
+
+def _juntar(fluxo):
+    async def tudo():
+        return [p async for p in fluxo]
+    return asyncio.run(tudo())
+
+
+class _Pedacos(httpx.AsyncByteStream):
+    def __init__(self, pedacos):
+        self.pedacos = pedacos
+
+    async def __aiter__(self):
+        for p in self.pedacos:
+            yield p
+
+
+def test_aos_pedacos_toca_o_que_chega_e_guarda_inteiro(monkeypatch):
+    _com_chave()
+    monkeypatch.setattr(fala, 'privado', lambda *_: False)
+    transporte, pedidos = _transporte(lambda req: httpx.Response(200, stream=_Pedacos([b'ID3', b'aa', b'bb'])))
+    monkeypatch.setattr(fala, '_transporte_fish', transporte)
+
+    async def rodar():
+        fluxo, tipo, quem = await fala.falar_aos_pedacos('Bom dia, Matheus.')
+        return [p async for p in fluxo], tipo, quem
+    pedacos, tipo, quem = asyncio.run(rodar())
+    assert pedacos == [b'ID3', b'aa', b'bb'] and (tipo, quem) == ('audio/mpeg', 'fish')
+    assert json.loads(pedidos[0].content)['latency'] == 'balanced'
+    # A segunda vez sai do cache, inteira, sem ir na Fish.
+    asyncio.run(rodar())
+    assert len(pedidos) == 1
+
+
+def test_fish_que_falha_antes_do_primeiro_pedaco_cai_pra_cadeia(monkeypatch):
+    _com_chave()
+    monkeypatch.setattr(fala, 'privado', lambda *_: False)
+    transporte, _ = _transporte(lambda req: httpx.Response(429, json={'message': 'busy', 'status': 429}))
+    monkeypatch.setattr(fala, '_transporte_fish', transporte)
+
+    async def falar_falso(texto, conversa=None, voz=None):
+        return b'RIFFwav', 'audio/wav', 'gemini'
+    monkeypatch.setattr(fala, 'falar', falar_falso)
+
+    async def rodar():
+        fluxo, tipo, quem = await fala.falar_aos_pedacos('Oi.')
+        return [p async for p in fluxo], tipo, quem
+    assert asyncio.run(rodar()) == ([b'RIFFwav'], 'audio/wav', 'gemini')
+    # 429: a Fish descansa em vez de ser tentada a cada pedaço.
+    assert fala._fora_ate['fish'] > 0
+    fala._fora_ate.pop('fish', None)
+
+
+def test_privado_nao_vai_pra_fish(monkeypatch):
+    _com_chave()
+    monkeypatch.setattr(fala, 'privado', lambda *_: True)
+    transporte, pedidos = _transporte(lambda req: httpx.Response(200, content=b'x'))
+    monkeypatch.setattr(fala, '_transporte_fish', transporte)
+
+    async def falar_falso(texto, conversa=None, voz=None):
+        return b'local', 'audio/wav', 'kokoro'
+    monkeypatch.setattr(fala, 'falar', falar_falso)
+
+    async def rodar():
+        fluxo, _, quem = await fala.falar_aos_pedacos('meu exame de sangue')
+        return [p async for p in fluxo], quem
+    assert asyncio.run(rodar()) == ([b'local'], 'kokoro') and pedidos == []
+
+
+def test_rota_do_fluxo(monkeypatch):
+    from fastapi.testclient import TestClient
+    from solis import main
+
+    async def aos_pedacos(texto, conversa=None):
+        async def g():
+            yield b'ID3'
+            yield b'zz'
+        return g(), 'audio/mpeg', 'fish'
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', aos_pedacos)
+    c = TestClient(main.app)
+    id_ = c.post('/fala/fluxo', json={'texto': 'oi'}).json()['id']
+    r = c.get(f'/fala/fluxo/{id_}')
+    assert r.content == b'ID3zz' and r.headers['x-solis-voz'] == 'fish'
+    # O id vale uma vez só.
+    assert c.get(f'/fala/fluxo/{id_}').status_code == 404
