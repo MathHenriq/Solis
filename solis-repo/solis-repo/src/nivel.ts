@@ -86,12 +86,33 @@ export function registrarAlvo(el: HTMLElement | SVGElement): () => void {
   };
 }
 
+/** Quem quer o nível além dos elementos desta janela: no app Tauri, a janela
+ *  da chamada (a ilha por cima de tudo) é outra página, e recebe o nível por
+ *  evento (tauri.ts). */
+const ouvintesNivel = new Set<(opacidade: string, transform: string) => void>();
+
+export function aoNivel(f: (opacidade: string, transform: string) => void): () => void {
+  ouvintesNivel.add(f);
+  girar();
+  return () => {
+    ouvintesNivel.delete(f);
+  };
+}
+
+/** A outra ponta: escreve nos elementos desta janela um nível medido em outra. */
+export function escreverNivel(opacidade: string, transform: string) {
+  alvos.forEach((el) => {
+    el.style.opacity = opacidade;
+    el.style.transform = transform;
+  });
+}
+
 function girar() {
-  if (relogio !== undefined || !fonte || !alvos.size) return;
+  if (relogio !== undefined || !fonte || (!alvos.size && !ouvintesNivel.size)) return;
   const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)');
   let dados = new Float32Array(2048);
   relogio = window.setInterval(() => {
-    if (!fonte || !alvos.size) {
+    if (!fonte || (!alvos.size && !ouvintesNivel.size)) {
       window.clearInterval(relogio);
       relogio = undefined;
       return;
@@ -110,9 +131,7 @@ function girar() {
     const escala = reduzido.matches ? 'none' : `scale(${(ESCALA[0] + (ESCALA[1] - ESCALA[0]) * suave).toFixed(3)})`;
     if (opacidade + escala === escrito) return;
     escrito = opacidade + escala;
-    alvos.forEach((el) => {
-      el.style.opacity = opacidade;
-      el.style.transform = escala;
-    });
+    escreverNivel(opacidade, escala);
+    ouvintesNivel.forEach((f) => f(opacidade, escala));
   }, PASSO_MS);
 }

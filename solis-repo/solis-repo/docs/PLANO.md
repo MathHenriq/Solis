@@ -15,9 +15,9 @@ Legenda: ✅ feito · 🟡 em andamento · ⬜ não começou · 🔒 depende de 
 
 | | O quê | Precisa |
 |---|---|---|
-| 🔒 | **App Tauri compilado** (hoje é uma aba do navegador em localhost) | Instalar Rust + Build Tools do Visual Studio (~3 a 6 GB). E conferir o Controle Inteligente de Aplicativos: um .exe compilado aqui não é assinado, e o SAC pode bloquear — já bloqueou o PyTorch. |
-| ⬜ | **Aparecer quando chamado**: "Solis" → uma janela pequena, sem moldura, transparente e por cima de tudo, no centro de baixo da tela, com o símbolo animado; ele ouve, pensa e responde ali mesmo; um clique abre o app inteiro | App Tauri (janela `overlay` com `alwaysOnTop`, `transparent`, `decorations: false`) |
-| 🟡 | **Animação de chamada**: o sol nasce da linha do horizonte, os anéis se abrem e passam a seguir a voz (camada 3); pensando, os anéis recolhem e o brilho respira devagar; respondendo, o brilho acompanha a fala; no fim, o sol se põe | Nada — desenho próprio, feito primeiro no app web e reaproveitado na janela do Tauri |
+| 🟡 | **App Tauri compilado** (hoje é uma aba do navegador em localhost) | Rust e Build Tools instalados (10/11/2026, com o ok do Matheus); `scripts/app-dev.ps1` abre o app. Falta conferir o Controle Inteligente de Aplicativos com o .exe compilado aqui. |
+| 🟡 | **Aparecer quando chamado**: "Solis" → a ilha preta desce no alto da tela, por cima de tudo; ele ouve, pensa e responde ali mesmo | Janela `chamada` no tauri.conf.json (transparente, sem moldura, por cima de tudo, fora da barra de tarefas) e `src/tauri.ts`. Falta testar no app compilado; depois, um clique abre o app inteiro. |
+| 🟡 | **Animação de chamada**: a lógica da ilha do iPhone (pedido do Matheus) — a cápsula desce e abre com mola ouvindo, vira pílula pensando, abre larga respondendo, recolhe e sobe | Feita no app web, PROVISÓRIA (`design/chamada-validacao.png`) |
 | ⬜ | Servidor sobe junto com o app (sidecar), ícone na bandeja, inicia com o Windows, instalador `.msi` | App Tauri |
 | ⬜ | Atalho de teclado global pra chamar (além da voz) | App Tauri (`global-shortcut`) |
 
@@ -29,7 +29,7 @@ vem de arquivo, página ou e-mail é informação, nunca ordem; tudo fica no reg
 
 | | Ferramenta | Equivalente | Nível |
 |---|---|---|---|
-| 🟡 | Listar pasta, buscar arquivo (nome e conteúdo), ler arquivo (texto, PDF, código) | Read, Glob, Grep | ler |
+| 🟡 | Listar pasta, buscar arquivo (nome e conteúdo), ler arquivo (texto, PDF, código) — ligadas na conversa do modelo local, com a etapa na tela e o registro; falta medir com o modelo e a tela Ferramentas | Read, Glob, Grep | ler |
 | ⬜ | Ler Word, Excel, PowerPoint, imagens (visão local) | Read (multimodal), skills docx/xlsx/pptx | ler |
 | ⬜ | Criar e editar arquivo (com o diff na conversa antes de aprovar) | Write, Edit, MultiEdit | escrever |
 | ⬜ | Mover, renomear, copiar; apagar sempre pra Lixeira | — | escrever |

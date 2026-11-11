@@ -19,14 +19,35 @@
         "minHeight": 700,
         "resizable": true,
         "decorations": true,
-        "theme": "Dark"
+        "theme": "Dark",
+        "label": "main"
+      },
+      {
+        "label": "chamada",
+        "title": "Solis",
+        "url": "index.html?janela=chamada",
+        "width": 520,
+        "height": 200,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": false,
+        "focus": false
       }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
-    "targets": ["msi", "nsis"],
+    "targets": [
+      "msi",
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

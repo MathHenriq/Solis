@@ -6,6 +6,7 @@ import { GavetaConversas, type PropsLista } from './components/ListaConversas';
 import { Sidebar } from './components/Sidebar';
 import { TopoIcones } from './components/TopoIcones';
 import { useChamada } from './chamada';
+import { noApp, useIlhaNoApp } from './tauri';
 import { useConversa } from './conversa';
 import { useEscuta } from './escuta';
 import { falaAutomatica, respostaFalada } from './fala';
@@ -45,6 +46,9 @@ export default function App() {
   // O Solis aparecendo quando é chamado (components/Chamada.tsx).
   const ultimo = conversa.turnos[conversa.turnos.length - 1];
   const chamada = useChamada(escuta.estado, conversa.respondendo, !!(ultimo?.de === 'solis' && ultimo.texto));
+  const resposta = chamada.resposta ?? (ultimo?.de === 'solis' ? ultimo.texto : undefined);
+  // No app Tauri a ilha é uma janela própria, por cima de tudo (tauri.ts).
+  useIlhaNoApp({ fase: chamada.fase, legenda: chamada.legenda, resposta });
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
@@ -101,12 +105,9 @@ export default function App() {
       {!comSidebar && <GavetaConversas {...lista} visivel={gaveta} aoFechar={() => definirGaveta(false)} />}
       {(TELAS[tela] ?? TELAS.conversa)()}
       {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
-      {chamada.fase && <Chamada
-          fase={chamada.fase}
-          legenda={chamada.legenda}
-          resposta={chamada.resposta ?? (ultimo?.de === 'solis' ? ultimo.texto : undefined)}
-          comSidebar={comSidebar}
-        />}
+      {chamada.fase && !noApp && (
+        <Chamada fase={chamada.fase} legenda={chamada.legenda} resposta={resposta} comSidebar={comSidebar} />
+      )}
     </div>
   );
 }
