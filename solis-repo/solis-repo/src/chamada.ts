@@ -35,12 +35,34 @@ export function useChamada(escuta: EstadoEscuta, respondendo: boolean, comTexto:
 
   useEffect(() => aoMudarFala(definirFalando), []);
 
-  // Só em desenvolvimento, com ?chamada=: trocar a fase pela página, pra
-  // fotografar a forma mudando de uma fase pra outra.
+  const [respostaTeste, definirRespostaTeste] = useState(teste?.resposta);
+
+  // Só em desenvolvimento: trocar a fase pela página (`__faseChamada`), ou
+  // ensaiar uma chamada inteira (`__ensaioChamada`) — pra fotografar a ilha, e
+  // no app Tauri pra vê-la por cima das outras janelas sem microfone nem modelo.
   useEffect(() => {
-    if (!teste) return;
-    (window as unknown as { __faseChamada?: (f: FaseChamada | null) => void }).__faseChamada = definirFase;
-  }, [teste]);
+    if (!import.meta.env.DEV) return;
+    const w = window as unknown as {
+      __faseChamada?: (f: FaseChamada | null) => void;
+      __ensaioChamada?: (legenda: string, resposta: string) => void;
+    };
+    w.__faseChamada = definirFase;
+    w.__ensaioChamada = (frase, resposta) => {
+      definirLegenda(undefined);
+      definirRespostaTeste(undefined);
+      definirFase('ouvindo');
+      window.setTimeout(() => {
+        definirLegenda(frase);
+        definirFase('pensando');
+      }, 2500);
+      window.setTimeout(() => {
+        definirRespostaTeste(resposta);
+        definirFase('respondendo');
+      }, 4500);
+      window.setTimeout(() => definirFase('saindo'), 8500);
+      window.setTimeout(() => definirFase(null), 8500 + SAIDA_MS);
+    };
+  }, []);
 
   // A palavra foi ouvida.
   useEffect(() => {
@@ -74,5 +96,5 @@ export function useChamada(escuta: EstadoEscuta, respondendo: boolean, comTexto:
     definirFase('pensando');
   };
 
-  return { fase, legenda, enviado, resposta: teste?.resposta };
+  return { fase, legenda, enviado, resposta: respostaTeste };
 }

@@ -15,8 +15,8 @@ Legenda: ✅ feito · 🟡 em andamento · ⬜ não começou · 🔒 depende de 
 
 | | O quê | Precisa |
 |---|---|---|
-| 🟡 | **App Tauri compilado** (hoje é uma aba do navegador em localhost) | Rust e Build Tools instalados (10/11/2026, com o ok do Matheus); `scripts/app-dev.ps1` abre o app. Falta conferir o Controle Inteligente de Aplicativos com o .exe compilado aqui. |
-| 🟡 | **Aparecer quando chamado**: "Solis" → a ilha preta desce no alto da tela, por cima de tudo; ele ouve, pensa e responde ali mesmo | Janela `chamada` no tauri.conf.json (transparente, sem moldura, por cima de tudo, fora da barra de tarefas) e `src/tauri.ts`. Falta testar no app compilado; depois, um clique abre o app inteiro. |
+| ✅ | **App Tauri compilado** — em desenvolvimento (`scripts/app-dev.ps1`) | Rust e Build Tools instalados (10/11/2026). O Controle Inteligente de Aplicativos barrava o build (os error 4551); o Matheus desligou (11/11/2026). Falta o instalador `.msi`. |
+| ✅ | **Aparecer quando chamado**: a ilha preta desce no alto da tela, por cima de tudo | Janela `chamada` (transparente, sem moldura, por cima de tudo, fora da barra de tarefas), testada no app em 11/11/2026 com uma chamada de ensaio (`__ensaioChamada`, só em desenvolvimento). Falta: com a voz de verdade; um clique na ilha abrir o app. |
 | 🟡 | **Animação de chamada**: a lógica da ilha do iPhone (pedido do Matheus) — a cápsula desce e abre com mola ouvindo, vira pílula pensando, abre larga respondendo, recolhe e sobe | Feita no app web, PROVISÓRIA (`design/chamada-validacao.png`) |
 | ⬜ | Servidor sobe junto com o app (sidecar), ícone na bandeja, inicia com o Windows, instalador `.msi` | App Tauri |
 | ⬜ | Atalho de teclado global pra chamar (além da voz) | App Tauri (`global-shortcut`) |

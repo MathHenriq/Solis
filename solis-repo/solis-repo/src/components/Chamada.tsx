@@ -52,7 +52,7 @@ export function Chamada({
   }, []);
 
   return (
-    <div className="solis-ilha-faixa pointer-events-none" data-sidebar={comSidebar || undefined}>
+    <div className="solis-ilha-faixa pointer-events-none font-sans" data-sidebar={comSidebar || undefined}>
       <div
         className="solis-ilha"
         data-fase={fase}
