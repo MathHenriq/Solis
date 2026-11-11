@@ -131,7 +131,7 @@ def test_websocket_ativa_transcreve_e_respeita_a_pausa(monkeypatch):
     original = ativacao.Escuta
     monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))
 
-    async def transcrever(audio):
+    async def transcrever(audio, **_):
         assert audio[:4] == b'RIFF'
         return {'texto': 'me lembra de pagar a luz'}
     monkeypatch.setattr(voz, 'transcrever', transcrever)
@@ -227,7 +227,7 @@ def test_websocket_whisper_acha_a_palavra_e_manda_o_comando(monkeypatch):
     monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
     respostas = iter(['O sol está forte.', 'Solis, que horas são?', 'Solis', 'me lembra de pagar a luz'])
 
-    async def transcrever(audio):
+    async def transcrever(audio, **_):
         return {'texto': next(respostas)}
     monkeypatch.setattr(voz, 'transcrever', transcrever)
     c = TestClient(main.app)
@@ -248,3 +248,13 @@ def test_eco_do_vocabulario_nao_e_fala():
     assert not voz.eco_do_vocabulario('Solis.', vocab)
     assert not voz.eco_do_vocabulario('Solis, pergunta pro Claude o que ele acha.', vocab)
     assert not voz.eco_do_vocabulario('Matheus Solis Ollama', None)
+
+
+def test_trecho_baixo_e_normalizado_pro_whisper():
+    baixo = array.array('h', [int(1000 * math.sin(2 * math.pi * 300 * i / TAXA)) for i in range(TAXA // 2)])
+    alto = ativacao._normalizar(baixo)
+    assert max(abs(a) for a in alto) == pytest.approx(ativacao.PICO_ALVO * 32767, rel=0.02)
+    # O que já está alto não muda, e o silêncio absoluto também não.
+    forte = array.array('h', [30000, -30000])
+    assert ativacao._normalizar(forte) == forte
+    assert ativacao._normalizar(array.array('h', [0, 0])) == array.array('h', [0, 0])

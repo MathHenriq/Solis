@@ -175,15 +175,15 @@ def _carregar():
     return _modelo
 
 
-def _transcrever(som, vocab: str | None):
+def _transcrever(som, vocab: str | None, vad: bool = True):
     segmentos, info = _modelo.transcribe(
-        som, language=LINGUA or None, beam_size=5, vad_filter=True, initial_prompt=vocab or None,
+        som, language=LINGUA or None, beam_size=5, vad_filter=vad, initial_prompt=vocab or None,
     )
     # Os segmentos são preguiçosos: é aqui, lendo, que a GPU trabalha (e falha).
     return ' '.join(s.text.strip() for s in segmentos).strip(), info
 
 
-def transcrever_agora(audio: bytes, vocab: str | None = None) -> dict:
+def transcrever_agora(audio: bytes, vocab: str | None = None, vad: bool = True) -> dict:
     """Bloqueia (roda numa thread). {texto, segundos (do áudio), duracao (da
     transcrição), modelo}. Uma transcrição por vez: o modelo não é reentrante, e
     duas falas ao mesmo tempo não acontecem num apertar pra falar."""
@@ -202,7 +202,7 @@ def transcrever_agora(audio: bytes, vocab: str | None = None) -> dict:
         if not len(som):
             raise AudioRuim('áudio vazio')
         try:
-            texto, info = _transcrever(som, vocab)
+            texto, info = _transcrever(som, vocab, vad)
         except RuntimeError as e:
             # A cuBLAS só é carregada na primeira transcrição: sem ela (Ollama
             # desinstalado, versão nova), a GPU falha só aqui. Vai pra CPU.
@@ -212,7 +212,7 @@ def transcrever_agora(audio: bytes, vocab: str | None = None) -> dict:
             log.warning('whisper falhou na GPU (%s); indo pra CPU', e)
             _modelo, _sem_gpu = None, True
             _carregar()
-            texto, info = _transcrever(som, vocab)
+            texto, info = _transcrever(som, vocab, vad)
         _ultimo_uso = time.monotonic()
         if eco_do_vocabulario(texto, vocab):
             log.info('whisper devolveu o vocabulário (som que não é fala); ignorado')
@@ -221,13 +221,16 @@ def transcrever_agora(audio: bytes, vocab: str | None = None) -> dict:
                 'modelo': MODELO, 'onde': _dispositivo}
 
 
-async def transcrever(audio: bytes) -> dict:
+async def transcrever(audio: bytes, vad: bool = True) -> dict:
+    """`vad=False` na escuta da palavra: o trecho já foi separado pela energia, e
+    o filtro de voz do Whisper descartava o "Solis" curto e baixo (11/11/2026: 4
+    de 6 chamadas reais voltaram vazias)."""
     from . import ollama
     try:
         instalados = sorted(await ollama.instalados())
     except ollama.OllamaIndisponivel:
         instalados = []
-    return await asyncio.to_thread(transcrever_agora, audio, vocabulario(instalados))
+    return await asyncio.to_thread(transcrever_agora, audio, vocabulario(instalados), vad)
 
 
 def descarregar_se_ocioso() -> bool:

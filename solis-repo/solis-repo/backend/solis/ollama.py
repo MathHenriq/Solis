@@ -8,7 +8,7 @@ import asyncio
 import base64
 import json
 import os
-from datetime import date
+from datetime import date, datetime
 from collections.abc import AsyncIterator
 
 import httpx
@@ -45,7 +45,9 @@ SISTEMA = (
     'memórias — pode confirmar que guardou.\n\n'
     'Quando ele disser algo que precisa fazer ("me lembra de pagar a luz dia 15", '
     '"tenho que entregar o relatório sexta"), depois da sua resposta isso vira uma '
-    'tarefa na tela Tarefas, com o prazo — pode dizer que ficou anotado. Marcar como '
+    'tarefa na tela Tarefas, com o prazo — pode dizer que ficou anotado. Com hora ("daqui a '
+    '30 minutos", "às 15h"), o Solis avisa no Windows na hora: confirme a hora certa, contando '
+    'a partir de Agora. Marcar como '
     'feita, mudar ou apagar uma tarefa você não consegue: é pela tela Tarefas. Do mesmo '
     'jeito, compromisso com dia marcado ("quinta às 15h tenho consulta") vai pra tela Agenda.\n\n'
     'Quando não souber algo, diga que não sabe. Responda em português do Brasil, '
@@ -65,7 +67,10 @@ def autor(trecho: dict) -> str:
 def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
     """O que o Solis sabe que importa pra esta mensagem — o mesmo bloco serve o
     prompt do modelo local e o que vai pros cérebros de nuvem."""
-    partes = []
+    # Agora, no relógio do computador: "que horas são?", "daqui a 30 minutos" e
+    # "amanhã" dependem disso — sem esta linha, o Claude respondia que não via a hora.
+    agora = datetime.now()
+    partes = [f'Agora: {DIAS[agora.weekday()]}, {agora:%d/%m/%Y}, {agora:%H:%M}.']
     if memorias:
         partes.append('Memórias sobre o Matheus:\n' + '\n'.join(f'- {m["texto"]}' for m in memorias))
     else:
@@ -141,9 +146,24 @@ NAO_PODE_COM_ARQUIVOS = (
 )
 
 
+# Quando a mensagem veio pela voz e a resposta vai ser falada (pedido do
+# Matheus: "fala demais, só repete; tem que ser mais direto, mais rápido").
+VOZ = (
+    'Esta mensagem veio pela voz e a sua resposta vai ser FALADA. Responda em uma ou duas frases '
+    'curtas e diretas, como alguém respondendo em voz alta: sem listas, sem títulos, sem '
+    'markdown, sem repetir a pergunta e sem oferecer alternativas que ninguém pediu.'
+)
+
+
 def sistema(
     memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None, arquivos: bool = False,
+    voz: bool = False,
 ) -> str:
+    texto = _sistema(memorias, trechos, resumo, arquivos)
+    return f'{texto}\n\n{VOZ}' if voz else texto
+
+
+def _sistema(memorias, trechos, resumo, arquivos) -> str:
     if not arquivos:
         return f'{SISTEMA}\n\n{contexto(memorias, trechos, resumo)}'
     from . import pc
@@ -244,6 +264,7 @@ async def conversar(
     etapas=MUDA,
     ferramentas: bool = False,
     conversa: int | None = None,
+    voz: bool = False,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
     Com `ferramentas`, o modelo pode ler os arquivos das pastas autorizadas
@@ -253,7 +274,7 @@ async def conversar(
     primeiro pedaço — depois que o streaming começa já não dá pra trocar o
     status da resposta HTTP. Um corte no meio só encerra o texto onde parou.
     """
-    mensagens_ollama = [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo, arquivos=ferramentas)}] + [
+    mensagens_ollama = [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo, arquivos=ferramentas, voz=voz)}] + [
         {'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens
     ]
     corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama}

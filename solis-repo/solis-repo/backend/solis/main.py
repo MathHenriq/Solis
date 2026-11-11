@@ -214,6 +214,8 @@ class Envio(BaseModel):
     # — a conversa ainda pode ir pra um cérebro de nuvem.
     modelo: str = ''
     texto: str
+    # Veio pela voz e a resposta vai ser falada: resposta curta (ollama.VOZ).
+    voz: bool = False
 
 
 # Referência forte às respostas em andamento: sem ela o coletor de lixo pode
@@ -240,7 +242,7 @@ async def enviar(conversa: int, envio: Envio):
     # janela não corta nada — a resposta termina e é guardada inteira, e o
     # aprendizado roda do mesmo jeito.
     etapas = Etapas(conversa)
-    tarefa = asyncio.create_task(_responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id))
+    tarefa = asyncio.create_task(_responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz))
     _tarefas.add(tarefa)
     tarefa.add_done_callback(_tarefas.discard)
 
@@ -261,6 +263,7 @@ async def _responder(
     ordem: list[str],
     forcado: bool,
     mensagem_id: int,
+    voz: bool = False,
 ) -> None:
     resposta_id = None
     try:
@@ -276,7 +279,7 @@ async def _responder(
 
         try:
             fluxo, cerebro = await roteador.responder(
-                ordem, modelo, conversa, historico, memorias, trechos, resumido, texto, etapas
+                ordem, modelo, conversa, historico, memorias, trechos, resumido, texto, etapas, voz=voz
             )
         except roteador.NinguemRespondeu as e:
             # Sem modelo nenhum não há extração — mas um pedido de guardar não
@@ -636,11 +639,20 @@ async def apagar_ativacao():
     return ativacao.estado()
 
 
+# SOLIS_ESCUTA_LOG=1 mostra no log o que o Whisper ouviu em cada trecho da
+# escuta — só pra diagnosticar. Desligado por padrão: o microfone aberto pega
+# conversa do cômodo, e isso não deve ir parar num log.
+ESCUTA_LOG = os.environ.get('SOLIS_ESCUTA_LOG') == '1'
+
+
 async def _transcrever_escuta(audio: bytes) -> str:
     try:
-        return (await voz.transcrever(audio))['texto']
+        texto = (await voz.transcrever(audio, vad=False))['texto']
     except (voz.SemModelo, voz.AudioRuim):
-        return ''
+        texto = ''
+    if ESCUTA_LOG:
+        log.info('escuta: %.1f s -> %r', (len(audio) - 44) / 2 / ativacao.TAXA, texto)
+    return texto
 
 
 @app.websocket('/escuta')

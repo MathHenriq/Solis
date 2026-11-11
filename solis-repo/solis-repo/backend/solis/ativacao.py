@@ -49,9 +49,23 @@ FIM_SILENCIO = 0.9
 COMANDO_MAX = 15.0
 INICIO_MAX = 5.0  # sem falar nada depois da palavra: desiste
 
+# Fala é o que passa ACIMA_DO_PISO dB do ruído de fundo (e de FALA_MIN_DB).
+# Medido com o microfone do Matheus no app (11/11/2026), sem o processamento de
+# chamada: ruído em -46 dBFS (p10) e a fala só até -34 (p99). Com 12 dB acima
+# do piso e mínimo de -45, quase nada passava como fala — e nenhum "Solis" foi
+# ouvido em 3 minutos. Com 7 dB, a fala dele passa e o ruído não.
+ACIMA_DO_PISO = 7.0
+FALA_MIN_DB = -55.0
+# O trecho vai pro Whisper com o pico levado a -3 dBFS (até 30x): o microfone
+# dele chega baixo, e o Whisper erra mais com áudio baixo.
+PICO_ALVO = 0.7
+GANHO_MAX = 30.0
+
 # Motor Whisper. PROVISÓRIO até medir com a voz do Matheus.
 PREVIA = 2.0  # segundos do começo do trecho que vão pro Whisper procurar a palavra
-ANTES = 0.3  # segundos guardados antes do som subir (o "S" de Solis é baixo)
+# Segundos guardados antes do som subir: o "S" de Solis é baixo e ficava de
+# fora do trecho (11/11/2026: 4 de 6 chamadas reais voltaram vazias).
+ANTES = 0.6
 
 
 class SemConfiguracao(Exception):
@@ -151,7 +165,8 @@ def _sem_acento(texto: str) -> str:
 
 # "Solis", como o Whisper costuma escrever (Sólis, Solís, Sollis, Solys), no
 # começo da frase ou depois de um chamado ("ei, Solis").
-_PALAVRA = re.compile(r"^[\s\W]*(?:(?:ei|hey|oi|ola|ok|e ai)[\s,!.]+)?sol+[eiy]s+e?\b[\s,!.:;?-]*")
+# O "S" pode sumir no começo da fala ("Olis").
+_PALAVRA = re.compile(r"^[\s\W]*(?:(?:ei|hey|oi|ola|ok|e ai)[\s,!.]+)?s?ol+[eiy]s+e?\b[\s,!.:;?-]*")
 
 
 def palavra_no_inicio(texto: str) -> tuple[bool, str]:
@@ -251,7 +266,7 @@ class Escuta:
         self.previa_feita = True
 
     def _e_fala(self, db: float) -> bool:
-        return db > max(self.piso + 12, -45)
+        return db > max(self.piso + ACIMA_DO_PISO, FALA_MIN_DB)
 
     def _quadro(self, quadro: array.array):
         dur = self.n / TAXA
@@ -315,9 +330,22 @@ class Escuta:
         return None
 
 
+def _normalizar(amostras: array.array) -> array.array:
+    """O pico em PICO_ALVO, com no máximo GANHO_MAX — áudio baixo vira áudio
+    num volume que o Whisper ouve bem; o que já está alto não muda."""
+    pico = max((abs(a) for a in amostras), default=0)
+    if not pico:
+        return amostras
+    ganho = min(GANHO_MAX, PICO_ALVO * 32767 / pico)
+    if ganho <= 1.0:
+        return amostras
+    return array.array('h', (max(-32768, min(32767, int(a * ganho))) for a in amostras))
+
+
 def _wav(amostras: array.array) -> bytes:
     import io
     import wave
+    amostras = _normalizar(amostras)
     saida = io.BytesIO()
     with wave.open(saida, 'wb') as w:
         w.setnchannels(1)

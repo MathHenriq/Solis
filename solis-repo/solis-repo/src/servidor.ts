@@ -281,7 +281,9 @@ function falhaDoStream(e: { erro: string; cerebro?: string }): Falha {
  *  etapas de fundo (aprendizado, resumo). Devolve null quando deu certo, ou
  *  QUEM falhou. Um corte no meio da resposta não é falha: o texto só termina
  *  onde parou. */
-export async function conversar(conversa: number | null, texto: string, ouvintes: Ouvintes): Promise<Falha | null> {
+/** `voz`: a mensagem veio pela voz e a resposta vai ser falada — o servidor
+ *  pede uma resposta curta e direta (ollama.VOZ). */
+export async function conversar(conversa: number | null, texto: string, ouvintes: Ouvintes, voz = false): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
   // Ollama fora não é mais fim de conversa: o Claude ou o Codex ainda podem
@@ -300,14 +302,14 @@ export async function conversar(conversa: number | null, texto: string, ouvintes
     r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelo: modelo ?? '', texto }),
+      body: JSON.stringify({ modelo: modelo ?? '', texto, voz }),
     });
   } catch {
     return { tipo: 'sem-servidor' };
   }
   // A conversa sumir do banco (o arquivo foi apagado com o app aberto) não é
   // culpa de ninguém: começa outra e manda de novo.
-  if (r.status === 404) return conversar(null, texto, ouvintes);
+  if (r.status === 404) return conversar(null, texto, ouvintes, voz);
   if (!r.ok || !r.body) return { tipo: 'sem-servidor' };
 
   // NDJSON: um evento por linha — {"texto"}, {"etapa"} ou {"erro"}. Uma linha

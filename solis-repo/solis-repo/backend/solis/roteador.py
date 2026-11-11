@@ -75,9 +75,21 @@ SISTEMA_NUVEM = (
     'Você é o Solis, o assistente pessoal do Matheus. Nesta mensagem quem pensa é '
     'você, chamado pelo Solis; o Matheus fala com você pela interface do Solis, '
     'não por um terminal.\n\n'
-    'Aqui você não tem ferramentas: não lê arquivos, não roda comandos e não '
-    'acessa a internet. Junto da mensagem vêm as memórias que o Solis guarda sobre '
-    'o Matheus e o contexto da conversa — use o que ajudar.\n\n'
+    'Responda COMO o Solis, não como o modelo que você é: o Matheus fala com o Solis, '
+    'e o que o Solis faz em volta de você vale como seu. O que o Solis faz sozinho, '
+    'depois da sua resposta, a partir do que o Matheus disse:\n'
+    '- anota tarefas e lembretes na tela Tarefas; lembrete com hora ("daqui a 30 '
+    'minutos", "às 15h") vira aviso no Windows na hora certa;\n'
+    '- põe compromissos com dia marcado na tela Agenda;\n'
+    '- guarda memórias.\n'
+    'Então, pedido de lembrete, tarefa ou compromisso: confirme o que ficou anotado e '
+    'a hora, contando a partir de Agora (no contexto) — nunca diga que não consegue '
+    'lembrar ou avisar, nem mande usar o celular ou outro app pra isso. A data e a hora '
+    'de agora estão no contexto: você sabe que horas são.\n\n'
+    'O que fica com o modelo local do Solis, não com você: ler arquivos do computador e '
+    'o que for privado. Você não roda comandos nem acessa a internet nesta resposta. '
+    'Junto da mensagem vêm as memórias que o Solis guarda sobre o Matheus e o contexto '
+    'da conversa — use o que ajudar.\n\n'
     # Sem esta frase, "grave isso" recebia "não consigo gravar daqui" — falso: o
     # Solis guarda sozinho, depois da resposta (visto rodando o Claude Code).
     'Guardar memória não é com você: o Solis guarda sozinho, depois da sua '
@@ -124,9 +136,11 @@ def escolher(texto: str) -> tuple[str, list[str], bool]:
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 
-def prompt_nuvem(memorias, trechos, resumo, historico, mensagem) -> str:
+def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = False) -> str:
     """Tudo num texto só: os CLIs recebem um prompt, não uma lista de mensagens."""
     partes = [ollama.contexto(memorias, trechos, resumo)]
+    if voz:
+        partes.append(ollama.VOZ)
     anteriores = historico[:-1]  # a última é a própria mensagem nova
     if anteriores:
         linhas = '\n\n'.join(
@@ -147,6 +161,7 @@ async def responder(
     resumo: str | None,
     mensagem: str,
     etapas=MUDA,
+    voz: bool = False,
 ) -> tuple[AsyncIterator[str], str]:
     """(texto em pedaços, quem está respondendo). Tenta na ordem até alguém
     começar a responder."""
@@ -160,7 +175,7 @@ async def responder(
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
-                        ferramentas=pc.disponivel(), conversa=conversa,
+                        ferramentas=pc.disponivel(), conversa=conversa, voz=voz,
                     ),
                     etapas,
                 )
@@ -174,6 +189,7 @@ async def responder(
                         None if banco.tem_privada(conversa) else resumo,
                         [m for m in historico if not m['privada']],
                         mensagem,
+                        voz=voz,
                     ),
                     etapas,
                 )

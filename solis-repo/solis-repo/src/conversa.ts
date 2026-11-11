@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { EtapaRecebida } from './etapas';
+import { respostaFalada } from './fala';
 import { NOMES_CEREBRO, abrirConversa, carregarConversa, conversar, type Falha, type Mensagem } from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
@@ -145,7 +146,7 @@ export function useConversa() {
             definirRespondendo(false);
           }
         },
-      });
+      }, respostaFalada.proxima);
 
       // Depois do `fim` a próxima mensagem já pode estar respondendo: liberar o
       // campo de novo aqui o soltaria no meio dela.
