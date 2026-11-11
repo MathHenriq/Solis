@@ -29,6 +29,9 @@ class Etapas:
         self.fila: asyncio.Queue[dict | None] = asyncio.Queue()
         # As etapas e o erro, sem o texto: é o que vai pro banco com a resposta.
         self.lista: list[dict] = []
+        # Tarefas já anotadas antes da resposta (memoria.lembrete_rapido): o
+        # aprendizado não anota de novo, e a tela mostra junto das outras.
+        self.anotadas: list[dict] = []
 
     def _t(self) -> float:
         return round(time.perf_counter() - self.inicio, 2)

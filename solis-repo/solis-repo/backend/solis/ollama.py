@@ -166,7 +166,9 @@ NAO_PODE_COM_ARQUIVOS = (
 VOZ = (
     'Esta mensagem veio pela voz e a sua resposta vai ser FALADA. Responda em uma ou duas frases '
     'curtas e diretas, como alguém respondendo em voz alta: sem listas, sem títulos, sem '
-    'markdown, sem repetir a pergunta e sem oferecer alternativas que ninguém pediu.'
+    'markdown, sem repetir a pergunta e sem oferecer alternativas que ninguém pediu. '
+    'Se uma resposta anterior desta conversa disse que o Solis não consegue ver a hora, lembrar '
+    'ou avisar, ela estava errada: a hora está em Agora, e o Solis anota e avisa. Não repita.'
 )
 
 
@@ -416,6 +418,10 @@ async def _perguntar(
     }
     if pensar is not None:
         corpo['think'] = pensar
+    # O título e o aprendizado usam o mesmo modelo da conversa: sem isto, eles
+    # devolviam o prazo dele pro padrão do Ollama (5 min), e a próxima pergunta
+    # pela voz esperava o modelo subir de novo (9,4 s medidos no app).
+    corpo['keep_alive'] = FICA_NA_VOZ
     if formato:
         corpo['format'] = formato
     try:

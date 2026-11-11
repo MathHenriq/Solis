@@ -77,3 +77,37 @@ def test_lembrete_entra_no_contexto_com_a_hora_pronta():
     assert 'hoje às 10:42' in rel
     absoluta = ollama.contexto([], [{'lembrete': True, 'dia': '2099-01-01', 'hora': '15:00', 'relativa': False, 'privada': False}])
     assert 'é às 15:00' in absoluta
+
+
+@pytest.mark.parametrize('frase, esperado', [
+    ('Me lembra de beber água daqui a 20 minutos.', ('Beber água', '10:32')),
+    ('Daqui a 15 minutos me avisa pra tirar o bolo do forno.', ('Tirar o bolo do forno', '10:27')),
+    ('Solis, me lembra de ligar pra minha mãe às 15h', ('Ligar pra minha mãe', '15:00')),
+    ('Me lembra de tomar o remédio daqui a mais ou menos meia hora, por favor', ('Tomar o remédio', '10:42')),
+    ('Me lembra daqui a 10 minutos de olhar o forno', ('Olhar o forno', '10:22')),
+])
+def test_lembrete_anotado_na_hora_sem_modelo(frase, esperado):
+    r = memoria.lembrete_rapido(frase, AGORA)
+    assert (r['texto'], r['hora']) == esperado
+
+
+@pytest.mark.parametrize('frase', ['me avisa que horas são', 'Que horas são?', 'Me lembra do nome do filme'])
+def test_sem_hora_fica_com_a_extracao(frase):
+    assert memoria.lembrete_rapido(frase, AGORA) is None
+
+
+def test_a_extracao_de_fundo_nao_anota_o_lembrete_de_novo(monkeypatch):
+    import asyncio
+
+    from solis import banco
+
+    async def falso(modelo, instrucao, texto, esquema, *_):
+        return {'memorias': [], 'tarefas': [{'texto': 'Beber água', 'prazo': '2026-11-11', 'hora': '10:32'}]}
+    monkeypatch.setattr(ollama, 'responder_json', falso)
+    conversa = banco.nova_conversa()
+    ja = {'texto': 'Beber água', 'prazo': '2026-11-11', 'hora': '10:32'}
+    banco.adicionar_tarefa(ja['texto'], ja['prazo'], ja['hora'], conversa)
+    criadas = [ja]
+    asyncio.run(memoria.aprender('qwen3:8b', conversa, 'Me lembra de beber água daqui a 20 minutos', [], tarefas=criadas, agora=AGORA))
+    assert [t['texto'] for t in banco.tarefas_abertas(10)] == ['Beber água']
+    assert criadas == [ja]

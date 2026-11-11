@@ -235,8 +235,9 @@ async def enviar(conversa: int, envio: Envio):
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
     global _ultimo_modelo
-    if envio.modelo:
+    if envio.modelo and envio.modelo != _ultimo_modelo:
         _ultimo_modelo = envio.modelo
+        banco.guardar_ajuste('modelo_local', envio.modelo)
 
     # A mensagem da pessoa é guardada antes de perguntar ao modelo: o que ela
     # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
@@ -283,6 +284,13 @@ async def _responder(
         # As tarefas abertas vão no pedido, na mesma lista dos trechos (o filtro
         # do que é privado antes da nuvem é o mesmo): "o que eu tenho pra hoje?"
         trechos = trechos + _tarefas_no_pedido() + _agenda_no_pedido()
+        rapido = memoria.lembrete_rapido(texto, datetime.now())
+        if rapido:
+            banco.adicionar_tarefa(
+                rapido['texto'], rapido['prazo'], rapido['hora'], conversa,
+                privada=memoria.eh_privado(texto) or bool(memoria.SENSIVEL.search(rapido['texto'])),
+            )
+            etapas.anotadas.append(rapido)
         pedida = memoria.hora_pedida(texto, datetime.now())
         if pedida:
             trechos.append({'lembrete': True, 'dia': pedida[0], 'hora': pedida[1], 'relativa': pedida[2], 'privada': False})
@@ -348,7 +356,7 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     modelo = await _modelo_de_fundo(modelo)
     if titulo := await resumo.titular(modelo, conversa):
         etapas.marcar('titulo', titulo=titulo)
-    criadas: list[dict] = []
+    criadas: list[dict] = list(etapas.anotadas)
     marcados: list[dict] = []
     novas = await memoria.aprender(
         modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas, compromissos=marcados
@@ -658,8 +666,10 @@ ESCUTA_LOG = os.environ.get('SOLIS_ESCUTA_LOG') == '1'
 def _aquecer() -> None:
     """Ouviu "Solis": carrega o modelo local enquanto a pessoa ainda fala o
     pedido — a resposta não espera o modelo subir na GPU."""
-    if _ultimo_modelo:
-        tarefa = asyncio.create_task(ollama.aquecer(_ultimo_modelo))
+    # Depois de o servidor reiniciar, o da última vez (guardado).
+    modelo = _ultimo_modelo or banco.ajuste('modelo_local')
+    if modelo:
+        tarefa = asyncio.create_task(ollama.aquecer(modelo))
         _tarefas.add(tarefa)
         tarefa.add_done_callback(_tarefas.discard)
 

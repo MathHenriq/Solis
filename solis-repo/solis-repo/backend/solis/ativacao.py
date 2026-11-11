@@ -47,7 +47,9 @@ SENSIBILIDADE = float(os.environ.get('SOLIS_ATIVACAO_SENSIBILIDADE', '0.5'))
 FALA_MINIMA = 0.4
 FIM_SILENCIO = 0.9
 COMANDO_MAX = 15.0
-INICIO_MAX = 5.0  # sem falar nada depois da palavra: desiste
+# Sem falar nada depois da palavra: desiste. Era 5 s, e no teste de 11/11/2026
+# a primeira chamada ouviu "Solis" e desistiu antes do pedido chegar.
+INICIO_MAX = 8.0
 
 # Fala é o que passa ACIMA_DO_PISO dB do ruído de fundo (e de FALA_MIN_DB).
 # Medido com o microfone do Matheus no app (11/11/2026), sem o processamento de
@@ -55,6 +57,7 @@ INICIO_MAX = 5.0  # sem falar nada depois da palavra: desiste
 # do piso e mínimo de -45, quase nada passava como fala — e nenhum "Solis" foi
 # ouvido em 3 minutos. Com 7 dB, a fala dele passa e o ruído não.
 ACIMA_DO_PISO = 7.0
+ACIMA_DO_PISO_COMANDO = 5.0
 FALA_MIN_DB = -55.0
 # O trecho vai pro Whisper com o pico levado a -3 dBFS (até 30x): o microfone
 # dele chega baixo, e o Whisper erra mais com áudio baixo.
@@ -265,8 +268,8 @@ class Escuta:
         """Sem a palavra: o resto do trecho é ignorado até ele acabar."""
         self.previa_feita = True
 
-    def _e_fala(self, db: float) -> bool:
-        return db > max(self.piso + ACIMA_DO_PISO, FALA_MIN_DB)
+    def _e_fala(self, db: float, margem: float = ACIMA_DO_PISO) -> bool:
+        return db > max(self.piso + margem, FALA_MIN_DB)
 
     def _quadro(self, quadro: array.array):
         dur = self.n / TAXA
@@ -282,7 +285,8 @@ class Escuta:
                 return None
             return self._trecho(quadro, db, dur)
         self.comando.extend(quadro)
-        if self._e_fala(db):
+        # Depois do "Solis", fala mais baixa ainda conta: quem chamou vai falar.
+        if self._e_fala(db, ACIMA_DO_PISO_COMANDO):
             self.fala += dur
             self.silencio = 0.0
         else:

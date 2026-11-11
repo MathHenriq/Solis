@@ -342,6 +342,12 @@ das outras.
    O modelo é carregado na GPU quando a escuta ouve "Solis", enquanto ainda falta o pedido.
    Todo cérebro recebe a data e a hora, e os de nuvem respondem como o Solis (sabem que ele
    anota lembretes e avisa na hora).
+   No segundo teste (11/11/2026, 10:21) a primeira palavra levou 9,4 s: o modelo estava frio. As
+   tarefas de fundo devolviam o prazo dele na GPU pro padrão (5 min), e o aquecimento não sabia
+   qual modelo usar depois de o servidor reiniciar. Agora todo pedido mantém o modelo 15 min, o
+   modelo da conversa fica guardado, e quente a primeira palavra sai em 0,06 a 0,9 s. Lembrete com
+   hora ("me lembra de X daqui a 20 minutos") vira tarefa na hora, em código, antes da resposta —
+   a extração de fundo levava ~25 s. Depois do "Solis", a escuta espera 8 s pelo pedido (eram 5).
 
 ### Controle do PC e visão da tela
 

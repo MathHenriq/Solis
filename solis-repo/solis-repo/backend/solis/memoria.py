@@ -272,6 +272,34 @@ def hora_pedida(mensagem: str, agora: dt.datetime) -> tuple[str, str, bool] | No
     return None
 
 
+_PEDIDO_LEMBRETE = re.compile(
+    r'\b(?:me\s+)?(?:lembra|lembre|lembrar|avisa|avise|chama|chame)(?:-me)?\s+(?:de\s+|pra\s+|para\s+|que\s+)?(.+)',
+    re.I,
+)
+
+
+def lembrete_rapido(mensagem: str, agora: dt.datetime) -> dict | None:
+    """"Me lembra de beber água daqui a 20 minutos" → {'texto': 'Beber água',
+    'prazo', 'hora'}, sem modelo nenhum: a tarefa (e o aviso) existe antes da
+    resposta. A extração de fundo levava ~25 s pra anotar (11/11/2026: "colocar
+    uma coisa na agenda tem que ser extremamente rápido"). None se a mensagem
+    não é um pedido de lembrete com hora — aí fica com a extração de sempre."""
+    pedida = hora_pedida(mensagem, agora)
+    m = _PEDIDO_LEMBRETE.search(mensagem)
+    if not pedida or not m:
+        return None
+    oque = m.group(1)
+    # Tira a hora de onde estiver ("daqui a 20 minutos", "às 15h") e o que sobra.
+    for regex in (_DAQUI_HORA, _AS_HORA):
+        oque = regex.sub(' ', oque)
+    oque = re.sub(r'\s+', ' ', oque).strip(' .,!?;:-')
+    oque = re.sub(r'\b(?:mais ou menos|por favor|tá|ta)$', '', oque, flags=re.I).strip(' .,!?;:-')
+    oque = re.sub(r'^(?:de|pra|para|que)\s+', '', oque, flags=re.I)
+    if len(oque) < 3:
+        return None
+    return {'texto': oque[0].upper() + oque[1:], 'prazo': pedida[0], 'hora': pedida[1]}
+
+
 def corrigir_data(mensagem: str, prazo: str | None, agora: dt.datetime) -> str | None:
     """O prazo do modelo, corrigido pela conta quando a mensagem diz o dia da
     semana ou "daqui a N dias/semanas" e o modelo errou a conta."""
@@ -417,8 +445,11 @@ async def aprender(
     if CANCELADO.search(mensagem):
         marcados = []
     titulos = [c['titulo'].strip() for c in marcados]
-    # A tarefa que repete um compromisso sai: ele é o compromisso.
+    # A tarefa que repete um compromisso sai: ele é o compromisso. E a que
+    # repete a já anotada na hora (lembrete_rapido) também.
     achadas = [t for t in achadas if not _eh_a_tarefa(t['texto'], titulos)]
+    ja = [t['texto'] for t in tarefas or []]
+    achadas = [t for t in achadas if not _eh_a_tarefa(t['texto'], ja)]
     # A memória que só repete uma tarefa ou um compromisso sai (o sigilo dela fica).
     textos_tarefas = [t['texto'].strip() for t in achadas] + titulos
     repetidas = [m for m in novas if _eh_a_tarefa(m.get('texto', ''), textos_tarefas)]
