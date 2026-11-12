@@ -1050,13 +1050,15 @@ async def escuta(ws: WebSocket):
 
 class Aprovacao(BaseModel):
     aprovar: bool
+    # Aprovar e não perguntar de novo nesta conversa (o comando exato, ou as edições).
+    sempre: bool = False
 
 
 @app.post('/aprovacoes/{id_}')
 async def responder_aprovacao(id_: str, corpo: Aprovacao):
     """O Matheus respondeu o cartão de aprovação na conversa."""
     from . import agente
-    if not agente.responder_aprovacao(id_, corpo.aprovar):
+    if not agente.responder_aprovacao(id_, corpo.aprovar, corpo.sempre):
         return JSONResponse({'erro': 'aprovacao_inexistente'}, status_code=404)
     return {'ok': True}
 

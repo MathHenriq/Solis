@@ -182,70 +182,132 @@ const QUER: Record<string, string> = {
  *  no solis-tokens.json): precisa do aval do Matheus nos 3 temas e 2 navs.
  *  Um cartão por pedido; some quando a resposta chega do servidor (a etapa
  *  `aprovacao_resposta`), e o que foi respondido vira um passo da lista. */
+/** O que muda numa edição, antes de aprovar: as linhas que saem em vermelho,
+ *  as que entram em verde (as cores do código e do erro de cada tema). */
+function Diff({ texto }: { texto: string }) {
+  return (
+    <pre
+      aria-label="O que muda"
+      className="font-mono overflow-auto"
+      style={{
+        fontSize: 'var(--cod-texto)',
+        lineHeight: 1.55,
+        marginTop: 10,
+        maxHeight: 300,
+        padding: '8px 0',
+        borderRadius: 'var(--cod-raio)',
+        background: 'var(--mem-hover-forte)',
+      }}
+    >
+      {texto.split('\n').map((l, i) => {
+        const tipo = l.startsWith('+') ? 'mais' : l.startsWith('-') ? 'menos' : l.startsWith('@@') || l.startsWith('…') ? 'meta' : 'igual';
+        return (
+          <div
+            key={i}
+            style={{
+              padding: '0 var(--cod-px)',
+              color: tipo === 'mais' ? 'var(--code-string)' : tipo === 'menos' ? 'var(--erro)' : tipo === 'meta' ? 'var(--text-secondary)' : 'var(--text-primary)',
+              background:
+                tipo === 'mais'
+                  ? 'color-mix(in srgb, var(--code-string) 12%, transparent)'
+                  : tipo === 'menos'
+                    ? 'color-mix(in srgb, var(--erro) 10%, transparent)'
+                    : undefined,
+              whiteSpace: 'pre',
+            }}
+          >
+            {l || ' '}
+          </div>
+        );
+      })}
+    </pre>
+  );
+}
+
+/** O "sempre" de cada pedido: o comando exato, ou as edições da conversa
+ *  (backend agente._regra). O plano não tem: cada plano é aprovado olhando. */
+function rotuloSempre(ferramenta?: string): string | null {
+  if (ferramenta === 'ExitPlanMode') return null;
+  if (ferramenta === 'Bash' || ferramenta === 'PowerShell') return 'Sempre este comando';
+  return 'Sempre nesta conversa';
+}
+
+/** PROVISÓRIO — desenho próprio, sem referência (layout.thread.etapas._approval
+ *  no solis-tokens.json): precisa do aval do Matheus nos 3 temas e 2 navs.
+ *  Um cartão por pedido; some quando a resposta chega do servidor (a etapa
+ *  `aprovacao_resposta`), e o que foi respondido vira um passo da lista.
+ *  Numa edição, o diff do que muda vem embaixo (12/11/2026). */
 function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
   const [enviando, definirEnviando] = useState(false);
   const [falhou, definirFalhou] = useState(false);
-  const responder = async (aprovar: boolean) => {
+  const responder = async (aprovar: boolean, sempre = false) => {
     definirEnviando(true);
     definirFalhou(false);
     // Deu certo: o cartão some quando a etapa de resposta chegar pelo stream.
-    if (!(await responderAprovacao(pedido.id ?? '', aprovar))) {
+    if (!(await responderAprovacao(pedido.id ?? '', aprovar, sempre))) {
       definirFalhou(true);
       definirEnviando(false);
     }
   };
   const titulo = QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`;
+  const sempre = rotuloSempre(pedido.ferramenta);
   return (
     <div
       role="group"
       aria-label={titulo}
-      className={`flex ${pedido.ferramenta === 'ExitPlanMode' ? 'items-end' : 'items-center'}`}
       style={{
         maxWidth: 'var(--th-texto-max)',
-        gap: 'var(--et-apr-gap)',
         padding: 'var(--et-apr-py) var(--et-apr-px)',
         borderRadius: 'var(--et-apr-raio)',
         border: '1px solid color-mix(in srgb, var(--accent) var(--et-chip-borda), transparent)',
         background: 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)',
       }}
     >
-      <div className="flex-1 min-w-0">
-        <div className="text-text-primary" style={{ fontSize: 'var(--et-texto)' }}>
-          {titulo}
-        </div>
-        {pedido.alvo && pedido.ferramenta === 'ExitPlanMode' ? (
-          // O plano inteiro, legível: é ele que está sendo aprovado.
-          <div
-            className="text-text-primary whitespace-pre-wrap overflow-y-auto"
-            style={{ fontSize: 'var(--et-texto)', lineHeight: 1.5, marginTop: 6, maxHeight: 320 }}
-          >
-            {pedido.alvo}
+      <div className={`flex ${pedido.ferramenta === 'ExitPlanMode' ? 'items-end' : 'items-center'}`} style={{ gap: 'var(--et-apr-gap)' }}>
+        <div className="flex-1 min-w-0">
+          <div className="text-text-primary" style={{ fontSize: 'var(--et-texto)' }}>
+            {titulo}
           </div>
-        ) : (
-          pedido.alvo && (
+          {pedido.alvo && pedido.ferramenta === 'ExitPlanMode' ? (
+            // O plano inteiro, legível: é ele que está sendo aprovado.
             <div
-              title={pedido.alvo}
-              className="text-text-secondary font-mono truncate"
-              style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}
+              className="text-text-primary whitespace-pre-wrap overflow-y-auto"
+              style={{ fontSize: 'var(--et-texto)', lineHeight: 1.5, marginTop: 6, maxHeight: 320 }}
             >
               {pedido.alvo}
             </div>
-          )
-        )}
-        {falhou && (
-          <div className="text-[var(--erro)]" style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}>
-            Não consegui responder: o pedido já acabou ou o servidor caiu.
-          </div>
-        )}
+          ) : (
+            pedido.alvo && (
+              <div
+                title={pedido.alvo}
+                className="text-text-secondary font-mono truncate"
+                style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}
+              >
+                {pedido.alvo}
+              </div>
+            )
+          )}
+          {falhou && (
+            <div className="text-[var(--erro)]" style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}>
+              Não consegui responder: o pedido já acabou ou o servidor caiu.
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
+          <Botao onClick={() => responder(false)} disabled={enviando}>
+            Recusar
+          </Botao>
+          {sempre && (
+            <Botao onClick={() => responder(true, true)} disabled={enviando}>
+              {sempre}
+            </Botao>
+          )}
+          <Botao tipo="destaque" onClick={() => responder(true)} disabled={enviando}>
+            Aprovar
+          </Botao>
+        </div>
       </div>
-      <div className="flex shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
-        <Botao onClick={() => responder(false)} disabled={enviando}>
-          Recusar
-        </Botao>
-        <Botao tipo="destaque" onClick={() => responder(true)} disabled={enviando}>
-          Aprovar
-        </Botao>
-      </div>
+      {pedido.diff && <Diff texto={pedido.diff} />}
     </div>
   );
 }

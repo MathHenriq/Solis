@@ -73,13 +73,66 @@ def guardar_ajustes(modelo: str | None, esforco: str | None) -> dict:
     return ajustes()
 
 
-def responder_aprovacao(id_: str, aprovado: bool) -> bool:
-    """O Matheus respondeu o cartão. False se o pedido já não existe."""
+# "Sempre" respondido num cartão, por conversa: a regra (o comando exato, ou
+# as edições) não pede de novo enquanto o servidor estiver de pé — como o
+# "não perguntar de novo" do Claude Code, que também vale só pra sessão.
+_sempre: dict[int | None, set[str]] = {}
+
+
+def _regra(nome: str, entrada: dict) -> str:
+    """O que um "sempre" libera: o comando exato (não o programa inteiro —
+    sempre `git status` não pode liberar `git push`); as edições de arquivo
+    todas juntas; o resto, a ferramenta."""
+    if nome in ('Bash', 'PowerShell'):
+        return f'{nome}:{(entrada.get("command") or "").strip()}'
+    if nome in EDICAO:
+        return 'edicao'
+    return nome
+
+
+def responder_aprovacao(id_: str, aprovado: bool, sempre: bool = False) -> bool:
+    """O Matheus respondeu o cartão. False se o pedido já não existe.
+    `sempre`: aprovar, e não perguntar de novo nesta conversa."""
     fut = _pendentes.get(id_)
     if fut is None or fut.done():
         return False
-    fut.set_result(bool(aprovado))
+    fut.set_result('sempre' if aprovado and sempre else bool(aprovado))
     return True
+
+
+def _diff(nome: str, entrada: dict, projeto: str | None = None, limite: int = 400) -> str | None:
+    """O que muda, em diff unificado, pro cartão mostrar antes de aprovar:
+    na edição, o trecho antigo contra o novo; ao reescrever, o arquivo de hoje
+    contra o novo; arquivo novo, tudo como adição."""
+    import difflib
+    pares = []
+    if nome == 'Edit':
+        pares = [(entrada.get('old_string') or '', entrada.get('new_string') or '')]
+    elif nome == 'MultiEdit':
+        pares = [(e.get('old_string') or '', e.get('new_string') or '') for e in entrada.get('edits') or []]
+    elif nome == 'Write':
+        antes = ''
+        caminho = entrada.get('file_path')
+        if caminho:
+            p = Path(caminho)
+            p = p if p.is_absolute() else _base(projeto) / p
+            try:
+                if p.is_file() and p.stat().st_size <= 512_000:
+                    antes = p.read_text(encoding='utf-8', errors='replace')
+            except OSError:
+                pass
+        pares = [(antes, entrada.get('content') or '')]
+    else:
+        return None
+    linhas: list[str] = []
+    for antes, depois in pares:
+        bloco = list(difflib.unified_diff(antes.splitlines(), depois.splitlines(), lineterm='', n=3))[2:]
+        linhas += bloco
+    if not linhas:
+        return None
+    if len(linhas) > limite:
+        linhas = linhas[:limite] + [f'… mais {len(linhas) - limite} linhas']
+    return '\n'.join(linhas)
 
 
 def _pasta_trabalho() -> Path:
@@ -198,7 +251,7 @@ def _ferramentas_solis():
 
 
 async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto: str | None = None,
-                   modo: str = 'pedir'):
+                   modo: str = 'pedir', conversa: int | None = None):
     """O can_use_tool do SDK: livre, ou um cartão na conversa esperando o Matheus.
     `modo` aceitar: editar arquivo dentro do projeto não pede (fica no registro)."""
     from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny, PermissionUpdate
@@ -208,6 +261,9 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
     caminho = entrada.get('file_path') or entrada.get('notebook_path') or entrada.get('path')
     if nome in LEITURA and _dentro(caminho, projeto):
         return PermissionResultAllow()
+    if _regra(nome, entrada) in _sempre.get(conversa, set()):
+        banco.registrar_acao(conversa, nome, entrada, 'aprovado sempre: ' + resumo(nome, entrada), True)
+        return PermissionResultAllow()
     if modo == 'aceitar' and nome in EDICAO and _no_projeto(caminho, projeto):
         banco.registrar_acao(None, nome, entrada, 'aceito pelo modo: ' + resumo(nome, entrada), True)
         return PermissionResultAllow()
@@ -216,19 +272,30 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
     _pendentes[id_] = fut
     if ids is not None:
         ids.add(id_)
-    por('etapa', ('aprovacao', {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
-                                'alvo': _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}))
+    pedido = {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
+              'alvo': _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}
+    diff = _diff(nome, entrada, projeto)
+    if diff:
+        pedido['diff'] = diff
+    por('etapa', ('aprovacao', pedido))
     try:
         ok = await asyncio.wait_for(asyncio.wrap_future(fut), APROVACAO_MAX_S)
     except asyncio.TimeoutError:
         ok = False
     finally:
         _pendentes.pop(id_, None)
+    if ok == 'sempre':
+        _sempre.setdefault(conversa, set()).add(_regra(nome, entrada))
+    ok = bool(ok)
     por('etapa', ('aprovacao_resposta', {'id': id_, 'aprovado': ok}))
-    banco.registrar_acao(None, nome, entrada, ('aprovado' if ok else 'recusado') + ': ' + resumo(nome, entrada), ok)
+    banco.registrar_acao(conversa, nome, entrada, ('aprovado' if ok else 'recusado') + ': ' + resumo(nome, entrada), ok)
     if ok and nome == 'ExitPlanMode':
         # Plano aprovado: sai do modo de planejar e executa — pedindo
-        # aprovação pro que escreve, como no modo de sempre.
+        # aprovação pro que escreve, como no modo de sempre. A conversa
+        # também volta pro modo de pedir (como o Claude Code faz).
+        if conversa is not None:
+            banco.guardar_projeto(conversa, banco.projeto_da_conversa(conversa)['pasta'], 'pedir')
+            por('etapa', ('modo', {'modo': 'pedir'}))
         return PermissionResultAllow(updated_permissions=[
             PermissionUpdate(type='setMode', mode='default', destination='session')])
     return PermissionResultAllow() if ok else PermissionResultDeny(message='O Matheus recusou.')
@@ -236,7 +303,7 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
 
 async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None,
                   modelo: str | None = None, esforco: str | None = None, projeto: str | None = None,
-                  modo: str = 'pedir') -> None:
+                  modo: str = 'pedir', conversa: int | None = None) -> None:
     """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor.
     `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
     from claude_agent_sdk import (
@@ -248,7 +315,7 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
     estado.setdefault('aprovacoes', set())
 
     async def decidir(nome, entrada, contexto):
-        return await _decidir(nome, entrada, por, estado['aprovacoes'], projeto, modo)
+        return await _decidir(nome, entrada, por, estado['aprovacoes'], projeto, modo, conversa)
 
     async def leitura_fora(dados, tool_use_id, contexto):
         """Ler é livre pro Claude Code; aqui, fora das pastas autorizadas, vira pedido."""
@@ -331,7 +398,8 @@ def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
 
 
 async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = None,
-                 ao_sessao=None, projeto: str | None = None, modo: str = 'pedir') -> AsyncIterator[str]:
+                 ao_sessao=None, projeto: str | None = None, modo: str = 'pedir',
+                 conversa: int | None = None) -> AsyncIterator[str]:
     """O texto da resposta em pedaços; as ferramentas e os pedidos de
     aprovação viram etapas. Erro: AgenteFalhou. `retomar` continua uma sessão;
     `ao_sessao(id)` recebe a sessão desta resposta, pra a próxima continuar."""
@@ -351,7 +419,7 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
         try:
             proprio.run_until_complete(_sessao(sistema, prompt, por, retomar, estado=estado,
                                                modelo=escolha['modelo'], esforco=escolha['esforco'],
-                                               projeto=projeto, modo=modo))
+                                               projeto=projeto, modo=modo, conversa=conversa))
         except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
             if not estado.get('parado'):
                 log.exception('o agente do Claude falhou')

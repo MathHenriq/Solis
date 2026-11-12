@@ -108,3 +108,76 @@ def test_sessao_sem_projeto_nao_le_nada_do_disco(projeto, monkeypatch):
     o = _opcoes_da_sessao(monkeypatch)
     assert o.setting_sources == [] and o.permission_mode == 'default'
     assert o.cwd == str(agente._pasta_trabalho().resolve())
+
+
+# — O diff no cartão, o "sempre" e o modo depois do plano ————————————————————————
+
+def test_diff_da_edicao_e_da_escrita(projeto):
+    d = agente._diff('Edit', {'old_string': 'return a - b', 'new_string': 'return a + b'})
+    assert '-return a - b' in d and '+return a + b' in d
+    (projeto / 'src' / 'app.py').write_text('linha 1\nlinha 2\n', encoding='utf-8')
+    d = agente._diff('Write', {'file_path': 'src/app.py', 'content': 'linha 1\nlinha dois\n'}, str(projeto))
+    assert '-linha 2' in d and '+linha dois' in d and ' linha 1' in d
+    novo = agente._diff('Write', {'file_path': 'novo.md', 'content': 'oi\n'}, str(projeto))
+    assert novo.splitlines() == ['@@ -0,0 +1 @@', '+oi']
+    assert agente._diff('Bash', {'command': 'dir'}) is None
+
+
+def test_diff_longo_e_cortado():
+    d = agente._diff('Write', {'file_path': 'x.txt', 'content': '\n'.join(str(i) for i in range(1000))}, limite=10)
+    assert d.splitlines()[-1] == '… mais 991 linhas'
+
+
+def test_cartao_leva_o_diff(projeto):
+    _, mandados = _decidir('Edit', {'file_path': 'src/app.py', 'old_string': 'a', 'new_string': 'b'}, str(projeto),
+                           responder=False)
+    assert '+b' in mandados[0][1][1]['diff']
+
+
+def _decidir_conversa(nome, entrada, conversa, responder=None, sempre=False, projeto=None, modo='pedir'):
+    mandados = []
+
+    def por(tipo, valor=None):
+        mandados.append((tipo, valor))
+        if responder is not None and tipo == 'etapa' and valor[0] == 'aprovacao':
+            asyncio.get_running_loop().call_soon(agente.responder_aprovacao, valor[1]['id'], responder, sempre)
+    return asyncio.run(agente._decidir(nome, entrada, por, None, projeto, modo, conversa)), mandados
+
+
+def test_sempre_este_comando_nesta_conversa(projeto):
+    c = banco.nova_conversa()
+    agente._sempre.pop(c, None)
+    _, m1 = _decidir_conversa('Bash', {'command': 'git status'}, c, responder=True, sempre=True)
+    assert m1[0][1][0] == 'aprovacao'
+    r, m2 = _decidir_conversa('Bash', {'command': 'git status'}, c)
+    assert isinstance(r, PermissionResultAllow) and m2 == []
+    # Outro comando, ou a mesma coisa em outra conversa, ainda pede.
+    _, m3 = _decidir_conversa('Bash', {'command': 'git push'}, c, responder=False)
+    _, m4 = _decidir_conversa('Bash', {'command': 'git status'}, c + 1000, responder=False)
+    assert m3[0][1][0] == 'aprovacao' and m4[0][1][0] == 'aprovacao'
+    agente._sempre.pop(c, None)
+
+
+def test_sempre_nas_edicoes_vale_pra_qualquer_arquivo(projeto):
+    c = banco.nova_conversa()
+    _decidir_conversa('Write', {'file_path': 'a.txt', 'content': 'x'}, c, responder=True, sempre=True)
+    r, m = _decidir_conversa('Edit', {'file_path': 'b.txt', 'old_string': 'x', 'new_string': 'y'}, c)
+    assert isinstance(r, PermissionResultAllow) and m == []
+    agente._sempre.pop(c, None)
+
+
+def test_plano_aprovado_volta_a_conversa_pro_modo_de_pedir(projeto):
+    c = banco.nova_conversa()
+    banco.guardar_projeto(c, str(projeto), 'planejar')
+    _, mandados = _decidir_conversa('ExitPlanMode', {'plan': 'x'}, c, responder=True, projeto=str(projeto), modo='planejar')
+    assert banco.projeto_da_conversa(c) == {'pasta': str(projeto), 'modo': 'pedir'}
+    assert ('etapa', ('modo', {'modo': 'pedir'})) in mandados
+
+
+def test_rota_aceita_o_sempre():
+    from concurrent.futures import Future
+    fut = Future()
+    agente._pendentes['s1'] = fut
+    r = TestClient(main.app).post('/aprovacoes/s1', json={'aprovar': True, 'sempre': True})
+    assert r.status_code == 200 and fut.result() == 'sempre'
+    agente._pendentes.pop('s1', None)

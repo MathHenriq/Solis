@@ -226,7 +226,8 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = N
         saiu = False
         try:
             async for pedaco in agente.claude(sistema, sessao['prompt'], etapas, retomar=sessao['id'], ao_sessao=guardar,
-                                           projeto=sessao.get('projeto'), modo=sessao.get('modo', 'pedir')):
+                                           projeto=sessao.get('projeto'), modo=sessao.get('modo', 'pedir'),
+                                           conversa=sessao.get('conversa')):
                 saiu = True
                 yield pedaco
             return
@@ -237,7 +238,8 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = N
             banco.esquecer_sessao_claude(sessao['conversa'])
     try:
         async for pedaco in agente.claude(sistema, prompt, etapas, ao_sessao=guardar,
-                                       projeto=(sessao or {}).get('projeto'), modo=(sessao or {}).get('modo', 'pedir')):
+                                       projeto=(sessao or {}).get('projeto'), modo=(sessao or {}).get('modo', 'pedir'),
+                                       conversa=(sessao or {}).get('conversa')):
             yield pedaco
     except agente.AgenteFalhou as e:
         raise CerebroFalhou(str(e)) from e

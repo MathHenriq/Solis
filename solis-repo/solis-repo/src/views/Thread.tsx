@@ -237,7 +237,7 @@ function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => v
           )}
           <span style={{ marginLeft: aoEditar ? 6 : 0 }}>{t.hora}</span>
         </span>
-        <div className="text-text-primary whitespace-pre-wrap" style={caixa}>
+        <div className="text-text-primary whitespace-pre-wrap" style={{ ...caixa, overflowWrap: 'anywhere' }}>
           {t.texto}
         </div>
       </div>
@@ -285,7 +285,10 @@ function RespostaSolis({
         ) : (
           <SolisSimbolo className="text-accent shrink-0" style={{ width: 'var(--th-avatar)', height: 'auto', marginTop: 6 }} />
         )}
-        <div className="flex-1">
+        {/* min-w-0: sem ele, um conteúdo largo (o caminho no cartão de
+            aprovação, uma linha longa de código) esticava a coluna da resposta
+            pra fora da conversa — visto no print do diff, 12/11/2026. */}
+        <div className="flex-1 min-w-0">
           {/* Quem respondeu, quando foi um modelo de nuvem: o que foi dito saiu
               da máquina, e o Matheus precisa saber disso. O local é o padrão
               silencioso — não precisa de etiqueta. */}
@@ -462,7 +465,7 @@ export function Thread({
           </div>
         )}
         <div style={{ width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}>
-          <BarraProjeto conversa={conversa} />
+          <BarraProjeto conversa={conversa} respondendo={respondendo} />
         </div>
         <form
           className="flex items-center border border-divider rounded-composer"

@@ -51,9 +51,9 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | | Coisa | No Solis hoje | P |
 |---|---|---|---|
 | ✅ | Ler arquivos nas pastas autorizadas | local (`pc.py`) e Claude | |
-| 🟡 | Escrever e editar arquivos | Claude, com o cartão; falta o diff antes de aprovar | P1 |
+| ✅ | Escrever e editar arquivos | Claude, com o cartão e o diff do que muda (12/11/2026: provado — `-def subtrai` / `+def diminui` no cartão antes de aprovar) | P1 |
 | 🟡 | Terminal | Claude, com o cartão; falta a saída ao vivo na tela | P1 |
-| ⬜ | "Aprovar sempre" esta ferramenta / esta pasta | cada uso pede | P1 |
+| ✅ | "Aprovar sempre" esta ferramenta / esta pasta | 12/11/2026: "Sempre este comando" (o comando exato) e "Sempre nesta conversa" (as edições), valendo enquanto o servidor está de pé. Provado: a edição e o comando seguintes passaram sem cartão | P1 |
 | ⬜ | Lista de tarefas do próprio trabalho (o plano que ele mostra fazendo) | o Claude usa (TodoWrite), a tela não mostra | P2 |
 | ⬜ | Navegador: abrir, ler, clicar, preencher | — | P2 |
 | ⬜ | Controle da tela (ver, clicar, digitar em qualquer app) | — | P3 |
@@ -67,7 +67,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | A sessão continuar entre mensagens (o que ele leu e fez fica com ele) | 11/11/2026: provado pelo app — leu um arquivo, respondeu só "li", e na mensagem seguinte disse o conteúdo sem reler; primeira palavra em 4,0 s contra 12,1 s da sessão nova | P1 |
 | ✅ | Abrir uma pasta de projeto e trabalhar nela (o repositório como lugar de trabalho) | 12/11/2026: a barra acima do campo de digitar (colar o caminho, recentes); ler lá dentro é livre. Provado pelo app com um projeto de teste | P1 |
 | ✅ | Ler o CLAUDE.md do projeto | 12/11/2026: com projeto, o SDK lê o CLAUDE.md e a configuração dele; a regra do projeto de teste foi seguida em toda resposta | P1 |
-| ✅ | Modos: planejar antes, aceitar edições, pedir tudo | 12/11/2026: na barra. Aceitar: editou o projeto sem cartão (comando ainda pede). Planejar: o plano inteiro no cartão; aprovado, executou pedindo a escrita. Falta: depois do plano aprovado o modo da conversa continua "planeja antes" (no Claude Code ele volta) | P1 |
+| ✅ | Modos: planejar antes, aceitar edições, pedir tudo | 12/11/2026: na barra. Aceitar: editou o projeto sem cartão (comando ainda pede). Planejar: o plano inteiro no cartão; aprovado, executou pedindo a escrita. Depois do plano aprovado a conversa volta pra "pede aprovação", como no Claude Code (12/11/2026) | P1 |
 | ⬜ | Ver o diff do que mudou; voltar atrás (checkpoints) | — | P1 |
 | ⬜ | Git: status, commit, push, PR | pelo terminal, com aprovação; sem tela | P2 |
 | ⬜ | Comandos em segundo plano (servidor, teste longo) e acompanhar | — | P2 |

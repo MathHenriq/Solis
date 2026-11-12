@@ -82,7 +82,7 @@ function Item({ marcado, aoEscolher, titulo, dica, desligado }: {
   );
 }
 
-export function BarraProjeto({ conversa }: { conversa: number | null }) {
+export function BarraProjeto({ conversa, respondendo = false }: { conversa: number | null; respondendo?: boolean }) {
   const [projeto, definirProjeto] = useState<Projeto | null>(null);
   const [aberto, definirAberto] = useState<'pasta' | 'modo' | null>(null);
   const [colado, definirColado] = useState('');
@@ -92,6 +92,11 @@ export function BarraProjeto({ conversa }: { conversa: number | null }) {
     definirProjeto(null);
     if (conversa !== null) lerProjeto(conversa).then(definirProjeto);
   }, [conversa]);
+  // No fim de cada resposta: o modo pode ter mudado no meio (o plano aprovado
+  // volta a conversa pra "pede aprovação").
+  useEffect(() => {
+    if (!respondendo && conversa !== null) lerProjeto(conversa).then((p) => p && definirProjeto(p));
+  }, [respondendo, conversa]);
 
   if (conversa === null || !projeto) return null;
 

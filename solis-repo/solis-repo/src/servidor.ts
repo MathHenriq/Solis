@@ -216,6 +216,10 @@ export type Etapa = {
   pessoa?: number;
   /** Etapa `fim`: o Matheus parou a resposta no meio. */
   parada?: boolean;
+  /** Etapa `aprovacao` de uma edição: o que muda, em diff unificado. */
+  diff?: string;
+  /** Etapa `modo`: o modo da conversa mudou (o plano aprovado volta pra "pedir"). */
+  modo?: string;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -320,12 +324,12 @@ export async function pararResposta(conversa: number): Promise<boolean> {
 
 /** O Matheus respondeu o cartão de aprovação. False se o pedido já tinha
  *  acabado (respondido, ou passou o tempo) ou o servidor não respondeu. */
-export async function responderAprovacao(id: string, aprovar: boolean): Promise<boolean> {
+export async function responderAprovacao(id: string, aprovar: boolean, sempre = false): Promise<boolean> {
   try {
     const r = await fetch(`${BASE}/aprovacoes/${encodeURIComponent(id)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aprovar }),
+      body: JSON.stringify({ aprovar, sempre }),
     });
     return r.ok;
   } catch {
