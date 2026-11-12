@@ -13,7 +13,9 @@ import json
 T = json.load(open('docs/solis-tokens.json', encoding='utf-8'))
 PAPEIS = [('canvas', '--canvas'), ('divider', '--divider'), ('erro', '--erro'),
           ('textPrimary', '--text-primary'), ('textSecondary', '--text-secondary'),
-          ('textPlaceholder', '--text-placeholder'), ('accent', '--accent')]
+          ('textPlaceholder', '--text-placeholder'), ('accent', '--accent'),
+          # PROVISÓRIO: o realce de sintaxe dos blocos de código (desenho próprio).
+          ('codeString', '--code-string'), ('codeNumber', '--code-number'), ('codeComment', '--code-comment')]
 TEMAS = [t for t in T['themes'] if not t.startswith('_')]
 PADRAO = T['appearance']['theme']['defaultOnFirstInstall']
 
@@ -258,6 +260,8 @@ for chave, var in [('textSize','--et-texto'), ('rowPitch','--et-passo'), ('textI
                    ('chipRadius','--et-chip-raio'), ('chipTop','--et-chip-top'),
                    ('chipBorderMix','--et-chip-borda'), ('chipFillMix','--et-chip-fundo'),
                    # PROVISÓRIO: o cartão de aprovação do agente (desenho próprio).
+                   ('codeBlockRadius','--cod-raio'), ('codeBlockPadY','--cod-py'), ('codeBlockPadX','--cod-px'),
+                   ('codeTextSize','--cod-texto'), ('codeHeaderSize','--cod-cabecalho'),
                    ('approvalPadY','--et-apr-py'), ('approvalPadX','--et-apr-px'),
                    ('approvalRadius','--et-apr-raio'), ('approvalGap','--et-apr-gap')]:
     w('  %s: %s;' % (var, et[chave]))

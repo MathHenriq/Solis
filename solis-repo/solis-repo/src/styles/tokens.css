@@ -239,6 +239,11 @@
   --et-chip-top: 12px;
   --et-chip-borda: 53%;
   --et-chip-fundo: 6%;
+  --cod-raio: 10px;
+  --cod-py: 12px;
+  --cod-px: 16px;
+  --cod-texto: 13px;
+  --cod-cabecalho: 12px;
   --et-apr-py: 12px;
   --et-apr-px: 16px;
   --et-apr-raio: 8px;
@@ -295,6 +300,9 @@
   --text-secondary: #894D43;
   --text-placeholder: #90554B;
   --accent: #A25500;
+  --code-string: #1D6D27;
+  --code-number: #235FA7;
+  --code-comment: #894D43;
   --solis-horizon-image: url('/fundos/bg-espacial.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
   --mem-hover-forte: rgb(0 0 0 / 0.065);
@@ -309,6 +317,9 @@
   --text-secondary: #726E6A;
   --text-placeholder: #64615E;
   --accent: #A56100;
+  --code-string: #26752F;
+  --code-number: #2C68B0;
+  --code-comment: #6B6662;
   --solis-horizon-image: url('/fundos/bg-claro.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
   --mem-hover-forte: rgb(0 0 0 / 0.065);
@@ -323,6 +334,9 @@
   --text-secondary: #82786D;
   --text-placeholder: #8F8172;
   --accent: #F0BA46;
+  --code-string: #49964E;
+  --code-number: #4C88D3;
+  --code-comment: #8F8579;
   --solis-horizon-image: url('/fundos/bg-dark.webp');
   --mem-hover: rgb(255 255 255 / 0.045);
   --mem-hover-forte: rgb(255 255 255 / 0.085);

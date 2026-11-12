@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
 import { EscolhaClaude } from '../components/EscolhaClaude';
+import { Markdown } from '../components/Markdown';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
@@ -40,102 +41,6 @@ import { useVoz } from '../voz';
  *  pessoa do outro lado. Ver referencias/telas/_variantes/LEIA-ME.md.
  *
  *  A resposta chega em pedaços e o cursor fica no fim enquanto ela chega. */
-
-/** Negrito em markdown (`**assim**`) vira <strong>, e `assim` vira código.
- *  Fragmento e não array: `Paragrafo` lê array como lista. */
-function negrito(texto: string): ReactNode {
-  // O código entre crases (`pytest`) também: aparecia cru, com as crases.
-  const partes = texto.split(/(\*\*.+?\*\*|`[^`\n]+`)/g);
-  return (
-    <>
-      {partes.map((p, i) => {
-        if (p.startsWith('**') && p.endsWith('**') && p.length > 4) return <strong key={i}>{p.slice(2, -2)}</strong>;
-        if (p.startsWith('`') && p.endsWith('`') && p.length > 2)
-          return (
-            <code
-              key={i}
-              className="font-mono"
-              style={{ fontSize: '0.9em', background: 'var(--mem-hover-forte)', padding: '1px 5px', borderRadius: 4 }}
-            >
-              {p.slice(1, -1)}
-            </code>
-          );
-        return p;
-      })}
-    </>
-  );
-}
-
-/** O texto do modelo vem em markdown. Daqui sai só o que a thread já sabe
- *  desenhar — parágrafo e lista com marcador —, mais o negrito. Título (`##`)
- *  vira parágrafo em negrito; o resto passa como texto. Um renderizador de
- *  markdown inteiro seria uma dependência pra três casos. */
-function blocosDe(texto: string): ReactNode[] {
-  const saida: ReactNode[] = [];
-  let paragrafo: string[] = [];
-  let lista: ReactNode[] = [];
-  const fecharParagrafo = () => {
-    if (paragrafo.length) saida.push(negrito(paragrafo.join('\n')));
-    paragrafo = [];
-  };
-  const fecharLista = () => {
-    if (lista.length) saida.push(lista);
-    lista = [];
-  };
-  for (const linha of texto.split('\n')) {
-    const item = /^\s*[-*•]\s+(.*)$/.exec(linha);
-    const titulo = /^#{1,6}\s+(.*)$/.exec(linha);
-    if (item) {
-      fecharParagrafo();
-      lista.push(negrito(item[1]));
-    } else if (!linha.trim()) {
-      fecharParagrafo();
-      fecharLista();
-    } else {
-      fecharLista();
-      paragrafo.push(titulo ? `**${titulo[1]}**` : linha);
-    }
-  }
-  fecharParagrafo();
-  fecharLista();
-  return saida;
-}
-
-/** Cursor de "ainda escrevendo". Vai DENTRO do último parágrafo (ou item), no
- *  fim do texto — como na referência. Fora dele cairia numa linha própria. */
-const CURSOR = (
-  <span
-    aria-label="Solis está respondendo"
-    className="inline-block bg-text-primary align-middle"
-    style={{ width: 2, height: 20, marginLeft: 3, transform: 'translateY(-2px)' }}
-  />
-);
-
-function Paragrafo({ bloco, fim }: { bloco: ReactNode; fim?: ReactNode }) {
-  if (Array.isArray(bloco)) {
-    return (
-      <ul style={{ marginTop: 'var(--th-par-gap)' }}>
-        {bloco.map((li, i) => (
-          <li key={i} className="flex gap-md" style={{ marginTop: i ? 8 : 0 }}>
-            <span aria-hidden className="text-accent">•</span>
-            <span>
-              {li}
-              {i === bloco.length - 1 && fim}
-            </span>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  // pre-line: quebra simples dentro do parágrafo (um endereço, um passo a passo
-  // numerado) continua quebrada.
-  return (
-    <p className="whitespace-pre-line" style={{ marginTop: 'var(--th-par-gap)' }}>
-      {bloco}
-      {fim}
-    </p>
-  );
-}
 
 /** Uma resposta do Solis. Enquanto não há texto, o símbolo pensa (glow no
  *  estado real) e as etapas aparecem embaixo do cabeçalho; quando o texto
@@ -401,9 +306,7 @@ function RespostaSolis({
               {/* Aviso de erro em texto secundário: é o Solis falando do
                   sistema, não respondendo à pergunta. */}
               <div className={t.falha ? 'text-text-secondary' : undefined} style={{ maxWidth: 'var(--th-texto-max)' }}>
-                {(t.texto ? blocosDe(t.texto) : ['']).map((b, j, todos) => (
-                  <Paragrafo key={j} bloco={b} fim={t.digitando && j === todos.length - 1 ? CURSOR : null} />
-                ))}
+                <Markdown texto={t.texto} escrevendo={!!t.digitando} />
               </div>
             </div>
           )}

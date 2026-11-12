@@ -372,3 +372,23 @@ main {
   /* Sem mola: a forma troca direto, e o conteúdo só aparece. */
   .solis-ilha, .solis-ilha[data-fase="saindo"] { transition: opacity 120ms linear; }
 }
+
+/* — A resposta em markdown (src/components/Markdown.tsx) ——————————————————————
+   A lista com o ponto no accent, como a thread validada; a tabela e o realce
+   de sintaxe são desenho próprio, PROVISÓRIO (tokens: themes.*._code). */
+.solis-md-ul { list-style: none; padding-left: 0; }
+.solis-md-ul > li { position: relative; padding-left: 1.25em; }
+.solis-md-ul > li::before { content: '•'; position: absolute; left: 0; color: var(--accent); }
+.solis-md li > p { margin-top: 0 !important; }
+.solis-md-tabela th, .solis-md-tabela td { border: 1px solid var(--divider); padding: 6px 10px; text-align: left; vertical-align: top; }
+.solis-md-tabela th { font-weight: 600; background: var(--mem-hover); }
+.solis-cursor {
+  display: inline-block; width: 2px; height: 20px; margin-left: 3px;
+  vertical-align: middle; transform: translateY(-2px); background: var(--text-primary);
+}
+.solis-md .hljs-keyword, .solis-md .hljs-built_in, .solis-md .hljs-type, .solis-md .hljs-literal,
+.solis-md .hljs-selector-tag, .solis-md .hljs-name { color: var(--accent); }
+.solis-md .hljs-string, .solis-md .hljs-regexp, .solis-md .hljs-attr, .solis-md .hljs-template-variable { color: var(--code-string); }
+.solis-md .hljs-number, .solis-md .hljs-symbol, .solis-md .hljs-variable.constant_ { color: var(--code-number); }
+.solis-md .hljs-comment, .solis-md .hljs-quote, .solis-md .hljs-meta { color: var(--code-comment); font-style: italic; }
+.solis-md .hljs-title { font-weight: 600; }

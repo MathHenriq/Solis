@@ -28,9 +28,9 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | | Coisa | No Solis hoje | P |
 |---|---|---|---|
 | ✅ | Resposta saindo ao vivo, com as etapas | Thread, etapas | |
-| 🟡 | Markdown: títulos, listas, negrito, código | negrito e código em linha; **bloco de código (```) aparece cru, sem indentação** (visto no teste do projeto, 12/11/2026); falta tabela, realce de sintaxe e copiar o código | P1 |
+| ✅ | Markdown: títulos, listas, negrito, código | 12/11/2026: o react-markdown com GFM — bloco de código com a linguagem, o Copiar e o realce (cores medidas por tema), tabela, lista numerada, citação, link; o cursor de escrevendo dentro do último parágrafo. Provado com uma resposta real do Claude | P1 |
 | ✅ | Parar a resposta no meio | 11/11/2026: o enviar vira o parar; interrompe até o Claude no meio de uma ferramenta; o que chegou fica guardado. Provado pelo app | P1 |
-| ✅ | Copiar uma resposta | 11/11/2026, ao lado da hora; falta copiar só um bloco de código | P1 |
+| ✅ | Copiar uma resposta | 11/11/2026, ao lado da hora; e cada bloco de código tem o seu Copiar (12/11/2026) | P1 |
 | ✅ | Editar a mensagem e mandar de novo; refazer a resposta | 11/11/2026; diferente do Claude, a versão antiga não fica guardada como ramo (sai) | P1 |
 | ✅ | Anexar arquivo e imagem na conversa (arrastar, colar) | 11/11/2026: pelo +, arrastando ou colando; o arquivo vai pra pasta de trabalho e o Claude lê (texto, PDF, imagem). Provado pelo app: leu a placa QXT-4F92 e a cor verde-limão de uma imagem e o pedido 55120 de um .txt. Falta a miniatura da imagem na ficha | P1 |
 | ✅ | Escolher o modelo (Fable, Opus, Sonnet, Haiku) e o quanto ele pensa | 11/11/2026, no campo de digitar da conversa; os quatro conferidos na conta do Matheus (Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5). Falta na tela vazia da Conversa (aprovada pela referência: precisa do aval) | P1 |
