@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { guardarProjeto, lerProjeto, type Projeto } from '../servidor';
 import { Botao } from './Controles';
 import { Icone } from './icons';
+import { PainelGit } from './PainelGit';
 
 /** A pasta de projeto e o modo da conversa, acima do campo de digitar — como o
  *  Claude Code mostra a pasta e o modo (docs/PARIDADE.md → Trabalhar num
@@ -116,7 +117,8 @@ export function BarraProjeto({ conversa, respondendo = false }: { conversa: numb
   const estilo = { gap: 6, fontSize: 'var(--et-dobra-texto)', height: 28 } as const;
 
   return (
-    <div className="flex items-center" style={{ gap: 16, marginBottom: 6, paddingLeft: 12 }}>
+    // relative: o painel do git abre pra cima a partir do começo da barra.
+    <div className="relative flex items-center" style={{ gap: 16, marginBottom: 6, paddingLeft: 12 }}>
       <div className="relative">
         <button
           type="button"
@@ -198,6 +200,8 @@ export function BarraProjeto({ conversa, respondendo = false }: { conversa: numb
           </Menu>
         )}
       </div>
+
+      {projeto.pasta && <PainelGit conversa={conversa} respondendo={respondendo} />}
     </div>
   );
 }

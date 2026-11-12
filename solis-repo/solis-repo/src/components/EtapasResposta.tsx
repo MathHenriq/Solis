@@ -284,7 +284,7 @@ const QUER: Record<string, string> = {
  *  `aprovacao_resposta`), e o que foi respondido vira um passo da lista. */
 /** O que muda numa edição, antes de aprovar: as linhas que saem em vermelho,
  *  as que entram em verde (as cores do código e do erro de cada tema). */
-function Diff({ texto }: { texto: string }) {
+export function Diff({ texto }: { texto: string }) {
   return (
     <pre
       aria-label="O que muda"

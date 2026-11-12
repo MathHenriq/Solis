@@ -411,6 +411,83 @@ async def parar_resposta(conversa: int):
     return {'ok': True}
 
 
+# — Git da pasta de projeto ————————————————————————————————————————————————————
+def _pasta_git(conversa: int) -> str | None:
+    return banco.projeto_da_conversa(conversa)['pasta']
+
+
+async def _git_acao(conversa: int, nome: str, funcao, *args):
+    """Commit, push e PR: o Matheus clicou; vai pro registro de ações."""
+    from . import git
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    pasta = _pasta_git(conversa)
+    if not pasta:
+        return JSONResponse({'erro': 'sem_projeto'}, status_code=400)
+    try:
+        r = await asyncio.to_thread(funcao, pasta, *args)
+    except git.GitFalhou as e:
+        banco.registrar_acao(conversa, f'git_{nome}', {'pasta': pasta}, f'não deu: {e}', False)
+        return JSONResponse({'erro': 'git', 'motivo': str(e)}, status_code=400)
+    banco.registrar_acao(conversa, f'git_{nome}', {'pasta': pasta, **({'mensagem': args[0]} if args else {})},
+                         json.dumps(r, ensure_ascii=False), True)
+    return r
+
+
+@app.get('/conversas/{conversa}/git')
+async def ler_git(conversa: int):
+    """O git da pasta de projeto: ramo, upstream, à frente/atrás e os arquivos
+    mudados com as linhas. `repo: false` sem projeto ou fora de um repositório."""
+    from . import git
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    pasta = _pasta_git(conversa)
+    if not pasta:
+        return {'repo': False}
+    try:
+        return await asyncio.to_thread(git.estado, pasta)
+    except git.GitFalhou as e:
+        return JSONResponse({'erro': 'git', 'motivo': str(e)}, status_code=400)
+
+
+@app.get('/conversas/{conversa}/git/diff')
+async def ler_git_diff(conversa: int, arquivo: str):
+    from . import git
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    pasta = _pasta_git(conversa)
+    if not pasta:
+        return JSONResponse({'erro': 'sem_projeto'}, status_code=400)
+    try:
+        return {'diff': await asyncio.to_thread(git.diff, pasta, arquivo)}
+    except git.GitFalhou as e:
+        return JSONResponse({'erro': 'git', 'motivo': str(e)}, status_code=400)
+
+
+class Commit(BaseModel):
+    mensagem: str
+
+
+@app.post('/conversas/{conversa}/git/commit')
+async def git_commit(conversa: int, corpo: Commit):
+    """Tudo que mudou num commit, com a mensagem. Os hooks do projeto rodam."""
+    from . import git
+    return await _git_acao(conversa, 'commit', git.commit, corpo.mensagem)
+
+
+@app.post('/conversas/{conversa}/git/push')
+async def git_push(conversa: int):
+    from . import git
+    return await _git_acao(conversa, 'push', git.push)
+
+
+@app.post('/conversas/{conversa}/git/pr')
+async def git_pr(conversa: int):
+    """O PR do ramo atual, pelo gh (precisa estar instalado e logado)."""
+    from . import git
+    return await _git_acao(conversa, 'pr', git.pr)
+
+
 # — Segundo plano ——————————————————————————————————————————————————————————————
 @app.get('/conversas/{conversa}/fundo')
 async def ler_fundo(conversa: int):

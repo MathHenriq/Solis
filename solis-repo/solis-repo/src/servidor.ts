@@ -354,6 +354,61 @@ export async function voltarAtras(
   }
 }
 
+/** Um arquivo mudado no repositório: M mudou, A novo, D apagado, R
+ *  renomeado, U em conflito, ? fora do git. */
+export type ArquivoGit = { caminho: string; status: string; mais: number; menos: number };
+
+/** O git da pasta de projeto da conversa. */
+export type Git =
+  | { repo: false }
+  | {
+      repo: true;
+      raiz: string;
+      ramo: string;
+      upstream: string | null;
+      frente: number;
+      atras: number;
+      arquivos: ArquivoGit[];
+      gh: boolean;
+    };
+
+export async function lerGit(conversa: number): Promise<Git | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/git`);
+    return r.ok ? ((await r.json()) as Git) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function lerDiffGit(conversa: number, arquivo: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/git/diff?arquivo=${encodeURIComponent(arquivo)}`);
+    return r.ok ? ((await r.json()) as { diff: string }).diff : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Commit, push ou PR. Erro do git: `{ erro }` com o que ele disse. */
+export async function acaoGit(
+  conversa: number,
+  acao: 'commit' | 'push' | 'pr',
+  mensagem?: string,
+): Promise<{ ok: true; dados: { hash?: string; mensagem?: string; url?: string } } | { ok: false; erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/git/${acao}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: acao === 'commit' ? JSON.stringify({ mensagem }) : undefined,
+    });
+    const corpo = await r.json();
+    return r.ok ? { ok: true, dados: corpo } : { ok: false, erro: corpo.motivo ?? 'não deu' };
+  } catch {
+    return { ok: false, erro: 'Não consegui falar com o servidor do Solis.' };
+  }
+}
+
 /** Um comando que o Claude deixou rodando em segundo plano. */
 export type ComandoFundo = { id: string; comando: string; descricao: string; segundos: number; saida: string };
 

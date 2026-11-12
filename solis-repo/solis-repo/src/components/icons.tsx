@@ -64,6 +64,10 @@ const CAMINHOS = {
   // que volta e faz a curva — o desfazer de sempre.
   'desfazer':
     'M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+  // Desenho próprio (o git na barra do projeto, 12/11/2026), no traço 2 e no
+  // grid: o ramo — a linha principal e o galho que sai dela.
+  'ramo':
+    'M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9a9 9 0 0 1-9 9',
   'fala':
     'M11 5 6.5 8.8H3.4A1.4 1.4 0 0 0 2 10.2v3.6a1.4 1.4 0 0 0 1.4 1.4h3.1L11 19z M15.5 9.2a4 4 0 0 1 0 5.6 M18.4 6.3a8 8 0 0 1 0 11.4',
   'visao':
