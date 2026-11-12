@@ -46,6 +46,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /anexos?nome=` | o arquivo cru no corpo (até 50 MB) → guarda em `trabalho/anexos/AAAA-MM-DD/` e devolve `{nome, caminho, tipo, tamanho}`. `400` vazio, `413` grande demais |
 | `GET /conversas/{id}/projeto` | a pasta de projeto da conversa (`pasta`, null = a de trabalho do Solis), o `modo` (`pedir`, `aceitar`, `planejar`) e as pastas `recentes` |
 | `PUT /conversas/{id}/projeto` | `{"pasta", "modo"}` → guarda; outra pasta esquece a sessão do Claude (ela mora com a pasta). `400` se a pasta não existe ou o modo não vale. Com projeto, o Claude trabalha nele (cwd), lê o CLAUDE.md e a configuração dele, e ler lá dentro é livre; `aceitar` edita arquivos do projeto sem pedir; `planejar` mostra o plano num cartão antes de fazer |
+| `GET /conversas/{id}/voltar` | `{"ultima"}`: a última fala da pessoa depois da qual o Claude mudou arquivo (null: nada pra voltar). Dela pra trás, toda fala tem o "voltar atrás" |
+| `POST /conversas/{id}/voltar` | `{"desde", "simular"?, "conversa"?}` → os arquivos que o Claude mudou da fala `desde` em diante voltam a como estavam antes dela, pelo checkpoint do CLI (`agente.voltar`; uma sessão por vez, da mais nova pra mais antiga). Devolve `arquivos`, `mais`/`menos` (linhas que a volta põe e tira) e `erros`. `simular`: só diz o que voltaria. `conversa`: a fala e o que veio depois saem e a sessão do Claude é esquecida. `409` respondendo. Comandos que ele rodou não voltam |
 | `POST /conversas/{id}/parar` | para a resposta em andamento (o modelo, o CLI ou a sessão do Claude, interrompida); o que já chegou fica guardado e o `fim` vem com `parada`. `404` (`nada_respondendo`) se não há resposta |
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |
@@ -225,7 +227,8 @@ mesmos eventos vão pra tela (no stream) e pro log do servidor — no terminal e
 | `primeira_linha` | o CLI escreveu a primeira linha — já subiu | `cerebro` |
 | `pensando` | o modelo começou a raciocinar (Claude, qwen3) | `cerebro` |
 | `primeira_palavra` | a primeira palavra da resposta chegou | `cerebro` |
-| `ferramenta` | uma ferramenta foi usada (pc.py no local; as do Claude pelo agente) | `ferramenta`, `alvo`, `ok` |
+| `ferramenta` | uma ferramenta foi usada (pc.py no local; as do Claude pelo agente) | `ferramenta`, `alvo`, `ok`; no Claude o `id` do uso, e num comando a `saida` (as últimas 40 linhas) |
+| `saida` | só ao vivo, não vai pro banco: um comando do Claude que passa de ~2 s, com o fim da saída até agora (lido do arquivo temporário do CLI) | `id`, `comando`, `saida` |
 | `aprovacao` | o Claude quer fazer algo que pede o Matheus: a tela mostra o cartão | `id`, `ferramenta`, `resumo`, `alvo` |
 | `aprovacao_resposta` | o Matheus respondeu o cartão (ou passou o tempo) | `id`, `aprovado` |
 | `queda` | este cérebro falhou; vai o próximo | `cerebro`, `motivo` |

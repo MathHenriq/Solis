@@ -14,6 +14,8 @@ export type Passo = {
   texto: string;
   /** O texto inteiro (o caminho completo), quando a linha mostra só o nome. */
   titulo?: string;
+  /** Um comando no terminal: o fim da saída dele, que a linha abre. */
+  saida?: string;
 };
 
 /** "C:\...\anexos\2026-11-11\27922b54-placa.png" vira "placa.png": na
@@ -101,6 +103,13 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
   }
 }
 
+/** Os comandos rodando agora, com o fim da saída até aqui: a etapa `saida`
+ *  cujo resultado (a `ferramenta` com o mesmo id) ainda não chegou. */
+export function comandosRodando(etapas: Etapa[]): Etapa[] {
+  const acabaram = new Set(etapas.filter((e) => e.etapa === 'ferramenta' && e.id).map((e) => e.id));
+  return etapas.filter((e) => e.etapa === 'saida' && !acabaram.has(e.id));
+}
+
 /** Os pedidos de aprovação que ainda esperam o Matheus. */
 export function aprovacoesPendentes(etapas: Etapa[]): Etapa[] {
   const respondidas = new Set(etapas.filter((e) => e.etapa === 'aprovacao_resposta').map((e) => e.id));
@@ -157,8 +166,11 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
         }
         const texto = textoFerramenta(f);
         const titulo = f.alvo || undefined;
+        const doTerminal = f.saida?.trim() ? f.saida : undefined;
         saida.push(
-          f.ok === false ? { estado: 'falhou', texto: `${texto}: não deu`, titulo } : { estado: 'feita', texto, titulo },
+          f.ok === false
+            ? { estado: 'falhou', texto: `${texto}: não deu`, titulo, saida: doTerminal }
+            : { estado: 'feita', texto, titulo, saida: doTerminal },
         );
       } else if (f.etapa === 'aprovacao_resposta') {
         const resumo = pedidos.get(f.id)?.resumo ?? 'o pedido';

@@ -52,7 +52,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 |---|---|---|---|
 | ✅ | Ler arquivos nas pastas autorizadas | local (`pc.py`) e Claude | |
 | ✅ | Escrever e editar arquivos | Claude, com o cartão e o diff do que muda (12/11/2026: provado — `-def subtrai` / `+def diminui` no cartão antes de aprovar) | P1 |
-| 🟡 | Terminal | Claude, com o cartão; falta a saída ao vivo na tela | P1 |
+| ✅ | Terminal | Claude, com o cartão. A saída ao vivo (12/11/2026): o CLI escreve a saída de um comando que passa de ~2 s num arquivo temporário enquanto ele roda, e o Solis lê e mostra embaixo da resposta; no fim ela fica no passo "Rodei no terminal", que abre. Provado pelo app: 3, 5, 6 e 8 linhas chegando de um comando de 8 s. Não é API pública do SDK: se mudar, só o ao vivo some | P1 |
 | ✅ | "Aprovar sempre" esta ferramenta / esta pasta | 12/11/2026: "Sempre este comando" (o comando exato) e "Sempre nesta conversa" (as edições), valendo enquanto o servidor está de pé. Provado: a edição e o comando seguintes passaram sem cartão | P1 |
 | ⬜ | Lista de tarefas do próprio trabalho (o plano que ele mostra fazendo) | o Claude usa (TodoWrite), a tela não mostra | P2 |
 | ⬜ | Navegador: abrir, ler, clicar, preencher | — | P2 |
@@ -68,7 +68,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | Abrir uma pasta de projeto e trabalhar nela (o repositório como lugar de trabalho) | 12/11/2026: a barra acima do campo de digitar (colar o caminho, recentes); ler lá dentro é livre. Provado pelo app com um projeto de teste | P1 |
 | ✅ | Ler o CLAUDE.md do projeto | 12/11/2026: com projeto, o SDK lê o CLAUDE.md e a configuração dele; a regra do projeto de teste foi seguida em toda resposta | P1 |
 | ✅ | Modos: planejar antes, aceitar edições, pedir tudo | 12/11/2026: na barra. Aceitar: editou o projeto sem cartão (comando ainda pede). Planejar: o plano inteiro no cartão; aprovado, executou pedindo a escrita. Depois do plano aprovado a conversa volta pra "pede aprovação", como no Claude Code (12/11/2026) | P1 |
-| ⬜ | Ver o diff do que mudou; voltar atrás (checkpoints) | — | P1 |
+| ✅ | Ver o diff do que mudou; voltar atrás (checkpoints) | Diff no cartão (12/11/2026). Voltar atrás (12/11/2026): o "desfazer" na fala da pessoa mostra o que volta (arquivos e linhas, pelo `dry_run` do CLI) e volta só os arquivos ou arquivos e conversa (a fala vai pro campo, como o /rewind do Claude Code). Usa o checkpoint do próprio SDK, também de uma sessão antiga. Provado pelo app nas duas opções. Comandos que o Claude rodou não voltam (igual ao Claude Code) | P1 |
 | ⬜ | Git: status, commit, push, PR | pelo terminal, com aprovação; sem tela | P2 |
 | ⬜ | Comandos em segundo plano (servidor, teste longo) e acompanhar | — | P2 |
 | 🟡 | Subagentes | o Claude pode; a tela não mostra | P2 |
@@ -84,7 +84,7 @@ qualidade):
 1. ✅ **A sessão continuar** — sem ela, o Claude esquece o que leu e fez a cada mensagem; é a base
    de todo o resto.
 2. ✅ **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
-3. **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre".
+3. 🟡 **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás e terminal ao vivo prontos; faltam git na tela, comandos em segundo plano e os subagentes visíveis.
 4. **Conectores** (os que o Matheus usa no claude.ai).
 5. **Criar documentos, artefatos, projetos, pesquisa longa.**
 6. Navegador, agendadas, skills, o resto.

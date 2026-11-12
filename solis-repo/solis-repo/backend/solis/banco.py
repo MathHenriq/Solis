@@ -333,6 +333,23 @@ MIGRACOES = [
         quando   TEXT NOT NULL
     );
     """,
+    # 18 — os pontos de volta: em cada fala da pessoa, a sessão do Claude e a
+    # mensagem dela (o uuid do CLI) — é pra onde o "voltar atrás" leva os
+    # arquivos (agente.voltar). Sem chave pra mensagens: editar apaga a fala,
+    # e o que o Claude mudou nela ainda tem que poder voltar.
+    """
+    CREATE TABLE pontos_volta (
+        mensagem INTEGER NOT NULL,
+        conversa INTEGER NOT NULL REFERENCES conversas(id) ON DELETE CASCADE,
+        sessao   TEXT NOT NULL,
+        uuid     TEXT NOT NULL,
+        pasta    TEXT NOT NULL,
+        mudou    INTEGER NOT NULL DEFAULT 0,
+        quando   TEXT NOT NULL,
+        PRIMARY KEY (mensagem, sessao)
+    );
+    CREATE INDEX pontos_volta_conversa ON pontos_volta (conversa, mensagem);
+    """,
 ]
 
 
@@ -1168,6 +1185,57 @@ def guardar_sessao_claude(conversa: int, sessao: str) -> None:
 def esquecer_sessao_claude(conversa: int) -> None:
     with _con() as c:
         c.execute('DELETE FROM sessoes_claude WHERE conversa = ?', (conversa,))
+
+
+def guardar_ponto(conversa: int, sessao: str, uuid: str, pasta: str) -> None:
+    """O ponto de volta da fala que o Claude está respondendo: a última da pessoa
+    na conversa (é guardada antes de perguntar a qualquer modelo)."""
+    with _con() as c:
+        linha = c.execute(
+            "SELECT MAX(id) FROM mensagens WHERE conversa = ? AND papel = 'pessoa'", (conversa,)
+        ).fetchone()
+        if not linha or linha[0] is None:
+            return
+        c.execute(
+            'INSERT INTO pontos_volta (mensagem, conversa, sessao, uuid, pasta, quando) VALUES (?, ?, ?, ?, ?, ?) '
+            'ON CONFLICT(mensagem, sessao) DO UPDATE SET uuid = excluded.uuid, pasta = excluded.pasta',
+            (linha[0], conversa, sessao, uuid, pasta, _agora()),
+        )
+
+
+def ponto_mudou(conversa: int, sessao: str) -> None:
+    """O Claude mudou um arquivo na resposta de agora: o ponto dela tem o que voltar."""
+    with _con() as c:
+        c.execute(
+            'UPDATE pontos_volta SET mudou = 1 WHERE conversa = ? AND sessao = ? AND mensagem = '
+            '(SELECT MAX(mensagem) FROM pontos_volta WHERE conversa = ? AND sessao = ?)',
+            (conversa, sessao, conversa, sessao),
+        )
+
+
+def pontos_desde(conversa: int, mensagem: int) -> list[dict]:
+    """Os pontos com arquivo mudado da fala `mensagem` em diante, na ordem."""
+    linhas = _con().execute(
+        'SELECT mensagem, sessao, uuid, pasta FROM pontos_volta '
+        'WHERE conversa = ? AND mensagem >= ? AND mudou = 1 ORDER BY mensagem',
+        (conversa, mensagem),
+    )
+    return [{'mensagem': l[0], 'sessao': l[1], 'uuid': l[2], 'pasta': l[3]} for l in linhas]
+
+
+def ultimo_ponto_mudado(conversa: int) -> int | None:
+    """A última fala depois da qual o Claude mudou arquivo: dela pra trás,
+    toda fala tem o que voltar."""
+    linha = _con().execute(
+        'SELECT MAX(mensagem) FROM pontos_volta WHERE conversa = ? AND mudou = 1', (conversa,)
+    ).fetchone()
+    return linha[0] if linha else None
+
+
+def limpar_pontos(conversa: int, mensagem: int) -> None:
+    """Os arquivos voltaram: desses pontos em diante não há mais o que voltar."""
+    with _con() as c:
+        c.execute('UPDATE pontos_volta SET mudou = 0 WHERE conversa = ? AND mensagem >= ?', (conversa, mensagem))
 
 
 def acoes(limite: int = 50) -> list[dict]:

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
+import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas, TerminaisAoVivo } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
@@ -8,8 +8,9 @@ import { Markdown } from '../components/Markdown';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
+import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
-import { NOMES_CEREBRO, enviarAnexo, type Anexo } from '../servidor';
+import { NOMES_CEREBRO, enviarAnexo, lerVolta, type Anexo } from '../servidor';
 import { falaAutomatica, respostaFalada, useFala } from '../fala';
 import { useVoz } from '../voz';
 
@@ -92,7 +93,7 @@ function BotaoAcao({
   aoClicar,
   feito = false,
 }: {
-  icone: 'copiar' | 'refazer' | 'lapis' | 'feito';
+  icone: 'copiar' | 'refazer' | 'lapis' | 'feito' | 'desfazer';
   rotulo: string;
   aoClicar: () => void;
   feito?: boolean;
@@ -170,8 +171,21 @@ function FichaAnexo({ nome, estado, aoRemover }: { nome: string; estado?: 'envia
   );
 }
 
-function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => void }) {
+function FalaPessoa({
+  t,
+  aoEditar,
+  volta,
+}: {
+  t: Turno;
+  aoEditar?: (texto: string) => void;
+  /** O Claude mudou arquivo desta fala em diante: ela pode voltar atrás. */
+  volta?: { conversa: number; aoVoltar: (comConversa: boolean) => void };
+}) {
   const [editando, definirEditando] = useState(false);
+  // O painel aberto guarda o voltar com que abriu: depois de voltar, a fala
+  // pode não ter mais o que voltar (o botão some), e o painel ainda mostra o
+  // que voltou.
+  const [painel, definirPainel] = useState<NonNullable<typeof volta> | null>(null);
   const [texto, definirTexto] = useState(t.texto);
   const caixa = {
     maxWidth: 'var(--th-balao-max)',
@@ -225,6 +239,9 @@ function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => v
       )}
       <div className="group flex items-start justify-end gap-lg">
         <span className="text-text-secondary shrink-0 flex items-center" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
+          {volta && (
+            <BotaoAcao icone="desfazer" rotulo="Voltar atrás" aoClicar={() => definirPainel((p) => (p ? null : volta))} />
+          )}
           {aoEditar && (
             <BotaoAcao
               icone="lapis"
@@ -235,12 +252,22 @@ function FalaPessoa({ t, aoEditar }: { t: Turno; aoEditar?: (texto: string) => v
               }}
             />
           )}
-          <span style={{ marginLeft: aoEditar ? 6 : 0 }}>{t.hora}</span>
+          <span style={{ marginLeft: aoEditar || volta ? 6 : 0 }}>{t.hora}</span>
         </span>
         <div className="text-text-primary whitespace-pre-wrap" style={{ ...caixa, overflowWrap: 'anywhere' }}>
           {t.texto}
         </div>
       </div>
+      {painel && t.mensagem !== undefined && (
+        <div className="flex justify-end">
+          <VoltarAtras
+            conversa={painel.conversa}
+            desde={t.mensagem}
+            aoFechar={() => definirPainel(null)}
+            aoVoltar={painel.aoVoltar}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -313,6 +340,7 @@ function RespostaSolis({
               </div>
             </div>
           )}
+          {vivo && <TerminaisAoVivo etapas={etapas} />}
           {vivo && <CartoesAprovacao etapas={etapas} />}
           <AvisosDepois etapas={etapas} />
         </div>
@@ -329,6 +357,7 @@ export function Thread({
   ouvindo = false,
   aoParar,
   aoRefazer,
+  aoCortar,
 }: {
   turnos: Turno[];
   respondendo: boolean;
@@ -338,6 +367,8 @@ export function Thread({
   aoParar?: () => void;
   /** Refaz a última resposta. */
   aoRefazer?: () => void;
+  /** Voltar atrás com a conversa: a fala com esse id e o que veio depois saem. */
+  aoCortar?: (desde: number) => void;
   conversa?: number | null;
   /** A palavra "Solis" foi ouvida e o que vem depois está sendo escutado. */
   ouvindo?: boolean;
@@ -377,6 +408,15 @@ export function Thread({
     fala.ouvir(ultima.id, ultima.texto);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ultima?.id, ultima?.digitando]);
+  // Voltar atrás: a última fala depois da qual o Claude mudou arquivo (dela
+  // pra trás, toda fala pode voltar). Relida no fim de cada resposta.
+  const [ultimaVolta, definirUltimaVolta] = useState<number | null>(null);
+  const [releVolta, definirReleVolta] = useState(0);
+  useEffect(() => {
+    if (conversa === null) return definirUltimaVolta(null);
+    if (!respondendo) void lerVolta(conversa).then(definirUltimaVolta);
+  }, [conversa, respondendo, releVolta]);
+
   const rolagem = useRef<HTMLDivElement>(null);
   // A thread segue o texto que chega SÓ se a pessoa está no fim dela. Quem rolou
   // pra cima pra reler não pode ser puxado de volta a cada pedaço.
@@ -419,6 +459,22 @@ export function Thread({
                 key={t.id}
                 t={t}
                 aoEditar={!respondendo && t.mensagem !== undefined ? (texto) => aoEnviar(texto, t.mensagem, t.anexos) : undefined}
+                volta={
+                  !respondendo && conversa !== null && t.mensagem !== undefined && ultimaVolta !== null && t.mensagem <= ultimaVolta
+                    ? {
+                        conversa,
+                        aoVoltar: (comConversa) => {
+                          definirReleVolta((n) => n + 1);
+                          if (!comConversa || t.mensagem === undefined) return;
+                          // A conversa voltou: a fala sai da thread e vai pro
+                          // campo, pra mandar de novo (ou mudar antes).
+                          aoCortar?.(t.mensagem);
+                          definirRascunho(t.texto);
+                          campo.current?.focus();
+                        },
+                      }
+                    : undefined
+                }
               />
             ) : (
               <RespostaSolis

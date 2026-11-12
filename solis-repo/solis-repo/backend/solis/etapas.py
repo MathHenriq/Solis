@@ -43,6 +43,11 @@ class Etapas:
         self.lista.append(evento)
         self.fila.put_nowait(evento)
 
+    def ao_vivo(self, etapa: str, **dados) -> None:
+        """O que só vale enquanto acontece (a saída de um comando rodando): vai
+        pra tela, mas não pro banco nem pro log — senão seriam centenas."""
+        self.fila.put_nowait({'etapa': etapa, 't': self._t(), **dados})
+
     def texto(self, pedaco: str) -> None:
         self.fila.put_nowait({'texto': pedaco})
 
@@ -67,6 +72,9 @@ class _Muda:
     """Pra quem chama um cérebro fora de uma conversa (testes, importação)."""
 
     def marcar(self, etapa: str, **dados) -> None:
+        pass
+
+    def ao_vivo(self, etapa: str, **dados) -> None:
         pass
 
 

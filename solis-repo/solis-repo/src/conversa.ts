@@ -156,6 +156,15 @@ export function useConversa() {
             mudar(pessoa, (t) => ({ ...t, mensagem: etapa.pessoa }));
             return;
           }
+          // A saída de um comando rodando: a nova toma o lugar da anterior
+          // (são o fim da saída inteira até agora, várias por segundo).
+          if (etapa.etapa === 'saida') {
+            mudar(id, (t) => ({
+              ...t,
+              etapas: [...(t.etapas ?? []).filter((e) => !(e.etapa === 'saida' && e.id === etapa.id)), etapa],
+            }));
+            return;
+          }
           mudar(id, (t) => ({
             ...t,
             etapas: [...(t.etapas ?? []), { ...etapa, recebida: Date.now() }],
@@ -202,5 +211,14 @@ export function useConversa() {
     if (fala?.mensagem !== undefined) void enviar(fala.texto, fala.mensagem, fala.anexos);
   }, [turnos, enviar]);
 
-  return { turnos, respondendo, enviar, conversa, abrir, nova, versao, parar, refazer };
+  /** Voltar atrás com a conversa junto: a fala com esse id no banco e tudo
+   *  depois saem da thread (o servidor já apagou). */
+  const cortarDesde = useCallback((desde: number) => {
+    definirTurnos((ts) => {
+      const corte = ts.findIndex((t) => t.mensagem === desde);
+      return corte === -1 ? ts : ts.slice(0, corte);
+    });
+  }, []);
+
+  return { turnos, respondendo, enviar, conversa, abrir, nova, versao, parar, refazer, cortarDesde };
 }

@@ -411,6 +411,57 @@ async def parar_resposta(conversa: int):
     return {'ok': True}
 
 
+# — Voltar atrás ———————————————————————————————————————————————————————————————
+class Volta(BaseModel):
+    # A fala da pessoa: os arquivos voltam a como estavam antes dela.
+    desde: int
+    # Só dizer o que voltaria (a tela mostra antes de confirmar).
+    simular: bool = False
+    # A conversa volta junto: a fala `desde` e o que veio depois saem.
+    conversa: bool = False
+
+
+@app.get('/conversas/{conversa}/voltar')
+async def ler_volta(conversa: int):
+    """A última fala depois da qual o Claude mudou arquivo: dela pra trás, toda
+    fala da pessoa tem o "voltar atrás" (null: nada pra voltar)."""
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    return {'ultima': banco.ultimo_ponto_mudado(conversa)}
+
+
+@app.post('/conversas/{conversa}/voltar')
+async def voltar_atras(conversa: int, corpo: Volta):
+    """O que o Claude mudou nos arquivos da fala `desde` em diante volta — pelo
+    próprio CLI (agente.voltar). Comandos que ele rodou não voltam."""
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    if conversa in _paradas:
+        return JSONResponse({'erro': 'respondendo'}, status_code=409)
+    if corpo.conversa and not banco.mensagem_da_pessoa(conversa, corpo.desde):
+        return JSONResponse({'erro': 'mensagem_inexistente'}, status_code=404)
+    pontos = banco.pontos_desde(conversa, corpo.desde)
+    r = {'arquivos': [], 'mais': 0, 'menos': 0, 'erros': []}
+    if pontos:
+        from . import agente
+        try:
+            r = await agente.voltar(pontos, simular=corpo.simular)
+        except agente.AgenteFalhou as e:
+            return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
+    if corpo.simular:
+        return r
+    if pontos and not r['erros']:
+        banco.limpar_pontos(conversa, corpo.desde)
+    if r['arquivos']:
+        banco.registrar_acao(conversa, 'voltar_atras', {'desde': corpo.desde, 'arquivos': r['arquivos']},
+                             f'voltaram {len(r["arquivos"])} arquivo(s)', not r['erros'])
+    if corpo.conversa and not r['erros']:
+        # Com erro, a conversa fica: é nela que se vê o que não voltou.
+        banco.apagar_desde(conversa, corpo.desde)
+        banco.esquecer_sessao_claude(conversa)
+    return r
+
+
 async def _ate_parar(aguardavel, parar: asyncio.Event | None):
     """(resultado, False) — ou (None, True) se o Matheus parou antes. Parar
     cancela o que estava esperando: o modelo, o CLI ou a sessão do Claude, que

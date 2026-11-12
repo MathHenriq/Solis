@@ -80,6 +80,7 @@ export default function App() {
           aoEnviar={conversa.enviar}
           aoParar={conversa.parar}
           aoRefazer={conversa.refazer}
+          aoCortar={conversa.cortarDesde}
           conversa={conversa.conversa}
           ouvindo={ouvindo}
         />

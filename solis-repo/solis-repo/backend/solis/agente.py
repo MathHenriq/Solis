@@ -22,8 +22,11 @@ o mesmo motivo dos avisos.py), e o SDK sobe o CLI como processo.
 """
 import asyncio
 import concurrent.futures
+import glob
 import logging
 import os
+import re
+import tempfile
 import threading
 import uuid
 from collections.abc import AsyncIterator
@@ -40,6 +43,14 @@ APROVACAO_MAX_S = 10 * 60
 RODADAS_MAX = 40
 
 LIVRES = {'WebSearch', 'WebFetch', 'TodoWrite', 'ToolSearch', 'Task', 'Agent'}
+TERMINAL = {'Bash', 'PowerShell'}
+
+# A saída de um comando, ao vivo e no fim: as últimas linhas (a tela mostra
+# um terminal pequeno; o Claude leu a saída inteira).
+SAIDA_MAX = 4000
+SAIDA_LINHAS = 40
+_ANSI = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07')
+
 LEITURA = {'Read', 'Glob', 'Grep', 'LS'}
 
 # Pedidos de aprovação esperando o Matheus: id → Future (resolvido por
@@ -308,7 +319,7 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
     `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
     from claude_agent_sdk import (
         AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, RateLimitEvent, ResultMessage,
-        StreamEvent, ToolResultBlock, ToolUseBlock, UserMessage,
+        StreamEvent, SystemMessage, ToolResultBlock, ToolUseBlock, UserMessage,
     )
     usadas: dict[str, tuple[str, dict]] = {}
     estado = estado if estado is not None else {}
@@ -345,44 +356,140 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         setting_sources=['project', 'local'] if projeto else [],
         permission_mode='plan' if modo == 'planejar' else 'default',
         max_turns=RODADAS_MAX,
+        # Voltar atrás: o CLI guarda cada arquivo antes de editar, e devolve a
+        # nossa mensagem com o uuid dela — o ponto pra onde se volta (voltar()).
+        enable_file_checkpointing=True,
+        extra_args={'replay-user-messages': None},
     )
     pensou = False
+    sessao_id: str | None = None
+    # A saída ao vivo de cada comando rodando: tarefa do CLI → (tool_use_id, leitura).
+    seguindo: dict[str, tuple[str, asyncio.Task]] = {}
+
+    def parar_de_seguir(tool_use_id: str) -> None:
+        for tarefa, (id_, leitura) in list(seguindo.items()):
+            if id_ == tool_use_id:
+                leitura.cancel()
+                del seguindo[tarefa]
+
     async with ClaudeSDKClient(options=opcoes) as cliente:
         # Pra o Matheus poder parar no meio: o outro lado chama interrupt()
         # neste laço (claude(), no finally).
         estado['cliente'] = cliente
         estado['laco'] = asyncio.get_running_loop()
         await cliente.query(prompt)
-        async for m in cliente.receive_response():
-            if isinstance(m, StreamEvent):
-                delta = m.event.get('delta') or {}
-                if m.event.get('type') == 'content_block_delta' and m.parent_tool_use_id is None:
-                    if delta.get('type') == 'text_delta' and delta.get('text'):
-                        por('texto', delta['text'])
-                    elif delta.get('type') == 'thinking_delta' and not pensou:
-                        por('etapa', ('pensando', {'cerebro': 'claude'}))
-                        pensou = True
-            elif isinstance(m, AssistantMessage):
-                for b in m.content:
-                    if isinstance(b, ToolUseBlock):
-                        usadas[b.id] = (b.name, b.input)
-            elif isinstance(m, UserMessage) and isinstance(m.content, list):
-                for b in m.content:
-                    if isinstance(b, ToolResultBlock) and b.tool_use_id in usadas:
-                        nome, entrada = usadas.pop(b.tool_use_id)
-                        if nome in ('ToolSearch', 'TodoWrite'):
-                            continue
-                        por('etapa', ('ferramenta', {'ferramenta': nome, 'alvo': _alvo(nome, entrada),
-                                                     'ok': not b.is_error}))
-            elif isinstance(m, RateLimitEvent):
-                # "rejected" é a cota acabada; o resets_at diz quando volta. O
-                # aviso de cota perto do fim ("allowed_warning") não para nada.
-                if m.rate_limit_info.status == 'rejected':
-                    por('cota', m.rate_limit_info.resets_at)
-            elif isinstance(m, ResultMessage):
-                if m.is_error:
-                    raise AgenteFalhou(str(m.result or m.subtype)[:300])
-                por('custo', {'usd': m.total_cost_usd, 'turnos': m.num_turns, 'sessao': m.session_id})
+        try:
+            async for m in cliente.receive_response():
+                if isinstance(m, StreamEvent):
+                    delta = m.event.get('delta') or {}
+                    if m.event.get('type') == 'content_block_delta' and m.parent_tool_use_id is None:
+                        if delta.get('type') == 'text_delta' and delta.get('text'):
+                            por('texto', delta['text'])
+                        elif delta.get('type') == 'thinking_delta' and not pensou:
+                            por('etapa', ('pensando', {'cerebro': 'claude'}))
+                            pensou = True
+                elif isinstance(m, SystemMessage):
+                    dados = m.data or {}
+                    if m.subtype == 'init':
+                        sessao_id = dados.get('session_id') or sessao_id
+                    elif (m.subtype == 'task_started' and dados.get('task_type') == 'local_bash'
+                          and not dados.get('is_backgrounded') and sessao_id and dados.get('task_id')):
+                        # Um comando passou de ~2 s: a saída dele, ao vivo.
+                        id_ = dados.get('tool_use_id') or ''
+                        comando = str((usadas.get(id_) or ('', {}))[1].get('command', ''))
+                        seguindo[dados['task_id']] = (id_, asyncio.ensure_future(
+                            _seguir_saida(sessao_id, dados['task_id'], id_, comando, por)))
+                    elif m.subtype == 'task_notification' and dados.get('task_id') in seguindo:
+                        seguindo.pop(dados['task_id'])[1].cancel()
+                elif isinstance(m, UserMessage) and isinstance(m.content, str):
+                    # A nossa mensagem, devolvida com o uuid (replay-user-messages):
+                    # o ponto de volta desta resposta. Só a primeira. Direto no
+                    # banco, desta thread (como o registro das ações): pela fila,
+                    # parar a resposta no meio perderia o que ainda não foi lido.
+                    if m.uuid and m.parent_tool_use_id is None and sessao_id and not estado.get('ponto'):
+                        estado['ponto'] = m.uuid
+                        if conversa is not None:
+                            banco.guardar_ponto(conversa, sessao_id, m.uuid, str(_base(projeto)))
+                elif isinstance(m, AssistantMessage):
+                    for b in m.content:
+                        if isinstance(b, ToolUseBlock):
+                            usadas[b.id] = (b.name, b.input)
+                elif isinstance(m, UserMessage) and isinstance(m.content, list):
+                    for b in m.content:
+                        if isinstance(b, ToolResultBlock) and b.tool_use_id in usadas:
+                            parar_de_seguir(b.tool_use_id)
+                            nome, entrada = usadas.pop(b.tool_use_id)
+                            if nome in ('ToolSearch', 'TodoWrite'):
+                                continue
+                            if nome in EDICAO and not b.is_error and sessao_id and conversa is not None:
+                                banco.ponto_mudou(conversa, sessao_id)
+                            extra = {}
+                            if nome in TERMINAL:
+                                # A saída fica no passo, pra abrir depois.
+                                extra['saida'] = _limpar_saida(_texto_do_resultado(b.content))
+                            por('etapa', ('ferramenta', {'ferramenta': nome, 'alvo': _alvo(nome, entrada),
+                                                         'ok': not b.is_error, 'id': b.tool_use_id, **extra}))
+                elif isinstance(m, RateLimitEvent):
+                    # "rejected" é a cota acabada; o resets_at diz quando volta. O
+                    # aviso de cota perto do fim ("allowed_warning") não para nada.
+                    if m.rate_limit_info.status == 'rejected':
+                        por('cota', m.rate_limit_info.resets_at)
+                elif isinstance(m, ResultMessage):
+                    if m.is_error:
+                        raise AgenteFalhou(str(m.result or m.subtype)[:300])
+                    por('custo', {'usd': m.total_cost_usd, 'turnos': m.num_turns, 'sessao': m.session_id})
+        finally:
+            for _, leitura in seguindo.values():
+                leitura.cancel()
+
+
+def _limpar_saida(texto: str) -> str:
+    """Pra tela: sem as cores do terminal; a linha que se reescreve (barra de
+    progresso, com \\r) fica só com o que sobrou nela; e só o fim."""
+    linhas = [l.rsplit('\r', 1)[-1] for l in _ANSI.sub('', texto).replace('\r\n', '\n').split('\n')]
+    return '\n'.join(linhas[-SAIDA_LINHAS:])[-SAIDA_MAX:]
+
+
+def _texto_do_resultado(conteudo) -> str:
+    if isinstance(conteudo, str):
+        return conteudo
+    if isinstance(conteudo, list):
+        return '\n'.join(b.get('text', '') for b in conteudo if isinstance(b, dict))
+    return ''
+
+
+def _arquivo_da_saida(sessao: str, tarefa: str) -> str | None:
+    """O CLI escreve a saída de um comando que passa de ~2 s em
+    <temp>/claude/<pasta>/<sessão>/tasks/<tarefa>.output enquanto ele roda, e
+    apaga no fim (visto em 12/11/2026, SDK 0.2.180). Não é API pública: se
+    mudar, a tela só deixa de ver ao vivo — a saída do fim continua no passo."""
+    achados = glob.glob(os.path.join(glob.escape(tempfile.gettempdir()), 'claude', '*', glob.escape(sessao),
+                                     'tasks', glob.escape(tarefa) + '.output'))
+    return achados[0] if achados else None
+
+
+async def _seguir_saida(sessao: str, tarefa: str, id_: str, comando: str, por, passo: float = 0.3) -> None:
+    """Lê o arquivo da saída enquanto o comando roda e manda o fim dele pra
+    tela (a etapa `saida`, ao vivo). Acaba cancelada, quando o resultado chega."""
+    arquivo, lido, fim, ultimo = None, 0, b'', None
+    while True:
+        arquivo = arquivo or _arquivo_da_saida(sessao, tarefa)
+        if arquivo:
+            try:
+                with open(arquivo, 'rb') as f:
+                    f.seek(lido)
+                    novo = f.read()
+            except OSError:  # o CLI apagou: o comando acabou
+                novo = b''
+            if novo:
+                # Só o fim fica: a saída inteira de um build longo não cabe aqui.
+                lido += len(novo)
+                fim = (fim + novo)[-4 * SAIDA_MAX:]
+                texto = _limpar_saida(fim.decode('utf-8', 'replace'))
+                if texto != ultimo:
+                    ultimo = texto
+                    por('aovivo', ('saida', {'id': id_, 'comando': comando, 'saida': texto}))
+        await asyncio.sleep(passo)
 
 
 def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
@@ -458,6 +565,64 @@ def _interromper(estado: dict) -> None:
     log.info('claude (agente): interrompido')
 
 
+async def _voltar_sessoes(pontos: list[dict], simular: bool) -> dict:
+    """Roda no laço da thread. Cada sessão volta pro primeiro ponto dela, da
+    mais nova pra mais antiga: um arquivo que duas sessões mudaram termina como
+    estava antes da primeira."""
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    primeiro: dict[str, dict] = {}
+    for p in sorted(pontos, key=lambda p: p['mensagem']):
+        primeiro.setdefault(p['sessao'], p)
+    arquivos: list[str] = []
+    mais = menos = 0
+    erros: list[str] = []
+    for p in sorted(primeiro.values(), key=lambda p: p['mensagem'], reverse=True):
+        if not Path(p['pasta']).is_dir():
+            erros.append(f'a pasta {p["pasta"]} não existe mais')
+            continue
+        # Abrir a sessão sem mandar nada: não gasta cota, só sobe o CLI.
+        opcoes = ClaudeAgentOptions(cwd=p['pasta'], resume=p['sessao'], setting_sources=[],
+                                    enable_file_checkpointing=True)
+        async with ClaudeSDKClient(options=opcoes) as cliente:
+            # O SDK (0.2.180) não passa o dry_run no rewind_files(); o CLI aceita
+            # e devolve os arquivos e as linhas. O pedido de controle é o mesmo.
+            r = await cliente._query._send_control_request(
+                {'subtype': 'rewind_files', 'user_message_id': p['uuid'], 'dry_run': True})
+            if not r.get('canRewind'):
+                erros.append(str(r.get('error') or 'não deu'))
+                continue
+            for a in r.get('filesChanged') or []:
+                if a not in arquivos:
+                    arquivos.append(a)
+            mais += r.get('insertions') or 0
+            menos += r.get('deletions') or 0
+            if not simular and r.get('filesChanged'):
+                await cliente.rewind_files(p['uuid'])
+    return {'arquivos': arquivos, 'mais': mais, 'menos': menos, 'erros': erros}
+
+
+async def voltar(pontos: list[dict], simular: bool = False) -> dict:
+    """Voltar atrás: os arquivos que o Claude mudou voltam a como estavam antes
+    do primeiro ponto (banco.pontos_desde). `simular`: só diz o que voltaria.
+    Comandos que ele rodou não voltam — o CLI só guarda o que ele editou."""
+    laco = asyncio.get_running_loop()
+    pronto: asyncio.Future = laco.create_future()
+
+    def na_thread():
+        proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
+        try:
+            r = proprio.run_until_complete(_voltar_sessoes(pontos, simular))
+            laco.call_soon_threadsafe(pronto.set_result, r)
+        except Exception as e:  # noqa: BLE001 — vai pra rota, do outro lado
+            log.exception('voltar atrás falhou')
+            laco.call_soon_threadsafe(pronto.set_exception, AgenteFalhou(str(e)[:300]))
+        finally:
+            proprio.close()
+
+    threading.Thread(target=na_thread, name='solis-voltar', daemon=True).start()
+    return await pronto
+
+
 async def _ler(fila: asyncio.Queue, etapas, ao_sessao) -> AsyncIterator[str]:
     while True:
         tipo, valor = await fila.get()
@@ -466,6 +631,9 @@ async def _ler(fila: asyncio.Queue, etapas, ao_sessao) -> AsyncIterator[str]:
         elif tipo == 'etapa':
             etapa, dados = valor
             etapas.marcar(etapa, **dados)
+        elif tipo == 'aovivo':
+            etapa, dados = valor
+            etapas.ao_vivo(etapa, **dados)
         elif tipo == 'custo':
             log.info('claude (agente): %s rodadas, US$ %.4f equivalente', valor['turnos'], valor['usd'] or 0)
             if ao_sessao and valor.get('sessao'):

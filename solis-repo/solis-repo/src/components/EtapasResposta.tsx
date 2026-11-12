@@ -1,5 +1,14 @@
-import { useEffect, useState } from 'react';
-import { aprovacoesPendentes, depois, duracao, passos, segundos, type EtapaRecebida, type Passo } from '../etapas';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  aprovacoesPendentes,
+  comandosRodando,
+  depois,
+  duracao,
+  passos,
+  segundos,
+  type EtapaRecebida,
+  type Passo,
+} from '../etapas';
 import { responderAprovacao, type Etapa } from '../servidor';
 import { Botao } from './Controles';
 import { Icone } from './icons';
@@ -61,22 +70,82 @@ const COR: Record<Passo['estado'], string> = {
   falhou: 'text-text-secondary',
 };
 
+/** A saída de um comando, como um terminal pequeno: o fim dela, rolado pro
+ *  fim. PROVISÓRIO — desenho próprio (12/11/2026), base no Claude Code: a
+ *  caixa do bloco de código (--cod-*) e do diff, com a letra mono dele. */
+export function SaidaTerminal({ texto, rotulo, recuo = 0 }: { texto: string; rotulo: string; recuo?: number | string }) {
+  const caixa = useRef<HTMLPreElement>(null);
+  // O que chega por último é o que importa: a caixa fica no fim, como um terminal.
+  useLayoutEffect(() => {
+    if (caixa.current) caixa.current.scrollTop = caixa.current.scrollHeight;
+  }, [texto]);
+  return (
+    <pre
+      ref={caixa}
+      aria-label={rotulo}
+      className="font-mono text-text-primary overflow-y-auto"
+      style={{
+        fontSize: 'var(--cod-texto)',
+        lineHeight: 1.55,
+        maxHeight: 'var(--term-max)',
+        marginLeft: recuo,
+        padding: 'var(--term-py) var(--cod-px)',
+        borderRadius: 'var(--cod-raio)',
+        background: 'var(--mem-hover-forte)',
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'anywhere',
+      }}
+    >
+      {texto.replace(/\n+$/, '')}
+    </pre>
+  );
+}
+
+/** Os comandos rodando agora, cada um com a saída chegando — embaixo do texto,
+ *  como os cartões: a lista de etapas pode estar recolhida. */
+export function TerminaisAoVivo({ etapas }: { etapas: EtapaRecebida[] }) {
+  const rodando = comandosRodando(etapas);
+  if (!rodando.length) return null;
+  return (
+    <div className="flex flex-col" style={{ marginTop: 'var(--et-chip-top)', gap: 8, maxWidth: 'var(--th-texto-max)' }}>
+      {rodando.map((r) => (
+        <div key={r.id}>
+          <div
+            title={r.comando}
+            className="flex items-center text-text-secondary"
+            style={{ fontSize: 'var(--et-dobra-texto)', gap: 8, marginBottom: 6 }}
+          >
+            <span className="bg-accent shrink-0" style={{ width: 'var(--et-ponto)', height: 'var(--et-ponto)', borderRadius: 999 }} />
+            <span className="truncate min-w-0">
+              Rodando no terminal: <span className="font-mono">{r.comando}</span>
+            </span>
+          </div>
+          <SaidaTerminal texto={r.saida ?? ''} rotulo="Saída do comando, ao vivo" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ListaEtapas({ etapas, vivo }: { etapas: EtapaRecebida[]; vivo: boolean }) {
   // O tique só provoca o re-render; a conta usa a hora de agora, porque uma
   // etapa que chegou entre dois tiques é mais nova que o último tique.
   useAgora(vivo);
+  // As linhas de comando abertas (a saída dele embaixo), pelo índice.
+  const [abertas, definirAbertas] = useState<Set<number>>(new Set());
+  const alternar = (i: number) =>
+    definirAbertas((a) => {
+      const n = new Set(a);
+      if (!n.delete(i)) n.add(i);
+      return n;
+    });
   return (
     <ol aria-label="Etapas da resposta" aria-live="polite">
-      {passos(etapas, vivo, Date.now()).map((p, i) => (
-        <li
-          key={i}
-          className={`flex items-center ${COR[p.estado]}`}
-          style={{ height: 'var(--et-passo)', fontSize: 'var(--et-texto)' }}
-        >
-          <Marca estado={p.estado} />
-          {/* Uma linha só, com reticências: um caminho ou comando longo
-              quebrava a linha e passava por cima da etapa de baixo (a
-              altura do passo é fixa). O texto inteiro fica no title. */}
+      {passos(etapas, vivo, Date.now()).map((p, i) => {
+        const texto = (
+          // Uma linha só, com reticências: um caminho ou comando longo
+          // quebrava a linha e passava por cima da etapa de baixo (a
+          // altura do passo é fixa). O texto inteiro fica no title.
           <span
             title={p.titulo ?? p.texto}
             className="truncate min-w-0"
@@ -87,8 +156,39 @@ export function ListaEtapas({ etapas, vivo }: { etapas: EtapaRecebida[]; vivo: b
           >
             {p.texto}
           </span>
-        </li>
-      ))}
+        );
+        return (
+          <Fragment key={i}>
+            <li className={`flex items-center ${COR[p.estado]}`} style={{ height: 'var(--et-passo)', fontSize: 'var(--et-texto)' }}>
+              <Marca estado={p.estado} />
+              {p.saida ? (
+                // Um comando: a linha abre a saída dele, como no Claude Code.
+                <button
+                  type="button"
+                  onClick={() => alternar(i)}
+                  aria-expanded={abertas.has(i)}
+                  className="flex items-center min-w-0 hover:text-text-primary"
+                >
+                  {texto}
+                  <Icone
+                    nome="chevron"
+                    tamanho={14}
+                    className="shrink-0"
+                    style={{ marginLeft: 6, transform: abertas.has(i) ? 'rotate(180deg)' : undefined }}
+                  />
+                </button>
+              ) : (
+                texto
+              )}
+            </li>
+            {p.saida && abertas.has(i) && (
+              <li style={{ marginBottom: 8 }}>
+                <SaidaTerminal texto={p.saida} rotulo="Saída do comando" recuo="var(--et-recuo)" />
+              </li>
+            )}
+          </Fragment>
+        );
+      })}
     </ol>
   );
 }

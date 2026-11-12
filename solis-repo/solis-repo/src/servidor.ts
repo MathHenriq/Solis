@@ -220,6 +220,11 @@ export type Etapa = {
   diff?: string;
   /** Etapa `modo`: o modo da conversa mudou (o plano aprovado volta pra "pedir"). */
   modo?: string;
+  /** Etapa `ferramenta` de um comando: o fim da saída dele. Etapa `saida`
+   *  (só ao vivo, não fica no banco): o fim da saída até agora, do comando
+   *  `comando`, com o `id` do uso da ferramenta. */
+  saida?: string;
+  comando?: string;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -308,6 +313,40 @@ export async function guardarProjeto(
     });
     if (r.status === 400) return 'pasta-inexistente';
     return r.ok ? ((await r.json()) as Projeto) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A última fala depois da qual o Claude mudou arquivo nesta conversa: dela
+ *  pra trás, toda fala da pessoa pode voltar atrás. null: nada pra voltar. */
+export async function lerVolta(conversa: number): Promise<number | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/voltar`);
+    return r.ok ? ((await r.json()) as { ultima: number | null }).ultima : null;
+  } catch {
+    return null;
+  }
+}
+
+/** O que voltou (ou voltaria, simulando): os arquivos e as linhas. */
+export type Volta = { arquivos: string[]; mais: number; menos: number; erros: string[] };
+
+/** Voltar atrás: os arquivos que o Claude mudou da fala `desde` em diante
+ *  voltam a como estavam antes dela; com `conversa`, a conversa volta junto. */
+export async function voltarAtras(
+  conversa: number,
+  desde: number,
+  opcoes: { simular?: boolean; conversa?: boolean } = {},
+): Promise<Volta | 'respondendo' | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/voltar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ desde, simular: !!opcoes.simular, conversa: !!opcoes.conversa }),
+    });
+    if (r.status === 409) return 'respondendo';
+    return r.ok ? ((await r.json()) as Volta) : null;
   } catch {
     return null;
   }
