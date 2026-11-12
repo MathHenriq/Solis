@@ -368,6 +368,39 @@ async def anexar(request: Request, nome: str):
     return _anexo(str(caminho))
 
 
+class Projeto(BaseModel):
+    pasta: str | None = None
+    modo: str = 'pedir'
+
+
+@app.get('/conversas/{conversa}/projeto')
+async def ler_projeto(conversa: int):
+    """A pasta de projeto em que o Claude trabalha nesta conversa e o modo."""
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    return {**banco.projeto_da_conversa(conversa), 'recentes': banco.projetos_recentes()}
+
+
+@app.put('/conversas/{conversa}/projeto')
+async def guardar_projeto(conversa: int, corpo: Projeto):
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    pasta = None
+    if corpo.pasta and corpo.pasta.strip():
+        p = Path(corpo.pasta.strip().strip('"')).expanduser()
+        if not p.is_dir():
+            return JSONResponse({'erro': 'pasta_inexistente'}, status_code=400)
+        pasta = str(p.resolve())
+    if corpo.modo not in banco.MODOS:
+        return JSONResponse({'erro': 'modo_invalido'}, status_code=400)
+    if pasta != banco.projeto_da_conversa(conversa)['pasta']:
+        # A sessão do Claude mora com a pasta em que ele trabalhava: outra
+        # pasta, outra sessão (o histórico vai no pedido, como sempre).
+        banco.esquecer_sessao_claude(conversa)
+    banco.guardar_projeto(conversa, pasta, corpo.modo)
+    return await ler_projeto(conversa)
+
+
 @app.post('/conversas/{conversa}/parar')
 async def parar_resposta(conversa: int):
     """O Matheus parou a resposta no meio. O que já chegou fica guardado."""

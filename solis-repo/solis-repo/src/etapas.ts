@@ -65,7 +65,9 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
     case 'LS':
       return alvo ? `Olhei a pasta${em}` : 'Olhei as pastas autorizadas';
     case 'Write':
-      return `Escrevi${em}`;
+      // No modo de planejar, o Claude Code guarda o plano num arquivo dele
+      // (~/.claude/plans/<nome sorteado>.md): o nome do arquivo não diz nada.
+      return /[\\/]\.claude[\\/]plans[\\/]/.test(alvo) ? 'Escrevi o plano' : `Escrevi${em}`;
     case 'Edit':
     case 'MultiEdit':
     case 'NotebookEdit':
@@ -77,6 +79,8 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
       return `Pesquisei "${alvo}" na web`;
     case 'WebFetch':
       return `Li a página${em}`;
+    case 'ExitPlanMode':
+      return 'Mostrei o plano';
     case 'Task':
     case 'Agent':
       return alvo ? `Pedi a um ajudante: ${alvo}` : 'Pedi a um ajudante';

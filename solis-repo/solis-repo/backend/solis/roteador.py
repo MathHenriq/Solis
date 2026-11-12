@@ -205,7 +205,8 @@ def sessao_claude(conversa, historico, memorias, trechos, mensagem, voz: bool = 
     resposta dele, e a mensagem nova. Sem sessão, ou sem resposta dele no
     histórico (a conversa foi resumida, ou ele nunca respondeu), `id` vem
     vazio e vai o pedido inteiro, como pros outros."""
-    sessao = {'conversa': conversa, 'id': None, 'prompt': None}
+    sessao = {'conversa': conversa, 'id': None, 'prompt': None,
+              **{('projeto' if k == 'pasta' else k): v for k, v in banco.projeto_da_conversa(conversa).items()}}
     id_ = banco.sessao_claude(conversa)
     anteriores = historico[:-1]
     if not id_ or not historico or any(m.get('id') is None for m in historico):

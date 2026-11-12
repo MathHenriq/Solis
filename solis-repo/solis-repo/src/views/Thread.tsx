@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
+import { BarraProjeto } from '../components/BarraProjeto';
 import { EscolhaClaude } from '../components/EscolhaClaude';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
@@ -557,6 +558,9 @@ export function Thread({
             ))}
           </div>
         )}
+        <div style={{ width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}>
+          <BarraProjeto conversa={conversa} />
+        </div>
         <form
           className="flex items-center border border-divider rounded-composer"
           style={{ height: 'var(--th-composer-h)', width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}

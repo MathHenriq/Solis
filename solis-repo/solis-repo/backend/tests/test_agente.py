@@ -199,7 +199,7 @@ def test_banco_guarda_troca_e_esquece_a_sessao():
 def test_sem_sessao_vai_o_pedido_inteiro():
     c = banco.nova_conversa()
     s = roteador.sessao_claude(c, [_msg(1, 'pessoa', 'oi')], [], [], 'oi')
-    assert s == {'conversa': c, 'id': None, 'prompt': None}
+    assert s == {'conversa': c, 'id': None, 'prompt': None, 'projeto': None, 'modo': 'pedir'}
 
 
 def test_com_sessao_vai_so_o_que_ele_nao_viu():
@@ -238,7 +238,7 @@ def test_continua_a_sessao_e_guarda_a_nova(monkeypatch):
     c = banco.nova_conversa()
     chamadas = []
 
-    async def falso(sistema, prompt, etapas, retomar=None, ao_sessao=None):
+    async def falso(sistema, prompt, etapas, retomar=None, ao_sessao=None, **_):
         chamadas.append((prompt, retomar))
         ao_sessao('sessao-2')
         yield 'ok'
@@ -253,7 +253,7 @@ def test_sessao_que_nao_continua_recomeca_com_o_pedido_inteiro(monkeypatch):
     banco.guardar_sessao_claude(c, 'sumiu')
     chamadas = []
 
-    async def falso(sistema, prompt, etapas, retomar=None, ao_sessao=None):
+    async def falso(sistema, prompt, etapas, retomar=None, ao_sessao=None, **_):
         chamadas.append((prompt, retomar))
         if retomar:
             raise agente.AgenteFalhou('No conversation found')

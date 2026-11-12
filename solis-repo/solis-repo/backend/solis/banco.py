@@ -323,6 +323,16 @@ MIGRACOES = [
     );
     CREATE INDEX anexos_mensagem ON anexos (mensagem);
     """,
+    # 17 — a pasta de projeto em que o Claude trabalha numa conversa, e o modo
+    # (pedir aprovação, aceitar edições, planejar antes) — docs/PARIDADE.md.
+    """
+    CREATE TABLE projetos_conversa (
+        conversa INTEGER PRIMARY KEY REFERENCES conversas(id) ON DELETE CASCADE,
+        pasta    TEXT,
+        modo     TEXT NOT NULL DEFAULT 'pedir',
+        quando   TEXT NOT NULL
+    );
+    """,
 ]
 
 
@@ -1109,6 +1119,36 @@ def registrar_acao(conversa: int | None, ferramenta: str, argumentos: dict, resu
         )
         limite = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat(timespec='seconds')
         c.execute('DELETE FROM acoes WHERE quando < ?', (limite,))
+
+
+MODOS = ('pedir', 'aceitar', 'planejar')
+
+
+def projeto_da_conversa(conversa: int) -> dict:
+    """{'pasta': caminho ou None, 'modo': pedir | aceitar | planejar}."""
+    l = _con().execute('SELECT pasta, modo FROM projetos_conversa WHERE conversa = ?', (conversa,)).fetchone()
+    return {'pasta': l[0], 'modo': l[1]} if l else {'pasta': None, 'modo': 'pedir'}
+
+
+def guardar_projeto(conversa: int, pasta: str | None, modo: str) -> dict:
+    if modo not in MODOS:
+        raise ValueError('modo')
+    with _con() as c:
+        c.execute(
+            'INSERT INTO projetos_conversa (conversa, pasta, modo, quando) VALUES (?, ?, ?, ?) '
+            'ON CONFLICT(conversa) DO UPDATE SET pasta = excluded.pasta, modo = excluded.modo, quando = excluded.quando',
+            (conversa, pasta, modo, _agora()),
+        )
+    return projeto_da_conversa(conversa)
+
+
+def projetos_recentes(limite: int = 8) -> list[str]:
+    """As pastas de projeto usadas, da mais recente pra mais antiga, sem repetir."""
+    linhas = _con().execute(
+        'SELECT pasta, MAX(quando) AS q FROM projetos_conversa WHERE pasta IS NOT NULL GROUP BY pasta ORDER BY q DESC LIMIT ?',
+        (limite,),
+    )
+    return [l[0] for l in linhas]
 
 
 def sessao_claude(conversa: int) -> str | None:

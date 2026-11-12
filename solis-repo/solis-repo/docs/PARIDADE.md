@@ -28,7 +28,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | | Coisa | No Solis hoje | P |
 |---|---|---|---|
 | ✅ | Resposta saindo ao vivo, com as etapas | Thread, etapas | |
-| 🟡 | Markdown: títulos, listas, negrito, código | blocos e código; falta tabela, realce de sintaxe e copiar o código | P1 |
+| 🟡 | Markdown: títulos, listas, negrito, código | negrito e código em linha; **bloco de código (```) aparece cru, sem indentação** (visto no teste do projeto, 12/11/2026); falta tabela, realce de sintaxe e copiar o código | P1 |
 | ✅ | Parar a resposta no meio | 11/11/2026: o enviar vira o parar; interrompe até o Claude no meio de uma ferramenta; o que chegou fica guardado. Provado pelo app | P1 |
 | ✅ | Copiar uma resposta | 11/11/2026, ao lado da hora; falta copiar só um bloco de código | P1 |
 | ✅ | Editar a mensagem e mandar de novo; refazer a resposta | 11/11/2026; diferente do Claude, a versão antiga não fica guardada como ramo (sai) | P1 |
@@ -65,9 +65,9 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | | Coisa | No Solis hoje | P |
 |---|---|---|---|
 | ✅ | A sessão continuar entre mensagens (o que ele leu e fez fica com ele) | 11/11/2026: provado pelo app — leu um arquivo, respondeu só "li", e na mensagem seguinte disse o conteúdo sem reler; primeira palavra em 4,0 s contra 12,1 s da sessão nova | P1 |
-| ⬜ | Abrir uma pasta de projeto e trabalhar nela (o repositório como lugar de trabalho) | só a pasta de trabalho do Solis e as autorizadas | P1 |
-| ⬜ | Ler o CLAUDE.md do projeto | desligado (`setting_sources=[]`) | P1 |
-| ⬜ | Modos: planejar antes, aceitar edições, pedir tudo | só "pedir" | P1 |
+| ✅ | Abrir uma pasta de projeto e trabalhar nela (o repositório como lugar de trabalho) | 12/11/2026: a barra acima do campo de digitar (colar o caminho, recentes); ler lá dentro é livre. Provado pelo app com um projeto de teste | P1 |
+| ✅ | Ler o CLAUDE.md do projeto | 12/11/2026: com projeto, o SDK lê o CLAUDE.md e a configuração dele; a regra do projeto de teste foi seguida em toda resposta | P1 |
+| ✅ | Modos: planejar antes, aceitar edições, pedir tudo | 12/11/2026: na barra. Aceitar: editou o projeto sem cartão (comando ainda pede). Planejar: o plano inteiro no cartão; aprovado, executou pedindo a escrita. Falta: depois do plano aprovado o modo da conversa continua "planeja antes" (no Claude Code ele volta) | P1 |
 | ⬜ | Ver o diff do que mudou; voltar atrás (checkpoints) | — | P1 |
 | ⬜ | Git: status, commit, push, PR | pelo terminal, com aprovação; sem tela | P2 |
 | ⬜ | Comandos em segundo plano (servidor, teste longo) e acompanhar | — | P2 |
@@ -83,7 +83,7 @@ qualidade):
 
 1. ✅ **A sessão continuar** — sem ela, o Claude esquece o que leu e fez a cada mensagem; é a base
    de todo o resto.
-2. **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
+2. ✅ **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
 3. **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre".
 4. **Conectores** (os que o Matheus usa no claude.ai).
 5. **Criar documentos, artefatos, projetos, pesquisa longa.**

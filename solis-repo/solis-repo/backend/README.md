@@ -44,6 +44,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /cerebros/claude/ajustes` | o modelo do Claude (`fable`, `opus`, `sonnet`, `haiku` ou null = padrão da conta) e o esforço (`low` a `max` ou null), com as opções |
 | `PUT /cerebros/claude/ajustes` | `{"modelo", "esforco"}` → guarda; vale a partir da próxima resposta. `400` se algum não existe |
 | `POST /anexos?nome=` | o arquivo cru no corpo (até 50 MB) → guarda em `trabalho/anexos/AAAA-MM-DD/` e devolve `{nome, caminho, tipo, tamanho}`. `400` vazio, `413` grande demais |
+| `GET /conversas/{id}/projeto` | a pasta de projeto da conversa (`pasta`, null = a de trabalho do Solis), o `modo` (`pedir`, `aceitar`, `planejar`) e as pastas `recentes` |
+| `PUT /conversas/{id}/projeto` | `{"pasta", "modo"}` → guarda; outra pasta esquece a sessão do Claude (ela mora com a pasta). `400` se a pasta não existe ou o modo não vale. Com projeto, o Claude trabalha nele (cwd), lê o CLAUDE.md e a configuração dele, e ler lá dentro é livre; `aceitar` edita arquivos do projeto sem pedir; `planejar` mostra o plano num cartão antes de fazer |
 | `POST /conversas/{id}/parar` | para a resposta em andamento (o modelo, o CLI ou a sessão do Claude, interrompida); o que já chegou fica guardado e o `fim` vem com `parada`. `404` (`nada_respondendo`) se não há resposta |
 | `GET /memorias` | as memórias guardadas, da mais nova pra mais antiga. `?q=` busca no texto e no tema (índice FTS5): todas as palavras, por prefixo, sem diferença de acento, da mais ligada à busca pra menos |
 | `PATCH /memorias/{id}` | `{"texto"}` → corrige o texto de uma memória que vale (a privada continua selada; o vetor é refeito). `404` se não existe ou já foi substituída, `400` se vazio |

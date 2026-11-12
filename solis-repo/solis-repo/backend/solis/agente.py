@@ -88,22 +88,48 @@ def _pasta_trabalho() -> Path:
     return pasta
 
 
-def _raizes() -> list[Path]:
-    return [_pasta_trabalho().resolve()] + [Path(p).resolve() for p in pc.pastas()]
+def _base(projeto: str | None = None) -> Path:
+    """Onde o Claude trabalha: a pasta do projeto da conversa, ou a de trabalho do Solis."""
+    return Path(projeto).resolve() if projeto else _pasta_trabalho().resolve()
 
 
-def _dentro(caminho: str | None) -> bool:
-    """O caminho está numa pasta autorizada (ou é a pasta de trabalho)?"""
+def _raizes(projeto: str | None = None) -> list[Path]:
+    """Onde ler é livre: o lugar de trabalho primeiro, depois a pasta de
+    trabalho do Solis (quando há projeto) e as autorizadas em Ferramentas."""
+    raizes = [_base(projeto)]
+    if projeto:
+        raizes.append(_pasta_trabalho().resolve())
+    return raizes + [Path(p).resolve() for p in pc.pastas()]
+
+
+def _dentro(caminho: str | None, projeto: str | None = None) -> bool:
+    """O caminho está numa pasta autorizada (ou é o lugar de trabalho)?"""
     if not caminho:
-        return True  # sem caminho: Glob/Grep na pasta de trabalho
+        return True  # sem caminho: Glob/Grep no lugar de trabalho
     p = Path(caminho)
     if not p.is_absolute():
-        p = _pasta_trabalho() / p
+        p = _base(projeto) / p
     try:
         p = p.resolve()
     except OSError:
         return False
-    return any(p == r or p.is_relative_to(r) for r in _raizes())
+    return any(p == r or p.is_relative_to(r) for r in _raizes(projeto))
+
+
+EDICAO = {'Write', 'Edit', 'MultiEdit', 'NotebookEdit'}
+
+
+def _no_projeto(caminho: str | None, projeto: str | None) -> bool:
+    """O arquivo está dentro da pasta do projeto (não só numa autorizada)?"""
+    if not caminho or not projeto:
+        return False
+    base = _base(projeto)
+    p = Path(caminho)
+    try:
+        p = (p if p.is_absolute() else base / p).resolve()
+    except OSError:
+        return False
+    return p == base or p.is_relative_to(base)
 
 
 def resumo(nome: str, entrada: dict) -> str:
@@ -115,6 +141,8 @@ def resumo(nome: str, entrada: dict) -> str:
         return f'Rodar no terminal: {entrada.get("command", "")[:300]}'
     if nome in LEITURA:
         return f'Ler fora das pastas autorizadas: {entrada.get("file_path") or entrada.get("path") or ""}'
+    if nome == 'ExitPlanMode':
+        return 'Seguir com o plano'
     return f'Usar {nome}'
 
 
@@ -169,13 +197,19 @@ def _ferramentas_solis():
     )
 
 
-async def _decidir(nome: str, entrada: dict, por, ids: set | None = None):
-    """O can_use_tool do SDK: livre, ou um cartão na conversa esperando o Matheus."""
-    from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny
+async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto: str | None = None,
+                   modo: str = 'pedir'):
+    """O can_use_tool do SDK: livre, ou um cartão na conversa esperando o Matheus.
+    `modo` aceitar: editar arquivo dentro do projeto não pede (fica no registro)."""
+    from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny, PermissionUpdate
 
     if nome in LIVRES or nome.startswith('mcp__solis__'):
         return PermissionResultAllow()
-    if nome in LEITURA and _dentro(entrada.get('file_path') or entrada.get('path')):
+    caminho = entrada.get('file_path') or entrada.get('notebook_path') or entrada.get('path')
+    if nome in LEITURA and _dentro(caminho, projeto):
+        return PermissionResultAllow()
+    if modo == 'aceitar' and nome in EDICAO and _no_projeto(caminho, projeto):
+        banco.registrar_acao(None, nome, entrada, 'aceito pelo modo: ' + resumo(nome, entrada), True)
         return PermissionResultAllow()
     id_ = uuid.uuid4().hex[:12]
     fut: concurrent.futures.Future = concurrent.futures.Future()
@@ -183,7 +217,7 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None):
     if ids is not None:
         ids.add(id_)
     por('etapa', ('aprovacao', {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
-                                'alvo': _alvo(nome, entrada, 1000)}))
+                                'alvo': _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}))
     try:
         ok = await asyncio.wait_for(asyncio.wrap_future(fut), APROVACAO_MAX_S)
     except asyncio.TimeoutError:
@@ -192,11 +226,17 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None):
         _pendentes.pop(id_, None)
     por('etapa', ('aprovacao_resposta', {'id': id_, 'aprovado': ok}))
     banco.registrar_acao(None, nome, entrada, ('aprovado' if ok else 'recusado') + ': ' + resumo(nome, entrada), ok)
+    if ok and nome == 'ExitPlanMode':
+        # Plano aprovado: sai do modo de planejar e executa — pedindo
+        # aprovação pro que escreve, como no modo de sempre.
+        return PermissionResultAllow(updated_permissions=[
+            PermissionUpdate(type='setMode', mode='default', destination='session')])
     return PermissionResultAllow() if ok else PermissionResultDeny(message='O Matheus recusou.')
 
 
 async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None,
-                  modelo: str | None = None, esforco: str | None = None) -> None:
+                  modelo: str | None = None, esforco: str | None = None, projeto: str | None = None,
+                  modo: str = 'pedir') -> None:
     """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor.
     `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
     from claude_agent_sdk import (
@@ -208,20 +248,23 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
     estado.setdefault('aprovacoes', set())
 
     async def decidir(nome, entrada, contexto):
-        return await _decidir(nome, entrada, por, estado['aprovacoes'])
+        return await _decidir(nome, entrada, por, estado['aprovacoes'], projeto, modo)
 
     async def leitura_fora(dados, tool_use_id, contexto):
         """Ler é livre pro Claude Code; aqui, fora das pastas autorizadas, vira pedido."""
         entrada = dados.get('tool_input') or {}
-        if _dentro(entrada.get('file_path') or entrada.get('path')):
+        if _dentro(entrada.get('file_path') or entrada.get('path'), projeto):
             return {}
         return {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'ask',
                                        'permissionDecisionReason': 'fora das pastas autorizadas'}}
 
+    if projeto:
+        sistema += (f'\n\nVocê está trabalhando no projeto em {projeto} (a pasta atual). Siga o CLAUDE.md dele, '
+                    'se houver. Ler ali dentro é livre; escrever, editar e rodar comandos seguem o modo da conversa.')
     opcoes = ClaudeAgentOptions(
         system_prompt=sistema,
-        cwd=str(_pasta_trabalho()),
-        add_dirs=[str(r) for r in _raizes()[1:]],
+        cwd=str(_base(projeto)),
+        add_dirs=[str(r) for r in _raizes(projeto)[1:]],
         mcp_servers={'solis': _ferramentas_solis()},
         allowed_tools=['WebSearch', 'WebFetch', 'mcp__solis__*'],
         can_use_tool=decidir,
@@ -230,7 +273,10 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         resume=retomar,
         model=modelo,
         effort=esforco,
-        setting_sources=[],
+        # Num projeto, o Claude lê o CLAUDE.md e a configuração dele, como o
+        # Claude Code; fora de um, nada do disco entra.
+        setting_sources=['project', 'local'] if projeto else [],
+        permission_mode='plan' if modo == 'planejar' else 'default',
         max_turns=RODADAS_MAX,
     )
     pensou = False
@@ -274,7 +320,7 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
 
 def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
     for chave in ('file_path', 'notebook_path', 'path', 'pattern', 'query', 'url', 'command', 'description',
-                  'texto', 'titulo', 'busca'):
+                  'texto', 'titulo', 'busca', 'plan'):
         if entrada.get(chave):
             valor = str(entrada[chave])
             if len(valor) > limite and chave in ('file_path', 'notebook_path', 'path'):
@@ -285,7 +331,7 @@ def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
 
 
 async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = None,
-                 ao_sessao=None) -> AsyncIterator[str]:
+                 ao_sessao=None, projeto: str | None = None, modo: str = 'pedir') -> AsyncIterator[str]:
     """O texto da resposta em pedaços; as ferramentas e os pedidos de
     aprovação viram etapas. Erro: AgenteFalhou. `retomar` continua uma sessão;
     `ao_sessao(id)` recebe a sessão desta resposta, pra a próxima continuar."""
@@ -304,7 +350,8 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
         proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
         try:
             proprio.run_until_complete(_sessao(sistema, prompt, por, retomar, estado=estado,
-                                               modelo=escolha['modelo'], esforco=escolha['esforco']))
+                                               modelo=escolha['modelo'], esforco=escolha['esforco'],
+                                               projeto=projeto, modo=modo))
         except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
             if not estado.get('parado'):
                 log.exception('o agente do Claude falhou')

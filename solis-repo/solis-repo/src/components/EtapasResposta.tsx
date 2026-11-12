@@ -175,6 +175,7 @@ const QUER: Record<string, string> = {
   Glob: 'O Claude quer procurar fora das pastas autorizadas',
   Grep: 'O Claude quer procurar fora das pastas autorizadas',
   LS: 'O Claude quer olhar fora das pastas autorizadas',
+  ExitPlanMode: 'O Claude quer seguir com este plano',
 };
 
 /** PROVISÓRIO — desenho próprio, sem referência (layout.thread.etapas._approval
@@ -198,7 +199,7 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
     <div
       role="group"
       aria-label={titulo}
-      className="flex items-center"
+      className={`flex ${pedido.ferramenta === 'ExitPlanMode' ? 'items-end' : 'items-center'}`}
       style={{
         maxWidth: 'var(--th-texto-max)',
         gap: 'var(--et-apr-gap)',
@@ -212,14 +213,24 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
         <div className="text-text-primary" style={{ fontSize: 'var(--et-texto)' }}>
           {titulo}
         </div>
-        {pedido.alvo && (
+        {pedido.alvo && pedido.ferramenta === 'ExitPlanMode' ? (
+          // O plano inteiro, legível: é ele que está sendo aprovado.
           <div
-            title={pedido.alvo}
-            className="text-text-secondary font-mono truncate"
-            style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}
+            className="text-text-primary whitespace-pre-wrap overflow-y-auto"
+            style={{ fontSize: 'var(--et-texto)', lineHeight: 1.5, marginTop: 6, maxHeight: 320 }}
           >
             {pedido.alvo}
           </div>
+        ) : (
+          pedido.alvo && (
+            <div
+              title={pedido.alvo}
+              className="text-text-secondary font-mono truncate"
+              style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}
+            >
+              {pedido.alvo}
+            </div>
+          )
         )}
         {falhou && (
           <div className="text-[var(--erro)]" style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}>

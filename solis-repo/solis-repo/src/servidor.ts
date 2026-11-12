@@ -279,6 +279,36 @@ export async function enviarAnexo(arquivo: File): Promise<Anexo | null> {
   }
 }
 
+/** A pasta de projeto da conversa e o modo do Claude nela. */
+export type Projeto = { pasta: string | null; modo: 'pedir' | 'aceitar' | 'planejar'; recentes: string[] };
+
+export async function lerProjeto(conversa: number): Promise<Projeto | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/projeto`);
+    return r.ok ? ((await r.json()) as Projeto) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarProjeto(
+  conversa: number,
+  pasta: string | null,
+  modo: Projeto['modo'],
+): Promise<Projeto | 'pasta-inexistente' | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/projeto`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pasta, modo }),
+    });
+    if (r.status === 400) return 'pasta-inexistente';
+    return r.ok ? ((await r.json()) as Projeto) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Para a resposta em andamento. O que já chegou fica guardado. */
 export async function pararResposta(conversa: number): Promise<boolean> {
   try {
