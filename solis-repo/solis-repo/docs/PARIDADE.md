@@ -70,7 +70,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | Modos: planejar antes, aceitar edições, pedir tudo | 12/11/2026: na barra. Aceitar: editou o projeto sem cartão (comando ainda pede). Planejar: o plano inteiro no cartão; aprovado, executou pedindo a escrita. Depois do plano aprovado a conversa volta pra "pede aprovação", como no Claude Code (12/11/2026) | P1 |
 | ✅ | Ver o diff do que mudou; voltar atrás (checkpoints) | Diff no cartão (12/11/2026). Voltar atrás (12/11/2026): o "desfazer" na fala da pessoa mostra o que volta (arquivos e linhas, pelo `dry_run` do CLI) e volta só os arquivos ou arquivos e conversa (a fala vai pro campo, como o /rewind do Claude Code). Usa o checkpoint do próprio SDK, também de uma sessão antiga. Provado pelo app nas duas opções. Comandos que o Claude rodou não voltam (igual ao Claude Code) | P1 |
 | ⬜ | Git: status, commit, push, PR | pelo terminal, com aprovação; sem tela | P2 |
-| ⬜ | Comandos em segundo plano (servidor, teste longo) e acompanhar | — | P2 |
+| ✅ | Comandos em segundo plano (servidor, teste longo) e acompanhar | 12/11/2026: com comando em segundo plano a sessão do Claude fica aberta até ele acabar (fechado o CLI, o comando ficava órfão — visto no teste). Na barra do projeto, "1 comando em segundo plano" abre a saída e o Parar; mensagem nova vai pra mesma sessão; quando o comando acaba, o Claude conta sozinho o que saiu, como no Claude Code, e a resposta entra na conversa. Provado pelo app: 25 tiques, pergunta no meio ("17"), resposta sozinha guardada, Parar num de 300 s | P2 |
 | 🟡 | Subagentes | o Claude pode; a tela não mostra | P2 |
 | ⬜ | Servidores MCP configuráveis | só o do Solis | P2 |
 | ⬜ | Hooks | — | P3 |
@@ -84,7 +84,7 @@ qualidade):
 1. ✅ **A sessão continuar** — sem ela, o Claude esquece o que leu e fez a cada mensagem; é a base
    de todo o resto.
 2. ✅ **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
-3. 🟡 **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás e terminal ao vivo prontos; faltam git na tela, comandos em segundo plano e os subagentes visíveis.
+3. 🟡 **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás, terminal ao vivo e comandos em segundo plano prontos; faltam git na tela e os subagentes visíveis.
 4. **Conectores** (os que o Matheus usa no claude.ai).
 5. **Criar documentos, artefatos, projetos, pesquisa longa.**
 6. Navegador, agendadas, skills, o resto.

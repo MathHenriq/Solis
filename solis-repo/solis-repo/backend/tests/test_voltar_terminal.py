@@ -10,7 +10,8 @@ pytest.importorskip('claude_agent_sdk')
 
 import claude_agent_sdk  # noqa: E402
 from claude_agent_sdk import (  # noqa: E402
-    AssistantMessage, SystemMessage, TaskStartedMessage, ToolResultBlock, ToolUseBlock, UserMessage,
+    AssistantMessage, ResultMessage, StreamEvent, SystemMessage, TaskStartedMessage, ToolResultBlock, ToolUseBlock,
+    UserMessage,
 )
 
 from solis import agente, banco, main  # noqa: E402
@@ -186,27 +187,65 @@ def test_segue_o_arquivo_da_saida_enquanto_roda(monkeypatch, tmp_path):
 
 # — o laço da sessão, com um CLI falso ———————————————————————————————————————————
 class SessaoFalsa:
-    mensagens: list = []
+    """Um CLI falso: cada query() solta o roteiro da vez em receive_messages();
+    `depois` é o que o CLI manda sozinho, sem query (o aviso de um comando em
+    segundo plano que acabou). Item chamável no roteiro: espera ele."""
+    roteiros: list = []
+    depois: list = []
     opcoes = None
+    instancias: list = []
 
     def __init__(self, options):
         SessaoFalsa.opcoes = options
+        SessaoFalsa.instancias.append(self)
+        self.fila: asyncio.Queue | None = None
+        self.queries: list[str] = []
+        self.paradas: list[str] = []
+        self.modelos: list = []
 
     async def __aenter__(self):
+        self.fila = asyncio.Queue()
         return self
 
     async def __aexit__(self, *a):
         return False
 
-    async def query(self, prompt):
-        pass
-
-    async def receive_response(self):
-        for m in self.mensagens:
+    async def _soltar(self, roteiro):
+        for m in roteiro:
             if callable(m):
                 await m()
             else:
-                yield m
+                await self.fila.put(m)
+
+    async def query(self, prompt):
+        self.queries.append(prompt)
+        roteiro = SessaoFalsa.roteiros.pop(0)
+        asyncio.ensure_future(self._soltar(roteiro))
+        if len(self.queries) == 1 and SessaoFalsa.depois:
+            asyncio.ensure_future(self._soltar(SessaoFalsa.depois))
+
+    async def receive_messages(self):
+        while True:
+            yield await self.fila.get()
+
+    async def stop_task(self, tarefa):
+        self.paradas.append(tarefa)
+
+    async def set_model(self, modelo):
+        self.modelos.append(modelo)
+
+    async def set_permission_mode(self, modo):
+        pass
+
+
+def _fim(sessao='S1'):
+    return ResultMessage(subtype='success', duration_ms=1, duration_api_ms=1, is_error=False, num_turns=1,
+                         session_id=sessao, total_cost_usd=0.0)
+
+
+def _texto(t):
+    return StreamEvent(uuid='x', session_id='S1', parent_tool_use_id=None,
+                       event={'type': 'content_block_delta', 'delta': {'type': 'text_delta', 'text': t}})
 
 
 def test_sessao_marca_o_ponto_a_mudanca_e_a_saida(monkeypatch, tmp_path):
@@ -221,7 +260,8 @@ def test_sessao_marca_o_ponto_a_mudanca_e_a_saida(monkeypatch, tmp_path):
     async def esperar():
         await asyncio.sleep(0.5)  # a leitura da saída roda neste meio tempo
 
-    SessaoFalsa.mensagens = [
+    SessaoFalsa.depois = []
+    SessaoFalsa.roteiros = [[
         SystemMessage(subtype='init', data={'session_id': 'S1'}),
         UserMessage(content='pedido 2', uuid='U-2'),
         AssistantMessage(content=[ToolUseBlock(id='e1', name='Edit', input={'file_path': 'a.py'}),
@@ -232,7 +272,8 @@ def test_sessao_marca_o_ponto_a_mudanca_e_a_saida(monkeypatch, tmp_path):
                            task_type='local_bash'),
         esperar,
         UserMessage(content=[ToolResultBlock(tool_use_id='b1', content='compilando...\npronto', is_error=False)]),
-    ]
+        _fim(),
+    ]]
     monkeypatch.setattr(claude_agent_sdk, 'ClaudeSDKClient', SessaoFalsa)
     mandados = []
     asyncio.run(agente._sessao('sis', 'pedido 2', lambda t, v=None: mandados.append((t, v)), conversa=c))
@@ -244,3 +285,129 @@ def test_sessao_marca_o_ponto_a_mudanca_e_a_saida(monkeypatch, tmp_path):
     assert ao_vivo and ao_vivo[0] == ('saida', {'id': 'b1', 'comando': 'make', 'saida': 'compilando...\n'})
     bash = [v[1] for t, v in mandados if t == 'etapa' and v[0] == 'ferramenta' and v[1]['ferramenta'] == 'Bash'][0]
     assert bash['saida'] == 'compilando...\npronto' and bash['id'] == 'b1'
+
+
+# — segundo plano: a sessão que fica aberta ———————————————————————————————————————
+def _bg_turno():
+    return [
+        SystemMessage(subtype='init', data={'session_id': 'S1'}),
+        UserMessage(content='sobe o servidor', uuid='U-1'),
+        AssistantMessage(content=[ToolUseBlock(id='bg1', name='Bash',
+                                               input={'command': 'npm run dev', 'run_in_background': True})], model='m'),
+        SystemMessage(subtype='task_started', data={'task_id': 'T1', 'tool_use_id': 'bg1', 'task_type': 'local_bash',
+                                                    'is_backgrounded': True, 'description': 'servidor'}),
+        SystemMessage(subtype='background_tasks_changed', data={'tasks': [{'task_id': 'T1'}]}),
+        UserMessage(content=[ToolResultBlock(tool_use_id='bg1', content='Command running in background', is_error=False)]),
+        _texto('subiu'),
+        _fim(),
+    ]
+
+
+def _rodar_claude(c, prompt, retomar=None):
+    async def rodar():
+        partes = []
+        async for p in agente.claude('sis', prompt, retomar=retomar, conversa=c):
+            partes.append(p)
+        return ''.join(partes)
+    return asyncio.run(rodar())
+
+
+@pytest.fixture
+def cli_falso(monkeypatch, tmp_path):
+    monkeypatch.setattr(agente.tempfile, 'gettempdir', lambda: str(tmp_path))
+    monkeypatch.setattr(agente, '_pasta_trabalho', lambda: tmp_path)
+    monkeypatch.setattr(agente, '_ferramentas_solis', lambda: None)
+    monkeypatch.setattr(agente, 'OCIOSA_S', 0.3)
+    monkeypatch.setattr(claude_agent_sdk, 'ClaudeSDKClient', SessaoFalsa)
+    SessaoFalsa.instancias = []
+    tarefas = tmp_path / 'claude' / 'x' / 'S1' / 'tasks'
+    tarefas.mkdir(parents=True)
+    (tarefas / 'T1.output').write_bytes(b'ouvindo na 5173\n')
+    yield
+    for v in list(agente._vivas.values()):
+        v.fechar_ja = True
+    agente._vivas.clear()
+
+
+def _esperar(condicao, limite=5.0):
+    import time
+    fim = time.monotonic() + limite
+    while time.monotonic() < fim:
+        if condicao():
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_comando_em_segundo_plano_segura_a_sessao_e_o_claude_conta_quando_acaba(cli_falso):
+    c, _ = _conversa_com_falas(1)
+    solta = {'agora': False}
+
+    async def esperar_soltar():
+        while not solta['agora']:
+            await asyncio.sleep(0.05)
+
+    SessaoFalsa.roteiros = [_bg_turno()]
+    SessaoFalsa.depois = [
+        esperar_soltar,
+        SystemMessage(subtype='task_notification', data={'task_id': 'T1', 'status': 'completed'}),
+        SystemMessage(subtype='background_tasks_changed', data={'tasks': []}),
+        SystemMessage(subtype='init', data={'session_id': 'S1'}),
+        _texto('O servidor parou: saiu com código 0.'),
+        _fim(),
+    ]
+    assert _rodar_claude(c, 'sobe o servidor') == 'subiu'
+    # A resposta acabou, o comando não: a sessão segue aberta, com ele.
+    assert _esperar(lambda: c in agente._vivas)
+    f = agente.fundo(c)
+    assert [(x['id'], x['comando'], x['saida']) for x in f['comandos']] == [('T1', 'npm run dev', 'ouvindo na 5173\n')]
+    assert f['resposta'] is None
+    # O comando acaba: o Claude responde sozinho, a resposta vai pro banco, e
+    # a sessão fecha.
+    solta['agora'] = True
+    assert _esperar(lambda: c not in agente._vivas)
+    ultima = banco.mensagens(c)[-1]
+    assert ultima['papel'] == 'solis' and ultima['texto'] == 'O servidor parou: saiu com código 0.'
+    assert [e['etapa'] for e in ultima['etapas']][:2] == ['sozinha', 'cerebro']
+
+
+def test_mensagem_nova_vai_pra_sessao_aberta_e_o_comando_para(cli_falso):
+    c, _ = _conversa_com_falas(1)
+    SessaoFalsa.roteiros = [_bg_turno(), [SystemMessage(subtype='init', data={'session_id': 'S1'}), _texto('sigo'), _fim()]]
+    SessaoFalsa.depois = []
+    _rodar_claude(c, 'sobe o servidor')
+    assert _esperar(lambda: c in agente._vivas)
+    # Retomando a mesma sessão: vai pro mesmo CLI, sem abrir outro.
+    assert _rodar_claude(c, 'e agora?', retomar='S1') == 'sigo'
+    assert len(SessaoFalsa.instancias) == 1 and SessaoFalsa.instancias[0].queries == ['sobe o servidor', 'e agora?']
+    r = TestClient(main.app).post(f'/conversas/{c}/fundo/T1/parar')
+    assert r.status_code == 200 and SessaoFalsa.instancias[0].paradas == ['T1']
+    assert TestClient(main.app).post(f'/conversas/{c}/fundo/T9/parar').status_code == 404
+
+
+def test_outra_sessao_fecha_a_aberta_parando_os_comandos(cli_falso):
+    c, _ = _conversa_com_falas(1)
+    SessaoFalsa.roteiros = [_bg_turno(), [SystemMessage(subtype='init', data={'session_id': 'S2'}), _texto('nova'), _fim('S2')]]
+    SessaoFalsa.depois = []
+    _rodar_claude(c, 'sobe o servidor')
+    assert _esperar(lambda: c in agente._vivas)
+    velha = SessaoFalsa.instancias[0]
+    # Sem retomar (a conversa voltou atrás): outra sessão, e a aberta para o comando.
+    assert _rodar_claude(c, 'de novo') == 'nova'
+    assert _esperar(lambda: velha.paradas == ['T1']) and len(SessaoFalsa.instancias) == 2
+    assert _esperar(lambda: c not in agente._vivas)
+
+
+def test_rota_do_fundo_sem_nada(cli_falso):
+    c, _ = _conversa_com_falas(1)
+    assert TestClient(main.app).get(f'/conversas/{c}/fundo').json() == {'comandos': [], 'resposta': None}
+
+
+def test_ler_a_saida_do_proprio_comando_e_livre(monkeypatch, tmp_path):
+    monkeypatch.setattr(agente.tempfile, 'gettempdir', lambda: str(tmp_path))
+    monkeypatch.setattr(agente, '_pasta_trabalho', lambda: tmp_path / 'trabalho')
+    saida = tmp_path / 'claude' / 'abc' / 'sessao' / 'tasks' / 'b1.output'
+    assert agente._dentro(str(saida))
+    # O resto do temporário continua pedindo.
+    assert not agente._dentro(str(tmp_path / 'claude' / 'abc' / 'segredo.txt'))
+    assert not agente._dentro(str(tmp_path / 'outro' / 'x' / 's' / 'tasks' / 'b1.output'))

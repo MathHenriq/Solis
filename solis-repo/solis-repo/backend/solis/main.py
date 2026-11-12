@@ -411,6 +411,30 @@ async def parar_resposta(conversa: int):
     return {'ok': True}
 
 
+# — Segundo plano ——————————————————————————————————————————————————————————————
+@app.get('/conversas/{conversa}/fundo')
+async def ler_fundo(conversa: int):
+    """Os comandos que o Claude deixou rodando em segundo plano nesta conversa,
+    com o fim da saída, e a resposta que ele começou sozinho quando um acabou
+    (`resposta`: texto e etapas até agora; null se não há). A tela lê isto a
+    cada 1,5 s enquanto houver algo — não há stream aberto pra isso."""
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    try:
+        from . import agente
+    except ImportError:
+        return {'comandos': [], 'resposta': None}
+    return await asyncio.to_thread(agente.fundo, conversa)
+
+
+@app.post('/conversas/{conversa}/fundo/{tarefa}/parar')
+async def parar_fundo(conversa: int, tarefa: str):
+    from . import agente
+    if not await agente.parar_fundo(conversa, tarefa):
+        return JSONResponse({'erro': 'nada_rodando'}, status_code=404)
+    return {'ok': True}
+
+
 # — Voltar atrás ———————————————————————————————————————————————————————————————
 class Volta(BaseModel):
     # A fala da pessoa: os arquivos voltam a como estavam antes dela.

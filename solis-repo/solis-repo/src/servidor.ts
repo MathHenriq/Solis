@@ -225,6 +225,8 @@ export type Etapa = {
    *  `comando`, com o `id` do uso da ferramenta. */
   saida?: string;
   comando?: string;
+  /** Etapa `ferramenta` de um comando deixado rodando em segundo plano. */
+  fundo?: boolean;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -349,6 +351,31 @@ export async function voltarAtras(
     return r.ok ? ((await r.json()) as Volta) : null;
   } catch {
     return null;
+  }
+}
+
+/** Um comando que o Claude deixou rodando em segundo plano. */
+export type ComandoFundo = { id: string; comando: string; descricao: string; segundos: number; saida: string };
+
+/** O que roda em segundo plano na conversa, e a resposta que o Claude começou
+ *  sozinho quando um comando acabou (texto e etapas até agora). */
+export type Fundo = { comandos: ComandoFundo[]; resposta: { texto: string; etapas: Etapa[] } | null };
+
+export async function lerFundo(conversa: number): Promise<Fundo | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/fundo`);
+    return r.ok ? ((await r.json()) as Fundo) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function pararFundo(conversa: number, tarefa: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${conversa}/fundo/${encodeURIComponent(tarefa)}/parar`, { method: 'POST' });
+    return r.ok;
+  } catch {
+    return false;
   }
 }
 

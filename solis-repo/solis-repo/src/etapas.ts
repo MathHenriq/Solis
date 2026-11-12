@@ -50,7 +50,7 @@ const RAPIDA: Record<string, string> = {
 
 /** Uma ferramenta usada, em uma frase: as do PC no modelo local (pc.py) e as
  *  do Claude pelo Agent SDK (agente.py), inclusive as do próprio Solis. */
-export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
+export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>): string {
   const alvo = f.alvo ?? '';
   const ehArquivo = ['ler_arquivo', 'Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(f.ferramenta ?? '');
   const em = alvo ? ` ${ehArquivo ? nomeDoArquivo(alvo) : alvo}` : '';
@@ -76,7 +76,7 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
       return `Editei${em}`;
     case 'Bash':
     case 'PowerShell':
-      return `Rodei no terminal: ${alvo}`;
+      return f.fundo ? `Deixei rodando em segundo plano: ${alvo}` : `Rodei no terminal: ${alvo}`;
     case 'WebSearch':
       return `Pesquisei "${alvo}" na web`;
     case 'WebFetch':
@@ -121,7 +121,11 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
   const rapida = etapas.find((e) => e.etapa === 'rapida');
   if (rapida) return [{ estado: 'feita', texto: RAPIDA[rapida.tipo ?? ''] ?? 'Respondi na hora' }];
   const memoria = etapas.find((e) => e.etapa === 'memoria');
-  if (!memoria) {
+  // A resposta que o Claude começou sozinho (um comando em segundo plano
+  // acabou): não houve busca nem escolha — começa no aviso.
+  const sozinha = etapas.some((e) => e.etapa === 'sozinha');
+  if (sozinha) saida.push({ estado: 'feita', texto: 'Um comando em segundo plano terminou' });
+  else if (!memoria) {
     if (vivo) {
       saida.push({ estado: 'atual', texto: 'Buscando na memória…' });
       saida.push({ estado: 'futura', texto: 'Escolher quem responde' });
@@ -129,7 +133,7 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
     }
     return saida;
   }
-  saida.push({
+  if (memoria) saida.push({
     estado: 'feita',
     // Os arquivos só aparecem quando algum entrou: "nenhum trecho dos seus
     // arquivos" em toda resposta seria ruído pra quem nem tem arquivo.
@@ -149,7 +153,7 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
     const fim = etapas.findIndex((x, j) => j > i && x.etapa === 'cerebro');
     const tentativa = etapas.slice(i + 1, fim === -1 ? undefined : fim);
     const nome = quem(e.cerebro);
-    saida.push({ estado: 'feita', texto: `Escolhi ${nome}` });
+    if (!sozinha) saida.push({ estado: 'feita', texto: `Escolhi ${nome}` });
 
     // O que ele fez antes de responder, um passo por uso, na ordem: as
     // ferramentas e o que o Matheus respondeu nos cartões de aprovação.
@@ -166,7 +170,8 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
         }
         const texto = textoFerramenta(f);
         const titulo = f.alvo || undefined;
-        const doTerminal = f.saida?.trim() ? f.saida : undefined;
+        // Em segundo plano, a "saída" é só o aviso de que começou.
+        const doTerminal = f.saida?.trim() && !f.fundo ? f.saida : undefined;
         saida.push(
           f.ok === false
             ? { estado: 'falhou', texto: `${texto}: não deu`, titulo, saida: doTerminal }

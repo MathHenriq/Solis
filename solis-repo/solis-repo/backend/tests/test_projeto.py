@@ -93,8 +93,10 @@ def _opcoes_da_sessao(monkeypatch, **kw):
         async def __aexit__(self, *_):
             return False
     monkeypatch.setattr(claude_agent_sdk, 'ClaudeSDKClient', Falso)
-    with pytest.raises(RuntimeError):
-        asyncio.run(agente._sessao('sistema', 'p', lambda *_: None, **kw))
+    mandados = []
+    asyncio.run(agente._sessao('sistema', 'p', lambda t, v=None: mandados.append(t), **kw))
+    # O CLI não abriu: quem espera recebe o erro e o fim, e não fica preso.
+    assert mandados == ['erro', 'fim']
     return capturadas['opcoes']
 
 

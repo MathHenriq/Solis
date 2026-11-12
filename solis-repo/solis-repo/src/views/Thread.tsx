@@ -3,6 +3,7 @@ import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas, TerminaisAoVi
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
+import { ComandosFundo } from '../components/ComandosFundo';
 import { EscolhaClaude } from '../components/EscolhaClaude';
 import { Markdown } from '../components/Markdown';
 import { Icone } from '../components/icons';
@@ -12,6 +13,7 @@ import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
 import { NOMES_CEREBRO, enviarAnexo, lerVolta, type Anexo } from '../servidor';
 import { falaAutomatica, respostaFalada, useFala } from '../fala';
+import { useFundo } from '../fundo';
 import { useVoz } from '../voz';
 
 
@@ -358,6 +360,7 @@ export function Thread({
   aoParar,
   aoRefazer,
   aoCortar,
+  aoRecarregar,
 }: {
   turnos: Turno[];
   respondendo: boolean;
@@ -369,6 +372,8 @@ export function Thread({
   aoRefazer?: () => void;
   /** Voltar atrás com a conversa: a fala com esse id e o que veio depois saem. */
   aoCortar?: (desde: number) => void;
+  /** Lê a conversa de novo do banco (chegou uma resposta que o Claude começou sozinho). */
+  aoRecarregar?: () => void;
   conversa?: number | null;
   /** A palavra "Solis" foi ouvida e o que vem depois está sendo escutado. */
   ouvindo?: boolean;
@@ -416,6 +421,10 @@ export function Thread({
     if (conversa === null) return definirUltimaVolta(null);
     if (!respondendo) void lerVolta(conversa).then(definirUltimaVolta);
   }, [conversa, respondendo, releVolta]);
+
+  // O que o Claude deixou rodando em segundo plano, e a resposta que ele
+  // começa sozinho quando um comando acaba.
+  const fundo = useFundo(conversa, respondendo, () => aoRecarregar?.());
 
   const rolagem = useRef<HTMLDivElement>(null);
   // A thread segue o texto que chega SÓ se a pessoa está no fim dela. Quem rolou
@@ -493,6 +502,21 @@ export function Thread({
               />
             ),
           )}
+          {/* Sem stream aberto: vem da leitura do segundo plano, ao vivo, e
+              some quando vai pro banco (a conversa é lida de novo). */}
+          {fundo.resposta && (
+            <RespostaSolis
+              t={{
+                id: -1,
+                de: 'solis',
+                hora: '',
+                texto: fundo.resposta.texto,
+                digitando: true,
+                cerebro: 'claude',
+                etapas: fundo.resposta.etapas,
+              }}
+            />
+          )}
           <div style={{ height: 'var(--th-turno-gap)' }} />
         </div>
       </div>
@@ -520,8 +544,14 @@ export function Thread({
             ))}
           </div>
         )}
-        <div style={{ width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}>
+        <div
+          className="flex items-start justify-between"
+          style={{ width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto', gap: 16 }}
+        >
           <BarraProjeto conversa={conversa} respondendo={respondendo} />
+          <div className="ml-auto" style={{ marginBottom: 6, paddingRight: 12 }}>
+            <ComandosFundo conversa={conversa} comandos={fundo.comandos} />
+          </div>
         </div>
         <form
           className="flex items-center border border-divider rounded-composer"

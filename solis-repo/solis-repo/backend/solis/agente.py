@@ -22,12 +22,14 @@ o mesmo motivo dos avisos.py), e o SDK sobe o CLI como processo.
 """
 import asyncio
 import concurrent.futures
+import contextlib
 import glob
 import logging
 import os
 import re
 import tempfile
 import threading
+import time
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -177,7 +179,19 @@ def _dentro(caminho: str | None, projeto: str | None = None) -> bool:
         p = p.resolve()
     except OSError:
         return False
-    return any(p == r or p.is_relative_to(r) for r in _raizes(projeto))
+    return any(p == r or p.is_relative_to(r) for r in _raizes(projeto)) or _saida_de_comando(p)
+
+
+def _saida_de_comando(p: Path) -> bool:
+    """A saída de um comando que o próprio Claude rodou em segundo plano: o CLI
+    guarda em <temp>/claude/<pasta>/<sessão>/tasks/<tarefa>.output e diz pra
+    ele ler dali. Ler isso é livre, como no Claude Code; o resto do temporário não."""
+    try:
+        temp = Path(tempfile.gettempdir()).resolve() / 'claude'
+    except OSError:
+        return False
+    return p.suffix == '.output' and p.parent.name == 'tasks' and p.is_relative_to(temp) \
+        and len(p.relative_to(temp).parts) == 4
 
 
 EDICAO = {'Write', 'Edit', 'MultiEdit', 'NotebookEdit'}
@@ -312,21 +326,332 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
     return PermissionResultAllow() if ok else PermissionResultDeny(message='O Matheus recusou.')
 
 
+class _Resposta:
+    """Uma resposta do Claude dentro da sessão: o que chega do CLI vira texto,
+    etapa, ponto de volta e saída ao vivo de comando. `por(tipo, valor)` manda
+    pra quem espera (a conversa, ou o coletor de uma resposta que o Claude
+    começou sozinho). Termina no ResultMessage: `feito` resolve."""
+
+    def __init__(self, viva: '_Viva', por, estado: dict, modo: str, sozinha: bool = False):
+        self.viva, self.por, self.estado, self.modo, self.sozinha = viva, por, estado, modo, sozinha
+        estado.setdefault('aprovacoes', set())
+        self.usadas: dict[str, tuple[str, dict]] = {}
+        self.seguindo: dict[str, tuple[str, asyncio.Task]] = {}  # tarefa do CLI → (tool_use_id, leitura)
+        self.pensou = False
+        self.feito: asyncio.Future = asyncio.get_running_loop().create_future()
+
+    def _parar_de_seguir(self, tool_use_id: str | None = None) -> None:
+        for tarefa, (id_, leitura) in list(self.seguindo.items()):
+            if tool_use_id is None or id_ == tool_use_id:
+                leitura.cancel()
+                del self.seguindo[tarefa]
+
+    def acabar(self, erro: Exception | None = None) -> None:
+        self._parar_de_seguir()
+        if not self.feito.done():
+            if erro is None:
+                self.feito.set_result(None)
+            else:
+                self.feito.set_exception(erro)
+
+    def receber(self, m) -> None:
+        from claude_agent_sdk import (
+            AssistantMessage, RateLimitEvent, ResultMessage, StreamEvent, SystemMessage, ToolResultBlock,
+            ToolUseBlock, UserMessage,
+        )
+        viva, por, conversa = self.viva, self.por, self.viva.conversa
+        if isinstance(m, StreamEvent):
+            delta = m.event.get('delta') or {}
+            if m.event.get('type') == 'content_block_delta' and m.parent_tool_use_id is None:
+                if delta.get('type') == 'text_delta' and delta.get('text'):
+                    por('texto', delta['text'])
+                elif delta.get('type') == 'thinking_delta' and not self.pensou:
+                    por('etapa', ('pensando', {'cerebro': 'claude'}))
+                    self.pensou = True
+        elif isinstance(m, SystemMessage):
+            dados = m.data or {}
+            if (m.subtype == 'task_started' and dados.get('task_type') == 'local_bash'
+                    and not dados.get('is_backgrounded') and viva.sessao_id and dados.get('task_id')):
+                # Um comando passou de ~2 s: a saída dele, ao vivo.
+                id_ = dados.get('tool_use_id') or ''
+                comando = str((self.usadas.get(id_) or ('', {}))[1].get('command', ''))
+                self.seguindo[dados['task_id']] = (id_, asyncio.ensure_future(
+                    _seguir_saida(viva.sessao_id, dados['task_id'], id_, comando, por)))
+            elif m.subtype == 'task_notification' and dados.get('task_id') in self.seguindo:
+                self.seguindo.pop(dados['task_id'])[1].cancel()
+        elif isinstance(m, UserMessage) and isinstance(m.content, str):
+            # A nossa mensagem, devolvida com o uuid (replay-user-messages): o
+            # ponto de volta desta resposta. Só a primeira, e só numa resposta
+            # pedida pelo Matheus (a que o Claude começa sozinho vem do aviso do
+            # CLI, não de uma fala). Direto no banco, desta thread: pela fila,
+            # parar a resposta no meio perderia o que ainda não foi lido.
+            if (m.uuid and m.parent_tool_use_id is None and viva.sessao_id and not self.sozinha
+                    and not self.estado.get('ponto')):
+                self.estado['ponto'] = m.uuid
+                if conversa is not None:
+                    banco.guardar_ponto(conversa, viva.sessao_id, m.uuid, str(_base(viva.projeto)))
+        elif isinstance(m, AssistantMessage):
+            for b in m.content:
+                if isinstance(b, ToolUseBlock):
+                    self.usadas[b.id] = (b.name, b.input)
+        elif isinstance(m, UserMessage) and isinstance(m.content, list):
+            for b in m.content:
+                if isinstance(b, ToolResultBlock) and b.tool_use_id in self.usadas:
+                    self._parar_de_seguir(b.tool_use_id)
+                    nome, entrada = self.usadas.pop(b.tool_use_id)
+                    if nome in ('ToolSearch', 'TodoWrite'):
+                        continue
+                    if nome in EDICAO and not b.is_error and viva.sessao_id and conversa is not None:
+                        banco.ponto_mudou(conversa, viva.sessao_id)
+                    extra = {}
+                    if nome in TERMINAL:
+                        # A saída fica no passo, pra abrir depois. Um comando em
+                        # segundo plano só devolve o aviso de que começou.
+                        extra['saida'] = _limpar_saida(_texto_do_resultado(b.content))
+                        if entrada.get('run_in_background'):
+                            extra['fundo'] = True
+                    por('etapa', ('ferramenta', {'ferramenta': nome, 'alvo': _alvo(nome, entrada),
+                                                 'ok': not b.is_error, 'id': b.tool_use_id, **extra}))
+        elif isinstance(m, RateLimitEvent):
+            # "rejected" é a cota acabada; o resets_at diz quando volta. O
+            # aviso de cota perto do fim ("allowed_warning") não para nada.
+            if m.rate_limit_info.status == 'rejected':
+                por('cota', m.rate_limit_info.resets_at)
+        elif isinstance(m, ResultMessage):
+            if m.is_error:
+                self.acabar(AgenteFalhou(str(m.result or m.subtype)[:300]))
+            else:
+                por('custo', {'usd': m.total_cost_usd, 'turnos': m.num_turns, 'sessao': m.session_id})
+                self.acabar()
+
+
+class _Coletor:
+    """A resposta que o Claude começa sozinho — quando um comando em segundo
+    plano termina, o CLI avisa e ele conta o que saiu, como no Claude Code. Não
+    há stream aberto pra ela: fica aqui (a tela lê por GET /conversas/{id}/fundo)
+    e vai pro banco no fim."""
+
+    def __init__(self, conversa: int | None):
+        self.conversa = conversa
+        self.inicio = time.monotonic()
+        self.pedacos: list[str] = []
+        self.etapas: list[dict] = []
+        self.marcar('sozinha')
+        self.marcar('cerebro', cerebro='claude')
+
+    def _t(self) -> float:
+        return round(time.monotonic() - self.inicio, 2)
+
+    def marcar(self, etapa: str, **dados) -> None:
+        self.etapas.append({'etapa': etapa, 't': self._t(), **dados})
+
+    def por(self, tipo, valor=None) -> None:
+        if tipo == 'texto':
+            if not self.pedacos:
+                self.marcar('primeira_palavra', cerebro='claude')
+            self.pedacos.append(valor)
+        elif tipo == 'etapa':
+            etapa, dados = valor
+            self.marcar(etapa, **dados)
+        elif tipo == 'aovivo':
+            etapa, dados = valor
+            # Só a mais nova de cada comando: são o fim da saída até agora.
+            self.etapas = [e for e in self.etapas if not (e['etapa'] == etapa and e.get('id') == dados.get('id'))]
+            self.etapas.append({'etapa': etapa, 't': self._t(), **dados})
+        elif tipo == 'custo' and self.conversa is not None and valor.get('sessao'):
+            banco.guardar_sessao_claude(self.conversa, valor['sessao'])
+
+    def agora(self) -> dict:
+        return {'texto': ''.join(self.pedacos), 'etapas': list(self.etapas)}
+
+    def guardar(self, cortada: bool = False) -> int | None:
+        """No banco, como uma resposta do Claude: só o que fica (sem a saída ao vivo)."""
+        texto = ''.join(self.pedacos).strip()
+        if self.conversa is None or not texto:
+            return None
+        self.marcar('fim', cerebro='claude', **({'cortada': True} if cortada else {}))
+        id_ = banco.adicionar(self.conversa, 'solis', texto, cerebro='claude')
+        banco.guardar_etapas(id_, [e for e in self.etapas if e['etapa'] != 'saida'])
+        return id_
+
+
+# A sessão de cada conversa que ficou aberta por ter comando em segundo plano.
+_vivas: dict[int, '_Viva'] = {}
+# Fechada a última resposta e sem comando rodando, quanto a sessão espera
+# (o aviso de fim de um comando chega logo antes da resposta que ele provoca).
+OCIOSA_S = 8.0
+
+
+class _Viva:
+    """A sessão do Claude (um CLI) de uma conversa. Abre pra cada resposta e
+    fecha no fim dela — a não ser que o Claude tenha deixado um comando em
+    segundo plano (um servidor, um teste longo): aí fica aberta até ele
+    acabar, como no Claude Code. Nesse meio tempo a próxima mensagem vai pra
+    ela (e não pra uma sessão nova, que não saberia do comando), o Matheus vê
+    a saída e pode parar, e quando o comando termina o Claude conta o que saiu.
+
+    Tudo aqui roda no laço da thread dela; de fora, só por run_coroutine_threadsafe."""
+
+    def __init__(self, conversa: int | None, projeto: str | None, modelo: str | None, modo: str):
+        self.conversa, self.projeto, self.modelo, self.modo = conversa, projeto, modelo, modo
+        self.cliente = None
+        self.laco: asyncio.AbstractEventLoop | None = None
+        self.sessao_id: str | None = None
+        self.resposta: _Resposta | None = None
+        self.sozinha: _Coletor | None = None
+        # task_id → {'id', 'comando', 'descricao', 'inicio'}
+        self.fundo: dict[str, dict] = {}
+        self.ultima = time.monotonic()
+        self.aberta = True
+        self.fechar_ja = False
+
+    # — o que chega do CLI ——————————————————————————————————————————————————————
+    async def ler(self) -> None:
+        """Lê tudo que o CLI manda, o tempo todo, e entrega à resposta da vez."""
+        from claude_agent_sdk import SystemMessage
+        try:
+            async for m in self.cliente.receive_messages():
+                self.ultima = time.monotonic()
+                if isinstance(m, SystemMessage):
+                    if m.subtype == 'init':
+                        self.sessao_id = (m.data or {}).get('session_id') or self.sessao_id
+                        if self.resposta is None:
+                            self._comecar_sozinha()
+                    self._ver_fundo(m)
+                if self.resposta is not None:
+                    self.resposta.receber(m)
+                    if self.resposta.feito.done():
+                        self._acabou_resposta()
+        except Exception as e:  # noqa: BLE001 — o CLI caiu: a resposta da vez falha
+            log.warning('a sessão do Claude caiu: %s', e)
+        finally:
+            self.aberta = False
+            if self.resposta is not None:
+                self.resposta.acabar(AgenteFalhou('a sessão do Claude fechou no meio'))
+                self._acabou_resposta(cortada=True)
+
+    def _comecar_sozinha(self) -> None:
+        self.sozinha = _Coletor(self.conversa)
+        modo = banco.projeto_da_conversa(self.conversa)['modo'] if self.conversa is not None else 'pedir'
+        self.resposta = _Resposta(self, self.sozinha.por, {}, modo, sozinha=True)
+        log.info('claude (agente): resposta começada sozinho, conversa %s', self.conversa)
+
+    def _acabou_resposta(self, cortada: bool = False) -> None:
+        if self.resposta is not None and self.resposta.sozinha and self.sozinha is not None:
+            try:
+                self.sozinha.guardar(cortada)
+            except Exception:  # noqa: BLE001
+                log.exception('não consegui guardar a resposta que o Claude começou sozinho')
+            self.sozinha = None
+        self.resposta = None
+
+    def _ver_fundo(self, m) -> None:
+        dados, sub = m.data or {}, m.subtype
+        if sub == 'task_started' and dados.get('is_backgrounded') and dados.get('task_id'):
+            usada = (self.resposta.usadas.get(dados.get('tool_use_id') or '') if self.resposta else None) or ('', {})
+            self.fundo[dados['task_id']] = {
+                'id': dados['task_id'], 'comando': str(usada[1].get('command', '')),
+                'descricao': dados.get('description') or '', 'inicio': time.time(),
+            }
+        elif sub == 'background_tasks_changed':
+            # A lista inteira do que roda: o que saiu dela acabou.
+            agora = {t.get('task_id') for t in dados.get('tasks') or []}
+            for id_ in list(self.fundo):
+                if id_ not in agora:
+                    del self.fundo[id_]
+        elif sub in ('task_notification', 'task_updated'):
+            status = dados.get('status') or (dados.get('patch') or {}).get('status')
+            if status in ('completed', 'failed', 'killed', 'stopped'):
+                self.fundo.pop(dados.get('task_id'), None)
+
+    # — uma resposta pedida ————————————————————————————————————————————————————————
+    async def turno(self, prompt: str, por, estado: dict, modo: str, modelo: str | None) -> None:
+        """Uma mensagem do Matheus. Manda `fim` (e `erro`, se for o caso) no fim
+        dela — a sessão pode seguir aberta depois."""
+        try:
+            # Uma resposta que o Claude começou sozinho termina antes.
+            while self.resposta is not None and self.aberta:
+                await asyncio.sleep(0.2)
+            if not self.aberta:
+                raise AgenteFalhou('a sessão do Claude fechou')
+            if modelo != self.modelo:
+                await self.cliente.set_model(modelo)
+                self.modelo = modelo
+            if modo != self.modo:
+                await self.cliente.set_permission_mode('plan' if modo == 'planejar' else 'default')
+                self.modo = modo
+            estado['cliente'] = self.cliente
+            estado['laco'] = asyncio.get_running_loop()
+            self.resposta = _Resposta(self, por, estado, modo)
+            resposta = self.resposta
+            await self.cliente.query(prompt)
+            await resposta.feito
+        except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
+            if not estado.get('parado') and not isinstance(e, AgenteFalhou):
+                log.exception('o agente do Claude falhou')
+            por('erro', e)
+        finally:
+            estado['_fim'] = True
+            por('fim')
+
+    # — ficar aberta ————————————————————————————————————————————————————————————————
+    async def viver(self) -> None:
+        """Enquanto houver comando em segundo plano (ou resposta em andamento,
+        ou aviso a caminho), a sessão fica; depois fecha."""
+        while self.aberta and not self.fechar_ja:
+            if not self.fundo and self.resposta is None and time.monotonic() - self.ultima > OCIOSA_S:
+                break
+            await asyncio.sleep(0.5)
+
+    async def parar_fundo(self, tarefa: str) -> None:
+        await self.cliente.stop_task(tarefa)
+
+    async def fechar(self) -> None:
+        """Fechar de propósito (outra pasta, conversa voltou): os comandos param
+        antes — sem o CLI, ninguém mais acompanharia."""
+        for tarefa in list(self.fundo):
+            with contextlib.suppress(Exception):
+                await self.cliente.stop_task(tarefa)
+        self.fechar_ja = True
+
+    def serve(self, retomar: str | None, projeto: str | None) -> bool:
+        return self.aberta and not self.fechar_ja and retomar is not None and retomar == self.sessao_id \
+            and projeto == self.projeto
+
+    def estado_fundo(self) -> dict:
+        """Pra tela (GET /conversas/{id}/fundo): os comandos com o fim da saída,
+        e a resposta que o Claude começou sozinho, se houver."""
+        comandos = []
+        for t in list(self.fundo.values()):
+            arquivo = _arquivo_da_saida(self.sessao_id or '', t['id']) if self.sessao_id else None
+            saida = ''
+            if arquivo:
+                with contextlib.suppress(OSError):
+                    with open(arquivo, 'rb') as f:
+                        f.seek(0, os.SEEK_END)
+                        f.seek(max(0, f.tell() - 4 * SAIDA_MAX))
+                        saida = _limpar_saida(f.read().decode('utf-8', 'replace'))
+            comandos.append({**t, 'segundos': int(time.time() - t['inicio']), 'saida': saida})
+        return {'comandos': comandos, 'resposta': self.sozinha.agora() if self.sozinha else None}
+
+
 async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None,
                   modelo: str | None = None, esforco: str | None = None, projeto: str | None = None,
                   modo: str = 'pedir', conversa: int | None = None) -> None:
-    """Roda no laço da thread do SDK. `por(tipo, valor)` manda pro laço do servidor.
-    `retomar`: a sessão anterior da conversa, que continua com o que já leu e fez."""
-    from claude_agent_sdk import (
-        AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, RateLimitEvent, ResultMessage,
-        StreamEvent, SystemMessage, ToolResultBlock, ToolUseBlock, UserMessage,
-    )
-    usadas: dict[str, tuple[str, dict]] = {}
+    """Roda no laço da thread do SDK: abre a sessão, faz a resposta e, se ficou
+    comando em segundo plano, segue aberta (_Viva). `por(tipo, valor)` manda
+    pro laço do servidor. `retomar`: a sessão anterior da conversa."""
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher
+
     estado = estado if estado is not None else {}
-    estado.setdefault('aprovacoes', set())
+    viva = _Viva(conversa, projeto, modelo, modo)
 
     async def decidir(nome, entrada, contexto):
-        return await _decidir(nome, entrada, por, estado['aprovacoes'], projeto, modo, conversa)
+        # Da resposta da vez: pode ser uma que o Claude começou sozinho.
+        r = viva.resposta
+        if r is None:
+            return await _decidir(nome, entrada, por, None, projeto, viva.modo, conversa)
+        return await _decidir(nome, entrada, r.por, r.estado['aprovacoes'], projeto, r.modo, conversa)
 
     async def leitura_fora(dados, tool_use_id, contexto):
         """Ler é livre pro Claude Code; aqui, fora das pastas autorizadas, vira pedido."""
@@ -361,86 +686,31 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         enable_file_checkpointing=True,
         extra_args={'replay-user-messages': None},
     )
-    pensou = False
-    sessao_id: str | None = None
-    # A saída ao vivo de cada comando rodando: tarefa do CLI → (tool_use_id, leitura).
-    seguindo: dict[str, tuple[str, asyncio.Task]] = {}
-
-    def parar_de_seguir(tool_use_id: str) -> None:
-        for tarefa, (id_, leitura) in list(seguindo.items()):
-            if id_ == tool_use_id:
-                leitura.cancel()
-                del seguindo[tarefa]
-
-    async with ClaudeSDKClient(options=opcoes) as cliente:
-        # Pra o Matheus poder parar no meio: o outro lado chama interrupt()
-        # neste laço (claude(), no finally).
-        estado['cliente'] = cliente
-        estado['laco'] = asyncio.get_running_loop()
-        await cliente.query(prompt)
-        try:
-            async for m in cliente.receive_response():
-                if isinstance(m, StreamEvent):
-                    delta = m.event.get('delta') or {}
-                    if m.event.get('type') == 'content_block_delta' and m.parent_tool_use_id is None:
-                        if delta.get('type') == 'text_delta' and delta.get('text'):
-                            por('texto', delta['text'])
-                        elif delta.get('type') == 'thinking_delta' and not pensou:
-                            por('etapa', ('pensando', {'cerebro': 'claude'}))
-                            pensou = True
-                elif isinstance(m, SystemMessage):
-                    dados = m.data or {}
-                    if m.subtype == 'init':
-                        sessao_id = dados.get('session_id') or sessao_id
-                    elif (m.subtype == 'task_started' and dados.get('task_type') == 'local_bash'
-                          and not dados.get('is_backgrounded') and sessao_id and dados.get('task_id')):
-                        # Um comando passou de ~2 s: a saída dele, ao vivo.
-                        id_ = dados.get('tool_use_id') or ''
-                        comando = str((usadas.get(id_) or ('', {}))[1].get('command', ''))
-                        seguindo[dados['task_id']] = (id_, asyncio.ensure_future(
-                            _seguir_saida(sessao_id, dados['task_id'], id_, comando, por)))
-                    elif m.subtype == 'task_notification' and dados.get('task_id') in seguindo:
-                        seguindo.pop(dados['task_id'])[1].cancel()
-                elif isinstance(m, UserMessage) and isinstance(m.content, str):
-                    # A nossa mensagem, devolvida com o uuid (replay-user-messages):
-                    # o ponto de volta desta resposta. Só a primeira. Direto no
-                    # banco, desta thread (como o registro das ações): pela fila,
-                    # parar a resposta no meio perderia o que ainda não foi lido.
-                    if m.uuid and m.parent_tool_use_id is None and sessao_id and not estado.get('ponto'):
-                        estado['ponto'] = m.uuid
-                        if conversa is not None:
-                            banco.guardar_ponto(conversa, sessao_id, m.uuid, str(_base(projeto)))
-                elif isinstance(m, AssistantMessage):
-                    for b in m.content:
-                        if isinstance(b, ToolUseBlock):
-                            usadas[b.id] = (b.name, b.input)
-                elif isinstance(m, UserMessage) and isinstance(m.content, list):
-                    for b in m.content:
-                        if isinstance(b, ToolResultBlock) and b.tool_use_id in usadas:
-                            parar_de_seguir(b.tool_use_id)
-                            nome, entrada = usadas.pop(b.tool_use_id)
-                            if nome in ('ToolSearch', 'TodoWrite'):
-                                continue
-                            if nome in EDICAO and not b.is_error and sessao_id and conversa is not None:
-                                banco.ponto_mudou(conversa, sessao_id)
-                            extra = {}
-                            if nome in TERMINAL:
-                                # A saída fica no passo, pra abrir depois.
-                                extra['saida'] = _limpar_saida(_texto_do_resultado(b.content))
-                            por('etapa', ('ferramenta', {'ferramenta': nome, 'alvo': _alvo(nome, entrada),
-                                                         'ok': not b.is_error, 'id': b.tool_use_id, **extra}))
-                elif isinstance(m, RateLimitEvent):
-                    # "rejected" é a cota acabada; o resets_at diz quando volta. O
-                    # aviso de cota perto do fim ("allowed_warning") não para nada.
-                    if m.rate_limit_info.status == 'rejected':
-                        por('cota', m.rate_limit_info.resets_at)
-                elif isinstance(m, ResultMessage):
-                    if m.is_error:
-                        raise AgenteFalhou(str(m.result or m.subtype)[:300])
-                    por('custo', {'usd': m.total_cost_usd, 'turnos': m.num_turns, 'sessao': m.session_id})
-        finally:
-            for _, leitura in seguindo.values():
-                leitura.cancel()
+    try:
+        async with ClaudeSDKClient(options=opcoes) as cliente:
+            viva.cliente = cliente
+            viva.laco = asyncio.get_running_loop()
+            leitor = asyncio.ensure_future(viva.ler())
+            try:
+                await viva.turno(prompt, por, estado, modo, modelo)
+                # Parada no meio também: o comando segue rodando e precisa de dono.
+                if viva.fundo and conversa is not None:
+                    log.info('claude (agente): %d comando(s) em segundo plano; a sessão fica aberta', len(viva.fundo))
+                    _vivas[conversa] = viva
+                    await viva.viver()
+            finally:
+                if _vivas.get(conversa) is viva:
+                    del _vivas[conversa]
+                viva.aberta = False
+                leitor.cancel()
+    except Exception as e:  # noqa: BLE001 — o CLI nem abriu (ou caiu ao fechar)
+        if not estado.get('_fim'):
+            if not estado.get('parado'):
+                log.exception('o agente do Claude falhou')
+            por('erro', e)
+            por('fim')
+        else:
+            log.warning('a sessão do Claude fechou com erro: %s', e)
 
 
 def _limpar_saida(texto: str) -> str:
@@ -524,6 +794,8 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
     def na_thread():
         proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
         try:
+            # _sessao manda o `fim` da resposta; a thread pode seguir depois
+            # dele, com a sessão aberta por um comando em segundo plano.
             proprio.run_until_complete(_sessao(sistema, prompt, por, retomar, estado=estado,
                                                modelo=escolha['modelo'], esforco=escolha['esforco'],
                                                projeto=projeto, modo=modo, conversa=conversa))
@@ -532,10 +804,25 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
                 log.exception('o agente do Claude falhou')
             por('erro', e)
         finally:
-            por('fim')
+            # Quem espera do outro lado não pode ficar preso: se a sessão não
+            # mandou o fim da resposta (caiu antes), vai aqui.
+            if not estado.get('_fim'):
+                estado['_fim'] = True
+                por('fim')
             proprio.close()
 
-    threading.Thread(target=na_thread, name='solis-agente', daemon=True).start()
+    viva = _vivas.get(conversa) if conversa is not None else None
+    if viva is not None and viva.serve(retomar, projeto):
+        # A sessão ainda aberta (comando em segundo plano): a mensagem vai pra
+        # ela, que sabe do comando. O pedido curto é o mesmo de retomar.
+        log.info('claude (agente): continuando a sessão aberta da conversa %s', conversa)
+        asyncio.run_coroutine_threadsafe(viva.turno(prompt, por, estado, modo, escolha['modelo']), viva.laco)
+    else:
+        if viva is not None:
+            # Outra sessão vai começar (a conversa voltou, outra pasta): a
+            # aberta para os comandos dela e fecha.
+            asyncio.run_coroutine_threadsafe(viva.fechar(), viva.laco)
+        threading.Thread(target=na_thread, name='solis-agente', daemon=True).start()
     terminou = False
     try:
         async for item in _ler(fila, etapas, ao_sessao):
@@ -547,6 +834,32 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
     finally:
         if not terminou:
             _interromper(estado)
+
+
+def fundo(conversa: int) -> dict:
+    """O que roda em segundo plano na conversa, e a resposta que o Claude
+    começou sozinho (GET /conversas/{id}/fundo). Lido de outra thread: cópias."""
+    viva = _vivas.get(conversa)
+    if viva is None or viva.laco is None:
+        return {'comandos': [], 'resposta': None}
+    try:
+        return asyncio.run_coroutine_threadsafe(_no_laco(viva.estado_fundo), viva.laco).result(5)
+    except Exception:  # noqa: BLE001 — a sessão acabou de fechar
+        return {'comandos': [], 'resposta': None}
+
+
+async def _no_laco(funcao):
+    return funcao()
+
+
+async def parar_fundo(conversa: int, tarefa: str) -> bool:
+    """Para um comando em segundo plano (o CLI mata o processo)."""
+    viva = _vivas.get(conversa)
+    if viva is None or tarefa not in viva.fundo:
+        return False
+    await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(viva.parar_fundo(tarefa), viva.laco))
+    banco.registrar_acao(conversa, 'parar_segundo_plano', {'tarefa': tarefa}, 'parado', True)
+    return True
 
 
 def _interromper(estado: dict) -> None:
@@ -580,25 +893,42 @@ async def _voltar_sessoes(pontos: list[dict], simular: bool) -> dict:
         if not Path(p['pasta']).is_dir():
             erros.append(f'a pasta {p["pasta"]} não existe mais')
             continue
-        # Abrir a sessão sem mandar nada: não gasta cota, só sobe o CLI.
-        opcoes = ClaudeAgentOptions(cwd=p['pasta'], resume=p['sessao'], setting_sources=[],
-                                    enable_file_checkpointing=True)
-        async with ClaudeSDKClient(options=opcoes) as cliente:
-            # O SDK (0.2.180) não passa o dry_run no rewind_files(); o CLI aceita
-            # e devolve os arquivos e as linhas. O pedido de controle é o mesmo.
-            r = await cliente._query._send_control_request(
-                {'subtype': 'rewind_files', 'user_message_id': p['uuid'], 'dry_run': True})
-            if not r.get('canRewind'):
-                erros.append(str(r.get('error') or 'não deu'))
-                continue
-            for a in r.get('filesChanged') or []:
-                if a not in arquivos:
-                    arquivos.append(a)
-            mais += r.get('insertions') or 0
-            menos += r.get('deletions') or 0
-            if not simular and r.get('filesChanged'):
-                await cliente.rewind_files(p['uuid'])
+        # A sessão ainda aberta (comando em segundo plano) volta pelo CLI dela:
+        # dois CLIs na mesma sessão se atropelariam.
+        viva = next((v for v in list(_vivas.values()) if v.aberta and v.sessao_id == p['sessao']), None)
+        if viva is not None:
+            def no_laco(coro, laco=viva.laco):
+                return asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, laco))
+            r = await _voltar_uma(viva.cliente, p['uuid'], simular, no_laco)
+        else:
+            # Abrir a sessão sem mandar nada: não gasta cota, só sobe o CLI.
+            opcoes = ClaudeAgentOptions(cwd=p['pasta'], resume=p['sessao'], setting_sources=[],
+                                        enable_file_checkpointing=True)
+            async with ClaudeSDKClient(options=opcoes) as cliente:
+                r = await _voltar_uma(cliente, p['uuid'], simular)
+        if not r.get('canRewind'):
+            erros.append(str(r.get('error') or 'não deu'))
+            continue
+        for a in r.get('filesChanged') or []:
+            if a not in arquivos:
+                arquivos.append(a)
+        mais += r.get('insertions') or 0
+        menos += r.get('deletions') or 0
     return {'arquivos': arquivos, 'mais': mais, 'menos': menos, 'erros': erros}
+
+
+async def _voltar_uma(cliente, uuid_: str, simular: bool, no_laco=None) -> dict:
+    """O que volta de uma sessão (dry_run), e volta. `no_laco` roda as chamadas
+    no laço de uma sessão aberta, que é de outra thread."""
+    async def pedir():
+        # O SDK (0.2.180) não passa o dry_run no rewind_files(); o CLI aceita
+        # e devolve os arquivos e as linhas. O pedido de controle é o mesmo.
+        r = await cliente._query._send_control_request(
+            {'subtype': 'rewind_files', 'user_message_id': uuid_, 'dry_run': True})
+        if r.get('canRewind') and not simular and r.get('filesChanged'):
+            await cliente.rewind_files(uuid_)
+        return r
+    return await (no_laco(pedir()) if no_laco else pedir())
 
 
 async def voltar(pontos: list[dict], simular: bool = False) -> dict:

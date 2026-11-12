@@ -81,6 +81,9 @@ export default function App() {
           aoParar={conversa.parar}
           aoRefazer={conversa.refazer}
           aoCortar={conversa.cortarDesde}
+          aoRecarregar={() => {
+            if (conversa.conversa !== null) void conversa.abrir(conversa.conversa);
+          }}
           conversa={conversa.conversa}
           ouvindo={ouvindo}
         />
