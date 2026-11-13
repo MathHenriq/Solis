@@ -229,6 +229,8 @@ export type Etapa = {
   fundo?: boolean;
   /** Etapa `aprovacao` pedida por um ajudante (subagente): a tarefa dele. */
   ajudante?: string;
+  /** Etapa `aprovacao` de um conector: o que vai ser mandado (JSON). */
+  entrada?: string;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -408,6 +410,24 @@ export async function acaoGit(
     return r.ok ? { ok: true, dados: corpo } : { ok: false, erro: corpo.motivo ?? 'não deu' };
   } catch {
     return { ok: false, erro: 'Não consegui falar com o servidor do Solis.' };
+  }
+}
+
+/** Um conector da conta do claude.ai que o Claude do Solis usa. */
+export type Conector = {
+  nome: string;
+  estado: 'conectado' | 'precisa_entrar' | 'conectando' | 'falhou';
+  ferramentas: number;
+  so_leem: number;
+};
+
+/** null: o servidor não respondeu (ou não conseguiu ler). */
+export async function listarConectores(atualizar = false): Promise<Conector[] | null> {
+  try {
+    const r = await fetch(`${BASE}/conectores${atualizar ? '?atualizar=true' : ''}`);
+    return r.ok ? ((await r.json()) as { conectores: Conector[] }).conectores : null;
+  } catch {
+    return null;
   }
 }
 

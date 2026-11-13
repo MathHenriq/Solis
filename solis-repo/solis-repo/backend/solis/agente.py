@@ -24,6 +24,7 @@ import asyncio
 import concurrent.futures
 import contextlib
 import glob
+import json
 import logging
 import os
 import re
@@ -210,8 +211,28 @@ def _no_projeto(caminho: str | None, projeto: str | None) -> bool:
     return p == base or p.is_relative_to(base)
 
 
+# Os conectores da conta do claude.ai (Gmail, Agenda, Drive, Canva...): o CLI
+# logado traz eles sozinho (o proxy do claude.ai) e as ferramentas chegam como
+# mcp__claude_ai_<Conector>__<ação> — "claude.ai Google Calendar" com o que não
+# é letra, número, _ ou - virando _ (visto em 13/11/2026, SDK 0.2.180).
+_CONECTOR = re.compile(r'^mcp__claude_ai_(.+?)__(.+)$')
+
+
+def conector_de(nome: str) -> tuple[str, str] | None:
+    """('Google Calendar', 'create_event') de mcp__claude_ai_Google_Calendar__create_event."""
+    m = _CONECTOR.match(nome)
+    return (m.group(1).replace('_', ' '), m.group(2)) if m else None
+
+
+def _normalizar_servidor(nome: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9_-]', '_', nome)
+
+
 def resumo(nome: str, entrada: dict) -> str:
     """O que vai aparecer no cartão de aprovação, em português."""
+    c = conector_de(nome)
+    if c:
+        return f'Usar o {c[0]}: {c[1]}'
     if nome in ('Write', 'Edit', 'MultiEdit', 'NotebookEdit'):
         alvo = entrada.get('file_path') or entrada.get('notebook_path') or ''
         return f'{"Criar ou reescrever" if nome == "Write" else "Editar"} {alvo}'
@@ -276,12 +297,17 @@ def _ferramentas_solis():
 
 
 async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto: str | None = None,
-                   modo: str = 'pedir', conversa: int | None = None, ajudante: str | None = None):
+                   modo: str = 'pedir', conversa: int | None = None, ajudante: str | None = None,
+                   so_le: bool = False):
     """O can_use_tool do SDK: livre, ou um cartão na conversa esperando o Matheus.
     `modo` aceitar: editar arquivo dentro do projeto não pede (fica no registro)."""
     from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny, PermissionUpdate
 
     if nome in LIVRES or nome.startswith('mcp__solis__'):
+        return PermissionResultAllow()
+    # Um conector que só lê (o próprio conector marca: readOnly) é livre, como
+    # ler arquivo na pasta autorizada; criar, mudar, apagar ou compartilhar pede.
+    if so_le and conector_de(nome):
         return PermissionResultAllow()
     caminho = entrada.get('file_path') or entrada.get('notebook_path') or entrada.get('path')
     if nome in LEITURA and _dentro(caminho, projeto):
@@ -298,8 +324,11 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
     if ids is not None:
         ids.add(id_)
     pedido = {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
+              # Num conector: o que vai ser mandado, inteiro (o cartão mostra).
+              **({'entrada': json.dumps(entrada, ensure_ascii=False, indent=2)[:3000]} if conector_de(nome) else {}),
               **({'ajudante': ajudante} if ajudante is not None else {}),
-              'alvo': _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}
+              # Num conector, a ação (create_event); o que vai, inteiro, em `entrada`.
+              'alvo': (conector_de(nome) or ('', ''))[1] or _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}
     diff = _diff(nome, entrada, projeto)
     if diff:
         pedido['diff'] = diff
@@ -512,6 +541,24 @@ class _Viva:
         self.ultima = time.monotonic()
         self.aberta = True
         self.fechar_ja = False
+        # nome da ferramenta de conector → anotações dela (readOnly, destructive...)
+        self.anotacoes: dict[str, dict] | None = None
+
+    async def so_le(self, nome: str) -> bool:
+        """A ferramenta de conector só lê? Pergunta ao CLI uma vez por sessão."""
+        if not conector_de(nome):
+            return False
+        if self.anotacoes is None or nome not in self.anotacoes:
+            try:
+                st = await self.cliente.get_mcp_status()
+            except Exception:  # noqa: BLE001 — sem saber, pede (o seguro)
+                return False
+            self.anotacoes = {
+                f'mcp__{_normalizar_servidor(s.get("name", ""))}__{t.get("name")}': t.get('annotations') or {}
+                for s in (st or {}).get('mcpServers', []) for t in (s.get('tools') or [])
+            }
+        a = self.anotacoes.get(nome) or {}
+        return bool(a.get('readOnly')) and not a.get('destructive')
 
     # — o que chega do CLI ——————————————————————————————————————————————————————
     async def ler(self) -> None:
@@ -708,13 +755,15 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         ajudante = None
         if id_ajudante:
             ajudante = (viva.fundo.get(id_ajudante) or {}).get('descricao') or ''
+        so_le = await viva.so_le(nome)
         # Da resposta da vez: pode ser uma que o Claude começou sozinho.
         r = viva.resposta
         if r is None:
             # Ninguém respondendo (um ajudante trabalhando depois da resposta):
             # o cartão vai pro /fundo, que a tela lê.
-            return await _decidir(nome, entrada, viva.por_fundo, None, projeto, viva.modo, conversa, ajudante)
-        return await _decidir(nome, entrada, r.por, r.estado['aprovacoes'], projeto, r.modo, conversa, ajudante)
+            return await _decidir(nome, entrada, viva.por_fundo, None, projeto, viva.modo, conversa, ajudante, so_le)
+        return await _decidir(nome, entrada, r.por, r.estado['aprovacoes'], projeto, r.modo, conversa, ajudante,
+                              so_le)
 
     async def leitura_fora(dados, tool_use_id, contexto):
         """Ler é livre pro Claude Code; aqui, fora das pastas autorizadas, vira pedido."""
@@ -900,6 +949,65 @@ async def claude(sistema: str, prompt: str, etapas=MUDA, retomar: str | None = N
     finally:
         if not terminou:
             _interromper(estado)
+
+
+_conectores: dict = {'quando': 0.0, 'lista': None}
+CONECTORES_CACHE_S = 300
+
+
+async def _ler_conectores() -> list[dict]:
+    """Sobe um CLI sem perguntar nada (não gasta cota), espera os conectores
+    conectarem e lê o estado de cada um."""
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    opcoes = ClaudeAgentOptions(cwd=str(_pasta_trabalho()), setting_sources=[])
+    async with ClaudeSDKClient(options=opcoes) as cliente:
+        servidores: list = []
+        # Logo ao abrir, a lista ainda vem vazia (os conectores chegam do
+        # claude.ai um instante depois) e depois "pending" enquanto conectam.
+        for _ in range(40):
+            servidores = (await cliente.get_mcp_status() or {}).get('mcpServers', [])
+            proxy = [s for s in servidores if (s.get('config') or {}).get('type') == 'claudeai-proxy']
+            if proxy and not any(s.get('status') == 'pending' for s in proxy):
+                break
+            await asyncio.sleep(0.5)
+    lista = []
+    for s in servidores:
+        if (s.get('config') or {}).get('type') != 'claudeai-proxy':
+            continue  # só os da conta do claude.ai
+        ferramentas = s.get('tools') or []
+        lista.append({
+            'nome': s.get('name', '').removeprefix('claude.ai ').strip(),
+            'estado': {'connected': 'conectado', 'needs-auth': 'precisa_entrar', 'pending': 'conectando'}.get(
+                s.get('status'), 'falhou'),
+            'ferramentas': len(ferramentas),
+            'so_leem': sum(1 for t in ferramentas if (t.get('annotations') or {}).get('readOnly')),
+        })
+    return sorted(lista, key=lambda c: (c['estado'] != 'conectado', c['nome'].lower()))
+
+
+async def conectores(atualizar: bool = False) -> list[dict]:
+    """Os conectores da conta do claude.ai que o Claude do Solis usa (GET
+    /conectores). Guardados 5 minutos: ler sobe um CLI (alguns segundos)."""
+    if not atualizar and _conectores['lista'] is not None and time.time() - _conectores['quando'] < CONECTORES_CACHE_S:
+        return _conectores['lista']
+    laco = asyncio.get_running_loop()
+    pronto: asyncio.Future = laco.create_future()
+
+    def na_thread():
+        proprio = asyncio.ProactorEventLoop() if os.name == 'nt' else asyncio.new_event_loop()
+        try:
+            r = proprio.run_until_complete(_ler_conectores())
+            laco.call_soon_threadsafe(pronto.set_result, r)
+        except Exception as e:  # noqa: BLE001
+            log.exception('não consegui ler os conectores')
+            laco.call_soon_threadsafe(pronto.set_exception, AgenteFalhou(str(e)[:300]))
+        finally:
+            proprio.close()
+
+    threading.Thread(target=na_thread, name='solis-conectores', daemon=True).start()
+    lista = await pronto
+    _conectores.update(quando=time.time(), lista=lista)
+    return lista
 
 
 def fundo(conversa: int) -> dict:

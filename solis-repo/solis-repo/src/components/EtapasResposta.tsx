@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   aprovacoesPendentes,
   comandosRodando,
+  conectorDe,
   depois,
   duracao,
   passos,
@@ -349,7 +350,10 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
       definirEnviando(false);
     }
   };
-  const doClaude = QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`;
+  const conector = conectorDe(pedido.ferramenta);
+  const doClaude = conector
+    ? `O Claude quer usar o ${conector.nome}`
+    : (QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`);
   // Quem pede pode ser um ajudante (subagente): o cartão diz que é ele.
   const titulo = pedido.ajudante !== undefined ? doClaude.replace(/^O Claude quer/, 'O ajudante quer') : doClaude;
   const sempre = rotuloSempre(pedido.ferramenta);
@@ -410,6 +414,12 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
         </div>
       </div>
       {pedido.diff && <Diff texto={pedido.diff} />}
+      {/* Num conector: o que vai ser mandado (o evento, o arquivo, a mensagem). */}
+      {pedido.entrada && (
+        <div style={{ marginTop: 10 }}>
+          <SaidaTerminal texto={pedido.entrada} rotulo="O que vai ser mandado" />
+        </div>
+      )}
     </div>
   );
 }

@@ -411,6 +411,23 @@ async def parar_resposta(conversa: int):
     return {'ok': True}
 
 
+# — Conectores da conta do claude.ai ——————————————————————————————————————————
+@app.get('/conectores')
+async def ler_conectores(atualizar: bool = False):
+    """Os conectores da conta do claude.ai que o Claude do Solis usa (Agenda,
+    Drive, Canva...): `nome`, `estado` (conectado, precisa_entrar, conectando,
+    falhou), quantas `ferramentas` e quantas só leem. Ler sobe um CLI (alguns
+    segundos); fica guardado 5 minutos, `atualizar` lê de novo."""
+    try:
+        from . import agente
+    except ImportError:
+        return JSONResponse({'erro': 'sem_sdk'}, status_code=503)
+    try:
+        return {'conectores': await agente.conectores(atualizar)}
+    except agente.AgenteFalhou as e:
+        return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
+
+
 # — Git da pasta de projeto ————————————————————————————————————————————————————
 def _pasta_git(conversa: int) -> str | None:
     return banco.projeto_da_conversa(conversa)['pasta']

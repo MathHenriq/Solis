@@ -98,8 +98,11 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
       return RAPIDA.tarefas;
     case 'mcp__solis__buscar_memoria':
       return `Busquei "${alvo}" na memória`;
-    default:
+    default: {
+      const c = conectorDe(f.ferramenta);
+      if (c) return `Usei o ${c.nome}: ${c.acao}`;
       return `Usei ${(f.ferramenta ?? '').replace(/^mcp__\w+?__/, '')}`;
+    }
   }
 }
 
@@ -139,6 +142,13 @@ export function textoAgora(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
 export function comandosRodando(etapas: Etapa[]): Etapa[] {
   const acabaram = new Set(etapas.filter((e) => e.etapa === 'ferramenta' && e.id).map((e) => e.id));
   return etapas.filter((e) => e.etapa === 'saida' && !acabaram.has(e.id));
+}
+
+/** Um conector da conta do claude.ai: as ferramentas chegam como
+ *  mcp__claude_ai_<Conector>__<ação> (backend agente.conector_de). */
+export function conectorDe(ferramenta?: string): { nome: string; acao: string } | null {
+  const m = /^mcp__claude_ai_(.+?)__(.+)$/.exec(ferramenta ?? '');
+  return m ? { nome: m[1].replace(/_/g, ' '), acao: m[2] } : null;
 }
 
 /** Os pedidos de aprovação que ainda esperam o Matheus. */

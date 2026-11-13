@@ -42,7 +42,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ⬜ | Projetos: instruções e arquivos fixos por assunto | — | P2 |
 | ⬜ | Artefatos: página, documento, gráfico, app que abre do lado | — | P2 |
 | ⬜ | Criar arquivo de verdade: .docx, .xlsx, .pptx, .pdf | — (o Claude pode escrever arquivo, falta o jeito de cada formato) | P2 |
-| ⬜ | Conectores: Gmail, Google Agenda, Drive, GitHub, Canva, Figma, Vercel, Supabase... | — | P1 |
+| 🟡 | Conectores: Gmail, Google Agenda, Drive, GitHub, Canva, Figma, Vercel, Supabase... | 13/11/2026: o CLI do Claude logado já traz os conectores da conta do claude.ai (proxy do claude.ai), e o Solis passou a tratar: o que o conector marca como só leitura é livre; criar, mudar, apagar ou compartilhar vira cartão "O Claude quer usar o Google Calendar" com o que vai ser mandado. Configurações → Conectores mostra cada um e o estado. Provado pelo app: leu a agenda sem cartão, e criar evento pediu (recusado). Faltam: Gmail, Uber e HyperFrames pedem entrar no claude.ai (é o Matheus, lá); o GitHub vai pelo `gh`, que não está instalado; e os outros cérebros (local, Gemini) ainda não usam conectores | P1 |
 | ⬜ | Estilos de resposta (conciso, explicativo...) | — | P3 |
 | 🟡 | Voz | a do Solis (ativação, ilha, fala) | |
 
@@ -85,6 +85,6 @@ qualidade):
    de todo o resto.
 2. ✅ **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
 3. ✅ **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás, terminal ao vivo, comandos em segundo plano, git na tela e os ajudantes (subagentes) visíveis — prints aprovados pelo Matheus em 13/11/2026.
-4. **Conectores** (os que o Matheus usa no claude.ai).
+4. 🟡 **Conectores** (os que o Matheus usa no claude.ai): os da conta já funcionam no Claude do Solis, com o cartão pra mudar; faltam o Gmail (entrar no claude.ai), o GitHub (`gh`) e os conectores nos outros cérebros.
 5. **Criar documentos, artefatos, projetos, pesquisa longa.**
 6. Navegador, agendadas, skills, o resto.
