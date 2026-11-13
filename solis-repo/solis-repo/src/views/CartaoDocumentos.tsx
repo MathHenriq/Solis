@@ -6,9 +6,9 @@ import { lerDocumentos, prepararDocumentos, type EstadoDocumentos } from '../ser
  *  verdade pelas skills da conta do claude.ai; as bibliotecas que elas usam
  *  ficam numa pasta só do Solis (backend/solis/documentos.py).
  *
- *  PROVISÓRIO — desenho próprio (13/11/2026): o cartão e as linhas do de
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio (13/11/2026): o cartão e as linhas do de
  *  Cérebros (layout.configuracoes.cerebros), com o botão da edição da Memória
- *  (layout.configuracoes.cerebros._documentos). Precisa do aval do Matheus. */
+ *  (layout.configuracoes.cerebros._documentos). */
 
 export function CartaoDocumentos() {
   // undefined = lendo; null = servidor fora.

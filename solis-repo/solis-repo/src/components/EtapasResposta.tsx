@@ -236,7 +236,7 @@ export function DobraEtapas({
  *  Abrir (no programa do Windows) e o Mostrar na pasta — como o arquivo que o
  *  Claude Desktop entrega embaixo da resposta.
  *
- *  PROVISÓRIO — desenho próprio (13/11/2026): a ficha do anexo (borda neutra,
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio: a ficha do anexo (borda neutra,
  *  --et-chip-*) com as duas ações em texto à direita
  *  (layout.thread.etapas._files no solis-tokens.json). */
 export function ArquivosCriados({ etapas }: { etapas: EtapaRecebida[] }) {
