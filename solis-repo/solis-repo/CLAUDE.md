@@ -9,6 +9,7 @@ Assistente de IA pessoal, local-first, desktop. Stack: Tauri 2 · React + TypeSc
 Documentos de apoio no repositório (ler quando a tarefa tocar cada um):
 - `docs/VISAO.md` — **ler antes de tudo**: o que o Solis é e pra onde vai, nas palavras do Matheus, e a barra de qualidade.
 - `docs/PARIDADE.md` — o primeiro marco: tudo que o Claude Desktop e o Claude Code têm, o estado de cada coisa no Solis e a ordem. É o foco agora.
+- `docs/AGENTES.md` — a visão da equipe de agentes (Manager, Atlas, Nexus, Athena, Sentinel), o Council entre modelos, o Model Router e o escritório de agentes. Visão futura, pra quando abrir a aba de agentes e conhecimento; ler antes de qualquer trabalho nessa frente.
 - `docs/ESCOPO.md` — **ler primeiro**: o que já existe, o que é provisório e a ordem das próximas fases.
 - `backend/README.md` — o servidor local: como ligar, rotas, como a memória funciona.
 - `docs/HANDOFF.md` — índice mestre, ordem de leitura, o que está travado vs. provisório.
