@@ -7,10 +7,10 @@ import { Icone } from './icons';
  *  Claude. Num iframe isolado (sandbox sem allow-same-origin): o artefato roda
  *  o JavaScript dele, mas não enxerga o Solis, o servidor nem os dados.
  *
- *  PROVISÓRIO — desenho próprio (13/11/2026), base no painel de artefatos do
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio, base no painel de artefatos do
  *  Claude: uma coluna à direita da conversa, separada pela linha da tela
  *  (--divider), com o cabeçalho de ações em texto (layout.thread._artifact no
- *  solis-tokens.json). Precisa do aval do Matheus nos 3 temas e 2 navs. */
+ *  solis-tokens.json). */
 
 const nome = (c: string) => c.split(/[\\/]/).pop() ?? c;
 
