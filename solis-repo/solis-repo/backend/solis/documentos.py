@@ -114,7 +114,8 @@ def preparar() -> dict:
 # — o arquivo criado, pra abrir ————————————————————————————————————————————————
 # O que aparece embaixo da resposta como "arquivo criado": documentos e
 # imagens, não código (código tem o diff e o git).
-EXTENSOES = {'.docx', '.xlsx', '.pptx', '.pdf', '.csv', '.html', '.png', '.jpg', '.jpeg', '.svg', '.odt', '.ods', '.odp'}
+EXTENSOES = {'.docx', '.xlsx', '.pptx', '.pdf', '.csv', '.html', '.htm', '.png', '.jpg', '.jpeg', '.svg', '.odt', '.ods',
+             '.odp'}
 FORA = {'node_modules', '__pycache__', '.git', '.venv', 'venv', 'dist', 'build', '.claude'}
 
 

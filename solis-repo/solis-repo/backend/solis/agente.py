@@ -180,7 +180,20 @@ def _dentro(caminho: str | None, projeto: str | None = None) -> bool:
         p = p.resolve()
     except OSError:
         return False
-    return any(p == r or p.is_relative_to(r) for r in _raizes(projeto)) or _saida_de_comando(p)
+    return any(p == r or p.is_relative_to(r) for r in _raizes(projeto)) or _saida_de_comando(p) or _arquivo_de_skill(p)
+
+
+def _arquivo_de_skill(p: Path) -> bool:
+    """Os arquivos de uma skill (o SKILL.md, os scripts e os exemplos dela): as
+    da conta (~/.claude/skills), as de plugin (~/.claude/plugins) e as que vêm
+    com o CLI (<temp>/claude/bundled-skills). O Claude lê pra seguir a skill;
+    ler é livre, como no Claude Code."""
+    try:
+        bases = [Path.home().resolve() / '.claude' / 'skills', Path.home().resolve() / '.claude' / 'plugins',
+                 Path(tempfile.gettempdir()).resolve() / 'claude' / 'bundled-skills']
+    except OSError:
+        return False
+    return any(p.is_relative_to(b) for b in bases)
 
 
 def _saida_de_comando(p: Path) -> bool:
@@ -786,6 +799,9 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
                 '.solis-scripts dela (nunca fora da pasta atual).' if documentos.estado()['pronto'] else
                 '\n\nPra criar um documento (Word, Excel, PowerPoint, PDF), use a skill do formato. Salve o arquivo '
                 'na pasta atual, com um nome claro.')
+    sistema += ('\n\nPra um artefato (uma página, um gráfico, um diagrama, um app pequeno, uma visualização), crie '
+                'um arquivo .html autocontido na pasta atual (CSS e JavaScript dentro dele; biblioteca só por CDN). '
+                'O Solis abre ele num painel ao lado da conversa. Pra mudar, edite o mesmo arquivo.')
     if projeto:
         sistema += (f'\n\nVocê está trabalhando no projeto em {projeto} (a pasta atual). Siga o CLAUDE.md dele, '
                     'se houver. Ler ali dentro é livre; escrever, editar e rodar comandos seguem o modo da conversa.')

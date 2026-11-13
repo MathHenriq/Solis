@@ -40,7 +40,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | Pesquisar e ler na web | pelo Claude (agente) | |
 | ⬜ | Pesquisa longa (research): muitas fontes, relatório com citações | o Claude pode por subagentes; falta o modo e as fontes na tela | P2 |
 | ⬜ | Projetos: instruções e arquivos fixos por assunto | — | P2 |
-| ⬜ | Artefatos: página, documento, gráfico, app que abre do lado | — | P2 |
+| ✅ | Artefatos: página, documento, gráfico, app que abre do lado | 13/11/2026: o Claude cria um .html autocontido (ou .svg) e ele abre sozinho num painel à direita da conversa, rodando de verdade num iframe isolado (não lê o Solis); "Ver aqui" na ficha reabre, "Atualizar" e "Abrir no navegador" no painel. Provado pelo app nas duas navegações: um gráfico de barras dos gastos | P2 |
 | ✅ | Criar arquivo de verdade: .docx, .xlsx, .pptx, .pdf | 13/11/2026: as skills da conta do claude.ai (docx, xlsx, pptx, pdf) entram no Claude do Solis, e as bibliotecas delas ficam numa pasta só do Solis (Configurações → Documentos → Preparar; ~105 MB do npm e do PyPI). O arquivo criado aparece embaixo da resposta, com Abrir e Mostrar na pasta. Provado pelo app: uma planilha com fórmula de total, sem instalar nada; conferida com o openpyxl. Falta o LibreOffice (recalcular fórmula e converter pra PDF), grande, de fora por enquanto | P2 |
 | 🟡 | Conectores: Gmail, Google Agenda, Drive, GitHub, Canva, Figma, Vercel, Supabase... | 13/11/2026: o CLI do Claude logado já traz os conectores da conta do claude.ai (proxy do claude.ai), e o Solis passou a tratar: o que o conector marca como só leitura é livre; criar, mudar, apagar ou compartilhar vira cartão "O Claude quer usar o Google Calendar" com o que vai ser mandado. Configurações → Conectores mostra cada um e o estado. Provado pelo app: leu a agenda sem cartão, e criar evento pediu (recusado). Faltam: Gmail, Uber e HyperFrames pedem entrar no claude.ai (é o Matheus, lá); o GitHub vai pelo `gh`, que não está instalado; e os outros cérebros (local, Gemini) ainda não usam conectores | P1 |
 | ⬜ | Estilos de resposta (conciso, explicativo...) | — | P3 |
@@ -86,5 +86,5 @@ qualidade):
 2. ✅ **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
 3. ✅ **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás, terminal ao vivo, comandos em segundo plano, git na tela e os ajudantes (subagentes) visíveis — prints aprovados pelo Matheus em 13/11/2026.
 4. 🟡 **Conectores** (os que o Matheus usa no claude.ai): os da conta já funcionam no Claude do Solis, com o cartão pra mudar; faltam o Gmail (entrar no claude.ai), o GitHub (`gh`) e os conectores nos outros cérebros.
-5. 🟡 **Criar documentos, artefatos, projetos, pesquisa longa:** documentos de verdade prontos (13/11/2026); faltam artefatos, projetos e pesquisa longa.
+5. 🟡 **Criar documentos, artefatos, projetos, pesquisa longa:** documentos de verdade e artefatos prontos (13/11/2026); faltam projetos e pesquisa longa.
 6. Navegador, agendadas, skills, o resto.

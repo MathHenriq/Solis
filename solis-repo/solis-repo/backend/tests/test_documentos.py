@@ -100,3 +100,21 @@ def test_rotas_de_estado_e_preparar(ferramentas, monkeypatch):
     monkeypatch.setattr(documentos, 'preparar', lambda: (_ for _ in ()).throw(documentos.PrepararFalhou('sem rede')))
     r = c.post('/documentos/preparar')
     assert r.status_code == 502 and r.json()['motivo'] == 'sem rede'
+
+
+def test_conteudo_do_artefato(tmp_path, monkeypatch):
+    from solis import agente
+    trabalho = tmp_path / 'trabalho'
+    trabalho.mkdir()
+    monkeypatch.setattr(agente, '_pasta_trabalho', lambda: trabalho)
+    (trabalho / 'grafico.html').write_text('<h1>oi</h1>', encoding='utf-8')
+    (trabalho / 'logo.svg').write_text('<svg/>', encoding='utf-8')
+    (trabalho / 'notas.docx').write_bytes(b'x')
+    fora = tmp_path / 'fora.html'
+    fora.write_text('x')
+    c = TestClient(main.app)
+    assert c.get('/arquivos/conteudo', params={'caminho': str(trabalho / 'grafico.html')}).json() == {
+        'tipo': 'html', 'texto': '<h1>oi</h1>'}
+    assert c.get('/arquivos/conteudo', params={'caminho': str(trabalho / 'logo.svg')}).json()['tipo'] == 'svg'
+    assert c.get('/arquivos/conteudo', params={'caminho': str(trabalho / 'notas.docx')}).status_code == 400
+    assert c.get('/arquivos/conteudo', params={'caminho': str(fora)}).status_code == 403

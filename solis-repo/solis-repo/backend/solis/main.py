@@ -439,16 +439,40 @@ class Abrir(BaseModel):
     pasta: bool = False
 
 
+def _onde_o_solis_trabalha(p: Path) -> bool:
+    """A pasta de trabalho, as pastas autorizadas e as de projeto já abertas."""
+    from . import agente
+    return agente._dentro(str(p)) or any(
+        p.resolve().is_relative_to(Path(r).resolve()) for r in banco.projetos_recentes(50) if Path(r).is_dir())
+
+
+ARTEFATO_MAX = 5_000_000
+
+
+@app.get('/arquivos/conteudo')
+async def conteudo_artefato(caminho: str):
+    """O conteúdo de um artefato (página .html, imagem .svg) que o Claude
+    criou, pro painel ao lado da conversa — que roda num iframe isolado, sem
+    acesso ao Solis. Só .html e .svg, e só de onde o Solis trabalha."""
+    p = Path(caminho)
+    if p.suffix.lower() not in ('.html', '.htm', '.svg') or not p.is_file():
+        return JSONResponse({'erro': 'nao_e_artefato'}, status_code=400)
+    if not _onde_o_solis_trabalha(p):
+        return JSONResponse({'erro': 'fora_das_pastas'}, status_code=403)
+    if p.stat().st_size > ARTEFATO_MAX:
+        return JSONResponse({'erro': 'grande_demais'}, status_code=413)
+    return {'tipo': 'svg' if p.suffix.lower() == '.svg' else 'html',
+            'texto': p.read_text(encoding='utf-8', errors='replace')}
+
+
 @app.post('/arquivos/abrir')
 async def abrir_arquivo(corpo: Abrir):
     """Abre um documento que o Claude criou no programa do Windows (ou mostra
     na pasta). Só documento, e só de onde o Solis trabalha: a pasta de
     trabalho, as pastas autorizadas e as de projeto já abertas."""
-    from . import agente, documentos
+    from . import documentos
     p = Path(corpo.caminho)
-    permitido = agente._dentro(str(p)) or any(
-        p.resolve().is_relative_to(Path(r).resolve()) for r in banco.projetos_recentes(50) if Path(r).is_dir())
-    if not permitido:
+    if not _onde_o_solis_trabalha(p):
         return JSONResponse({'erro': 'fora_das_pastas'}, status_code=403)
     try:
         documentos.abrir(str(p), corpo.pasta)

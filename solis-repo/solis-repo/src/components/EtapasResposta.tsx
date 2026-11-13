@@ -239,7 +239,10 @@ export function DobraEtapas({
  *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio: a ficha do anexo (borda neutra,
  *  --et-chip-*) com as duas ações em texto à direita
  *  (layout.thread.etapas._files no solis-tokens.json). */
-export function ArquivosCriados({ etapas }: { etapas: EtapaRecebida[] }) {
+/** Um artefato (página ou imagem vetorial) abre no painel ao lado da conversa. */
+export const ehArtefato = (caminho: string) => /\.(html?|svg)$/i.test(caminho);
+
+export function ArquivosCriados({ etapas, aoVer }: { etapas: EtapaRecebida[]; aoVer?: (caminho: string) => void }) {
   const lista = etapas.find((e) => e.etapa === 'arquivos')?.lista ?? [];
   const [falhou, definirFalhou] = useState<string | null>(null);
   if (!lista.length) return null;
@@ -264,7 +267,17 @@ export function ArquivosCriados({ etapas }: { etapas: EtapaRecebida[] }) {
         >
           <Icone nome="documento" tamanho={14} className="text-text-secondary shrink-0" />
           <span className="truncate min-w-0">{c.split(/[\\/]/).pop()}</span>
-          <button type="button" onClick={() => acao(c, false)} className="text-accent hover:underline shrink-0" style={{ marginLeft: 8 }}>
+          {aoVer && ehArtefato(c) && (
+            <button type="button" onClick={() => aoVer(c)} className="text-accent hover:underline shrink-0" style={{ marginLeft: 8 }}>
+              Ver aqui
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => acao(c, false)}
+            className={`${aoVer && ehArtefato(c) ? 'text-text-secondary hover:text-text-primary' : 'text-accent'} hover:underline shrink-0`}
+            style={{ marginLeft: aoVer && ehArtefato(c) ? 0 : 8 }}
+          >
             Abrir
           </button>
           <button type="button" onClick={() => acao(c, true)} className="text-text-secondary hover:text-text-primary hover:underline shrink-0">

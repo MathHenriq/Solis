@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArquivosCriados, AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas, TerminaisAoVivo } from '../components/EtapasResposta';
+import {
+  ArquivosCriados,
+  AvisosDepois,
+  CartoesAprovacao,
+  DobraEtapas,
+  ehArtefato,
+  ListaEtapas,
+  TerminaisAoVivo,
+} from '../components/EtapasResposta';
+import { PainelArtefato } from '../components/PainelArtefato';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
@@ -278,8 +287,11 @@ function RespostaSolis({
   t,
   ouvir,
   aoRefazer,
+  aoVer,
 }: {
   t: Turno;
+  /** Abre um artefato (página, .svg) no painel ao lado. */
+  aoVer?: (caminho: string) => void;
   ouvir?: { falando: boolean; preparando: boolean; falhou: boolean; aoOuvir: () => void; aoParar: () => void };
   /** Só na última resposta, e fora de uma resposta em andamento. */
   aoRefazer?: () => void;
@@ -344,7 +356,7 @@ function RespostaSolis({
           )}
           {vivo && <TerminaisAoVivo etapas={etapas} />}
           {vivo && <CartoesAprovacao etapas={etapas} />}
-          <ArquivosCriados etapas={etapas} />
+          <ArquivosCriados etapas={etapas} aoVer={aoVer} />
           <AvisosDepois etapas={etapas} />
         </div>
       </div>
@@ -427,6 +439,29 @@ export function Thread({
   // começa sozinho quando um comando acaba.
   const fundo = useFundo(conversa, respondendo, () => aoRecarregar?.());
 
+  // O artefato aberto ao lado (o caminho), e a versão: muda no fim de cada
+  // resposta, que pode ter editado ele.
+  const [artefato, definirArtefato] = useState<string | null>(null);
+  const [versaoArtefato, definirVersaoArtefato] = useState(0);
+  useEffect(() => definirArtefato(null), [conversa]);
+  // Um artefato novo na resposta que acabou de terminar abre sozinho, como no Claude.
+  const ultimaVista = useRef<number | null>(null);
+  const fimDaUltima = turnos[turnos.length - 1];
+  useEffect(() => {
+    if (!fimDaUltima || fimDaUltima.de !== 'solis' || fimDaUltima.digitando) return;
+    definirVersaoArtefato((v) => v + 1);
+    if (ultimaVista.current === null) {
+      // Ao abrir a conversa: nada abre sozinho.
+      ultimaVista.current = fimDaUltima.id;
+      return;
+    }
+    if (ultimaVista.current === fimDaUltima.id) return;
+    ultimaVista.current = fimDaUltima.id;
+    const novo = (fimDaUltima.etapas ?? []).find((e) => e.etapa === 'arquivos')?.lista?.find(ehArtefato);
+    if (novo) definirArtefato(novo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fimDaUltima?.id, fimDaUltima?.digitando]);
+
   const rolagem = useRef<HTMLDivElement>(null);
   // A thread segue o texto que chega SÓ se a pessoa está no fim dela. Quem rolou
   // pra cima pra reler não pode ser puxado de volta a cada pedaço.
@@ -438,8 +473,9 @@ export function Thread({
   }, [turnos]);
 
   return (
+    <>
     <main
-      className="relative flex-1 flex flex-col overflow-hidden bg-canvas"
+      className="relative flex-1 flex flex-col overflow-hidden bg-canvas min-w-0"
       style={{ zIndex: 1 }}
       // Arrastar arquivo pra conversa anexa, como no Claude.
       onDragOver={(e) => {
@@ -493,6 +529,7 @@ export function Thread({
                 aoRefazer={
                   !respondendo && i === turnos.length - 1 && turnos[i - 1]?.mensagem !== undefined ? aoRefazer : undefined
                 }
+                aoVer={definirArtefato}
                 ouvir={{
                   falando: fala.falando === t.id,
                   preparando: fala.falando === t.id && fala.preparando,
@@ -638,5 +675,7 @@ export function Thread({
         </form>
       </div>
     </main>
+    {artefato && <PainelArtefato caminho={artefato} versao={versaoArtefato} aoFechar={() => definirArtefato(null)} />}
+    </>
   );
 }

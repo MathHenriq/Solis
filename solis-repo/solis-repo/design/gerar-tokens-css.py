@@ -264,6 +264,7 @@ for chave, var in [('textSize','--et-texto'), ('rowPitch','--et-passo'), ('textI
                    ('codeTextSize','--cod-texto'), ('codeHeaderSize','--cod-cabecalho'),
                    ('terminalPadY','--term-py'), ('terminalMaxHeight','--term-max'),
                    ('backgroundWidth','--fundo-largura'), ('gitWidth','--git-largura'),
+                   ('artifactWidth','--art-largura'), ('artifactHeader','--art-cabecalho'), ('artifactPadX','--art-px'),
                    ('approvalPadY','--et-apr-py'), ('approvalPadX','--et-apr-px'),
                    ('approvalRadius','--et-apr-raio'), ('approvalGap','--et-apr-gap')]:
     w('  %s: %s;' % (var, et[chave]))

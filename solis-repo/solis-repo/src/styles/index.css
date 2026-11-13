@@ -185,6 +185,11 @@ main {
    significar cobrir: no modo 'icones' as telas reservam o espaço dos dois, ou a
    última linha da lista some atrás da barra — foi o que aconteceu em
    Configurações. */
+/* O painel do artefato fica fora da barra de cima e da de baixo, como a conversa. */
+:root[data-nav="icones"] .painel-artefato {
+  padding-top: var(--topo-h);
+  padding-bottom: calc(var(--barra-h) + var(--barra-base) + 24px);
+}
 :root[data-nav="icones"] main {
   padding-top: var(--topo-h);
   padding-bottom: calc(var(--barra-h) + var(--barra-base) + 24px);

@@ -471,3 +471,14 @@ def test_ajudante_aparece_com_o_que_faz_e_pede_aprovacao_pelo_fundo(cli_falso):
     solta['agora'] = True
     assert _esperar(lambda: c not in agente._vivas)
     assert banco.mensagens(c)[-1]['texto'] == 'O ajudante leu: oi.'
+
+
+def test_ler_arquivo_de_skill_e_livre(monkeypatch, tmp_path):
+    monkeypatch.setattr(agente.tempfile, 'gettempdir', lambda: str(tmp_path))
+    monkeypatch.setattr(agente, '_pasta_trabalho', lambda: tmp_path / 'trabalho')
+    monkeypatch.setattr(agente.Path, 'home', classmethod(lambda cls: tmp_path / 'casa'))
+    assert agente._dentro(str(tmp_path / 'casa' / '.claude' / 'skills' / 'synced' / 'x' / 'docx' / 'SKILL.md'))
+    assert agente._dentro(str(tmp_path / 'claude' / 'bundled-skills' / '2.1' / 'dataviz' / 'SKILL.md'))
+    # O resto da pasta do Claude Code continua pedindo (sessões, configuração).
+    assert not agente._dentro(str(tmp_path / 'casa' / '.claude' / 'settings.json'))
+    assert not agente._dentro(str(tmp_path / 'casa' / '.claude' / 'projects' / 'p' / 's.jsonl'))

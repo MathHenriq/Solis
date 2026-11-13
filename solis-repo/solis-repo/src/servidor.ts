@@ -438,6 +438,16 @@ export async function prepararDocumentos(): Promise<EstadoDocumentos | { erro: s
   }
 }
 
+/** O conteúdo de um artefato (.html ou .svg) pro painel ao lado da conversa. */
+export async function lerArtefato(caminho: string): Promise<{ tipo: 'html' | 'svg'; texto: string } | null> {
+  try {
+    const r = await fetch(`${BASE}/arquivos/conteudo?caminho=${encodeURIComponent(caminho)}`);
+    return r.ok ? ((await r.json()) as { tipo: 'html' | 'svg'; texto: string }) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Abre o documento no programa do Windows, ou mostra na pasta. */
 export async function abrirArquivo(caminho: string, pasta = false): Promise<boolean> {
   try {
