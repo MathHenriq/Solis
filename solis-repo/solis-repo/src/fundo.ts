@@ -5,13 +5,13 @@ import { lerFundo, type Fundo } from './servidor';
  *  que ele começa sozinho quando um comando acaba (backend: agente._Viva).
  *
  *  Não há stream aberto pra isso: a tela pergunta ao servidor a cada 1,5 s,
- *  mas só enquanto houver algo — e confere uma vez ao abrir a conversa e no
+ *  mas só enquanto houver algo ou uma resposta em andamento — e confere uma vez ao abrir a conversa e no
  *  fim de cada resposta (é quando um comando pode ter ficado rodando). Quando
  *  a resposta que o Claude começou sozinho termina, ela já está no banco:
  *  `aoMudar` recarrega a conversa. */
 
 const INTERVALO_MS = 1500;
-const VAZIO: Fundo = { comandos: [], resposta: null };
+const VAZIO: Fundo = { comandos: [], resposta: null, aprovacoes: [] };
 
 export function useFundo(conversa: number | null, respondendo: boolean, aoMudar: () => void): Fundo {
   const [fundo, definirFundo] = useState<Fundo>(VAZIO);
@@ -20,8 +20,8 @@ export function useFundo(conversa: number | null, respondendo: boolean, aoMudar:
   mudou.current = aoMudar;
 
   useEffect(() => {
-    if (conversa === null || respondendo) {
-      if (conversa === null) definirFundo(VAZIO);
+    if (conversa === null) {
+      definirFundo(VAZIO);
       return;
     }
     let vivo = true;
@@ -33,7 +33,9 @@ export function useFundo(conversa: number | null, respondendo: boolean, aoMudar:
       // A resposta que veio sozinha acabou: ela está no banco agora.
       if (tinhaResposta.current && !f.resposta) mudou.current();
       tinhaResposta.current = !!f.resposta;
-      if (f.comandos.length || f.resposta) espera = setTimeout(olhar, INTERVALO_MS);
+      // Durante uma resposta também: um ajudante (subagente) trabalha enquanto
+      // ela espera, e só aparece por aqui.
+      if (respondendo || f.comandos.length || f.resposta || f.aprovacoes?.length) espera = setTimeout(olhar, INTERVALO_MS);
     };
     // Logo depois do fim de uma resposta, o comando pode estar começando.
     espera = setTimeout(olhar, 300);

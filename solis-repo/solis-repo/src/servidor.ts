@@ -227,6 +227,8 @@ export type Etapa = {
   comando?: string;
   /** Etapa `ferramenta` de um comando deixado rodando em segundo plano. */
   fundo?: boolean;
+  /** Etapa `aprovacao` pedida por um ajudante (subagente): a tarefa dele. */
+  ajudante?: string;
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -409,12 +411,27 @@ export async function acaoGit(
   }
 }
 
-/** Um comando que o Claude deixou rodando em segundo plano. */
-export type ComandoFundo = { id: string; comando: string; descricao: string; segundos: number; saida: string };
+/** Um comando que o Claude deixou rodando em segundo plano, ou um ajudante
+ *  (subagente) trabalhando: o que ele faz `agora` e as últimas ações. */
+export type ComandoFundo = {
+  id: string;
+  tipo?: 'comando' | 'ajudante';
+  comando: string;
+  descricao: string;
+  segundos: number;
+  saida: string;
+  agora?: { ferramenta: string; alvo: string } | null;
+  passos?: { ferramenta: string; alvo: string; ok: boolean }[];
+};
 
 /** O que roda em segundo plano na conversa, e a resposta que o Claude começou
  *  sozinho quando um comando acabou (texto e etapas até agora). */
-export type Fundo = { comandos: ComandoFundo[]; resposta: { texto: string; etapas: Etapa[] } | null };
+export type Fundo = {
+  comandos: ComandoFundo[];
+  resposta: { texto: string; etapas: Etapa[] } | null;
+  /** Cartões de um ajudante que pediu aprovação sem resposta em andamento. */
+  aprovacoes?: Etapa[];
+};
 
 export async function lerFundo(conversa: number): Promise<Fundo | null> {
   try {

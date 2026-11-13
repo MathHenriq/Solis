@@ -71,7 +71,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | Ver o diff do que mudou; voltar atrás (checkpoints) | Diff no cartão (12/11/2026). Voltar atrás (12/11/2026): o "desfazer" na fala da pessoa mostra o que volta (arquivos e linhas, pelo `dry_run` do CLI) e volta só os arquivos ou arquivos e conversa (a fala vai pro campo, como o /rewind do Claude Code). Usa o checkpoint do próprio SDK, também de uma sessão antiga. Provado pelo app nas duas opções. Comandos que o Claude rodou não voltam (igual ao Claude Code) | P1 |
 | 🟡 | Git: status, commit, push, PR | 12/11/2026: na barra do projeto, o ramo e as mudanças; abre os arquivos com o diff, o commit e o push (PR pelo gh, se instalado). Provado pelo app nas duas navegações num repositório de teste (diff certo, commit e push chegaram ao remoto). Falta o aval do Matheus nos prints | P2 |
 | ✅ | Comandos em segundo plano (servidor, teste longo) e acompanhar | 12/11/2026: com comando em segundo plano a sessão do Claude fica aberta até ele acabar (fechado o CLI, o comando ficava órfão — visto no teste). Na barra do projeto, "1 comando em segundo plano" abre a saída e o Parar; mensagem nova vai pra mesma sessão; quando o comando acaba, o Claude conta sozinho o que saiu, como no Claude Code, e a resposta entra na conversa. Provado pelo app: 25 tiques, pergunta no meio ("17"), resposta sozinha guardada, Parar num de 300 s | P2 |
-| 🟡 | Subagentes | o Claude pode; a tela não mostra | P2 |
+| ✅ | Subagentes | 13/11/2026: no Claude Code de agora o ajudante (subagente) roda em segundo plano; a sessão viva acompanha. Na barra do projeto, "1 ajudante trabalhando" abre a tarefa, o que ele faz agora ("Rodando no terminal: …") e as últimas ações, com o Parar; as ações dele não se misturam com as etapas da resposta. O cartão de aprovação diz "O ajudante quer…" e chega à tela mesmo sem resposta em andamento (pelo /fundo). Provado pelo app nas duas navegações: o ajudante leu, rodou comando e criou arquivo, com os cartões | P2 |
 | ⬜ | Servidores MCP configuráveis | só o do Solis | P2 |
 | ⬜ | Hooks | — | P3 |
 | ⬜ | Custo e uso da cota na tela | só no log | P3 |
@@ -84,7 +84,7 @@ qualidade):
 1. ✅ **A sessão continuar** — sem ela, o Claude esquece o que leu e fez a cada mensagem; é a base
    de todo o resto.
 2. ✅ **A conversa básica do Desktop:** parar, copiar, editar e refazer, anexar, escolher o modelo.
-3. 🟡 **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás, terminal ao vivo e comandos em segundo plano prontos; faltam git na tela e os subagentes visíveis.
+3. ✅ **Trabalhar num projeto:** abrir pasta, CLAUDE.md, modos, diff, "aprovar sempre", voltar atrás, terminal ao vivo, comandos em segundo plano, git na tela e os ajudantes (subagentes) visíveis — falta o aval do Matheus nos prints.
 4. **Conectores** (os que o Matheus usa no claude.ai).
 5. **Criar documentos, artefatos, projetos, pesquisa longa.**
 6. Navegador, agendadas, skills, o resto.

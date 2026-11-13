@@ -103,6 +103,37 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
   }
 }
 
+/** O que um ajudante está fazendo agora, em uma frase no presente — a mesma
+ *  ferramenta que textoFerramenta conta no passado ("Li x" → "Lendo x"). */
+export function textoAgora(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
+  const alvo = f.alvo ?? '';
+  const arquivo = alvo ? ` ${nomeDoArquivo(alvo)}` : '';
+  switch (f.ferramenta) {
+    case 'Read':
+      return `Lendo${arquivo}`;
+    case 'Write':
+      return `Escrevendo${arquivo}`;
+    case 'Edit':
+    case 'MultiEdit':
+    case 'NotebookEdit':
+      return `Editando${arquivo}`;
+    case 'Bash':
+    case 'PowerShell':
+      return `Rodando no terminal: ${alvo}`;
+    case 'Grep':
+      return `Procurando "${alvo}"`;
+    case 'Glob':
+    case 'LS':
+      return 'Olhando os arquivos';
+    case 'WebSearch':
+      return `Pesquisando "${alvo}" na web`;
+    case 'WebFetch':
+      return 'Lendo uma página';
+    default:
+      return 'Trabalhando';
+  }
+}
+
 /** Os comandos rodando agora, com o fim da saída até aqui: a etapa `saida`
  *  cujo resultado (a `ferramenta` com o mesmo id) ainda não chegou. */
 export function comandosRodando(etapas: Etapa[]): Etapa[] {

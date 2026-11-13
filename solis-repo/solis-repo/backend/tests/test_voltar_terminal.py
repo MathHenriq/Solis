@@ -400,7 +400,7 @@ def test_outra_sessao_fecha_a_aberta_parando_os_comandos(cli_falso):
 
 def test_rota_do_fundo_sem_nada(cli_falso):
     c, _ = _conversa_com_falas(1)
-    assert TestClient(main.app).get(f'/conversas/{c}/fundo').json() == {'comandos': [], 'resposta': None}
+    assert TestClient(main.app).get(f'/conversas/{c}/fundo').json() == {'comandos': [], 'resposta': None, 'aprovacoes': []}
 
 
 def test_ler_a_saida_do_proprio_comando_e_livre(monkeypatch, tmp_path):
@@ -411,3 +411,63 @@ def test_ler_a_saida_do_proprio_comando_e_livre(monkeypatch, tmp_path):
     # O resto do temporário continua pedindo.
     assert not agente._dentro(str(tmp_path / 'claude' / 'abc' / 'segredo.txt'))
     assert not agente._dentro(str(tmp_path / 'outro' / 'x' / 's' / 'tasks' / 'b1.output'))
+
+
+# — ajudantes (subagentes) ————————————————————————————————————————————————————————
+def test_ajudante_aparece_com_o_que_faz_e_pede_aprovacao_pelo_fundo(cli_falso):
+    c, _ = _conversa_com_falas(1)
+    solta = {'agora': False}
+
+    async def esperar_soltar():
+        while not solta['agora']:
+            await asyncio.sleep(0.05)
+
+    SessaoFalsa.roteiros = [[
+        SystemMessage(subtype='init', data={'session_id': 'S1'}),
+        AssistantMessage(content=[ToolUseBlock(id='ag1', name='Agent',
+                                               input={'description': 'ler o LEIAME', 'prompt': 'leia'})], model='m'),
+        SystemMessage(subtype='task_started', data={'task_id': 'A1', 'tool_use_id': 'ag1', 'task_type': 'local_agent',
+                                                    'is_backgrounded': True, 'description': 'ler o LEIAME'}),
+        SystemMessage(subtype='background_tasks_changed', data={'tasks': [{'task_id': 'A1'}]}),
+        UserMessage(content=[ToolResultBlock(tool_use_id='ag1', content='async_launched', is_error=False)]),
+        _texto('pedi a um ajudante'),
+        _fim(),
+    ]]
+    SessaoFalsa.depois = [
+        # O ajudante trabalha depois da resposta: as ações dele vêm com o pai.
+        AssistantMessage(content=[ToolUseBlock(id='r1', name='Read', input={'file_path': 'LEIAME.md'})], model='m',
+                         parent_tool_use_id='ag1'),
+        UserMessage(content=[ToolResultBlock(tool_use_id='r1', content='oi', is_error=False)], parent_tool_use_id='ag1'),
+        AssistantMessage(content=[ToolUseBlock(id='b2', name='Bash', input={'command': 'sleep 10'})], model='m',
+                         parent_tool_use_id='ag1'),
+        esperar_soltar,
+        SystemMessage(subtype='task_notification', data={'task_id': 'A1', 'status': 'completed'}),
+        SystemMessage(subtype='background_tasks_changed', data={'tasks': []}),
+        SystemMessage(subtype='init', data={'session_id': 'S1'}),
+        _texto('O ajudante leu: oi.'),
+        _fim(),
+    ]
+    assert _rodar_claude(c, 'delega') == 'pedi a um ajudante'
+    # Agora: a ação em andamento (o Bash), não a que já acabou.
+    assert _esperar(lambda: ((agente.fundo(c)['comandos'] or [{}])[0].get('agora') or {}).get('ferramenta') == 'Bash')
+    a = agente.fundo(c)['comandos'][0]
+    assert a['tipo'] == 'ajudante' and a['descricao'] == 'ler o LEIAME' and a['comando'] == '' and a['saida'] == ''
+    assert a['passos'] == [{'ferramenta': 'Read', 'alvo': 'LEIAME.md', 'ok': True}] and 'usadas' not in a
+
+    # Um pedido de aprovação sem resposta em andamento vai pro /fundo.
+    viva = agente._vivas[c]
+    decidir = SessaoFalsa.opcoes.can_use_tool
+    from claude_agent_sdk.types import ToolPermissionContext
+    contexto = ToolPermissionContext(tool_use_id='x', agent_id='A1')
+    pedido = asyncio.run_coroutine_threadsafe(decidir('Bash', {'command': 'ls'}, contexto), viva.laco)
+    assert _esperar(lambda: agente.fundo(c)['aprovacoes'])
+    card = agente.fundo(c)['aprovacoes'][0]
+    # O cartão diz que quem pede é o ajudante, com a tarefa dele.
+    assert card['etapa'] == 'aprovacao' and card['ferramenta'] == 'Bash' and card['ajudante'] == 'ler o LEIAME'
+    agente.responder_aprovacao(card['id'], True)
+    assert pedido.result(5).behavior == 'allow'
+    assert _esperar(lambda: agente.fundo(c)['aprovacoes'] == [])
+
+    solta['agora'] = True
+    assert _esperar(lambda: c not in agente._vivas)
+    assert banco.mensagens(c)[-1]['texto'] == 'O ajudante leu: oi.'

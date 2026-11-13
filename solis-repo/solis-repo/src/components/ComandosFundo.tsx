@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { textoAgora, textoFerramenta } from '../etapas';
 import { pararFundo, type ComandoFundo } from '../servidor';
 import { Botao } from './Controles';
 import { SaidaTerminal } from './EtapasResposta';
 import { Icone } from './icons';
 
 /** Os comandos que o Claude deixou rodando em segundo plano (um servidor, um
- *  teste longo), à direita da barra do projeto — como o Claude Code mostra
+ *  teste longo) e os ajudantes (subagentes) trabalhando, à direita da barra do projeto — como o Claude Code mostra
  *  as tarefas em segundo plano. Abre pra cima: cada comando com o fim da
  *  saída e o Parar.
  *
@@ -37,7 +38,13 @@ export function ComandosFundo({ conversa, comandos }: { conversa: number | null;
   }, [comandos.length]);
 
   if (conversa === null || !comandos.length) return null;
-  const n = comandos.length;
+  const ajudantes = comandos.filter((c) => c.tipo === 'ajudante').length;
+  const nComandos = comandos.length - ajudantes;
+  const partes = [];
+  if (nComandos) partes.push(nComandos === 1 ? '1 comando' : `${nComandos} comandos`);
+  if (ajudantes) partes.push(ajudantes === 1 ? '1 ajudante' : `${ajudantes} ajudantes`);
+  // "1 comando em segundo plano", "1 ajudante trabalhando", "1 comando e 1 ajudante em segundo plano".
+  const rotulo = !nComandos ? `${partes[0]} trabalhando` : `${partes.join(' e ')} em segundo plano`;
 
   return (
     <div ref={caixa} className="relative">
@@ -50,13 +57,13 @@ export function ComandosFundo({ conversa, comandos }: { conversa: number | null;
         style={{ gap: 8, fontSize: 'var(--et-dobra-texto)', height: 28 }}
       >
         <span className="bg-accent shrink-0" style={{ width: 'var(--et-ponto)', height: 'var(--et-ponto)', borderRadius: 999 }} />
-        {n === 1 ? '1 comando em segundo plano' : `${n} comandos em segundo plano`}
+        {rotulo}
         <Icone nome="chevron" tamanho={14} style={{ transform: aberto ? 'rotate(180deg)' : undefined }} />
       </button>
       {aberto && (
         <div
           role="dialog"
-          aria-label="Comandos em segundo plano"
+          aria-label="Em segundo plano"
           className="absolute right-0 z-10 border border-divider bg-canvas flex flex-col overflow-y-auto"
           style={{
             bottom: 'calc(100% + var(--kn-menu-top))',
@@ -75,8 +82,20 @@ export function ComandosFundo({ conversa, comandos }: { conversa: number | null;
                   <div className="text-text-primary truncate" title={c.descricao} style={{ fontSize: 'var(--mac-botao-texto)' }}>
                     {c.descricao || 'Comando'}
                   </div>
-                  <div className="text-text-secondary truncate" title={c.comando} style={{ fontSize: 'var(--et-chip-texto)' }}>
-                    <span className="font-mono">{c.comando}</span> · há {tempo(c.segundos)}
+                  <div
+                    className="text-text-secondary truncate"
+                    title={c.comando || (c.agora ? textoAgora(c.agora) : undefined)}
+                    style={{ fontSize: 'var(--et-chip-texto)' }}
+                  >
+                    {c.tipo === 'ajudante' ? (
+                      <>
+                        {c.agora ? textoAgora(c.agora) : 'Pensando'} · há {tempo(c.segundos)}
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-mono">{c.comando}</span> · há {tempo(c.segundos)}
+                      </>
+                    )}
                   </div>
                 </div>
                 <Botao
@@ -89,9 +108,33 @@ export function ComandosFundo({ conversa, comandos }: { conversa: number | null;
                   {parando.has(c.id) ? 'Parando…' : 'Parar'}
                 </Botao>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <SaidaTerminal texto={c.saida || '(nada ainda)'} rotulo={`Saída de ${c.descricao || c.comando}`} />
-              </div>
+              {c.tipo === 'ajudante' ? (
+                // As últimas ações dele, nas frases das etapas da resposta.
+                <ol aria-label={`O que ${c.descricao || 'o ajudante'} fez`} style={{ marginTop: 8 }}>
+                  {(c.passos ?? []).length === 0 && (
+                    <li className="text-text-secondary" style={{ fontSize: 'var(--et-chip-texto)' }}>
+                      Começando…
+                    </li>
+                  )}
+                  {(c.passos ?? []).map((p, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center text-text-secondary"
+                      style={{ gap: 8, fontSize: 'var(--et-chip-texto)', height: 24 }}
+                    >
+                      <Icone nome="feito" tamanho={14} className={p.ok ? 'text-accent shrink-0' : 'text-text-secondary shrink-0'} />
+                      <span className="truncate" title={p.alvo}>
+                        {textoFerramenta(p)}
+                        {p.ok ? '' : ': não deu'}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div style={{ marginTop: 8 }}>
+                  <SaidaTerminal texto={c.saida || '(nada ainda)'} rotulo={`Saída de ${c.descricao || c.comando}`} />
+                </div>
+              )}
             </div>
           ))}
         </div>

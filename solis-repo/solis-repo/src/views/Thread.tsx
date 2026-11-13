@@ -517,6 +517,13 @@ export function Thread({
               }}
             />
           )}
+          {/* Um ajudante pediu aprovação depois que a resposta acabou: o cartão
+              vem pela leitura do segundo plano, embaixo de tudo. */}
+          {!fundo.resposta && !!fundo.aprovacoes?.length && (
+            <div style={{ paddingLeft: 'calc(var(--th-avatar) + var(--th-avatar-gap))' }}>
+              <CartoesAprovacao etapas={fundo.aprovacoes} />
+            </div>
+          )}
           <div style={{ height: 'var(--th-turno-gap)' }} />
         </div>
       </div>

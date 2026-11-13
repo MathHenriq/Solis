@@ -276,7 +276,7 @@ def _ferramentas_solis():
 
 
 async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto: str | None = None,
-                   modo: str = 'pedir', conversa: int | None = None):
+                   modo: str = 'pedir', conversa: int | None = None, ajudante: str | None = None):
     """O can_use_tool do SDK: livre, ou um cartão na conversa esperando o Matheus.
     `modo` aceitar: editar arquivo dentro do projeto não pede (fica no registro)."""
     from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny, PermissionUpdate
@@ -298,6 +298,7 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
     if ids is not None:
         ids.add(id_)
     pedido = {'id': id_, 'ferramenta': nome, 'resumo': resumo(nome, entrada),
+              **({'ajudante': ajudante} if ajudante is not None else {}),
               'alvo': _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}
     diff = _diff(nome, entrada, projeto)
     if diff:
@@ -475,6 +476,9 @@ class _Coletor:
         return id_
 
 
+# As últimas ações de um ajudante (subagente) que a tela mostra.
+AJUDANTE_PASSOS = 6
+
 # A sessão de cada conversa que ficou aberta por ter comando em segundo plano.
 _vivas: dict[int, '_Viva'] = {}
 # Fechada a última resposta e sem comando rodando, quanto a sessão espera
@@ -499,8 +503,12 @@ class _Viva:
         self.sessao_id: str | None = None
         self.resposta: _Resposta | None = None
         self.sozinha: _Coletor | None = None
-        # task_id → {'id', 'comando', 'descricao', 'inicio'}
+        # task_id → {'id', 'tipo' (comando | ajudante), 'comando', 'descricao',
+        # 'inicio', 'tool_use_id', e num ajudante: 'agora' e os 'passos'}
         self.fundo: dict[str, dict] = {}
+        # Pedidos de aprovação que chegam sem resposta em andamento (um ajudante
+        # trabalhando depois que a resposta acabou): a tela lê pelo /fundo.
+        self.pedidos: list[dict] = []
         self.ultima = time.monotonic()
         self.aberta = True
         self.fechar_ja = False
@@ -512,6 +520,11 @@ class _Viva:
         try:
             async for m in self.cliente.receive_messages():
                 self.ultima = time.monotonic()
+                if getattr(m, 'parent_tool_use_id', None):
+                    # De um ajudante (subagente): vai pro quadro dele, não pras
+                    # etapas da resposta principal.
+                    self._do_ajudante(m)
+                    continue
                 if isinstance(m, SystemMessage):
                     if m.subtype == 'init':
                         self.sessao_id = (m.data or {}).get('session_id') or self.sessao_id
@@ -545,13 +558,52 @@ class _Viva:
             self.sozinha = None
         self.resposta = None
 
+    def por_fundo(self, tipo, valor=None) -> None:
+        """O `por` de quando não há resposta em andamento: só os cartões de
+        aprovação interessam (os outros acontecimentos não têm onde aparecer)."""
+        if tipo != 'etapa':
+            return
+        etapa, dados = valor
+        if etapa == 'aprovacao':
+            self.pedidos.append({'etapa': 'aprovacao', 't': 0, **dados})
+        elif etapa == 'aprovacao_resposta':
+            self.pedidos = [p for p in self.pedidos if p.get('id') != dados.get('id')]
+
+    def _do_ajudante(self, m) -> None:
+        from claude_agent_sdk import AssistantMessage, ToolResultBlock, ToolUseBlock, UserMessage
+        t = next((t for t in self.fundo.values() if t.get('tool_use_id') == m.parent_tool_use_id), None)
+        if t is None:
+            return
+        if isinstance(m, AssistantMessage):
+            for b in m.content:
+                if isinstance(b, ToolUseBlock):
+                    t.setdefault('usadas', {})[b.id] = (b.name, b.input)
+                    # O que ele está fazendo agora: a ação em andamento (a tela
+                    # diz em português; o "progresso" do CLI vem em inglês).
+                    t['agora'] = {'ferramenta': b.name, 'alvo': _alvo(b.name, b.input), 'id': b.id}
+        elif isinstance(m, UserMessage) and isinstance(m.content, list):
+            for b in m.content:
+                if isinstance(b, ToolResultBlock) and b.tool_use_id in t.get('usadas', {}):
+                    nome, entrada = t['usadas'].pop(b.tool_use_id)
+                    if (t.get('agora') or {}).get('id') == b.tool_use_id:
+                        t['agora'] = None
+                    if nome in ('ToolSearch', 'TodoWrite'):
+                        continue
+                    if nome in EDICAO and not b.is_error and self.sessao_id and self.conversa is not None:
+                        banco.ponto_mudou(self.conversa, self.sessao_id)
+                    t['passos'] = (t.get('passos', []) + [
+                        {'ferramenta': nome, 'alvo': _alvo(nome, entrada), 'ok': not b.is_error}])[-AJUDANTE_PASSOS:]
+
     def _ver_fundo(self, m) -> None:
         dados, sub = m.data or {}, m.subtype
-        if sub == 'task_started' and dados.get('is_backgrounded') and dados.get('task_id'):
+        ajudante = dados.get('task_type') == 'local_agent'
+        if sub == 'task_started' and (dados.get('is_backgrounded') or ajudante) and dados.get('task_id'):
             usada = (self.resposta.usadas.get(dados.get('tool_use_id') or '') if self.resposta else None) or ('', {})
             self.fundo[dados['task_id']] = {
-                'id': dados['task_id'], 'comando': str(usada[1].get('command', '')),
+                'id': dados['task_id'], 'tipo': 'ajudante' if ajudante else 'comando',
+                'comando': '' if ajudante else str(usada[1].get('command', '')),
                 'descricao': dados.get('description') or '', 'inicio': time.time(),
+                'tool_use_id': dados.get('tool_use_id'), 'agora': None, 'passos': [],
             }
         elif sub == 'background_tasks_changed':
             # A lista inteira do que roda: o que saiu dela acabou.
@@ -623,7 +675,8 @@ class _Viva:
         e a resposta que o Claude começou sozinho, se houver."""
         comandos = []
         for t in list(self.fundo.values()):
-            arquivo = _arquivo_da_saida(self.sessao_id or '', t['id']) if self.sessao_id else None
+            arquivo = (_arquivo_da_saida(self.sessao_id or '', t['id'])
+                       if self.sessao_id and t.get('tipo') != 'ajudante' else None)
             saida = ''
             if arquivo:
                 with contextlib.suppress(OSError):
@@ -631,8 +684,10 @@ class _Viva:
                         f.seek(0, os.SEEK_END)
                         f.seek(max(0, f.tell() - 4 * SAIDA_MAX))
                         saida = _limpar_saida(f.read().decode('utf-8', 'replace'))
-            comandos.append({**t, 'segundos': int(time.time() - t['inicio']), 'saida': saida})
-        return {'comandos': comandos, 'resposta': self.sozinha.agora() if self.sozinha else None}
+            publico = {k: v for k, v in t.items() if k != 'usadas'}
+            comandos.append({**publico, 'segundos': int(time.time() - t['inicio']), 'saida': saida})
+        return {'comandos': comandos, 'resposta': self.sozinha.agora() if self.sozinha else None,
+                'aprovacoes': list(self.pedidos)}
 
 
 async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, estado: dict | None = None,
@@ -647,11 +702,19 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
     viva = _Viva(conversa, projeto, modelo, modo)
 
     async def decidir(nome, entrada, contexto):
+        # Quem pede: um ajudante (subagente) diz o id dele; o cartão diz que é
+        # ele, com a tarefa dele.
+        id_ajudante = getattr(contexto, 'agent_id', None)
+        ajudante = None
+        if id_ajudante:
+            ajudante = (viva.fundo.get(id_ajudante) or {}).get('descricao') or ''
         # Da resposta da vez: pode ser uma que o Claude começou sozinho.
         r = viva.resposta
         if r is None:
-            return await _decidir(nome, entrada, por, None, projeto, viva.modo, conversa)
-        return await _decidir(nome, entrada, r.por, r.estado['aprovacoes'], projeto, r.modo, conversa)
+            # Ninguém respondendo (um ajudante trabalhando depois da resposta):
+            # o cartão vai pro /fundo, que a tela lê.
+            return await _decidir(nome, entrada, viva.por_fundo, None, projeto, viva.modo, conversa, ajudante)
+        return await _decidir(nome, entrada, r.por, r.estado['aprovacoes'], projeto, r.modo, conversa, ajudante)
 
     async def leitura_fora(dados, tool_use_id, contexto):
         """Ler é livre pro Claude Code; aqui, fora das pastas autorizadas, vira pedido."""
@@ -691,12 +754,15 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
             viva.cliente = cliente
             viva.laco = asyncio.get_running_loop()
             leitor = asyncio.ensure_future(viva.ler())
+            # Registrada desde já: um ajudante trabalha durante a resposta, e
+            # a tela vê ele pelo /fundo (fundo()).
+            if conversa is not None:
+                _vivas[conversa] = viva
             try:
                 await viva.turno(prompt, por, estado, modo, modelo)
                 # Parada no meio também: o comando segue rodando e precisa de dono.
                 if viva.fundo and conversa is not None:
                     log.info('claude (agente): %d comando(s) em segundo plano; a sessão fica aberta', len(viva.fundo))
-                    _vivas[conversa] = viva
                     await viva.viver()
             finally:
                 if _vivas.get(conversa) is viva:
@@ -841,11 +907,11 @@ def fundo(conversa: int) -> dict:
     começou sozinho (GET /conversas/{id}/fundo). Lido de outra thread: cópias."""
     viva = _vivas.get(conversa)
     if viva is None or viva.laco is None:
-        return {'comandos': [], 'resposta': None}
+        return {'comandos': [], 'resposta': None, 'aprovacoes': []}
     try:
         return asyncio.run_coroutine_threadsafe(_no_laco(viva.estado_fundo), viva.laco).result(5)
     except Exception:  # noqa: BLE001 — a sessão acabou de fechar
-        return {'comandos': [], 'resposta': None}
+        return {'comandos': [], 'resposta': None, 'aprovacoes': []}
 
 
 async def _no_laco(funcao):

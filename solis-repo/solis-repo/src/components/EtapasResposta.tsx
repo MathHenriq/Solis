@@ -349,7 +349,9 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
       definirEnviando(false);
     }
   };
-  const titulo = QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`;
+  const doClaude = QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`;
+  // Quem pede pode ser um ajudante (subagente): o cartão diz que é ele.
+  const titulo = pedido.ajudante !== undefined ? doClaude.replace(/^O Claude quer/, 'O ajudante quer') : doClaude;
   const sempre = rotuloSempre(pedido.ferramenta);
   return (
     <div

@@ -500,7 +500,7 @@ async def ler_fundo(conversa: int):
     try:
         from . import agente
     except ImportError:
-        return {'comandos': [], 'resposta': None}
+        return {'comandos': [], 'resposta': None, 'aprovacoes': []}
     return await asyncio.to_thread(agente.fundo, conversa)
 
 
