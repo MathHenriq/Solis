@@ -1143,7 +1143,8 @@ async def _transcrever_escuta(audio: bytes) -> str:
 @app.websocket('/escuta')
 async def escuta(ws: WebSocket):
     """O microfone aberto do navegador: áudio PCM 16 bits, 16 kHz, mono, em
-    pedaços binários. Volta {"tipo": "ativou"} ao ouvir a palavra e, quando a
+    pedaços binários. Primeiro {"tipo": "pronta"} (ou {"tipo": "erro"} e fecha);
+    a tela só abre o microfone depois. Volta {"tipo": "ativou"} ao ouvir a palavra e, quando a
     pessoa para de falar, {"tipo": "texto", "texto"} (ou {"tipo": "nada"}).
     Texto {"pausa": true} do navegador suspende a escuta — enquanto o Solis
     fala, a voz dele não pode acordar ele mesmo."""
@@ -1154,6 +1155,9 @@ async def escuta(ws: WebSocket):
         await ws.send_json({'tipo': 'erro', 'motivo': str(e)[:300]})
         await ws.close()
         return
+    # A tela só abre o microfone depois disto: escuta que não funciona (falta o
+    # modelo, por exemplo) não pode deixar o microfone do PC aberto à toa.
+    await ws.send_json({'tipo': 'pronta'})
     pausada = False
     try:
         while True:

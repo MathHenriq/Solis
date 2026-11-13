@@ -137,6 +137,7 @@ def test_websocket_ativa_transcreve_e_respeita_a_pausa(monkeypatch):
     monkeypatch.setattr(voz, 'transcrever', transcrever)
     c = TestClient(main.app)
     with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}  # só agora a tela abre o microfone
         ws.send_text('{"pausa": true}')
         ws.send_bytes(palavra().tobytes())  # pausada: a palavra não conta
         ws.send_text('{"pausa": false}')
@@ -232,6 +233,7 @@ def test_websocket_whisper_acha_a_palavra_e_manda_o_comando(monkeypatch):
     monkeypatch.setattr(voz, 'transcrever', transcrever)
     c = TestClient(main.app)
     with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
         ws.send_bytes(fala_com_silencio(1.0).tobytes())  # sem a palavra: nada volta
         ws.send_bytes(fala_com_silencio(1.0).tobytes())  # "Solis, que horas são?" de uma vez
         assert ws.receive_json() == {'tipo': 'ativou'}

@@ -44,7 +44,13 @@ export function useVoz(aoTexto: (texto: string) => void) {
     definirErro(null);
     let fluxo: MediaStream;
     try {
-      fluxo = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      // Sem o processamento de chamada, como na escuta (escuta.ts): com o
+      // ganho automático ligado, o navegador mexe no volume do microfone do
+      // Windows enquanto a pessoa fala — e ele fica mexido depois. O Whisper
+      // ouve bem sem eco e sem ruído tratados.
+      fluxo = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
     } catch {
       avisar('sem-microfone');
       return;

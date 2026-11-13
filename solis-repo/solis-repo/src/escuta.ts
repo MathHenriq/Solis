@@ -77,19 +77,65 @@ export function useEscuta(aoTexto: (texto: string) => void) {
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ pausa: falando }));
     });
 
+    // O microfone (e o áudio a 16 kHz) só fica aberto enquanto o servidor
+    // está de fato escutando: abre no "pronta" e fecha no erro ou na queda.
+    // Antes abria primeiro e não fechava no erro — com o modelo do Whisper
+    // faltando, o microfone ficava aberto o app inteiro, à toa, e o som do PC
+    // ficava estranho (relato do Matheus, 13/11/2026).
+    async function abrirMicrofone() {
+      if (fluxo || fim) return;
+      try {
+        // Sem o processamento de chamada (eco, ruído, ganho): com ele, o
+        // navegador mexe no microfone do Windows. O eco não faz falta: a
+        // escuta já pausa enquanto o Solis fala.
+        const f = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
+        if (fim || ws?.readyState !== WebSocket.OPEN) {
+          f.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        fluxo = f;
+        contexto = new AudioContext({ sampleRate: 16000 });
+        await contexto.audioWorklet.addModule('/escuta-processador.js');
+        const no = new AudioWorkletNode(contexto, 'escuta-processador');
+        no.port.onmessage = (e) => {
+          if (!pausada && ws?.readyState === WebSocket.OPEN) ws.send(e.data as ArrayBuffer);
+        };
+        const origem = contexto.createMediaStreamSource(fluxo);
+        origem.connect(no);
+        analisador = criarAnalisador(contexto, origem);
+        definirEstado('esperando');
+      } catch {
+        fecharMicrofone();
+        definirErro('Sem acesso ao microfone. Libere no navegador.');
+        definirEstado('erro');
+      }
+    }
+
+    function fecharMicrofone() {
+      definirFonte(null);
+      fluxo?.getTracks().forEach((t) => t.stop());
+      fluxo = null;
+      void contexto?.close();
+      contexto = null;
+      analisador = null;
+    }
+
     function conectar(tentativa = 0) {
       if (fim) return;
       ws = new WebSocket(urlEscuta());
       ws.binaryType = 'arraybuffer';
       ws.onopen = () => {
-        definirEstado('esperando');
         definirErro(null);
         if (pausada) ws?.send(JSON.stringify({ pausa: true }));
         tentativa = 0;
       };
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; motivo?: string };
-        if (msg.tipo === 'ativou') {
+        if (msg.tipo === 'pronta') {
+          void abrirMicrofone();
+        } else if (msg.tipo === 'ativou') {
           definirEstado('ouvindo');
           if (contexto) bipe(contexto);
           definirFonte(analisador);
@@ -101,55 +147,29 @@ export function useEscuta(aoTexto: (texto: string) => void) {
           definirFonte(null);
           definirEstado('esperando');
         } else if (msg.tipo === 'erro') {
-          definirFonte(null);
+          fecharMicrofone();
           definirErro(msg.motivo ?? 'a escuta não ligou');
           definirEstado('erro');
           fim = true; // configuração faltando: não adianta reconectar
         }
       };
       ws.onclose = () => {
-        definirFonte(null);
+        // Servidor fora: sem ele, o microfone não serve pra nada — fecha.
+        fecharMicrofone();
         if (fim) return;
         // Servidor reiniciando ou fora: tenta de novo, cada vez mais devagar.
         espera = window.setTimeout(() => conectar(tentativa + 1), Math.min(30_000, 1000 * 2 ** tentativa));
       };
     }
 
-    (async () => {
-      try {
-        // Sem o processamento de chamada (eco, ruído, ganho): com ele, o
-        // navegador abre o microfone como "comunicação", e o Windows abaixa
-        // todos os outros sons do PC (80% por padrão) enquanto ele estiver
-        // aberto — e esta escuta fica aberta o tempo todo. O eco não faz
-        // falta: a escuta já pausa enquanto o Solis fala.
-        fluxo = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-        });
-        contexto = new AudioContext({ sampleRate: 16000 });
-        await contexto.audioWorklet.addModule('/escuta-processador.js');
-        const no = new AudioWorkletNode(contexto, 'escuta-processador');
-        no.port.onmessage = (e) => {
-          if (!pausada && ws?.readyState === WebSocket.OPEN) ws.send(e.data as ArrayBuffer);
-        };
-        const origem = contexto.createMediaStreamSource(fluxo);
-        origem.connect(no);
-        analisador = criarAnalisador(contexto, origem);
-        if (fim) return;
-        conectar();
-      } catch {
-        definirErro('Sem acesso ao microfone. Libere no navegador.');
-        definirEstado('erro');
-      }
-    })();
+    conectar();
 
     return () => {
       fim = true;
-      definirFonte(null);
       pararDeOuvirFala();
       window.clearTimeout(espera);
       ws?.close();
-      fluxo?.getTracks().forEach((t) => t.stop());
-      contexto?.close();
+      fecharMicrofone();
     };
   }, [ligada]);
 
