@@ -3,6 +3,7 @@ import { Interruptor } from '../components/Controles';
 import { TEMAS, type EstiloNav, type Tema } from '../theme/theme';
 import { CartaoCerebros } from './CartaoCerebros';
 import { CartaoConectores } from './CartaoConectores';
+import { CartaoDocumentos } from './CartaoDocumentos';
 import { CartaoVoz } from './CartaoVoz';
 
 /** Configurações → Aparência.
@@ -185,6 +186,7 @@ export function Configuracoes({
 
         <CartaoCerebros />
         <CartaoConectores />
+        <CartaoDocumentos />
         <CartaoVoz />
       </div>
     </main>

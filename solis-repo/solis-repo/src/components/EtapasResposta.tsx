@@ -10,7 +10,7 @@ import {
   type EtapaRecebida,
   type Passo,
 } from '../etapas';
-import { responderAprovacao, type Etapa } from '../servidor';
+import { abrirArquivo, responderAprovacao, type Etapa } from '../servidor';
 import { Botao } from './Controles';
 import { Icone } from './icons';
 
@@ -229,6 +229,51 @@ export function DobraEtapas({
       {feitas} {feitas === 1 ? 'etapa' : 'etapas'} · {segundos(duracao(etapas))}
       {vivo && '…'}
     </button>
+  );
+}
+
+/** Os documentos que o Claude criou na resposta (Word, Excel, PDF...), com o
+ *  Abrir (no programa do Windows) e o Mostrar na pasta — como o arquivo que o
+ *  Claude Desktop entrega embaixo da resposta.
+ *
+ *  PROVISÓRIO — desenho próprio (13/11/2026): a ficha do anexo (borda neutra,
+ *  --et-chip-*) com as duas ações em texto à direita
+ *  (layout.thread.etapas._files no solis-tokens.json). */
+export function ArquivosCriados({ etapas }: { etapas: EtapaRecebida[] }) {
+  const lista = etapas.find((e) => e.etapa === 'arquivos')?.lista ?? [];
+  const [falhou, definirFalhou] = useState<string | null>(null);
+  if (!lista.length) return null;
+  const acao = async (caminho: string, pasta: boolean) => {
+    definirFalhou((await abrirArquivo(caminho, pasta)) ? null : caminho);
+  };
+  return (
+    <div className="flex flex-col items-start" style={{ marginTop: 'var(--et-chip-top)', gap: 8 }}>
+      {lista.map((c) => (
+        <div
+          key={c}
+          title={c}
+          className="inline-flex items-center border border-divider text-text-primary"
+          style={{
+            maxWidth: 'var(--th-texto-max)',
+            height: 'var(--et-chip-h)',
+            padding: '0 var(--et-chip-px)',
+            gap: 'var(--et-chip-icone-gap)',
+            fontSize: 'var(--et-chip-texto)',
+            borderRadius: 'var(--et-chip-raio)',
+          }}
+        >
+          <Icone nome="documento" tamanho={14} className="text-text-secondary shrink-0" />
+          <span className="truncate min-w-0">{c.split(/[\\/]/).pop()}</span>
+          <button type="button" onClick={() => acao(c, false)} className="text-accent hover:underline shrink-0" style={{ marginLeft: 8 }}>
+            Abrir
+          </button>
+          <button type="button" onClick={() => acao(c, true)} className="text-text-secondary hover:text-text-primary hover:underline shrink-0">
+            Mostrar na pasta
+          </button>
+          {falhou === c && <span className="text-[var(--erro)] shrink-0">não abriu</span>}
+        </div>
+      ))}
+    </div>
   );
 }
 

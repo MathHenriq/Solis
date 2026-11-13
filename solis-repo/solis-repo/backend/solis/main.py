@@ -411,6 +411,52 @@ async def parar_resposta(conversa: int):
     return {'ok': True}
 
 
+# — Documentos (.docx, .xlsx, .pptx, .pdf) ————————————————————————————————————
+@app.get('/documentos')
+async def ler_documentos():
+    """As bibliotecas que as skills de documento usam estão prontas? (documentos.py)"""
+    from . import documentos
+    return documentos.estado()
+
+
+@app.post('/documentos/preparar')
+async def preparar_documentos():
+    """Baixa e instala as bibliotecas numa pasta do Solis (npm e PyPI). O
+    Matheus clicou em Configurações; demora um ou dois minutos."""
+    from . import documentos
+    try:
+        r = await asyncio.to_thread(documentos.preparar)
+    except documentos.PrepararFalhou as e:
+        banco.registrar_acao(None, 'preparar_documentos', {}, f'não deu: {e}', False)
+        return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
+    banco.registrar_acao(None, 'preparar_documentos', {}, 'bibliotecas instaladas em ' + r['pasta'], True)
+    return r
+
+
+class Abrir(BaseModel):
+    caminho: str
+    # Mostrar na pasta (o Explorer com o arquivo selecionado), em vez de abrir.
+    pasta: bool = False
+
+
+@app.post('/arquivos/abrir')
+async def abrir_arquivo(corpo: Abrir):
+    """Abre um documento que o Claude criou no programa do Windows (ou mostra
+    na pasta). Só documento, e só de onde o Solis trabalha: a pasta de
+    trabalho, as pastas autorizadas e as de projeto já abertas."""
+    from . import agente, documentos
+    p = Path(corpo.caminho)
+    permitido = agente._dentro(str(p)) or any(
+        p.resolve().is_relative_to(Path(r).resolve()) for r in banco.projetos_recentes(50) if Path(r).is_dir())
+    if not permitido:
+        return JSONResponse({'erro': 'fora_das_pastas'}, status_code=403)
+    try:
+        documentos.abrir(str(p), corpo.pasta)
+    except documentos.PrepararFalhou as e:
+        return JSONResponse({'erro': 'nao_abre', 'motivo': str(e)}, status_code=400)
+    return {'ok': True}
+
+
 # — Conectores da conta do claude.ai ——————————————————————————————————————————
 @app.get('/conectores')
 async def ler_conectores(atualizar: bool = False):

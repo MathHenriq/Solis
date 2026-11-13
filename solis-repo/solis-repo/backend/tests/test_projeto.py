@@ -102,13 +102,13 @@ def _opcoes_da_sessao(monkeypatch, **kw):
 
 def test_sessao_no_projeto_le_o_claude_md_e_trabalha_la(projeto, monkeypatch):
     o = _opcoes_da_sessao(monkeypatch, projeto=str(projeto), modo='planejar')
-    assert o.cwd == str(projeto.resolve()) and o.setting_sources == ['project', 'local']
+    assert o.cwd == str(projeto.resolve()) and o.setting_sources == ['user', 'project', 'local']
     assert o.permission_mode == 'plan' and str(projeto) in o.system_prompt
 
 
 def test_sessao_sem_projeto_nao_le_nada_do_disco(projeto, monkeypatch):
     o = _opcoes_da_sessao(monkeypatch)
-    assert o.setting_sources == [] and o.permission_mode == 'default'
+    assert o.setting_sources == ['user'] and o.permission_mode == 'default' and o.skills == 'all'
     assert o.cwd == str(agente._pasta_trabalho().resolve())
 
 

@@ -36,7 +36,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from pathlib import Path
 
-from . import banco, pc
+from . import banco, documentos, pc
 from .etapas import MUDA
 
 log = logging.getLogger('solis.agente')
@@ -683,8 +683,15 @@ class _Viva:
             estado['laco'] = asyncio.get_running_loop()
             self.resposta = _Resposta(self, por, estado, modo)
             resposta = self.resposta
+            # Os documentos da pasta antes: no fim, o que ele criou aparece
+            # embaixo da resposta, pra abrir (documentos.novos).
+            base = _base(self.projeto)
+            antes = await asyncio.to_thread(documentos.fotografia, base)
             await self.cliente.query(prompt)
             await resposta.feito
+            criados = documentos.novos(antes, await asyncio.to_thread(documentos.fotografia, base))
+            if criados:
+                por('etapa', ('arquivos', {'lista': criados}))
         except Exception as e:  # noqa: BLE001 — vira erro do cérebro, do outro lado
             if not estado.get('parado') and not isinstance(e, AgenteFalhou):
                 log.exception('o agente do Claude falhou')
@@ -773,6 +780,12 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         return {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'ask',
                                        'permissionDecisionReason': 'fora das pastas autorizadas'}}
 
+    sistema += ('\n\nPra criar um documento (Word, Excel, PowerPoint, PDF), use a skill do formato. As '
+                'bibliotecas que elas usam já estão instaladas (NODE_PATH e PYTHONPATH): não instale de novo. '
+                'Salve o arquivo na pasta atual, com um nome claro; script de apoio, se precisar, numa subpasta '
+                '.solis-scripts dela (nunca fora da pasta atual).' if documentos.estado()['pronto'] else
+                '\n\nPra criar um documento (Word, Excel, PowerPoint, PDF), use a skill do formato. Salve o arquivo '
+                'na pasta atual, com um nome claro.')
     if projeto:
         sistema += (f'\n\nVocê está trabalhando no projeto em {projeto} (a pasta atual). Siga o CLAUDE.md dele, '
                     'se houver. Ler ali dentro é livre; escrever, editar e rodar comandos seguem o modo da conversa.')
@@ -788,9 +801,15 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         resume=retomar,
         model=modelo,
         effort=esforco,
-        # Num projeto, o Claude lê o CLAUDE.md e a configuração dele, como o
-        # Claude Code; fora de um, nada do disco entra.
-        setting_sources=['project', 'local'] if projeto else [],
+        # "user": as skills da conta do claude.ai (docx, xlsx, pptx, pdf, as do
+        # Matheus), sincronizadas em ~/.claude/skills — documentos.py. Traz
+        # também a configuração de usuário do Claude Code (hoje vazia: sem
+        # permissões nem hooks, conferido em 13/11/2026). Num projeto, o
+        # CLAUDE.md e a configuração dele, como o Claude Code.
+        setting_sources=['user', 'project', 'local'] if projeto else ['user'],
+        skills='all',
+        # Onde estão as bibliotecas que as skills de documento usam.
+        env=documentos.env(),
         permission_mode='plan' if modo == 'planejar' else 'default',
         max_turns=RODADAS_MAX,
         # Voltar atrás: o CLI guarda cada arquivo antes de editar, e devolve a

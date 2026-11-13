@@ -231,6 +231,8 @@ export type Etapa = {
   ajudante?: string;
   /** Etapa `aprovacao` de um conector: o que vai ser mandado (JSON). */
   entrada?: string;
+  /** Etapa `arquivos`: os documentos que o Claude criou nesta resposta (caminhos). */
+  lista?: string[];
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -410,6 +412,43 @@ export async function acaoGit(
     return r.ok ? { ok: true, dados: corpo } : { ok: false, erro: corpo.motivo ?? 'não deu' };
   } catch {
     return { ok: false, erro: 'Não consegui falar com o servidor do Solis.' };
+  }
+}
+
+/** As bibliotecas que as skills de documento usam (docx, xlsx, pptx, pdf). */
+export type EstadoDocumentos = { pronto: boolean; falta: string[]; pasta: string; node: boolean; python: boolean };
+
+export async function lerDocumentos(): Promise<EstadoDocumentos | null> {
+  try {
+    const r = await fetch(`${BASE}/documentos`);
+    return r.ok ? ((await r.json()) as EstadoDocumentos) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Baixa e instala as bibliotecas (um ou dois minutos). Erro: o motivo. */
+export async function prepararDocumentos(): Promise<EstadoDocumentos | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/documentos/preparar`, { method: 'POST' });
+    const corpo = await r.json();
+    return r.ok ? (corpo as EstadoDocumentos) : { erro: corpo.motivo ?? 'não deu' };
+  } catch {
+    return { erro: 'Não consegui falar com o servidor do Solis.' };
+  }
+}
+
+/** Abre o documento no programa do Windows, ou mostra na pasta. */
+export async function abrirArquivo(caminho: string, pasta = false): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/arquivos/abrir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caminho, pasta }),
+    });
+    return r.ok;
+  } catch {
+    return false;
   }
 }
 

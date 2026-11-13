@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas, TerminaisAoVivo } from '../components/EtapasResposta';
+import { ArquivosCriados, AvisosDepois, CartoesAprovacao, DobraEtapas, ListaEtapas, TerminaisAoVivo } from '../components/EtapasResposta';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
@@ -344,6 +344,7 @@ function RespostaSolis({
           )}
           {vivo && <TerminaisAoVivo etapas={etapas} />}
           {vivo && <CartoesAprovacao etapas={etapas} />}
+          <ArquivosCriados etapas={etapas} />
           <AvisosDepois etapas={etapas} />
         </div>
       </div>
