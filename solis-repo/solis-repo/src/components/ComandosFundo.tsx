@@ -10,7 +10,7 @@ import { Icone } from './icons';
  *  as tarefas em segundo plano. Abre pra cima: cada comando com o fim da
  *  saída e o Parar.
  *
- *  PROVISÓRIO — desenho próprio (12/11/2026), base no Claude Code: o botão no
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio (12/11/2026), base no Claude Code: o botão no
  *  texto secundário da barra do projeto, com o ponto da etapa atual; a caixa
  *  dos menus do Conhecimento (--kn-menu-*) e a saída no terminal da conversa
  *  (layout.thread.etapas._background no solis-tokens.json). */

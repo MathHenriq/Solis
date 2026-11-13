@@ -71,7 +71,7 @@ const COR: Record<Passo['estado'], string> = {
 };
 
 /** A saída de um comando, como um terminal pequeno: o fim dela, rolado pro
- *  fim. PROVISÓRIO — desenho próprio (12/11/2026), base no Claude Code: a
+ *  fim. Aprovado pelo Matheus em 13/11/2026 — desenho próprio (12/11/2026), base no Claude Code: a
  *  caixa do bloco de código (--cod-*) e do diff, com a letra mono dele. */
 export function SaidaTerminal({ texto, rotulo, recuo = 0 }: { texto: string; rotulo: string; recuo?: number | string }) {
   const caixa = useRef<HTMLPreElement>(null);

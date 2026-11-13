@@ -8,9 +8,9 @@ import { Botao } from './Controles';
  *  quiser, a conversa volta junto (a fala vai pro campo de novo, como no
  *  /rewind do Claude Code). Antes de voltar, mostra o que volta.
  *
- *  PROVISÓRIO — desenho próprio (12/11/2026), base no Claude Code: o cartão
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio (12/11/2026), base no Claude Code: o cartão
  *  de aprovação (--et-apr-*) com a borda neutra (layout.thread.etapas._rewind
- *  no solis-tokens.json). Precisa do aval do Matheus nos 3 temas e 2 navs. */
+ *  no solis-tokens.json). */
 
 type Estado =
   | { tipo: 'vendo' }

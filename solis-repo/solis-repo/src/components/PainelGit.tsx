@@ -9,7 +9,7 @@ import { Icone } from './icons';
  *  o diff, o commit, o push e o PR. Cada ação é o Matheus clicando (e vai pro
  *  registro de ações, no servidor).
  *
- *  PROVISÓRIO — desenho próprio (12/11/2026), base no Claude Code Desktop: o
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio (12/11/2026), base no Claude Code Desktop: o
  *  botão no texto da barra do projeto; abre pra cima na caixa dos menus do
  *  Conhecimento (--kn-menu-*), na largura --git-largura; o diff é o do cartão
  *  de aprovação (layout.thread.etapas._git no solis-tokens.json). */
