@@ -6,9 +6,9 @@ import { listarConectores, type Conector } from '../servidor';
  *  Conectores no Claude Desktop. Ligar um novo e entrar num que pede é no
  *  claude.ai: o Solis usa os da conta, não guarda senha de ninguém.
  *
- *  PROVISÓRIO — desenho próprio (13/11/2026): o cartão e as linhas do de
+ *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio (13/11/2026): o cartão e as linhas do de
  *  Cérebros (layout.configuracoes.cerebros, aprovado em 08/11/2026), só texto,
- *  sem controles. Precisa do aval do Matheus nos 3 temas e 2 navs. */
+ *  sem controles. */
 
 function estadoDe(c: Conector): string {
   switch (c.estado) {

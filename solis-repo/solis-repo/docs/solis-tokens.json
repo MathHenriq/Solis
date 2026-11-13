@@ -348,7 +348,7 @@
         "_status": "Desenho proprio, sem referencia (08/11/2026; o Matheus liberou o front), aprovado por ele pelos prints no mesmo dia (design/cerebros-validacao.png). Segundo cartao de Configuracoes, no padrao do Aparencia ja medido (mesmo cartao, mesma linha, mesmo interruptor). Ordem por setas e nao por arrastar: arrastar nao funciona no teclado, e sao 3 itens.",
         "cardGap": "30px",
         "_cardGap": "Igual ao rowPadY: o ritmo vertical do cartao continua entre um cartao e o outro.",
-        "_conectores": "PROVISORIO - desenho proprio (13/11/2026): Configuracoes -> Conectores (CartaoConectores.tsx) usa este mesmo cartao e as mesmas linhas (cardGap, rowPadY, textMax), so texto e sem controles: o nome em --cfg-rotulo e o estado em --cfg-dica; 'Precisa entrar' na cor --erro; 'Ver de novo' a direita do titulo como as acoes em texto do cartao. Na conversa, o cartao de aprovacao de um conector mostra o que vai ser mandado na caixa do terminal (terminal*). Precisa do aval do Matheus nos 3 temas e 2 navs.",
+        "_conectores": "APROVADO pelo Matheus em 13/11/2026 nos 3 temas e 2 navs - desenho proprio (13/11/2026): Configuracoes -> Conectores (CartaoConectores.tsx) usa este mesmo cartao e as mesmas linhas (cardGap, rowPadY, textMax), so texto e sem controles: o nome em --cfg-rotulo e o estado em --cfg-dica; 'Precisa entrar' na cor --erro; 'Ver de novo' a direita do titulo como as acoes em texto do cartao. Na conversa, o cartao de aprovacao de um conector mostra o que vai ser mandado na caixa do terminal (terminal*).",
         "orderIcon": "16px",
         "orderHit": "28px",
         "_orderIcon": "Os mesmos do iconSize/iconHit das acoes da Memoria: o mesmo tipo de controle secundario.",
