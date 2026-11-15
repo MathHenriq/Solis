@@ -183,6 +183,7 @@ def test_migracao_11_num_banco_antigo(tmp_path):
     banco._con().execute('DROP TABLE pontos_volta')
     banco._con().execute('DROP TABLE projeto_arquivos')
     banco._con().execute('DROP TABLE projetos')
+    banco._con().execute('DROP TABLE agendadas')
     banco._con().execute('PRAGMA user_version = 10')
     banco._con().commit()
     banco.usar(caminho)

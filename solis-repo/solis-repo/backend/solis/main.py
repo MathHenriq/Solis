@@ -63,6 +63,8 @@ async def _vida(_app):
     leitura = asyncio.create_task(ocr.ler_se_livre())
     # E a vigiar a Agenda e as Tarefas: o aviso do Windows na hora.
     vigia = asyncio.create_task(avisos.vigiar())
+    # E as tarefas agendadas: o pedido ao Claude na hora marcada.
+    relogio = asyncio.create_task(_vigiar_agendadas())
     # E a tirar o Whisper da memória quando ninguém fala há um tempo.
     ouvido = asyncio.create_task(voz.vigiar())
     boca = asyncio.create_task(fala.vigiar())
@@ -71,6 +73,7 @@ async def _vida(_app):
     indexacao.cancel()
     leitura.cancel()
     vigia.cancel()
+    relogio.cancel()
     ouvido.cancel()
 
 
@@ -294,8 +297,9 @@ class Envio(BaseModel):
     # O botão Pesquisa: vai pro Claude, com a orientação de pesquisa longa
     # (várias fontes, citações, as fontes no fim) — roteador.NOTA_PESQUISA.
     pesquisa: bool = False
-
-
+    # Interno (o relógio das agendadas, não a tela): o nome da tarefa agendada
+    # que mandou esta mensagem — vai uma nota pro cérebro, não pra conversa.
+    agendada: str = ''
 # Referência forte às respostas em andamento: sem ela o coletor de lixo pode
 # levar uma tarefa no meio.
 _tarefas: set[asyncio.Task] = set()
@@ -328,8 +332,9 @@ async def enviar(conversa: int, envio: Envio):
 
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
-    if envio.pesquisa and not forcado:
-        # Pesquisa longa é do Claude: ele busca, lê, usa ajudantes e cita.
+    if (envio.pesquisa or envio.agendada) and not forcado:
+        # Pesquisa longa é do Claude: ele busca, lê, usa ajudantes e cita. A
+        # tarefa agendada também: é a do Claude Desktop (agendadas.py).
         ordem, forcado = ['claude'], True
     if anexos and not forcado:
         # Com anexo, o Claude primeiro: ele lê texto, PDF e imagem; o modelo
@@ -360,7 +365,7 @@ async def enviar(conversa: int, envio: Envio):
     parar = _paradas[conversa] = asyncio.Event()
     tarefa = asyncio.create_task(
         _responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz, anexos,
-                   envio.pesquisa)
+                   envio.pesquisa, envio.agendada)
     )
     _tarefas.add(tarefa)
     tarefa.add_done_callback(_tarefas.discard)
@@ -573,6 +578,137 @@ async def parar_resposta(conversa: int):
         return JSONResponse({'erro': 'nada_respondendo'}, status_code=404)
     parar.set()
     return {'ok': True}
+
+
+# — Tarefas agendadas ——————————————————————————————————————————————————————————
+class Agendada(BaseModel):
+    nome: str
+    pedido: str
+    frequencia: str
+    hora: str
+    dia_semana: int | None = None
+    data: str | None = None
+    ativa: bool = True
+
+
+def _com_descricao(a: dict) -> dict:
+    from . import agendadas
+    return {**a, 'descricao': agendadas.descrever(a)}
+
+
+def _validar_agendada(corpo: Agendada) -> JSONResponse | None:
+    from . import agendadas
+    if not corpo.nome.strip() or not corpo.pedido.strip():
+        return JSONResponse({'erro': 'sem_nome_ou_pedido'}, status_code=400)
+    try:
+        agendadas.validar(corpo.frequencia, corpo.hora, corpo.dia_semana, corpo.data)
+    except agendadas.AgendaInvalida as e:
+        return JSONResponse({'erro': 'agenda_invalida', 'motivo': str(e)}, status_code=400)
+    return None
+
+
+@app.get('/agendadas')
+async def listar_agendadas():
+    """As tarefas agendadas, com a frase de quando ("Todo dia às 8:00") e a
+    próxima vez."""
+    return {'agendadas': [_com_descricao(a) for a in banco.agendadas()]}
+
+
+@app.post('/agendadas')
+async def criar_agendada(corpo: Agendada):
+    from . import agendadas
+    if erro := _validar_agendada(corpo):
+        return erro
+    prox = agendadas.proxima(corpo.frequencia, corpo.hora, datetime.now(), corpo.dia_semana, corpo.data)
+    if prox is None:
+        return JSONResponse({'erro': 'agenda_invalida', 'motivo': 'essa data já passou'}, status_code=400)
+    a = banco.criar_agendada(corpo.nome.strip()[:120], corpo.pedido.strip()[:4000], corpo.frequencia, corpo.hora,
+                             corpo.dia_semana, corpo.data, prox.isoformat(timespec='minutes'))
+    banco.registrar_acao(None, 'agendar_tarefa', {'nome': a['nome']}, agendadas.descrever(a), True)
+    return _com_descricao(a)
+
+
+@app.put('/agendadas/{id_}')
+async def editar_agendada(id_: int, corpo: Agendada):
+    from . import agendadas
+    if not banco.agendada(id_):
+        return JSONResponse({'erro': 'agendada_inexistente'}, status_code=404)
+    if erro := _validar_agendada(corpo):
+        return erro
+    prox = agendadas.proxima(corpo.frequencia, corpo.hora, datetime.now(), corpo.dia_semana, corpo.data)
+    a = banco.editar_agendada(id_, corpo.nome.strip()[:120], corpo.pedido.strip()[:4000], corpo.frequencia,
+                              corpo.hora, corpo.dia_semana, corpo.data, corpo.ativa and prox is not None,
+                              prox.isoformat(timespec='minutes') if prox else None)
+    return _com_descricao(a)
+
+
+@app.delete('/agendadas/{id_}')
+async def apagar_agendada(id_: int):
+    if not banco.apagar_agendada(id_):
+        return JSONResponse({'erro': 'agendada_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
+@app.post('/agendadas/{id_}/rodar')
+async def rodar_agendada_agora(id_: int):
+    """Roda agora (sem mudar a próxima vez): a conversa nasce já, e o Claude
+    responde nela em segundo plano."""
+    a = banco.agendada(id_)
+    if not a:
+        return JSONResponse({'erro': 'agendada_inexistente'}, status_code=404)
+    conversa = _conversa_da_agendada(a)
+    tarefa = asyncio.create_task(_executar_agendada(a, conversa))
+    _tarefas.add(tarefa)
+    tarefa.add_done_callback(_tarefas.discard)
+    return {'conversa': conversa}
+
+
+def _conversa_da_agendada(a: dict) -> int:
+    conversa = banco.nova_conversa()
+    banco.guardar_titulo(conversa, a['nome'])
+    return conversa
+
+
+async def _executar_agendada(a: dict, conversa: int) -> None:
+    """O pedido da tarefa, como uma mensagem pro Claude na conversa dela; no
+    fim, o aviso do Windows com o começo da resposta."""
+    try:
+        resposta = await enviar(conversa, Envio(texto=a['pedido'], agendada=a['nome']))
+        if isinstance(resposta, StreamingResponse):
+            async for _ in resposta.body_iterator:
+                pass
+        ultima = next((m for m in reversed(banco.mensagens(conversa)) if m['papel'] == 'solis'), None)
+        texto = (ultima or {}).get('texto') or 'Terminou sem resposta.'
+        banco.marcar_agendada(a['id'], **_proxima_de(a), ultima=datetime.now().isoformat(timespec='minutes'),
+                              ultima_conversa=conversa)
+        await avisos.mostrar(f'Tarefa agendada: {a["nome"]}', ' '.join(texto.split())[:160], f'agendada-{a["id"]}-{conversa}')
+        log.info('agendada %s rodou na conversa %s', a['id'], conversa)
+    except Exception:
+        log.exception('a tarefa agendada %s falhou', a['id'])
+
+
+def _proxima_de(a: dict) -> dict:
+    """O que a tarefa tem agora no banco (rodar agora não mexe na próxima)."""
+    atual = banco.agendada(a['id']) or a
+    return {'proxima': atual['proxima'], 'ativa': atual['ativa']}
+
+
+async def _vigiar_agendadas() -> None:
+    """O relógio das agendadas: confere a cada 30 s, como o dos avisos."""
+    from . import agendadas
+    while True:
+        try:
+            for a in agendadas.vencidas(datetime.now()):
+                # Marca a próxima vez antes de rodar: a conferida seguinte não
+                # pode rodar a mesma de novo enquanto o Claude responde.
+                agendadas.avancar(a, datetime.now())
+                conversa = _conversa_da_agendada(a)
+                tarefa = asyncio.create_task(_executar_agendada(a, conversa))
+                _tarefas.add(tarefa)
+                tarefa.add_done_callback(_tarefas.discard)
+        except Exception:
+            log.exception('a conferida das agendadas falhou')
+        await asyncio.sleep(30)
 
 
 # — Documentos (.docx, .xlsx, .pptx, .pdf) ————————————————————————————————————
@@ -845,6 +981,7 @@ async def _responder(
     voz: bool = False,
     anexos: list[dict] | None = None,
     pesquisa: bool = False,
+    agendada: str = '',
 ) -> None:
     resposta_id = None
     parar = _paradas.get(conversa)
@@ -890,7 +1027,8 @@ async def _responder(
         try:
             aberto, parada = await _ate_parar(
                 roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido,
-                                   texto + roteador.nota_anexos(anexos) + (roteador.NOTA_PESQUISA if pesquisa else ''),
+                                   texto + roteador.nota_anexos(anexos) + (roteador.NOTA_PESQUISA if pesquisa else '')
+                                   + roteador.nota_agendada(agendada),
                                    etapas, voz=voz),
                 parar,
             )

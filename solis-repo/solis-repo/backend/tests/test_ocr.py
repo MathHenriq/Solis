@@ -232,6 +232,7 @@ def test_migracao_10_mantem_os_documentos(tmp_path):
     c.execute('DROP TABLE pontos_volta')
     c.execute('DROP TABLE projeto_arquivos')
     c.execute('DROP TABLE projetos')
+    c.execute('DROP TABLE agendadas')
     c.execute('PRAGMA user_version = 9')
     c.commit()
     banco.usar(caminho)

@@ -467,6 +467,7 @@ const QUER: Record<string, string> = {
   Grep: 'O Claude quer procurar fora das pastas autorizadas',
   LS: 'O Claude quer olhar fora das pastas autorizadas',
   ExitPlanMode: 'O Claude quer seguir com este plano',
+  mcp__solis__agendar_tarefa: 'O Claude quer agendar uma tarefa',
 };
 
 /** PROVISÓRIO — desenho próprio, sem referência (layout.thread.etapas._approval
@@ -518,7 +519,8 @@ export function Diff({ texto }: { texto: string }) {
 /** O "sempre" de cada pedido: o comando exato, ou as edições da conversa
  *  (backend agente._regra). O plano não tem: cada plano é aprovado olhando. */
 function rotuloSempre(ferramenta?: string): string | null {
-  if (ferramenta === 'ExitPlanMode') return null;
+  // O plano e cada agendamento se aprovam um a um.
+  if (ferramenta === 'ExitPlanMode' || ferramenta === 'mcp__solis__agendar_tarefa') return null;
   if (ferramenta === 'Bash' || ferramenta === 'PowerShell') return 'Sempre este comando';
   return 'Sempre nesta conversa';
 }
@@ -547,6 +549,7 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
   // Quem pede pode ser um ajudante (subagente): o cartão diz que é ele.
   const titulo = pedido.ajudante !== undefined ? doClaude.replace(/^O Claude quer/, 'O ajudante quer') : doClaude;
   const sempre = rotuloSempre(pedido.ferramenta);
+  const agendar = pedido.ferramenta === 'mcp__solis__agendar_tarefa';
   return (
     <div
       role="group"
@@ -559,7 +562,7 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
         background: 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)',
       }}
     >
-      <div className={`flex ${pedido.ferramenta === 'ExitPlanMode' ? 'items-end' : 'items-center'}`} style={{ gap: 'var(--et-apr-gap)' }}>
+      <div className={`flex ${pedido.ferramenta === 'ExitPlanMode' || agendar ? 'items-end' : 'items-center'}`} style={{ gap: 'var(--et-apr-gap)' }}>
         <div className="flex-1 min-w-0">
           <div className="text-text-primary" style={{ fontSize: 'var(--et-texto)' }}>
             {titulo}
@@ -572,6 +575,20 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
             >
               {pedido.alvo}
             </div>
+          ) : agendar ? (
+            // Agendar uma tarefa: o nome e quando, e o pedido inteiro, legível —
+            // é o que o Claude vai fazer sozinho, sem ninguém olhando.
+            <>
+              <div className="text-text-secondary" style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}>
+                {pedido.alvo}
+              </div>
+              <div
+                className="text-text-primary whitespace-pre-wrap overflow-y-auto"
+                style={{ fontSize: 'var(--et-texto)', lineHeight: 1.5, marginTop: 6, maxHeight: 200 }}
+              >
+                {pedido.entrada}
+              </div>
+            </>
           ) : (
             pedido.alvo && (
               <div
@@ -605,7 +622,7 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
       </div>
       {pedido.diff && <Diff texto={pedido.diff} />}
       {/* Num conector: o que vai ser mandado (o evento, o arquivo, a mensagem). */}
-      {pedido.entrada && (
+      {pedido.entrada && !agendar && (
         <div style={{ marginTop: 10 }}>
           <SaidaTerminal texto={pedido.entrada} rotulo="O que vai ser mandado" />
         </div>

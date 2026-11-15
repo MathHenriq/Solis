@@ -258,6 +258,16 @@ def resumo(nome: str, entrada: dict) -> str:
         return f'Ler fora das pastas autorizadas: {entrada.get("file_path") or entrada.get("path") or ""}'
     if nome == 'ExitPlanMode':
         return 'Seguir com o plano'
+    if nome == 'mcp__solis__agendar_tarefa':
+        from . import agendadas
+        try:
+            agendadas.validar(entrada.get('frequencia', ''), entrada.get('hora', ''), entrada.get('dia_semana'),
+                              entrada.get('data'))
+            quando = agendadas.descrever({**entrada, 'dia_semana': entrada.get('dia_semana'),
+                                          'data': entrada.get('data')})
+        except (agendadas.AgendaInvalida, KeyError, IndexError, TypeError):
+            quando = 'horário inválido'
+        return f'Agendar "{entrada.get("nome", "")}": {quando}'
     return f'Usar {nome}'
 
 
@@ -307,9 +317,41 @@ def _ferramentas_solis():
         achadas = [m for m in banco.buscar_memorias(args['busca'], 20) if not m.get('privada')]
         return texto('\n'.join(f'- {m["texto"]}' for m in achadas) or 'Nada guardado sobre isso.')
 
+    @tool('agendar_tarefa', 'Agenda uma tarefa que o Claude faz sozinho num horário, como as tarefas agendadas '
+          'do Claude Desktop: na hora, o Solis abre uma conversa com o nome da tarefa, manda o pedido e avisa no '
+          'Windows quando acaba. Use quando o Matheus pedir pra fazer algo todo dia, toda semana, numa data. '
+          'frequencia: uma_vez (com data AAAA-MM-DD), diaria, dias_uteis, semanal (com dia_semana 0 = segunda '
+          '... 6 = domingo) ou hora_em_hora (só os minutos da hora contam). hora em HH:MM. pedido: o que fazer, '
+          'escrito pra quem vai fazer sem ninguém olhando. O Matheus aprova antes de agendar.',
+          {'type': 'object', 'required': ['nome', 'pedido', 'frequencia', 'hora'], 'properties': {
+              'nome': {'type': 'string'}, 'pedido': {'type': 'string'},
+              'frequencia': {'type': 'string', 'enum': ['uma_vez', 'diaria', 'dias_uteis', 'semanal', 'hora_em_hora']},
+              'hora': {'type': 'string'}, 'dia_semana': {'type': 'integer'}, 'data': {'type': 'string'}}})
+    async def agendar_tarefa(args):
+        from . import agendadas
+        try:
+            dia, data = args.get('dia_semana'), (args.get('data') or None)
+            agendadas.validar(args['frequencia'], args['hora'], dia, data)
+            prox = agendadas.proxima(args['frequencia'], args['hora'], datetime.now(), dia, data)
+        except (agendadas.AgendaInvalida, KeyError) as e:
+            return texto(f'Não deu pra agendar: {e} inválida.')
+        if prox is None:
+            return texto('Não deu pra agendar: essa data já passou.')
+        a = banco.criar_agendada(args['nome'].strip()[:120], args['pedido'].strip()[:4000], args['frequencia'],
+                                 args['hora'], dia, data, prox.isoformat(timespec='minutes'))
+        return texto(f'Agendada: {a["nome"]}, {agendadas.descrever(a).lower()}. Próxima vez: '
+                     f'{prox.strftime("%d/%m às %H:%M")}. Fica em Configurações → Tarefas agendadas.')
+
     return create_sdk_mcp_server(
-        name='solis', tools=[hora, criar_lembrete, marcar_compromisso, ver_agenda, ver_tarefas, buscar_memoria],
+        name='solis', tools=[hora, criar_lembrete, marcar_compromisso, ver_agenda, ver_tarefas, buscar_memoria,
+                             agendar_tarefa],
     )
+
+
+# As do Solis que pedem o Matheus antes (o resto das mcp__solis__ é livre).
+SOLIS_PEDEM = {'mcp__solis__agendar_tarefa'}
+SOLIS_LIVRES = ['mcp__solis__hora', 'mcp__solis__criar_lembrete', 'mcp__solis__marcar_compromisso',
+                'mcp__solis__ver_agenda', 'mcp__solis__ver_tarefas', 'mcp__solis__buscar_memoria']
 
 
 async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto: str | None = None,
@@ -319,7 +361,7 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
     `modo` aceitar: editar arquivo dentro do projeto não pede (fica no registro)."""
     from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny, PermissionUpdate
 
-    if nome in LIVRES or nome.startswith('mcp__solis__'):
+    if nome in LIVRES or (nome.startswith('mcp__solis__') and nome not in SOLIS_PEDEM):
         return PermissionResultAllow()
     # Um conector que só lê (o próprio conector marca: readOnly) é livre, como
     # ler arquivo na pasta autorizada; criar, mudar, apagar ou compartilhar pede.
@@ -345,6 +387,11 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
               **({'ajudante': ajudante} if ajudante is not None else {}),
               # Num conector, a ação (create_event); o que vai, inteiro, em `entrada`.
               'alvo': (conector_de(nome) or ('', ''))[1] or _alvo(nome, entrada, 6000 if nome == 'ExitPlanMode' else 1000)}
+    if nome == 'mcp__solis__agendar_tarefa':
+        # Agendar: na linha, o nome e quando ("Revisão · Toda sexta às 17:00");
+        # o pedido inteiro embaixo, legível — é o que vai rodar sem ninguém olhando.
+        pedido['alvo'] = resumo(nome, entrada).removeprefix('Agendar ').replace('": ', '" · ', 1)
+        pedido['entrada'] = str(entrada.get('pedido') or '')[:3000]
     diff = _diff(nome, entrada, projeto)
     if diff:
         pedido['diff'] = diff
@@ -355,7 +402,7 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
         ok = False
     finally:
         _pendentes.pop(id_, None)
-    if ok == 'sempre':
+    if ok == 'sempre' and nome not in SOLIS_PEDEM:  # agendar se aprova uma a uma
         _sempre.setdefault(conversa, set()).add(_regra(nome, entrada))
     ok = bool(ok)
     por('etapa', ('aprovacao_resposta', {'id': id_, 'aprovado': ok}))
@@ -885,7 +932,9 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         cwd=str(_base(projeto)),
         add_dirs=[str(r) for r in _raizes(projeto)[1:]],
         mcp_servers={'solis': _ferramentas_solis()},
-        allowed_tools=['WebSearch', 'WebFetch', 'mcp__solis__*'],
+        # allowed_tools passa por cima do can_use_tool: só as livres (agendar
+        # uma tarefa pede cartão — SOLIS_PEDEM).
+        allowed_tools=['WebSearch', 'WebFetch', *SOLIS_LIVRES],
         can_use_tool=decidir,
         hooks={'PreToolUse': [HookMatcher(matcher='Read|Glob|Grep|LS', hooks=[leitura_fora])]},
         include_partial_messages=True,
@@ -1009,7 +1058,7 @@ async def _seguir_saida(sessao: str, tarefa: str, id_: str, comando: str, por, p
 
 def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
     for chave in ('file_path', 'notebook_path', 'path', 'pattern', 'query', 'url', 'command', 'description',
-                  'texto', 'titulo', 'busca', 'plan'):
+                  'texto', 'titulo', 'busca', 'plan', 'pedido'):
         if entrada.get(chave):
             valor = str(entrada[chave])
             if len(valor) > limite and chave in ('file_path', 'notebook_path', 'path'):

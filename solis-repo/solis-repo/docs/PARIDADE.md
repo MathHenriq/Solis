@@ -57,7 +57,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | Lista de tarefas do próprio trabalho (o plano que ele mostra fazendo) | 15/11/2026: no modo SDK a lista vinha desligada; ligada (CLAUDE_CODE_ENABLE_TODO_TOOLS), o Claude cria o plano (TaskCreate) e vai marcando (TaskUpdate). Na resposta, "Plano · N de M feitos" com as marcas das etapas: aberto ao vivo, recolhido no fim; o plano continua de uma mensagem pra outra, como no Claude Code. Provado pelo app nas duas navegações | P2 |
 | ⬜ | Navegador: abrir, ler, clicar, preencher | — | P2 |
 | ⬜ | Controle da tela (ver, clicar, digitar em qualquer app) | — | P3 |
-| ⬜ | Tarefas agendadas e recorrentes | — (os avisos de lembrete existem) | P2 |
+| ✅ | Tarefas agendadas e recorrentes | 15/11/2026: Configurações → Tarefas agendadas (uma vez, todo dia, dias úteis, toda semana, de hora em hora), ou pedindo na conversa — o Claude agenda com cartão de aprovação (o nome, quando e o pedido inteiro). Na hora, o relógio do servidor abre uma conversa com o nome da tarefa, manda o pedido pro Claude com a nota de que ninguém está olhando e avisa no Windows quando acaba; "Rodar agora" e "Última" abrem a conversa. Só roda com o Solis aberto; a que venceu com ele fechado roda ao abrir, se o atraso for de até 6 h. Provado pelo app: a de uma vez rodou sozinha às 11:41 e o Claude respondeu na conversa dela | P2 |
 | 🟡 | Skills: roteiros que o Matheus escreve uma vez | 13/11/2026: as skills da conta do claude.ai (as dele, como as do Núcleo WIT, e as da Anthropic) entram no Claude do Solis pela fonte "user" do CLI. Falta a tela pra ver e escrever skills no Solis | P2 |
 
 ## Trabalhar num projeto (Claude Code)

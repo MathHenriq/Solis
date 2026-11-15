@@ -100,6 +100,11 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
 | `DELETE /cerebros/{nome}/chave` | apaga a chave e o modelo e desliga o cérebro |
 | `POST /cerebros/{nome}/retomar` | tira o cérebro da pausa antes da hora (a cota renovou, o login foi feito). `404` se o nome não existe |
+| `GET /agendadas` | as tarefas agendadas: `id`, `nome`, `pedido`, `frequencia` (`uma_vez`, `diaria`, `dias_uteis`, `semanal`, `hora_em_hora`), `hora` (HH:MM), `dia_semana` (0 = segunda), `data`, `ativa`, `proxima`, `ultima`, `ultima_conversa` e `descricao` ("Todo dia às 8:00") |
+| `POST /agendadas` | `{"nome", "pedido", "frequencia", "hora", "dia_semana"?, "data"?}` → cria e calcula a próxima vez. `400` com `agenda_invalida` (e o `motivo`: o campo, ou "essa data já passou") ou `sem_nome_ou_pedido` |
+| `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
+| `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
+| `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
@@ -476,6 +481,22 @@ que falha não é anotado e tenta de novo na volta seguinte. Item privado não m
 lugar (o aviso aparece até na tela bloqueada). Desligar: o ajuste `avisos` = `false`, ou
 `SOLIS_AVISOS=0`. Enquanto o Solis não é um app instalado, o aviso sai em nome do "Windows
 PowerShell", com "Solis" na linha de atribuição.
+
+## Tarefas agendadas
+
+`solis/agendadas.py`: um pedido que o Claude faz sozinho num horário, como as tarefas agendadas do
+Claude Desktop. Um laço do servidor (`main._vigiar_agendadas`) confere a cada 30 s, como o dos
+avisos. Quando uma vence, ele marca a próxima vez antes (a conferida seguinte não roda a mesma de
+novo), abre uma conversa com o nome da tarefa e manda o pedido pelo mesmo caminho de uma mensagem,
+sempre pro Claude, com `roteador.nota_agendada` (ninguém está olhando: faça sem perguntar; o que
+pedir aprovação espera). No fim, o aviso do Windows "Tarefa agendada: nome" com o começo da
+resposta, e a tarefa guarda `ultima` e `ultima_conversa`. A de uma vez desliga depois de rodar.
+
+Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o atraso for de até
+6 h (`ATRASO_MAX`), senão pula pra próxima vez. O Claude agenda pela ferramenta
+`mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
+`allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
+inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
 
 ## Busca por significado
 

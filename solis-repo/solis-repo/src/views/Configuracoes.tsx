@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Interruptor } from '../components/Controles';
 import { TEMAS, type EstiloNav, type Tema } from '../theme/theme';
+import { CartaoAgendadas } from './CartaoAgendadas';
 import { CartaoCerebros } from './CartaoCerebros';
 import { CartaoConectores } from './CartaoConectores';
 import { CartaoDocumentos } from './CartaoDocumentos';
@@ -109,6 +110,7 @@ export function Configuracoes({
   aoTrocarCena,
   nav,
   aoTrocarNav,
+  aoAbrirConversa,
 }: {
   tema: Tema;
   aoTrocarTema: (t: Tema) => void;
@@ -116,6 +118,8 @@ export function Configuracoes({
   aoTrocarCena: (v: boolean) => void;
   nav: EstiloNav;
   aoTrocarNav: (e: EstiloNav) => void;
+  /** As tarefas agendadas abrem a conversa onde o Claude respondeu. */
+  aoAbrirConversa?: (id: number) => void;
 }) {
   return (
     // Quem rola é a div de dentro, não o main: no modo de ícones o main reserva
@@ -187,6 +191,7 @@ export function Configuracoes({
         <CartaoCerebros />
         <CartaoConectores />
         <CartaoDocumentos />
+        <CartaoAgendadas aoAbrirConversa={aoAbrirConversa} />
         <CartaoVoz />
       </div>
     </main>

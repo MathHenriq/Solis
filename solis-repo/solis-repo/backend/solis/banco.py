@@ -376,6 +376,24 @@ MIGRACOES = [
     CREATE INDEX projeto_arquivos_projeto ON projeto_arquivos (projeto);
     ALTER TABLE projetos_conversa ADD COLUMN projeto INTEGER REFERENCES projetos(id) ON DELETE SET NULL;
     """,
+    # 20 — as tarefas agendadas: um pedido que o Claude faz sozinho num horário
+    # (agendadas.py). `proxima` em hora local (sem fuso), como a agenda.
+    """
+    CREATE TABLE agendadas (
+        id              INTEGER PRIMARY KEY,
+        nome            TEXT NOT NULL,
+        pedido          TEXT NOT NULL,
+        frequencia      TEXT NOT NULL,
+        hora            TEXT NOT NULL,
+        dia_semana      INTEGER,
+        data            TEXT,
+        ativa           INTEGER NOT NULL DEFAULT 1,
+        proxima         TEXT,
+        ultima          TEXT,
+        ultima_conversa INTEGER REFERENCES conversas(id) ON DELETE SET NULL,
+        criada          TEXT NOT NULL
+    );
+    """,
 ]
 
 
@@ -1386,6 +1404,66 @@ def limpar_pontos(conversa: int, mensagem: int) -> None:
     """Os arquivos voltaram: desses pontos em diante não há mais o que voltar."""
     with _con() as c:
         c.execute('UPDATE pontos_volta SET mudou = 0 WHERE conversa = ? AND mensagem >= ?', (conversa, mensagem))
+
+
+# — Tarefas agendadas ————————————————————————————————————————————————————————————
+_COLUNAS_AG = 'id, nome, pedido, frequencia, hora, dia_semana, data, ativa, proxima, ultima, ultima_conversa, criada'
+
+
+def _agendada(l) -> dict:
+    return {'id': l[0], 'nome': l[1], 'pedido': l[2], 'frequencia': l[3], 'hora': l[4], 'dia_semana': l[5],
+            'data': l[6], 'ativa': bool(l[7]), 'proxima': l[8], 'ultima': l[9], 'ultima_conversa': l[10],
+            'criada': l[11]}
+
+
+def agendadas() -> list[dict]:
+    """Todas, a próxima a rodar primeiro (as desligadas no fim)."""
+    linhas = _con().execute(
+        f'SELECT {_COLUNAS_AG} FROM agendadas ORDER BY ativa DESC, proxima IS NULL, proxima, id'
+    ).fetchall()
+    return [_agendada(l) for l in linhas]
+
+
+def agendada(id_: int) -> dict | None:
+    l = _con().execute(f'SELECT {_COLUNAS_AG} FROM agendadas WHERE id = ?', (id_,)).fetchone()
+    return _agendada(l) if l else None
+
+
+def criar_agendada(nome: str, pedido: str, frequencia: str, hora: str, dia_semana: int | None,
+                   data: str | None, proxima: str | None) -> dict:
+    with _con() as c:
+        id_ = c.execute(
+            'INSERT INTO agendadas (nome, pedido, frequencia, hora, dia_semana, data, ativa, proxima, criada) '
+            'VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)',
+            (nome, pedido, frequencia, hora, dia_semana, data, proxima, _agora()),
+        ).lastrowid
+    return agendada(id_)
+
+
+def editar_agendada(id_: int, nome: str, pedido: str, frequencia: str, hora: str, dia_semana: int | None,
+                    data: str | None, ativa: bool, proxima: str | None) -> dict | None:
+    with _con() as c:
+        n = c.execute(
+            'UPDATE agendadas SET nome = ?, pedido = ?, frequencia = ?, hora = ?, dia_semana = ?, data = ?, '
+            'ativa = ?, proxima = ? WHERE id = ?',
+            (nome, pedido, frequencia, hora, dia_semana, data, int(ativa), proxima, id_),
+        ).rowcount
+    return agendada(id_) if n else None
+
+
+def marcar_agendada(id_: int, proxima: str | None, ativa: bool, ultima: str | None = None,
+                    ultima_conversa: int | None = None) -> None:
+    with _con() as c:
+        if ultima is not None:
+            c.execute('UPDATE agendadas SET proxima = ?, ativa = ?, ultima = ?, ultima_conversa = ? WHERE id = ?',
+                      (proxima, int(ativa), ultima, ultima_conversa, id_))
+        else:
+            c.execute('UPDATE agendadas SET proxima = ?, ativa = ? WHERE id = ?', (proxima, int(ativa), id_))
+
+
+def apagar_agendada(id_: int) -> bool:
+    with _con() as c:
+        return c.execute('DELETE FROM agendadas WHERE id = ?', (id_,)).rowcount > 0
 
 
 def acoes(limite: int = 50) -> list[dict]:

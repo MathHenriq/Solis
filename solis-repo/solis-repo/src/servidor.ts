@@ -1254,3 +1254,75 @@ export const estadoPc = () => pedirPc<EstadoPc>('/pc');
 export const guardarPastasPc = (pastas: string[]) => pedirPc<EstadoPc>('/pc/pastas', JSON_PUT({ pastas }));
 export const ligarPc = (ligada: boolean) => pedirPc<EstadoPc>('/pc/ligada', JSON_PUT({ ligada }));
 export const registroPc = (limite = 8) => pedirPc<AcaoPc[]>(`/pc/registro?limite=${limite}`);
+
+// — Tarefas agendadas (backend/solis/agendadas.py) ——————————————————————————————
+export type Frequencia = 'uma_vez' | 'diaria' | 'dias_uteis' | 'semanal' | 'hora_em_hora';
+
+export type Agendada = {
+  id: number;
+  nome: string;
+  pedido: string;
+  frequencia: Frequencia;
+  /** HH:MM; de hora em hora, só os minutos contam. */
+  hora: string;
+  /** 0 = segunda … 6 = domingo (só na semanal). */
+  dia_semana: number | null;
+  /** AAAA-MM-DD (só na de uma vez). */
+  data: string | null;
+  ativa: boolean;
+  /** AAAA-MM-DDTHH:MM, hora local; null quando não vai rodar mais. */
+  proxima: string | null;
+  ultima: string | null;
+  ultima_conversa: number | null;
+  /** "Todo dia às 8:00", "Toda segunda às 9:30"… */
+  descricao: string;
+};
+
+export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'hora' | 'dia_semana' | 'data'> & {
+  ativa?: boolean;
+};
+
+export async function listarAgendadas(): Promise<Agendada[] | null> {
+  try {
+    const r = await fetch(`${BASE}/agendadas`);
+    return r.ok ? ((await r.json()) as { agendadas: Agendada[] }).agendadas : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Cria (sem id) ou muda. Erro: o motivo em português (o servidor diz qual campo). */
+export async function salvarAgendada(dados: NovaAgendada, id?: number): Promise<Agendada | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/agendadas${id ? `/${id}` : ''}`, {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    const corpo = await r.json();
+    if (r.ok) return corpo as Agendada;
+    if (corpo.erro === 'sem_nome_ou_pedido') return { erro: 'Dê um nome e diga o que o Claude deve fazer.' };
+    if (corpo.motivo === 'essa data já passou') return { erro: 'Essa data e hora já passaram.' };
+    return { erro: corpo.motivo ? `Confira ${corpo.motivo === 'hora' ? 'a hora' : corpo.motivo === 'data' ? 'a data' : `o ${corpo.motivo}`}.` : 'Não deu pra salvar.' };
+  } catch {
+    return { erro: 'Não consegui falar com o servidor do Solis.' };
+  }
+}
+
+export async function apagarAgendada(id: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/agendadas/${id}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Roda agora (não muda a próxima vez). Devolve a conversa onde o Claude vai responder. */
+export async function rodarAgendada(id: number): Promise<number | null> {
+  try {
+    const r = await fetch(`${BASE}/agendadas/${id}/rodar`, { method: 'POST' });
+    return r.ok ? ((await r.json()) as { conversa: number }).conversa : null;
+  } catch {
+    return null;
+  }
+}

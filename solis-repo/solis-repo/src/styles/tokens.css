@@ -141,6 +141,11 @@
   /* Tarefas - desenho proprio, PROVISORIO. Ver layout.tarefas. */
   --tf-data-l: 148px;
   --tf-hora-l: 104px;
+  /* Tarefas agendadas (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.agendadas. */
+  --agd-freq-l: 160px;
+  --agd-min-l: 128px;
+  --agd-campo-gap: 8px;
+  --agd-acoes-gap: 16px;
   /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */
   --ch-topo: 10px;
   --ch-fundo: #000000;

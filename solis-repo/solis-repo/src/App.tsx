@@ -108,6 +108,7 @@ export default function App() {
         aoTrocarCena={setCena}
         nav={nav}
         aoTrocarNav={setNav}
+        aoAbrirConversa={lista.aoAbrir}
       />
     ),
   };

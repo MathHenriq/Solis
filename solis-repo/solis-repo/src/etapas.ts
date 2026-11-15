@@ -92,6 +92,9 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
       return `Anotei o lembrete${alvo ? `: ${alvo}` : ''}`;
     case 'mcp__solis__marcar_compromisso':
       return `Pus na agenda${alvo ? `: ${alvo}` : ''}`;
+    case 'mcp__solis__agendar_tarefa':
+      // O nome e o horário ficam no cartão de aprovação, logo acima.
+      return 'Agendei a tarefa';
     case 'mcp__solis__ver_agenda':
       return RAPIDA.agenda;
     case 'mcp__solis__ver_tarefas':

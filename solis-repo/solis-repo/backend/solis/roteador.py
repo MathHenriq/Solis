@@ -222,6 +222,15 @@ NOTA_PESQUISA = (
 )
 
 
+def nota_agendada(nome: str) -> str:
+    """Uma tarefa agendada roda sem ninguém olhando (agendadas.py)."""
+    if not nome:
+        return ''
+    return (f'\n\n[Esta é a tarefa agendada "{nome}", que roda sozinha no horário marcado: o Matheus não está '
+            'olhando agora. Faça o que der sem perguntar e entregue o resultado pronto pra ele ler depois. O que '
+            'precisar da aprovação dele (escrever, rodar comando) vai esperar até ele ver.]')
+
+
 def nota_anexos(anexos: list[dict] | None) -> str:
     """Os arquivos que o Matheus anexou, onde o modelo pode lê-los (o Claude,
     com a ferramenta de ler: texto, PDF e imagem)."""
