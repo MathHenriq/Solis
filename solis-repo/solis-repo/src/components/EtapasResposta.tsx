@@ -468,6 +468,17 @@ const QUER: Record<string, string> = {
   LS: 'O Claude quer olhar fora das pastas autorizadas',
   ExitPlanMode: 'O Claude quer seguir com este plano',
   mcp__solis__agendar_tarefa: 'O Claude quer agendar uma tarefa',
+  // O navegador (navegador.PEDEM no backend): agir numa página.
+  mcp__navegador__browser_click: 'O Claude quer clicar numa página',
+  mcp__navegador__browser_type: 'O Claude quer escrever numa página',
+  mcp__navegador__browser_fill_form: 'O Claude quer preencher um formulário',
+  mcp__navegador__browser_select_option: 'O Claude quer escolher uma opção numa página',
+  mcp__navegador__browser_press_key: 'O Claude quer apertar uma tecla numa página',
+  mcp__navegador__browser_drag: 'O Claude quer arrastar algo numa página',
+  mcp__navegador__browser_drop: 'O Claude quer enviar arquivos pra uma página',
+  mcp__navegador__browser_file_upload: 'O Claude quer enviar arquivos pra uma página',
+  mcp__navegador__browser_evaluate: 'O Claude quer rodar um script numa página',
+  mcp__navegador__browser_handle_dialog: 'O Claude quer responder um aviso da página',
 };
 
 /** PROVISÓRIO — desenho próprio, sem referência (layout.thread.etapas._approval
@@ -518,9 +529,11 @@ export function Diff({ texto }: { texto: string }) {
 
 /** O "sempre" de cada pedido: o comando exato, ou as edições da conversa
  *  (backend agente._regra). O plano não tem: cada plano é aprovado olhando. */
-function rotuloSempre(ferramenta?: string): string | null {
+function rotuloSempre(ferramenta?: string, site?: string): string | null {
   // O plano e cada agendamento se aprovam um a um.
   if (ferramenta === 'ExitPlanMode' || ferramenta === 'mcp__solis__agendar_tarefa') return null;
+  // No navegador, o "sempre" é do site (como o Claude in Chrome); sem saber o site, não há.
+  if (ferramenta?.startsWith('mcp__navegador__')) return site ? 'Sempre neste site' : null;
   if (ferramenta === 'Bash' || ferramenta === 'PowerShell') return 'Sempre este comando';
   return 'Sempre nesta conversa';
 }
@@ -548,8 +561,10 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
     : (QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`);
   // Quem pede pode ser um ajudante (subagente): o cartão diz que é ele.
   const titulo = pedido.ajudante !== undefined ? doClaude.replace(/^O Claude quer/, 'O ajudante quer') : doClaude;
-  const sempre = rotuloSempre(pedido.ferramenta);
+  const sempre = rotuloSempre(pedido.ferramenta, pedido.site);
   const agendar = pedido.ferramenta === 'mcp__solis__agendar_tarefa';
+  const navegar = pedido.ferramenta?.startsWith('mcp__navegador__') ?? false;
+  const script = pedido.ferramenta === 'mcp__navegador__browser_evaluate';
   return (
     <div
       role="group"
@@ -562,7 +577,10 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
         background: 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)',
       }}
     >
-      <div className={`flex ${pedido.ferramenta === 'ExitPlanMode' || agendar ? 'items-end' : 'items-center'}`} style={{ gap: 'var(--et-apr-gap)' }}>
+      <div
+        className={`flex ${pedido.ferramenta === 'ExitPlanMode' || agendar || (navegar && pedido.entrada) ? 'items-end' : 'items-center'}`}
+        style={{ gap: 'var(--et-apr-gap)' }}
+      >
         <div className="flex-1 min-w-0">
           <div className="text-text-primary" style={{ fontSize: 'var(--et-texto)' }}>
             {titulo}
@@ -588,6 +606,32 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
               >
                 {pedido.entrada}
               </div>
+            </>
+          ) : navegar ? (
+            // No navegador: o que vai fazer e em qual site ("Clicar em botão
+            // Comprar · loja.com.br"); o que vai escrever (os campos, o script)
+            // inteiro embaixo, legível.
+            <>
+              <div
+                title={pedido.alvo}
+                className="text-text-secondary truncate"
+                style={{ fontSize: 'var(--et-dobra-texto)', marginTop: 2 }}
+              >
+                {[pedido.alvo, pedido.site].filter(Boolean).join(' · ')}
+              </div>
+              {pedido.entrada && (
+                <div
+                  className={`text-text-primary whitespace-pre-wrap overflow-y-auto ${script ? 'font-mono' : ''}`}
+                  style={{
+                    fontSize: script ? 'var(--cod-texto)' : 'var(--et-texto)',
+                    lineHeight: 1.5,
+                    marginTop: 6,
+                    maxHeight: 200,
+                  }}
+                >
+                  {pedido.entrada}
+                </div>
+              )}
             </>
           ) : (
             pedido.alvo && (
@@ -622,7 +666,7 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
       </div>
       {pedido.diff && <Diff texto={pedido.diff} />}
       {/* Num conector: o que vai ser mandado (o evento, o arquivo, a mensagem). */}
-      {pedido.entrada && !agendar && (
+      {pedido.entrada && !agendar && !navegar && (
         <div style={{ marginTop: 10 }}>
           <SaidaTerminal texto={pedido.entrada} rotulo="O que vai ser mandado" />
         </div>

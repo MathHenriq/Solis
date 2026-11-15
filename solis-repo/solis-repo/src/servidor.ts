@@ -231,6 +231,8 @@ export type Etapa = {
   ajudante?: string;
   /** Etapa `aprovacao` de um conector: o que vai ser mandado (JSON). */
   entrada?: string;
+  /** Etapa `aprovacao` do navegador: o site da página aberta ("loja.com.br"). */
+  site?: string;
   /** Etapa `arquivos`: os documentos que o Claude criou nesta resposta (caminhos). */
   lista?: string[];
   /** Etapa `ferramenta` de uma busca na web: os resultados (as fontes encontradas). */
@@ -1281,6 +1283,50 @@ export type Agendada = {
 export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'hora' | 'dia_semana' | 'data'> & {
   ativa?: boolean;
 };
+
+/** O navegador do Claude (backend/solis/navegador.py): o Chrome ou o Edge do
+ *  PC, numa janela com o perfil do Solis. */
+export type Navegador = {
+  escolhido: 'chrome' | 'msedge' | null;
+  desligado: boolean;
+  instalados: { canal: 'chrome' | 'msedge'; nome: string }[];
+  pronto: boolean;
+  aberto: boolean;
+};
+
+export async function lerNavegador(): Promise<Navegador | null> {
+  try {
+    const r = await fetch(`${BASE}/navegador`);
+    return r.ok ? ((await r.json()) as Navegador) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function escolherNavegador(navegador: string): Promise<Navegador | null> {
+  try {
+    const r = await fetch(`${BASE}/navegador`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ navegador }),
+    });
+    return r.ok ? ((await r.json()) as Navegador) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Abre a janela (pra entrar nas contas). Erro: o motivo em português. */
+export async function abrirNavegador(): Promise<Navegador | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/navegador/abrir`, { method: 'POST' });
+    if (r.ok) return (await r.json()) as Navegador;
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    return { erro: corpo.motivo === 'navegador desligado' ? 'O navegador está desligado.' : 'O navegador não abriu.' };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
 
 export async function listarAgendadas(): Promise<Agendada[] | null> {
   try {

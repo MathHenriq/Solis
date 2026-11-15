@@ -146,6 +146,8 @@
   --agd-min-l: 128px;
   --agd-campo-gap: 8px;
   --agd-acoes-gap: 16px;
+  /* Navegador (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.navegador. */
+  --nav-escolha-l: 160px;
   /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */
   --ch-topo: 10px;
   --ch-fundo: #000000;

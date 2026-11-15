@@ -95,6 +95,27 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
     case 'mcp__solis__agendar_tarefa':
       // O nome e o horário ficam no cartão de aprovação, logo acima.
       return 'Agendei a tarefa';
+    case 'mcp__navegador__browser_navigate':
+      return `Abri a página ${siteDe(alvo)}`;
+    case 'mcp__navegador__browser_navigate_back':
+      return 'Voltei uma página';
+    case 'mcp__navegador__browser_snapshot':
+      return `Li a página${alvo ? ` ${alvo}` : ''}`;
+    case 'mcp__navegador__browser_find':
+      return `Procurei "${alvo}" na página`;
+    case 'mcp__navegador__browser_take_screenshot':
+      return `Olhei a página${alvo ? ` ${alvo}` : ''}`;
+    case 'mcp__navegador__browser_tabs':
+      return alvo.startsWith('http') ? `Abri uma aba: ${siteDe(alvo)}` : 'Olhei as abas';
+    case 'mcp__navegador__browser_wait_for':
+      return 'Esperei a página carregar';
+    case 'mcp__navegador__browser_hover':
+      return 'Passei o mouse na página';
+    case 'mcp__navegador__browser_console_messages':
+      return 'Li o console da página';
+    case 'mcp__navegador__browser_network_requests':
+    case 'mcp__navegador__browser_network_request':
+      return 'Olhei o que a página carregou';
     case 'mcp__solis__ver_agenda':
       return RAPIDA.agenda;
     case 'mcp__solis__ver_tarefas':
@@ -104,6 +125,8 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
     default: {
       const c = conectorDe(f.ferramenta);
       if (c) return `Usei o ${c.nome}: ${c.acao}`;
+      // Agir na página: o servidor já manda a frase ("Cliquei em botão Enviar").
+      if (f.ferramenta?.startsWith('mcp__navegador__')) return alvo || 'Usei o navegador';
       return `Usei ${(f.ferramenta ?? '').replace(/^mcp__\w+?__/, '')}`;
     }
   }
@@ -136,7 +159,7 @@ export function textoAgora(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
     case 'WebFetch':
       return 'Lendo uma página';
     default:
-      return 'Trabalhando';
+      return f.ferramenta?.startsWith('mcp__navegador__') ? 'Usando o navegador' : 'Trabalhando';
   }
 }
 
@@ -145,6 +168,16 @@ export function textoAgora(f: Pick<Etapa, 'ferramenta' | 'alvo'>): string {
 export function comandosRodando(etapas: Etapa[]): Etapa[] {
   const acabaram = new Set(etapas.filter((e) => e.etapa === 'ferramenta' && e.id).map((e) => e.id));
   return etapas.filter((e) => e.etapa === 'saida' && !acabaram.has(e.id));
+}
+
+/** "g1.globo.com" de https://www.g1.globo.com/economia — o que a linha da
+ *  etapa mostra (o endereço inteiro vai no title). */
+export function siteDe(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '') || url;
+  } catch {
+    return url;
+  }
 }
 
 /** Um conector da conta do claude.ai: as ferramentas chegam como

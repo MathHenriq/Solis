@@ -15,6 +15,7 @@
     "varrer": "node design/varrer-telas.mjs http://localhost:4173/"
   },
   "dependencies": {
+    "@playwright/mcp": "0.0.84",
     "@tauri-apps/api": "^2.9.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

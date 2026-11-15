@@ -372,6 +372,11 @@
         "_fieldGap": "Entre o nome e o pedido: o mesmo vao dos botoes da edicao (--mac-botao-gap).",
         "actionsGap": "16px",
         "_actionsGap": "Entre as acoes em texto de cada linha: o vao dos controles do cartao de Cerebros (controlsGap)."
+      },
+      "navegador": {
+        "_status": "PROVISORIO - desenho proprio (15/11/2026), espera a aprovacao do Matheus pelos prints: Configuracoes -> Navegador (CartaoNavegador.tsx), em qual navegador o Claude abre, le e preenche paginas (o Chrome ou o Edge do PC, numa janela com o perfil do Solis). O cartao e as linhas do de Cerebros (cardGap, rowPadY, textMax): 'Qual navegador' com o estado ('Google Chrome. A janela abre quando o Claude precisar.') e o seletor a direita; 'Suas contas' com o botao 'Abrir o navegador' (--mac-botao-*). O seletor e o dos campos das Tarefas agendadas (borda --divider, altura --mac-botao-h).",
+        "selectWidth": "160px",
+        "_selectWidth": "O seletor do navegador: a mesma largura do de frequencia das Tarefas agendadas (frequencyWidth), que cabe 'Google Chrome' (a opcao mais longa: 98px na fonte do select, medido no app em 15/11/2026; 'Microsoft Edge' 93px) mais o padding de 10 de cada lado e a seta nativa (~20px) = 138. Conferido nos prints que nada corta."
       }
     },
     "conhecimento": {

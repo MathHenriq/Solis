@@ -105,6 +105,9 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
 | `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
 | `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
+| `GET /navegador` | o navegador do Claude: `escolhido` (`chrome`, `msedge` ou nulo), `desligado`, `instalados` (`canal`, `nome`), `pronto` (o `@playwright/mcp` está no `node_modules`) e `aberto` (o servidor dele de pé) |
+| `PUT /navegador` | `{"navegador": "chrome" \| "msedge" \| "desligado"}` → troca (a janela do outro fecha). `400` com `navegador_invalido` se não está no PC |
+| `POST /navegador/abrir` | abre a janela do navegador do Solis (pra entrar nas contas). `503` com `nao_abriu` e o `motivo` |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
@@ -497,6 +500,31 @@ Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o 
 `mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
 `allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
 inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
+
+## Navegador
+
+`solis/navegador.py`: o Claude abre, lê, clica e preenche páginas, como o Claude in Chrome. É o
+servidor MCP de navegador da Microsoft (`@playwright/mcp`, no `package.json` da raiz: `npm install`),
+num processo só do Solis, pelo HTTP (`127.0.0.1`, porta livre), e entra no Claude como o servidor
+`navegador` (`mcp__navegador__browser_*`). Usa o Chrome ou o Edge que já estão no PC (Configurações →
+Navegador; o padrão é o Chrome), numa janela que o Matheus vê, com o perfil do Solis em
+`<pasta do banco>/navegador/<chrome|msedge>`: os logins feitos nela ficam ali, longe do perfil de
+sempre. O que o servidor tira da página (a árvore, prints) fica em `navegador/saida`, que o Claude lê
+sem cartão.
+
+O servidor fecha o navegador quando o último cliente sai, e cada resposta do Claude é um cliente que
+sai no fim. Por isso o Solis mantém uma conexão própria aberta (`_Dono`), que se conecta assim que o
+Claude usa o navegador: a página continua aberta na resposta seguinte e em outra conversa. É por ela
+também que o botão "Abrir o navegador" abre a janela. Fecha junto com o servidor do Solis.
+
+Abrir e ler página é livre (`navegador.LIVRES`, no `allowed_tools`, como o WebFetch). Clicar,
+escrever, preencher, escolher opção, apertar tecla, enviar arquivo, rodar script e responder aviso
+pedem cartão (`navegador.PEDEM`): o cartão diz o quê ("Clicar em botão Comprar"), o site da página
+aberta (lido do que a última ferramenta devolveu: `- Page URL:`) e, embaixo, o texto, os campos ou
+o script inteiros. "Sempre neste site" libera as ações naquele site na conversa (sem site, não há).
+`browser_run_code_unsafe` (código no processo do servidor) fica fora (`disallowed_tools`). O Claude
+é avisado de que o texto das páginas é dado, não ordem, e de nunca digitar senha, cartão ou
+documento, nem finalizar compra.
 
 ## Busca por significado
 

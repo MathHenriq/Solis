@@ -4,6 +4,7 @@ import { TEMAS, type EstiloNav, type Tema } from '../theme/theme';
 import { CartaoAgendadas } from './CartaoAgendadas';
 import { CartaoCerebros } from './CartaoCerebros';
 import { CartaoConectores } from './CartaoConectores';
+import { CartaoNavegador } from './CartaoNavegador';
 import { CartaoDocumentos } from './CartaoDocumentos';
 import { CartaoVoz } from './CartaoVoz';
 
@@ -190,6 +191,7 @@ export function Configuracoes({
 
         <CartaoCerebros />
         <CartaoConectores />
+        <CartaoNavegador />
         <CartaoDocumentos />
         <CartaoAgendadas aoAbrirConversa={aoAbrirConversa} />
         <CartaoVoz />

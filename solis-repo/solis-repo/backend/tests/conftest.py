@@ -43,6 +43,14 @@ def sem_ocr_de_verdade(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def sem_navegador_de_verdade(monkeypatch):
+    """Nenhum teste abre o Chrome do Matheus: o servidor do navegador "não sobe"."""
+    from solis import navegador
+    monkeypatch.setattr(navegador, 'servidor', lambda: None)
+    monkeypatch.setattr(navegador, 'segurar', lambda: None)
+
+
+@pytest.fixture(autouse=True)
 def sem_cli_de_verdade(monkeypatch):
     """Nenhum teste chama o Claude Code ou o Codex de verdade — gastaria a cota
     do Matheus e dependeria de login. Por padrão nenhum CLI está "instalado";

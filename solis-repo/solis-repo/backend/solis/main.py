@@ -75,6 +75,9 @@ async def _vida(_app):
     vigia.cancel()
     relogio.cancel()
     ouvido.cancel()
+    # O navegador do Claude (e a janela dele) fecha junto com o servidor.
+    from . import navegador
+    await asyncio.to_thread(navegador.parar)
 
 
 app = FastAPI(title='Solis', lifespan=_vida)
@@ -796,6 +799,43 @@ async def ler_conectores(atualizar: bool = False):
         return {'conectores': await agente.conectores(atualizar)}
     except agente.AgenteFalhou as e:
         return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
+
+
+# — Navegador do Claude ————————————————————————————————————————————————————————
+class EscolhaNavegador(BaseModel):
+    navegador: str
+
+
+@app.get('/navegador')
+async def ler_navegador():
+    """Qual navegador o Claude usa (`escolhido`: chrome, msedge ou None), os
+    que estão no PC, se está `desligado` e se a janela está `aberto`."""
+    from . import navegador
+    return navegador.estado()
+
+
+@app.put('/navegador')
+async def escolher_navegador(corpo: EscolhaNavegador):
+    """chrome, msedge ou desligado. Trocar fecha a janela do outro."""
+    from . import navegador
+    try:
+        r = await asyncio.to_thread(navegador.escolher, corpo.navegador)
+    except ValueError:
+        return JSONResponse({'erro': 'navegador_invalido'}, status_code=400)
+    banco.registrar_acao(None, 'escolher_navegador', {'navegador': corpo.navegador}, corpo.navegador, True)
+    return r
+
+
+@app.post('/navegador/abrir')
+async def abrir_navegador():
+    """Abre a janela do navegador do Solis — pra entrar nas contas que o Claude
+    vai usar (os logins ficam no perfil do Solis)."""
+    from . import navegador
+    try:
+        await asyncio.to_thread(navegador.abrir)
+    except navegador.NavegadorFalhou as e:
+        return JSONResponse({'erro': 'nao_abriu', 'motivo': str(e)}, status_code=503)
+    return navegador.estado()
 
 
 # — Git da pasta de projeto ————————————————————————————————————————————————————

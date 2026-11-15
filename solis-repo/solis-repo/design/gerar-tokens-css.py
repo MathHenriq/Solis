@@ -207,6 +207,8 @@ agd = T['layout']['configuracoes']['agendadas']
 for chave, var in [('frequencyWidth', '--agd-freq-l'), ('minuteWidth', '--agd-min-l'), ('fieldGap', '--agd-campo-gap'),
                    ('actionsGap', '--agd-acoes-gap')]:
     w('  %s: %s;' % (var, agd[chave]))
+w('  /* Navegador (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.navegador. */')
+w('  --nav-escolha-l: %s;' % T['layout']['configuracoes']['navegador']['selectWidth'])
 w('  /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */')
 ch = T['layout']['chamada']
 for chave, var in [('top', '--ch-topo'), ('fill', '--ch-fundo'), ('text', '--ch-texto'), ('textMuted', '--ch-texto-2'),
