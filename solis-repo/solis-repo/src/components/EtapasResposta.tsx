@@ -108,7 +108,7 @@ export function SaidaTerminal({ texto, rotulo, recuo = 0 }: { texto: string; rot
  *  no Claude Code. Ao vivo, aberto; pronta a resposta, recolhe em "Plano · 3
  *  de 3 feitos". As marcas são as das etapas (check, ponto, anel).
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026): a lista das etapas (--et-*) sob
+ *  Aprovado pelo Matheus em 15/11/2026 — desenho próprio: a lista das etapas (--et-*) sob
  *  o título "Plano" na dobra (--et-dobra-*) (layout.thread.etapas._plan no
  *  solis-tokens.json). */
 export function PlanoResposta({ etapas, vivo }: { etapas: EtapaRecebida[]; vivo: boolean }) {
