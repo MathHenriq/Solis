@@ -16,10 +16,9 @@ import { Icone } from './icons';
  *  os arquivos fixos — como as configurações de um projeto no claude.ai, com a
  *  pasta do Claude Code junto (decidido pelo Matheus, 13/11/2026).
  *
- *  PROVISÓRIO — desenho próprio (13/11/2026): uma caixa por cima da tela, no
+ *  Aprovado pelo Matheus em 15/11/2026 — desenho próprio: uma caixa por cima da tela, no
  *  desenho dos cartões de Configurações (--cfg-card-*), os campos e botões da
- *  edição da Memória (layout.thread._project no solis-tokens.json). Precisa do
- *  aval do Matheus nos 3 temas e 2 navs. */
+ *  edição da Memória (layout.thread._project no solis-tokens.json). */
 
 const tamanho = (b: number) => (b < 1024 ? `${b} B` : b < 1024 ** 2 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 ** 2).toFixed(1)} MB`);
 
