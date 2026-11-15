@@ -48,7 +48,7 @@ function ColunaIcone({ children }: { children: ReactNode }) {
 /** Uma conversa da lista, com o "…" no hover (Renomear, Apagar), como no
  *  Claude. Renomear vira um campo na própria linha; apagar pede confirmação ali.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), base na lista do Claude: o
+ *  Aprovado pelo Matheus em 15/11/2026 — desenho próprio, base na lista do Claude: o
  *  botão de 3 pontos no lugar do fim do título, o menu na caixa dos menus do
  *  Conhecimento (--kn-menu-*), a confirmação na linha em --rc-texto
  *  (layout.recentes._acoes no solis-tokens.json). */
