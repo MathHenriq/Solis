@@ -406,11 +406,18 @@ def caminho_padrao() -> Path:
 
 
 _conexao: sqlite3.Connection | None = None
+_caminho: Path | None = None
+
+
+def pasta() -> Path:
+    """A pasta do banco em uso (nos testes, a temporária)."""
+    return (_caminho or caminho_padrao()).parent
 
 
 def usar(caminho: Path) -> None:
     """Aponta o banco pra outro arquivo — os testes usam um temporário."""
-    global _conexao
+    global _conexao, _caminho
+    _caminho = caminho
     if _conexao:
         _conexao.close()
     caminho.parent.mkdir(parents=True, exist_ok=True)

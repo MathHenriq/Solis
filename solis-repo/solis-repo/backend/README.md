@@ -105,6 +105,12 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
 | `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
 | `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
+| `GET /skills` | as skills: as suas (`origem` `solis`, com `para`: `claude`, `codex` ou os dois) e as da conta do claude.ai (`conta` ou `anthropic`), com `descricao`, `editavel` e `ligada` (desligar é só do Claude) |
+| `GET /skills/{nome}` | uma das suas inteira, pra editar: `nome`, `descricao`, `instrucoes`, `para` |
+| `POST /skills` | `{"nome", "descricao", "instrucoes", "para"}` → escreve o SKILL.md em `~/.claude/skills` e/ou `~/.codex/skills`. `400` com `skill_invalida` e o `motivo` (`nome`, `descrição`, `instruções`, `pra quem`, ou já existe) |
+| `PUT /skills/{nome}` | o mesmo corpo → muda (o nome, o texto, pra quem); os arquivos de apoio da pasta vão junto |
+| `DELETE /skills/{nome}` | tira do Claude e do Codex: a pasta vai pra `skills-apagadas`, ao lado do banco |
+| `PUT /skills/{nome}/ligada` | `{"ligada": bool}` → liga ou desliga pro Claude |
 | `GET /navegador` | o navegador do Claude: `escolhido` (`chrome`, `msedge` ou nulo), `desligado`, `instalados` (`canal`, `nome`), `pronto` (o `@playwright/mcp` está no `node_modules`) e `aberto` (o servidor dele de pé) |
 | `PUT /navegador` | `{"navegador": "chrome" \| "msedge" \| "desligado"}` → troca (a janela do outro fecha). `400` com `navegador_invalido` se não está no PC |
 | `POST /navegador/abrir` | abre a janela do navegador do Solis (pra entrar nas contas). `503` com `nao_abriu` e o `motivo` |
@@ -500,6 +506,23 @@ Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o 
 `mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
 `allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
 inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
+
+## Skills
+
+`solis/skills.py`: roteiros que o cérebro segue quando o pedido pede, como Configurações → Skills no
+Claude Desktop. As da conta do claude.ai (as da Anthropic e as do Matheus, como as do Núcleo WIT) o
+CLI do Claude sincroniza em `~/.claude/skills/synced` e manda nelas: a tela lê o `manifest.json`
+dele, e mudar é no claude.ai. As escritas no Solis dizem pra quem servem, porque uma skill escrita
+pro Claude não serve necessariamente pro GPT: pro Claude, `~/.claude/skills/<nome>/SKILL.md`; pro
+Codex, `~/.codex/skills/<nome>/SKILL.md`; pros dois, nas duas (o formato é o mesmo). Valem também
+no Claude Code e no Codex do terminal. Mudar reescreve só o SKILL.md; scripts e arquivos de apoio da
+pasta ficam. Apagar manda a pasta pra lixeira do Solis (`skills-apagadas`, ao lado do banco).
+
+Desligar é só do Claude: o filtro `skills` do SDK recebe a lista de todas as conhecidas menos as
+desligadas (`skills.filtro()`; sem nenhuma desligada, `'all'`). As conhecidas vêm do que o CLI conta
+na abertura de cada sessão (as dele, as de plugin, as da conta como `anthropic-skills:docx`), das
+da conta e das escritas aqui; desligar `docx` tira as duas formas do nome. Na resposta, a etapa diz
+"Segui a skill palavra-do-dia".
 
 ## Navegador
 

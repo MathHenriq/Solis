@@ -801,6 +801,75 @@ async def ler_conectores(atualizar: bool = False):
         return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
 
 
+# — Skills ————————————————————————————————————————————————————————————————————
+class SkillCorpo(BaseModel):
+    nome: str
+    descricao: str
+    instrucoes: str
+    para: list[str]
+
+
+class SkillLigada(BaseModel):
+    ligada: bool
+
+
+@app.get('/skills')
+async def listar_skills():
+    """As skills: as suas (escritas no Solis ou à mão, pro Claude, pro Codex ou
+    pros dois) e as da conta do claude.ai (`origem` conta ou anthropic), com
+    `ligada` (desligar é só do Claude)."""
+    from . import skills
+    return {'skills': await asyncio.to_thread(skills.listar)}
+
+
+@app.get('/skills/{nome}')
+async def ler_skill(nome: str):
+    from . import skills
+    s = await asyncio.to_thread(skills.ler, nome)
+    return s if s else JSONResponse({'erro': 'skill_inexistente'}, status_code=404)
+
+
+async def _salvar_skill(corpo: SkillCorpo, antigo: str | None):
+    from . import skills
+    try:
+        s = await asyncio.to_thread(skills.salvar, corpo.nome.strip(), corpo.descricao.strip(), corpo.instrucoes,
+                                    corpo.para, antigo)
+    except skills.SkillInvalida as e:
+        return JSONResponse({'erro': 'skill_invalida', 'motivo': str(e)}, status_code=400)
+    banco.registrar_acao(None, 'salvar_skill', {'nome': s['nome'], 'para': s['para'], 'antigo': antigo},
+                         s['descricao'][:200], True)
+    return s
+
+
+@app.post('/skills')
+async def criar_skill(corpo: SkillCorpo):
+    return await _salvar_skill(corpo, None)
+
+
+@app.put('/skills/{nome}')
+async def editar_skill(nome: str, corpo: SkillCorpo):
+    return await _salvar_skill(corpo, nome)
+
+
+@app.delete('/skills/{nome}')
+async def apagar_skill(nome: str):
+    """Tira uma das suas do Claude e do Codex: a pasta vai pra lixeira do Solis."""
+    from . import skills
+    if not await asyncio.to_thread(skills.apagar, nome):
+        return JSONResponse({'erro': 'skill_inexistente'}, status_code=404)
+    banco.registrar_acao(None, 'apagar_skill', {'nome': nome}, 'pra lixeira do Solis', True)
+    return {'ok': True}
+
+
+@app.put('/skills/{nome}/ligada')
+async def ligar_skill(nome: str, corpo: SkillLigada):
+    from . import skills
+    if nome not in {s['nome'] for s in await asyncio.to_thread(skills.listar)}:
+        return JSONResponse({'erro': 'skill_inexistente'}, status_code=404)
+    skills.ligar(nome, corpo.ligada)
+    return {'ok': True}
+
+
 # — Navegador do Claude ————————————————————————————————————————————————————————
 class EscolhaNavegador(BaseModel):
     navegador: str

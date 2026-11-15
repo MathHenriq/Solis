@@ -148,6 +148,9 @@
   --agd-acoes-gap: 16px;
   /* Navegador (Configuracoes) - desenho proprio, APROVADO em 15/11/2026. Ver layout.configuracoes.navegador. */
   --nav-escolha-l: 160px;
+  /* Skills (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.skills. */
+  --skl-para-l: 160px;
+  --skl-instrucoes-h: 208px;
   /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */
   --ch-topo: 10px;
   --ch-fundo: #000000;

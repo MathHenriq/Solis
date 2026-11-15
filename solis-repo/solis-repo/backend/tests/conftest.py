@@ -43,6 +43,15 @@ def sem_ocr_de_verdade(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def skills_numa_casa_de_mentira(monkeypatch, tmp_path):
+    """Nenhum teste escreve nas skills do Matheus (~/.claude e ~/.codex)."""
+    from solis import skills
+    casa = tmp_path / 'casa'
+    monkeypatch.setattr(skills, '_casa', lambda: casa)
+    return casa
+
+
+@pytest.fixture(autouse=True)
 def sem_navegador_de_verdade(monkeypatch):
     """Nenhum teste abre o Chrome do Matheus: o servidor do navegador "não sobe"."""
     from solis import navegador

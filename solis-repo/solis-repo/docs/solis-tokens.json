@@ -377,6 +377,13 @@
         "_status": "APROVADO pelo Matheus em 15/11/2026 nos 3 temas e 2 navs - desenho proprio (15/11/2026): Configuracoes -> Navegador (CartaoNavegador.tsx), em qual navegador o Claude abre, le e preenche paginas (o Chrome ou o Edge do PC, numa janela com o perfil do Solis). O cartao e as linhas do de Cerebros (cardGap, rowPadY, textMax): 'Qual navegador' com o estado ('Google Chrome. A janela abre quando o Claude precisar.') e o seletor a direita; 'Suas contas' com o botao 'Abrir o navegador' (--mac-botao-*). O seletor e o dos campos das Tarefas agendadas (borda --divider, altura --mac-botao-h).",
         "selectWidth": "160px",
         "_selectWidth": "O seletor do navegador: a mesma largura do de frequencia das Tarefas agendadas (frequencyWidth), que cabe 'Google Chrome' (a opcao mais longa: 98px na fonte do select, medido no app em 15/11/2026; 'Microsoft Edge' 93px) mais o padding de 10 de cada lado e a seta nativa (~20px) = 138. Conferido nos prints que nada corta."
+      },
+      "skills": {
+        "_status": "PROVISORIO - desenho proprio (15/11/2026), espera a aprovacao do Matheus pelos prints: Configuracoes -> Skills (CartaoSkills.tsx), como Configuracoes -> Skills do Claude Desktop. O cartao e as linhas do de Cerebros (cardGap, rowPadY, textMax); tres grupos ('Suas', 'Da sua conta do claude.ai', 'Da Anthropic') com o titulo em --cfg-dica secundario, separados pelo cardGap (30px), pra cada grupo ler como um bloco. Cada linha: o nome em --cfg-rotulo, a descricao em --cfg-dica cortada em 2 linhas (as da Anthropic sao longas) e o interruptor da Aparencia a direita (so nas que valem pro Claude). Nas suas, 'Claude e GPT' e as acoes em texto das Tarefas agendadas (Editar, Apagar com confirmacao na linha). O formulario e o das Tarefas agendadas (--agd-campo-gap, --mac-*).",
+        "forWidth": "160px",
+        "_forWidth": "O seletor 'pra quem': a largura do de frequencia das Tarefas agendadas; cabe a opcao mais longa, 'So o GPT (Codex)' (107px na fonte do select, medido no app em 15/11/2026), mais o padding de 10 de cada lado e a seta nativa (~20px) = 147. Conferido nos prints que nada corta.",
+        "instructionsHeight": "208px",
+        "_instructionsHeight": "A caixa das instrucoes comeca com 8 linhas: 8 x 16px (--cfg-rotulo) x 1,5 de entrelinha = 192, mais o padding de 8 em cima e embaixo (--mac-campo-py). Cresce puxando o canto."
       }
     },
     "conhecimento": {

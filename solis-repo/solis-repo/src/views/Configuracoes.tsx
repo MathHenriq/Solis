@@ -5,6 +5,7 @@ import { CartaoAgendadas } from './CartaoAgendadas';
 import { CartaoCerebros } from './CartaoCerebros';
 import { CartaoConectores } from './CartaoConectores';
 import { CartaoNavegador } from './CartaoNavegador';
+import { CartaoSkills } from './CartaoSkills';
 import { CartaoDocumentos } from './CartaoDocumentos';
 import { CartaoVoz } from './CartaoVoz';
 
@@ -194,6 +195,7 @@ export function Configuracoes({
         <CartaoNavegador />
         <CartaoDocumentos />
         <CartaoAgendadas aoAbrirConversa={aoAbrirConversa} />
+        <CartaoSkills />
         <CartaoVoz />
       </div>
     </main>

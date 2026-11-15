@@ -83,6 +83,9 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
       return `Li a página${em}`;
     case 'ExitPlanMode':
       return 'Mostrei o plano';
+    case 'Skill':
+      // "anthropic-skills:docx" é a docx da conta do claude.ai: o nome, sem o prefixo.
+      return alvo ? `Segui a skill ${alvo.split(':').pop()}` : 'Segui uma skill';
     case 'Task':
     case 'Agent':
       return alvo ? `Pedi a um ajudante: ${alvo}` : 'Pedi a um ajudante';

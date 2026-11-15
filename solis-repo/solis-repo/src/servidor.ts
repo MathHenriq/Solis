@@ -1284,6 +1284,82 @@ export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'ho
   ativa?: boolean;
 };
 
+/** Uma skill (backend/solis/skills.py): as suas (`origem` solis, escritas no
+ *  Solis ou à mão) e as da conta do claude.ai (`conta`: as suas de lá;
+ *  `anthropic`: as da Anthropic). `ligada` só conta pro Claude. */
+export type Skill = {
+  nome: string;
+  descricao: string;
+  para: ('claude' | 'codex')[];
+  origem: 'solis' | 'conta' | 'anthropic';
+  editavel: boolean;
+  ligada: boolean;
+};
+export type SkillInteira = { nome: string; descricao: string; instrucoes: string; para: ('claude' | 'codex')[] };
+
+export async function listarSkills(): Promise<Skill[] | null> {
+  try {
+    const r = await fetch(`${BASE}/skills`);
+    return r.ok ? ((await r.json()) as { skills: Skill[] }).skills : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function lerSkill(nome: string): Promise<SkillInteira | null> {
+  try {
+    const r = await fetch(`${BASE}/skills/${encodeURIComponent(nome)}`);
+    return r.ok ? ((await r.json()) as SkillInteira) : null;
+  } catch {
+    return null;
+  }
+}
+
+const MOTIVO_SKILL: Record<string, string> = {
+  nome: 'O nome precisa ter letras e números, separados por hífen.',
+  'descrição': 'Diga quando usar a skill (até 1024 caracteres).',
+  'instruções': 'Escreva as instruções da skill.',
+  'pra quem': 'Escolha pra quem a skill serve.',
+};
+
+/** Cria (sem `antigo`) ou muda. Erro: o motivo em português. */
+export async function salvarSkill(dados: SkillInteira, antigo?: string): Promise<Skill | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/skills${antigo ? `/${encodeURIComponent(antigo)}` : ''}`, {
+      method: antigo ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    if (r.ok) return (await r.json()) as Skill;
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    const motivo = corpo.motivo ?? '';
+    return { erro: MOTIVO_SKILL[motivo] ?? (motivo ? motivo.charAt(0).toUpperCase() + motivo.slice(1) + '.' : 'Não deu pra salvar.') };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
+
+export async function apagarSkill(nome: string): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/skills/${encodeURIComponent(nome)}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function ligarSkill(nome: string, ligada: boolean): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/skills/${encodeURIComponent(nome)}/ligada`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ligada }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** O navegador do Claude (backend/solis/navegador.py): o Chrome ou o Edge do
  *  PC, numa janela com o perfil do Solis. */
 export type Navegador = {

@@ -36,7 +36,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from pathlib import Path
 
-from . import banco, documentos, navegador, pc
+from . import banco, documentos, navegador, pc, skills
 from .etapas import MUDA
 
 log = logging.getLogger('solis.agente')
@@ -735,6 +735,9 @@ class _Viva:
                 if isinstance(m, SystemMessage):
                     if m.subtype == 'init':
                         self.sessao_id = (m.data or {}).get('session_id') or self.sessao_id
+                        # As skills que o CLI achou: o filtro (desligar uma) precisa de todas.
+                        with contextlib.suppress(Exception):
+                            skills.lembrar_descobertas(list((m.data or {}).get('skills') or []))
                         if self.resposta is None:
                             self._comecar_sozinha()
                     self._ver_fundo(m)
@@ -998,7 +1001,8 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         # permissões nem hooks, conferido em 13/11/2026). Num projeto, o
         # CLAUDE.md e a configuração dele, como o Claude Code.
         setting_sources=['user', 'project', 'local'] if projeto else ['user'],
-        skills='all',
+        # Todas, menos as que o Matheus desligou em Configurações → Skills.
+        skills=skills.filtro(),
         # Onde estão as bibliotecas que as skills de documento usam.
         # As bibliotecas das skills de documento, e a lista de tarefas do
         # Claude (o plano que a tela mostra): no modo SDK ela vem desligada.
@@ -1109,7 +1113,7 @@ async def _seguir_saida(sessao: str, tarefa: str, id_: str, comando: str, por, p
 
 def _alvo(nome: str, entrada: dict, limite: int = 160) -> str:
     for chave in ('file_path', 'notebook_path', 'path', 'pattern', 'query', 'url', 'command', 'description',
-                  'texto', 'titulo', 'busca', 'plan', 'pedido'):
+                  'texto', 'titulo', 'busca', 'plan', 'pedido', 'skill'):
         if entrada.get(chave):
             valor = str(entrada[chave])
             if len(valor) > limite and chave in ('file_path', 'notebook_path', 'path'):
