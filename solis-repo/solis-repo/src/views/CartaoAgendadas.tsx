@@ -14,7 +14,7 @@ import {
  *  horário, como as tarefas agendadas do Claude Desktop (backend/solis/agendadas.py).
  *  Na hora, o Solis abre uma conversa com o nome da tarefa e avisa no Windows.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), as ações
  *  em texto como o "Ver de novo" dos Conectores, o interruptor da Aparência e
  *  os campos da edição de Tarefas/Agenda (--mac-*, --tf-*). Medidas novas em
