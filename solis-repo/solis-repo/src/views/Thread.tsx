@@ -656,7 +656,7 @@ export function Thread({
           >
             <Icone nome="adicionar" tamanho={22} />
           </button>
-          {/* PROVISÓRIO — desenho próprio (15/11/2026), base no Research do
+          {/* Aprovado pelo Matheus em 15/11/2026 — desenho próprio, base no Research do
               claude.ai: ligado, a pílula em accent com o nome; desligado, só o
               ícone, como os outros (layout.thread.etapas._sources). */}
           <button

@@ -323,7 +323,7 @@ function LinhaFonte({ f }: { f: Fonte }) {
 /** As fontes da resposta — as páginas lidas e o resto do que a busca achou —,
  *  recolhidas em "N fontes" embaixo do texto, como no Research do claude.ai.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026): a dobra das etapas (--et-dobra-*)
+ *  Aprovado pelo Matheus em 15/11/2026 — desenho próprio: a dobra das etapas (--et-dobra-*)
  *  e, aberta, a lista no texto pequeno: o domínio em secundário e o título
  *  em link (layout.thread.etapas._sources no solis-tokens.json). */
 export function FontesResposta({ etapas }: { etapas: EtapaRecebida[] }) {
