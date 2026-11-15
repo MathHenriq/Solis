@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { listarConversas, type ResumoConversa } from '../servidor';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { apagarConversa, listarConversas, renomearConversa, type ResumoConversa } from '../servidor';
 import { Icone } from './icons';
 
 /** A lista de conversas no padrão do Claude: "Nova conversa", a busca e os
@@ -18,6 +19,8 @@ export type PropsLista = {
   versao: number;
   aoAbrir: (id: number) => void;
   aoNova: () => void;
+  /** A conversa foi apagada (se era a aberta, o app vai pra uma nova). */
+  aoApagada?: (id: number) => void;
 };
 
 /** Uma linha: a caixa a --rc-recuo das bordas, o texto na coluna dos ícones
@@ -42,7 +45,187 @@ function ColunaIcone({ children }: { children: ReactNode }) {
   );
 }
 
-export function ListaConversas({ aberta, versao, aoAbrir, aoNova }: PropsLista) {
+/** Uma conversa da lista, com o "…" no hover (Renomear, Apagar), como no
+ *  Claude. Renomear vira um campo na própria linha; apagar pede confirmação ali.
+ *
+ *  PROVISÓRIO — desenho próprio (15/11/2026), base na lista do Claude: o
+ *  botão de 3 pontos no lugar do fim do título, o menu na caixa dos menus do
+ *  Conhecimento (--kn-menu-*), a confirmação na linha em --rc-texto
+ *  (layout.recentes._acoes no solis-tokens.json). */
+// Duas opções de 36 + o padding da caixa: a conta de abrir pra cima.
+const MENU_ALTURA = 92;
+
+function LinhaConversa({
+  c,
+  ativa,
+  aoAbrir,
+  aoRenomeada,
+  aoApagada,
+}: {
+  c: ResumoConversa;
+  ativa: boolean;
+  aoAbrir: () => void;
+  aoRenomeada: (titulo: string) => void;
+  aoApagada: () => void;
+}) {
+  const [modo, definirModo] = useState<'normal' | 'menu' | 'renomear' | 'apagar'>('normal');
+  const [titulo, definirTitulo] = useState(c.titulo);
+  const [aviso, definirAviso] = useState<string | null>(null);
+  const caixa = useRef<HTMLLIElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Onde o menu abre: embaixo do botão, alinhado à direita dele (fixo na tela:
+  // dentro da lista, que rola, ele era cortado).
+  const [ancora, definirAncora] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (modo !== 'menu') return;
+    const fora = (e: MouseEvent) =>
+      !caixa.current?.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node) && definirModo('normal');
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && definirModo('normal');
+    document.addEventListener('mousedown', fora);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', fora);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [modo]);
+
+  const salvar = async () => {
+    const novo = titulo.trim();
+    if (!novo || novo === c.titulo) return definirModo('normal');
+    const r = await renomearConversa(c.id, novo);
+    if (r) aoRenomeada(r);
+    definirModo('normal');
+  };
+
+  if (modo === 'renomear')
+    return (
+      <li style={{ padding: '2px 0' }}>
+        <input
+          autoFocus
+          value={titulo}
+          onChange={(e) => definirTitulo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void salvar();
+            if (e.key === 'Escape') {
+              definirTitulo(c.titulo);
+              definirModo('normal');
+            }
+          }}
+          onBlur={() => void salvar()}
+          aria-label="Novo nome da conversa"
+          className="w-full bg-transparent outline-none text-text-primary border border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+          style={{ ...estiloLinha, height: 'calc(var(--rc-linha-h) - 4px)' }}
+        />
+      </li>
+    );
+
+  if (modo === 'apagar')
+    return (
+      <li
+        className="flex items-center bg-[var(--mem-hover-forte)]"
+        style={{ ...estiloLinha, gap: 10 }}
+        role="group"
+        aria-label={`Apagar ${c.titulo}?`}
+      >
+        <span className="truncate min-w-0 flex-1 text-text-secondary" title={c.titulo}>{aviso ?? 'Apagar?'}</span>
+        <button
+          type="button"
+          className="text-[var(--erro)] hover:underline shrink-0"
+          onClick={async () => {
+            const r = await apagarConversa(c.id);
+            if (r === true) aoApagada();
+            else definirAviso(r === 'respondendo' ? 'Espere a resposta acabar' : 'Não deu agora');
+          }}
+        >
+          Apagar
+        </button>
+        <button type="button" className="text-text-secondary hover:text-text-primary hover:underline shrink-0" onClick={() => {
+          definirAviso(null);
+          definirModo('normal');
+        }}>
+          Cancelar
+        </button>
+      </li>
+    );
+
+  return (
+    <li ref={caixa} className="group relative">
+      <button
+        type="button"
+        onClick={aoAbrir}
+        aria-current={ativa ? 'true' : undefined}
+        title={c.titulo}
+        className={`${linha} ${ativa ? 'bg-[var(--rc-ativo)]' : 'hover:bg-[var(--mem-hover-forte)]'}`}
+        style={{ ...estiloLinha, paddingRight: 'calc(var(--rc-px) + var(--rc-acoes))' }}
+      >
+        <span className="truncate">{c.titulo}</span>
+      </button>
+      <button
+        type="button"
+        aria-label={`Ações de ${c.titulo}`}
+        aria-haspopup="menu"
+        aria-expanded={modo === 'menu'}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          // Perto do fim da tela, abre pra cima.
+          const cabe = r.bottom + 2 + MENU_ALTURA < window.innerHeight;
+          definirAncora(
+            cabe
+              ? { top: r.bottom + 2, right: window.innerWidth - r.right }
+              : { bottom: window.innerHeight - r.top + 2, right: window.innerWidth - r.right },
+          );
+          definirModo((m) => (m === 'menu' ? 'normal' : 'menu'));
+        }}
+        className={`absolute flex items-center justify-center text-text-secondary hover:text-text-primary
+                    ${modo === 'menu' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
+        style={{ right: 4, top: 0, height: 'var(--rc-linha-h)', width: 'var(--rc-acoes)' }}
+      >
+        <Icone nome="mais" tamanho={16} />
+      </button>
+      {modo === 'menu' && ancora && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          className="fixed border border-divider bg-canvas font-sans"
+          style={{
+            zIndex: 60,
+            right: ancora.right,
+            top: ancora.top,
+            bottom: ancora.bottom,
+            width: 180,
+            padding: 'var(--kn-menu-pad)',
+            borderRadius: 'var(--kn-menu-raio)',
+            boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
+          }}
+        >
+          {[
+            { rotulo: 'Renomear', fazer: () => definirModo('renomear') },
+            { rotulo: 'Apagar', fazer: () => definirModo('apagar'), perigo: true },
+          ].map((a) => (
+            <button
+              key={a.rotulo}
+              type="button"
+              role="menuitem"
+              onClick={a.fazer}
+              className={`block w-full text-left hover:bg-[var(--mem-hover)] ${a.perigo ? 'text-[var(--erro)]' : 'text-text-primary'}`}
+              style={{
+                padding: '8px var(--kn-menu-item-px)',
+                borderRadius: 'calc(var(--kn-menu-raio) - var(--kn-menu-pad))',
+                fontSize: 'var(--mac-botao-texto)',
+              }}
+            >
+              {a.rotulo}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </li>
+  );
+}
+
+export function ListaConversas({ aberta, versao, aoAbrir, aoNova, aoApagada }: PropsLista) {
   const [busca, definirBusca] = useState('');
   const [conversas, definirConversas] = useState<ResumoConversa[]>([]);
 
@@ -108,23 +291,19 @@ export function ListaConversas({ aberta, versao, aoAbrir, aoNova }: PropsLista) 
             Nenhuma com “{busca.trim()}”
           </li>
         )}
-        {conversas.map((c) => {
-          const ativa = c.id === aberta;
-          return (
-            <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => aoAbrir(c.id)}
-                aria-current={ativa ? 'true' : undefined}
-                title={c.titulo}
-                className={`${linha} ${ativa ? 'bg-[var(--rc-ativo)]' : 'hover:bg-[var(--mem-hover-forte)]'}`}
-                style={estiloLinha}
-              >
-                <span className="truncate">{c.titulo}</span>
-              </button>
-            </li>
-          );
-        })}
+        {conversas.map((c) => (
+          <LinhaConversa
+            key={c.id}
+            c={c}
+            ativa={c.id === aberta}
+            aoAbrir={() => aoAbrir(c.id)}
+            aoRenomeada={(titulo) => definirConversas((l) => l.map((x) => (x.id === c.id ? { ...x, titulo } : x)))}
+            aoApagada={() => {
+              definirConversas((l) => l.filter((x) => x.id !== c.id));
+              aoApagada?.(c.id);
+            }}
+          />
+        ))}
       </ul>
     </div>
   );

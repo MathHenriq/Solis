@@ -689,6 +689,20 @@ def guardar_titulo(conversa: int, titulo: str) -> None:
         c.execute('UPDATE conversas SET titulo = ? WHERE id = ?', (_talvez_selar(conversa, titulo), conversa))
 
 
+def apagar_conversa(conversa: int) -> list[str]:
+    """Apaga a conversa: as mensagens (e os vetores delas), a sessão do Claude,
+    o projeto e os pontos de volta saem juntos. As memórias que nasceram dela
+    ficam — são fatos sobre o Matheus, não a conversa. Devolve os caminhos dos
+    anexos, pra a rota apagar do disco."""
+    with _con() as c:
+        anexos = [l[0] for l in c.execute(
+            'SELECT a.caminho FROM anexos a JOIN mensagens m ON m.id = a.mensagem WHERE m.conversa = ?', (conversa,))]
+        c.execute("DELETE FROM vetores WHERE tipo = 'mensagem' AND ref IN (SELECT id FROM mensagens WHERE conversa = ?)",
+                  (conversa,))
+        c.execute('DELETE FROM conversas WHERE id = ?', (conversa,))
+    return anexos
+
+
 def guardar_resumo(conversa: int, texto: str, ate: int) -> None:
     with _con() as c:
         c.execute(

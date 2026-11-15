@@ -275,7 +275,7 @@ for chave, var in [('sectionTop','--rc-topo'), ('rowInset','--rc-recuo'), ('rowP
                    ('rowHeight','--rc-linha-h'), ('rowRadius','--rc-raio'), ('textSize','--rc-texto'),
                    ('labelSize','--rc-rotulo'), ('labelTop','--rc-rotulo-top'), ('labelHeight','--rc-rotulo-h'),
                    ('plusSize','--rc-mais'), ('iconSize','--rc-icone'), ('iconGap','--rc-icone-gap'),
-                   ('drawerWidth','--rc-gaveta')]:
+                   ('drawerWidth','--rc-gaveta'), ('rowActions','--rc-acoes')]:
     w('  %s: %s;' % (var, rc[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
 w('')

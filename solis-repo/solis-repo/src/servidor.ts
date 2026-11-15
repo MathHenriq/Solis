@@ -657,6 +657,31 @@ export async function listarConversas(busca = ''): Promise<ResumoConversa[]> {
   }
 }
 
+/** Outro nome pra conversa. null: não deu. */
+export async function renomearConversa(id: number, titulo: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo }),
+    });
+    return r.ok ? ((await r.json()) as { titulo: string }).titulo : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Apaga a conversa (e os anexos; as memórias ficam). 'respondendo': espere acabar. */
+export async function apagarConversa(id: number): Promise<true | 'respondendo' | null> {
+  try {
+    const r = await fetch(`${BASE}/conversas/${id}`, { method: 'DELETE' });
+    if (r.status === 409) return 'respondendo';
+    return r.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function abrirConversa(id: number): Promise<{ id: number; mensagens: Mensagem[] } | null> {
   try {
     const r = await fetch(`${BASE}/conversas/${id}`);

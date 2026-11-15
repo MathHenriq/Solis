@@ -271,6 +271,7 @@
   --rc-icone: 16px;
   --rc-icone-gap: 10px;
   --rc-gaveta: 264px;
+  --rc-acoes: 28px;
   --composer-radius: 13px;
 
   /* Barra de rolagem. Ver appearance.scrollbar no JSON. */

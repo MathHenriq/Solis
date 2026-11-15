@@ -224,6 +224,45 @@ async def listar_conversas(q: str = ''):
     return {'conversas': banco.conversas(q)}
 
 
+class NovoTitulo(BaseModel):
+    titulo: str
+
+
+@app.patch('/conversas/{conversa}')
+async def renomear_conversa(conversa: int, corpo: NovoTitulo):
+    """O Matheus deu outro nome à conversa (o título automático não troca mais:
+    ele só vem quando ainda não há título)."""
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    titulo = ' '.join(corpo.titulo.split())[:120]
+    if not titulo:
+        return JSONResponse({'erro': 'titulo_vazio'}, status_code=400)
+    banco.guardar_titulo(conversa, titulo)
+    return {'id': conversa, 'titulo': titulo}
+
+
+@app.delete('/conversas/{conversa}')
+async def apagar_conversa(conversa: int):
+    """Apaga a conversa e os anexos dela (as memórias ficam). Respondendo,
+    espera acabar; com comando em segundo plano, a sessão do Claude para ele."""
+    if not banco.existe(conversa):
+        return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
+    if conversa in _paradas:
+        return JSONResponse({'erro': 'respondendo'}, status_code=409)
+    try:
+        from . import agente
+        viva = agente._vivas.get(conversa)
+        if viva is not None and viva.laco is not None:
+            asyncio.run_coroutine_threadsafe(viva.fechar(), viva.laco)
+    except ImportError:
+        pass
+    for caminho in banco.apagar_conversa(conversa):
+        with contextlib.suppress(OSError):
+            Path(caminho).unlink()
+    banco.registrar_acao(None, 'apagar_conversa', {'conversa': conversa}, 'apagada pelo Matheus', True)
+    return {'ok': True}
+
+
 @app.get('/conversas/{conversa}')
 async def abrir_conversa(conversa: int):
     if not banco.existe(conversa):

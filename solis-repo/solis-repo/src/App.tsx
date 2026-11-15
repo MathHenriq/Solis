@@ -69,6 +69,10 @@ export default function App() {
       definirTela('conversa');
       conversa.nova();
     },
+    // Apagou a que estava aberta: vai pra uma conversa nova.
+    aoApagada: (id) => {
+      if (id === conversa.conversa) conversa.nova();
+    },
   };
 
   const TELAS: Record<string, () => ReactElement> = {
