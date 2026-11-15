@@ -7,7 +7,7 @@ import { abrirNavegador, escolherNavegador, lerNavegador, type Navegador } from 
  *  do Chrome ou do Edge do PC, com um perfil só do Solis: os logins feitos
  *  nela ficam guardados ali, longe do perfil de sempre.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), o
  *  seletor e o botão dos campos das Tarefas agendadas (--mac-*). Medida nova em
  *  layout.configuracoes.navegador. */
