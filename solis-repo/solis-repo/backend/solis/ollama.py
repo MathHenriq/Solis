@@ -284,6 +284,7 @@ async def conversar(
     conversa: int | None = None,
     voz: bool = False,
     pensar: bool | None = None,
+    projeto: str = '',
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
     Com `ferramentas`, o modelo pode ler os arquivos das pastas autorizadas
@@ -293,7 +294,9 @@ async def conversar(
     primeiro pedaço — depois que o streaming começa já não dá pra trocar o
     status da resposta HTTP. Um corte no meio só encerra o texto onde parou.
     """
-    mensagens_ollama = [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo, arquivos=ferramentas, voz=voz)}] + [
+    # `projeto`: as instruções e os arquivos do projeto da conversa (roteador.nota_projeto).
+    mensagens_ollama = [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo, arquivos=ferramentas, voz=voz)
+                         + projeto}] + [
         {'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens
     ]
     corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama}

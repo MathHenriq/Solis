@@ -172,7 +172,7 @@ def test_plano_aprovado_volta_a_conversa_pro_modo_de_pedir(projeto):
     c = banco.nova_conversa()
     banco.guardar_projeto(c, str(projeto), 'planejar')
     _, mandados = _decidir_conversa('ExitPlanMode', {'plan': 'x'}, c, responder=True, projeto=str(projeto), modo='planejar')
-    assert banco.projeto_da_conversa(c) == {'pasta': str(projeto), 'modo': 'pedir'}
+    assert banco.projeto_da_conversa(c) == {'pasta': str(projeto), 'modo': 'pedir', 'projeto': None}
     assert ('etapa', ('modo', {'modo': 'pedir'})) in mandados
 
 

@@ -371,11 +371,23 @@ async def anexar(request: Request, nome: str):
 class Projeto(BaseModel):
     pasta: str | None = None
     modo: str = 'pedir'
+    # O projeto da conversa (id); null tira dela. Sem o campo, fica o que era.
+    projeto: int | None = None
+
+
+def _pasta_valida(texto: str | None) -> str | None | JSONResponse:
+    if not texto or not texto.strip():
+        return None
+    p = Path(texto.strip().strip('"')).expanduser()
+    if not p.is_dir():
+        return JSONResponse({'erro': 'pasta_inexistente'}, status_code=400)
+    return str(p.resolve())
 
 
 @app.get('/conversas/{conversa}/projeto')
 async def ler_projeto(conversa: int):
-    """A pasta de projeto em que o Claude trabalha nesta conversa e o modo."""
+    """Onde o Claude trabalha nesta conversa: o projeto (`projeto`: id e nome,
+    ou null), a pasta (a do projeto, se houver) e o modo."""
     if not banco.existe(conversa):
         return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
     return {**banco.projeto_da_conversa(conversa), 'recentes': banco.projetos_recentes()}
@@ -385,20 +397,124 @@ async def ler_projeto(conversa: int):
 async def guardar_projeto(conversa: int, corpo: Projeto):
     if not banco.existe(conversa):
         return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
-    pasta = None
-    if corpo.pasta and corpo.pasta.strip():
-        p = Path(corpo.pasta.strip().strip('"')).expanduser()
-        if not p.is_dir():
-            return JSONResponse({'erro': 'pasta_inexistente'}, status_code=400)
-        pasta = str(p.resolve())
+    pasta = _pasta_valida(corpo.pasta)
+    if isinstance(pasta, JSONResponse):
+        return pasta
     if corpo.modo not in banco.MODOS:
         return JSONResponse({'erro': 'modo_invalido'}, status_code=400)
-    if pasta != banco.projeto_da_conversa(conversa)['pasta']:
-        # A sessão do Claude mora com a pasta em que ele trabalhava: outra
-        # pasta, outra sessão (o histórico vai no pedido, como sempre).
+    antes = banco.projeto_da_conversa(conversa)
+    if 'projeto' in corpo.model_fields_set:
+        if corpo.projeto is not None and not banco.projeto(corpo.projeto):
+            return JSONResponse({'erro': 'projeto_inexistente'}, status_code=404)
+        depois = banco.guardar_projeto(conversa, pasta, corpo.modo, corpo.projeto)
+    else:
+        depois = banco.guardar_projeto(conversa, pasta, corpo.modo)
+    if depois['pasta'] != antes['pasta'] or (depois['projeto'] or {}).get('id') != (antes['projeto'] or {}).get('id'):
+        # A sessão do Claude mora com a pasta e as instruções com que começou:
+        # outra pasta ou outro projeto, outra sessão (o histórico vai no pedido).
         banco.esquecer_sessao_claude(conversa)
-    banco.guardar_projeto(conversa, pasta, corpo.modo)
     return await ler_projeto(conversa)
+
+
+# — Projetos: instruções e arquivos fixos, e a pasta de código ————————————————————
+class NovoProjeto(BaseModel):
+    nome: str
+    instrucoes: str = ''
+    pasta: str | None = None
+
+
+def _pasta_projetos() -> Path:
+    from . import agente
+    return agente._pasta_trabalho().resolve() / 'projetos'
+
+
+@app.get('/projetos')
+async def listar_projetos():
+    """Os projetos, o mais mexido primeiro (com quantos arquivos e conversas)."""
+    return {'projetos': banco.projetos()}
+
+
+@app.post('/projetos')
+async def criar_projeto(corpo: NovoProjeto):
+    if not corpo.nome.strip():
+        return JSONResponse({'erro': 'sem_nome'}, status_code=400)
+    pasta = _pasta_valida(corpo.pasta)
+    if isinstance(pasta, JSONResponse):
+        return pasta
+    return banco.criar_projeto(corpo.nome[:120], corpo.instrucoes[:20_000], pasta)
+
+
+@app.get('/projetos/{projeto}')
+async def ler_projeto_inteiro(projeto: int):
+    p = banco.projeto(projeto)
+    return p if p else JSONResponse({'erro': 'projeto_inexistente'}, status_code=404)
+
+
+@app.put('/projetos/{projeto}')
+async def editar_projeto(projeto: int, corpo: NovoProjeto):
+    if not corpo.nome.strip():
+        return JSONResponse({'erro': 'sem_nome'}, status_code=400)
+    pasta = _pasta_valida(corpo.pasta)
+    if isinstance(pasta, JSONResponse):
+        return pasta
+    antes = banco.projeto(projeto)
+    if not antes:
+        return JSONResponse({'erro': 'projeto_inexistente'}, status_code=404)
+    p = banco.editar_projeto(projeto, corpo.nome[:120], corpo.instrucoes[:20_000], pasta)
+    if (antes['instrucoes'], antes['pasta']) != (p['instrucoes'], p['pasta']):
+        # As conversas dele começam sessão nova do Claude: instruções e pasta
+        # entram quando a sessão nasce.
+        for c in banco.conversas_do_projeto(projeto):
+            banco.esquecer_sessao_claude(c)
+    return p
+
+
+@app.delete('/projetos/{projeto}')
+async def apagar_projeto(projeto: int):
+    """Apaga o projeto e os arquivos fixos dele (da pasta do Solis). As
+    conversas ficam, sem projeto."""
+    if not banco.projeto(projeto):
+        return JSONResponse({'erro': 'projeto_inexistente'}, status_code=404)
+    for c in banco.conversas_do_projeto(projeto):
+        banco.esquecer_sessao_claude(c)
+    for caminho in banco.apagar_projeto(projeto):
+        with contextlib.suppress(OSError):
+            Path(caminho).unlink()
+    return {'ok': True}
+
+
+@app.post('/projetos/{projeto}/arquivos')
+async def adicionar_arquivo_projeto(projeto: int, request: Request, nome: str):
+    """O arquivo cru no corpo, o nome na query (como em /anexos). Fica na pasta
+    de trabalho, em projetos/<id>/, enquanto o projeto existir."""
+    if not banco.projeto(projeto):
+        return JSONResponse({'erro': 'projeto_inexistente'}, status_code=404)
+    dados = await request.body()
+    if not dados:
+        return JSONResponse({'erro': 'vazio'}, status_code=400)
+    if len(dados) > ANEXO_MAX:
+        return JSONResponse({'erro': 'grande_demais', 'max': ANEXO_MAX}, status_code=413)
+    seguro = re.sub(r'[^\w.\- ]', '_', Path(nome).name).strip()[:120] or 'arquivo'
+    pasta = _pasta_projetos() / str(projeto)
+    pasta.mkdir(parents=True, exist_ok=True)
+    caminho = pasta / f'{uuid.uuid4().hex[:8]}-{seguro}'
+    await asyncio.to_thread(caminho.write_bytes, dados)
+    for c in banco.conversas_do_projeto(projeto):
+        banco.esquecer_sessao_claude(c)
+    return banco.adicionar_arquivo_projeto(projeto, seguro, str(caminho),
+                                           mimetypes.guess_type(seguro)[0] or 'application/octet-stream', len(dados))
+
+
+@app.delete('/projetos/{projeto}/arquivos/{arquivo}')
+async def remover_arquivo_projeto(projeto: int, arquivo: int):
+    caminho = banco.remover_arquivo_projeto(projeto, arquivo)
+    if caminho is None:
+        return JSONResponse({'erro': 'arquivo_inexistente'}, status_code=404)
+    with contextlib.suppress(OSError):
+        Path(caminho).unlink()
+    for c in banco.conversas_do_projeto(projeto):
+        banco.esquecer_sessao_claude(c)
+    return {'ok': True}
 
 
 @app.post('/conversas/{conversa}/parar')

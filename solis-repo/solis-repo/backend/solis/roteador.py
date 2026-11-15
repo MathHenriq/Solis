@@ -18,6 +18,7 @@ tenha qualquer coisa privada — não dá pra saber o que um resumo carrega.
 """
 import os
 import re
+from pathlib import Path
 from collections.abc import AsyncIterator
 
 from . import banco, cerebros, memoria, ollama, pc
@@ -172,6 +173,45 @@ def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 
+# Os arquivos de texto do projeto vão inteiros pros cérebros que não leem
+# arquivo (o local, Groq, Gemini...), até este tanto; o Claude lê sozinho.
+PROJETO_TEXTO_MAX = 12_000
+_TEXTO = {'.txt', '.md', '.csv', '.json', '.py', '.ts', '.js', '.html', '.css', '.yaml', '.yml', '.xml'}
+
+
+def nota_projeto(conversa: int, le_arquivos: bool) -> str:
+    """O projeto da conversa no sistema do cérebro: as instruções dele e os
+    arquivos fixos. `le_arquivos` (o Claude): só os caminhos, ele lê quando
+    precisar; os outros recebem o texto dos arquivos de texto."""
+    p = banco.projeto_da_conversa(conversa).get('projeto')
+    if not p:
+        return ''
+    proj = banco.projeto(p['id'])
+    if not proj:
+        return ''
+    partes = [f'\n\nEsta conversa é do projeto "{proj["nome"]}".']
+    if proj['instrucoes'].strip():
+        partes.append(f'Instruções do projeto (siga sempre):\n{proj["instrucoes"].strip()}')
+    if proj['arquivos']:
+        if le_arquivos:
+            partes.append('Arquivos do projeto (leia quando a pergunta precisar deles):\n' + '\n'.join(
+                f'- {a["caminho"]}' for a in proj['arquivos']))
+        else:
+            sobra, textos = PROJETO_TEXTO_MAX, []
+            for a in proj['arquivos']:
+                if Path(a['caminho']).suffix.lower() not in _TEXTO or sobra <= 0:
+                    textos.append(f'- {a["nome"]} (não incluído aqui)')
+                    continue
+                try:
+                    t = Path(a['caminho']).read_text(encoding='utf-8', errors='replace')[:sobra]
+                except OSError:
+                    continue
+                sobra -= len(t)
+                textos.append(f'### {a["nome"]}\n{t}')
+            partes.append('Arquivos do projeto:\n' + '\n\n'.join(textos))
+    return '\n\n'.join(partes)
+
+
 def nota_anexos(anexos: list[dict] | None) -> str:
     """Os arquivos que o Matheus anexou, onde o modelo pode lê-los (o Claude,
     com a ferramenta de ler: texto, PDF e imagem)."""
@@ -205,8 +245,8 @@ def sessao_claude(conversa, historico, memorias, trechos, mensagem, voz: bool = 
     resposta dele, e a mensagem nova. Sem sessão, ou sem resposta dele no
     histórico (a conversa foi resumida, ou ele nunca respondeu), `id` vem
     vazio e vai o pedido inteiro, como pros outros."""
-    sessao = {'conversa': conversa, 'id': None, 'prompt': None,
-              **{('projeto' if k == 'pasta' else k): v for k, v in banco.projeto_da_conversa(conversa).items()}}
+    onde = banco.projeto_da_conversa(conversa)
+    sessao = {'conversa': conversa, 'id': None, 'prompt': None, 'projeto': onde['pasta'], 'modo': onde['modo']}
     id_ = banco.sessao_claude(conversa)
     anteriores = historico[:-1]
     if not id_ or not historico or any(m.get('id') is None for m in historico):
@@ -252,14 +292,15 @@ async def responder(
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
-                        conversa=conversa, voz=voz, **_modo_local(mensagem, voz),
+                        conversa=conversa, voz=voz, projeto=nota_projeto(conversa, le_arquivos=False),
+                        **_modo_local(mensagem, voz),
                     ),
                     etapas,
                 )
             else:
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome),
+                    sistema_para(nome) + nota_projeto(conversa, le_arquivos=nome == 'claude'),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],

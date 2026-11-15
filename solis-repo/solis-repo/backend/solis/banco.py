@@ -350,6 +350,32 @@ MIGRACOES = [
     );
     CREATE INDEX pontos_volta_conversa ON pontos_volta (conversa, mensagem);
     """,
+    # 19 — os projetos: nome, instruções, arquivos fixos e, se quiser, uma
+    # pasta de código; as conversas dentro dele herdam tudo (docs/PARIDADE.md,
+    # decidido pelo Matheus em 13/11/2026: juntar o projeto do claude.ai com a
+    # pasta de projeto do Claude Code). A conversa sem projeto continua com a
+    # pasta e o modo dela em projetos_conversa.
+    """
+    CREATE TABLE projetos (
+        id         INTEGER PRIMARY KEY,
+        nome       TEXT NOT NULL,
+        instrucoes TEXT NOT NULL DEFAULT '',
+        pasta      TEXT,
+        criado     TEXT NOT NULL,
+        atualizado TEXT NOT NULL
+    );
+    CREATE TABLE projeto_arquivos (
+        id       INTEGER PRIMARY KEY,
+        projeto  INTEGER NOT NULL REFERENCES projetos(id) ON DELETE CASCADE,
+        nome     TEXT NOT NULL,
+        caminho  TEXT NOT NULL,
+        tipo     TEXT NOT NULL,
+        tamanho  INTEGER NOT NULL,
+        criado   TEXT NOT NULL
+    );
+    CREATE INDEX projeto_arquivos_projeto ON projeto_arquivos (projeto);
+    ALTER TABLE projetos_conversa ADD COLUMN projeto INTEGER REFERENCES projetos(id) ON DELETE SET NULL;
+    """,
 ]
 
 
@@ -1142,21 +1168,131 @@ MODOS = ('pedir', 'aceitar', 'planejar')
 
 
 def projeto_da_conversa(conversa: int) -> dict:
-    """{'pasta': caminho ou None, 'modo': pedir | aceitar | planejar}."""
-    l = _con().execute('SELECT pasta, modo FROM projetos_conversa WHERE conversa = ?', (conversa,)).fetchone()
-    return {'pasta': l[0], 'modo': l[1]} if l else {'pasta': None, 'modo': 'pedir'}
+    """{'pasta': a pasta onde o Claude trabalha (a do projeto, se a conversa
+    está num; senão a dela) ou None, 'modo': pedir | aceitar | planejar,
+    'projeto': {'id', 'nome'} ou None}."""
+    l = _con().execute(
+        'SELECT pc.pasta, pc.modo, pc.projeto, p.nome, p.pasta FROM projetos_conversa pc '
+        'LEFT JOIN projetos p ON p.id = pc.projeto WHERE pc.conversa = ?', (conversa,)
+    ).fetchone()
+    if not l:
+        return {'pasta': None, 'modo': 'pedir', 'projeto': None}
+    if l[2] is not None and l[3] is not None:
+        return {'pasta': l[4], 'modo': l[1], 'projeto': {'id': l[2], 'nome': l[3]}}
+    return {'pasta': l[0], 'modo': l[1], 'projeto': None}
 
 
-def guardar_projeto(conversa: int, pasta: str | None, modo: str) -> dict:
+_MANTER = object()
+
+
+def guardar_projeto(conversa: int, pasta: str | None, modo: str, projeto=_MANTER) -> dict:
+    """A pasta solta e o modo da conversa; `projeto`: o id (None tira do
+    projeto). Sem `projeto`, o vínculo que havia fica."""
     if modo not in MODOS:
         raise ValueError('modo')
     with _con() as c:
+        if projeto is _MANTER:
+            l = c.execute('SELECT projeto FROM projetos_conversa WHERE conversa = ?', (conversa,)).fetchone()
+            projeto = l[0] if l else None
         c.execute(
-            'INSERT INTO projetos_conversa (conversa, pasta, modo, quando) VALUES (?, ?, ?, ?) '
-            'ON CONFLICT(conversa) DO UPDATE SET pasta = excluded.pasta, modo = excluded.modo, quando = excluded.quando',
-            (conversa, pasta, modo, _agora()),
+            'INSERT INTO projetos_conversa (conversa, pasta, modo, quando, projeto) VALUES (?, ?, ?, ?, ?) '
+            'ON CONFLICT(conversa) DO UPDATE SET pasta = excluded.pasta, modo = excluded.modo, '
+            'quando = excluded.quando, projeto = excluded.projeto',
+            (conversa, pasta, modo, _agora(), projeto),
         )
     return projeto_da_conversa(conversa)
+
+
+def guardar_modo(conversa: int, modo: str) -> dict:
+    """Só o modo (o plano aprovado volta pra "pedir"): pasta e projeto ficam."""
+    with _con() as c:
+        l = c.execute('SELECT pasta FROM projetos_conversa WHERE conversa = ?', (conversa,)).fetchone()
+    return guardar_projeto(conversa, l[0] if l else None, modo)
+
+
+# — Projetos ————————————————————————————————————————————————————————————————————
+def _projeto(l) -> dict:
+    return {'id': l[0], 'nome': l[1], 'instrucoes': l[2], 'pasta': l[3], 'criado': l[4], 'atualizado': l[5]}
+
+
+def projetos() -> list[dict]:
+    """Os projetos, o mais mexido primeiro, com quantos arquivos e conversas."""
+    linhas = _con().execute(
+        'SELECT p.id, p.nome, p.instrucoes, p.pasta, p.criado, p.atualizado, '
+        '(SELECT COUNT(*) FROM projeto_arquivos a WHERE a.projeto = p.id), '
+        '(SELECT COUNT(*) FROM projetos_conversa pc WHERE pc.projeto = p.id) '
+        'FROM projetos p ORDER BY p.atualizado DESC, p.id DESC'
+    ).fetchall()
+    return [{**_projeto(l), 'arquivos': l[6], 'conversas': l[7]} for l in linhas]
+
+
+def projeto(id_: int) -> dict | None:
+    """Um projeto com a lista dos arquivos fixos."""
+    l = _con().execute(
+        'SELECT id, nome, instrucoes, pasta, criado, atualizado FROM projetos WHERE id = ?', (id_,)
+    ).fetchone()
+    if not l:
+        return None
+    arquivos = [
+        {'id': a[0], 'nome': a[1], 'caminho': a[2], 'tipo': a[3], 'tamanho': a[4]}
+        for a in _con().execute(
+            'SELECT id, nome, caminho, tipo, tamanho FROM projeto_arquivos WHERE projeto = ? ORDER BY id', (id_,))
+    ]
+    return {**_projeto(l), 'arquivos': arquivos}
+
+
+def criar_projeto(nome: str, instrucoes: str = '', pasta: str | None = None) -> dict:
+    agora = _agora()
+    with _con() as c:
+        id_ = c.execute(
+            'INSERT INTO projetos (nome, instrucoes, pasta, criado, atualizado) VALUES (?, ?, ?, ?, ?)',
+            (nome.strip(), instrucoes, pasta, agora, agora),
+        ).lastrowid
+    return projeto(id_)
+
+
+def editar_projeto(id_: int, nome: str, instrucoes: str, pasta: str | None) -> dict | None:
+    with _con() as c:
+        n = c.execute(
+            'UPDATE projetos SET nome = ?, instrucoes = ?, pasta = ?, atualizado = ? WHERE id = ?',
+            (nome.strip(), instrucoes, pasta, _agora(), id_),
+        ).rowcount
+    return projeto(id_) if n else None
+
+
+def conversas_do_projeto(id_: int) -> list[int]:
+    return [l[0] for l in _con().execute('SELECT conversa FROM projetos_conversa WHERE projeto = ?', (id_,))]
+
+
+def apagar_projeto(id_: int) -> list[str]:
+    """Apaga o projeto e o registro dos arquivos; devolve os caminhos (a rota
+    apaga do disco). As conversas ficam, sem projeto."""
+    caminhos = [a['caminho'] for a in (projeto(id_) or {}).get('arquivos', [])]
+    with _con() as c:
+        c.execute('UPDATE projetos_conversa SET projeto = NULL WHERE projeto = ?', (id_,))
+        c.execute('DELETE FROM projetos WHERE id = ?', (id_,))
+    return caminhos
+
+
+def adicionar_arquivo_projeto(id_: int, nome: str, caminho: str, tipo: str, tamanho: int) -> dict:
+    with _con() as c:
+        aid = c.execute(
+            'INSERT INTO projeto_arquivos (projeto, nome, caminho, tipo, tamanho, criado) VALUES (?, ?, ?, ?, ?, ?)',
+            (id_, nome, caminho, tipo, tamanho, _agora()),
+        ).lastrowid
+        c.execute('UPDATE projetos SET atualizado = ? WHERE id = ?', (_agora(), id_))
+    return {'id': aid, 'nome': nome, 'caminho': caminho, 'tipo': tipo, 'tamanho': tamanho}
+
+
+def remover_arquivo_projeto(id_: int, arquivo: int) -> str | None:
+    """Tira o arquivo do projeto; devolve o caminho (a rota apaga do disco)."""
+    with _con() as c:
+        l = c.execute('SELECT caminho FROM projeto_arquivos WHERE id = ? AND projeto = ?', (arquivo, id_)).fetchone()
+        if not l:
+            return None
+        c.execute('DELETE FROM projeto_arquivos WHERE id = ?', (arquivo,))
+        c.execute('UPDATE projetos SET atualizado = ? WHERE id = ?', (_agora(), id_))
+    return l[0]
 
 
 def projetos_recentes(limite: int = 8) -> list[str]:

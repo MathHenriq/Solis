@@ -362,7 +362,7 @@ async def _decidir(nome: str, entrada: dict, por, ids: set | None = None, projet
         # aprovação pro que escreve, como no modo de sempre. A conversa
         # também volta pro modo de pedir (como o Claude Code faz).
         if conversa is not None:
-            banco.guardar_projeto(conversa, banco.projeto_da_conversa(conversa)['pasta'], 'pedir')
+            banco.guardar_modo(conversa, 'pedir')
             por('etapa', ('modo', {'modo': 'pedir'}))
         return PermissionResultAllow(updated_permissions=[
             PermissionUpdate(type='setMode', mode='default', destination='session')])
