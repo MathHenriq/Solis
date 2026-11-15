@@ -237,6 +237,8 @@ export type Etapa = {
   links?: { titulo: string; url: string }[];
   /** Etapa `fonte`: uma página que um ajudante leu. */
   url?: string;
+  /** Etapa `plano`: a lista de tarefas do Claude como está agora. */
+  itens?: { id: string; texto: string; estado: 'pendente' | 'fazendo' | 'feita' }[];
   /** Etapa `fontes`: as fontes da rodada, numa resposta que veio sozinha (o relatório). */
   fontes?: { url: string; titulo: string; lida: boolean }[];
 };

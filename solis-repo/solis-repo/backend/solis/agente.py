@@ -45,7 +45,10 @@ log = logging.getLogger('solis.agente')
 APROVACAO_MAX_S = 10 * 60
 RODADAS_MAX = 40
 
-LIVRES = {'WebSearch', 'WebFetch', 'TodoWrite', 'ToolSearch', 'Task', 'Agent'}
+# A lista de tarefas do próprio Claude (o plano): TaskCreate/TaskUpdate no
+# CLI de agora, ligadas por CLAUDE_CODE_ENABLE_TODO_TOOLS (visto em 15/11/2026).
+PLANO = {'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet'}
+LIVRES = {'WebSearch', 'WebFetch', 'ToolSearch', 'Task', 'Agent'} | PLANO
 TERMINAL = {'Bash', 'PowerShell'}
 
 # A saída de um comando, ao vivo e no fim: as últimas linhas (a tela mostra
@@ -442,7 +445,11 @@ class _Resposta:
                 if isinstance(b, ToolResultBlock) and b.tool_use_id in self.usadas:
                     self._parar_de_seguir(b.tool_use_id)
                     nome, entrada = self.usadas.pop(b.tool_use_id)
-                    if nome in ('ToolSearch', 'TodoWrite'):
+                    if nome in PLANO:
+                        if not b.is_error and viva.mudar_plano(nome, entrada, getattr(m, 'tool_use_result', None)):
+                            por('etapa', ('plano', {'itens': [dict(i) for i in viva.plano]}))
+                        continue
+                    if nome == 'ToolSearch':
                         continue
                     if nome in EDICAO and not b.is_error and viva.sessao_id and conversa is not None:
                         banco.ponto_mudou(conversa, viva.sessao_id)
@@ -567,6 +574,41 @@ class _Viva:
         # e dos ajudantes: {'url', 'titulo', 'lida'}. A resposta que vem
         # sozinha (o relatório, quando os ajudantes voltam) leva todas.
         self.fontes: list[dict] = []
+        # O plano do Claude: [{'id', 'texto', 'estado' (pendente | fazendo | feita)}].
+        self.plano: list[dict] = []
+
+    def mudar_plano(self, nome: str, entrada: dict, resultado) -> bool:
+        """Aplica uma ferramenta do plano. True se a lista mudou."""
+        resultado = resultado if isinstance(resultado, dict) else {}
+        if nome == 'TaskCreate':
+            t = resultado.get('task') or {}
+            id_ = str(t.get('id') or len(self.plano) + 1)
+            texto = str(t.get('subject') or entrada.get('subject') or entrada.get('description') or '')[:200]
+            self.plano = [i for i in self.plano if i['id'] != id_] + [{'id': id_, 'texto': texto, 'estado': 'pendente'}]
+            return True
+        if nome == 'TaskUpdate':
+            id_ = str(entrada.get('taskId') or '')
+            estado = {'pending': 'pendente', 'in_progress': 'fazendo', 'completed': 'feita'}.get(entrada.get('status'))
+            mudou = False
+            for i in list(self.plano):
+                if i['id'] != id_:
+                    continue
+                if entrada.get('status') == 'deleted':
+                    self.plano.remove(i)
+                    return True
+                if estado and i['estado'] != estado:
+                    i['estado'], mudou = estado, True
+                if entrada.get('subject'):
+                    i['texto'], mudou = str(entrada['subject'])[:200], True
+            return mudou
+        if nome == 'TodoWrite':
+            # O formato antigo: a lista inteira de uma vez.
+            estados = {'pending': 'pendente', 'in_progress': 'fazendo', 'completed': 'feita'}
+            self.plano = [{'id': str(n + 1), 'texto': str(t.get('content') or '')[:200],
+                           'estado': estados.get(t.get('status'), 'pendente')}
+                          for n, t in enumerate(entrada.get('todos') or [])]
+            return True
+        return False
 
     def anotar_fonte(self, url: str, titulo: str = '', lida: bool = False) -> None:
         if not url.startswith(('http://', 'https://')):
@@ -670,7 +712,7 @@ class _Viva:
                     nome, entrada = t['usadas'].pop(b.tool_use_id)
                     if (t.get('agora') or {}).get('id') == b.tool_use_id:
                         t['agora'] = None
-                    if nome in ('ToolSearch', 'TodoWrite'):
+                    if nome == 'ToolSearch' or nome in PLANO:
                         continue
                     if nome in EDICAO and not b.is_error and self.sessao_id and self.conversa is not None:
                         banco.ponto_mudou(self.conversa, self.sessao_id)
@@ -858,7 +900,9 @@ async def _sessao(sistema: str, prompt: str, por, retomar: str | None = None, es
         setting_sources=['user', 'project', 'local'] if projeto else ['user'],
         skills='all',
         # Onde estão as bibliotecas que as skills de documento usam.
-        env=documentos.env(),
+        # As bibliotecas das skills de documento, e a lista de tarefas do
+        # Claude (o plano que a tela mostra): no modo SDK ela vem desligada.
+        env={**documentos.env(), 'CLAUDE_CODE_ENABLE_TODO_TOOLS': '1'},
         permission_mode='plan' if modo == 'planejar' else 'default',
         max_turns=RODADAS_MAX,
         # Voltar atrás: o CLI guarda cada arquivo antes de editar, e devolve a

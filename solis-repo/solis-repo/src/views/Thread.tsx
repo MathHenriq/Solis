@@ -6,6 +6,7 @@ import {
   DobraEtapas,
   ehArtefato,
   FontesResposta,
+  PlanoResposta,
   ListaEtapas,
   TerminaisAoVivo,
 } from '../components/EtapasResposta';
@@ -355,6 +356,7 @@ function RespostaSolis({
               </div>
             </div>
           )}
+          <PlanoResposta etapas={etapas} vivo={vivo} />
           {vivo && <TerminaisAoVivo etapas={etapas} />}
           {vivo && <CartoesAprovacao etapas={etapas} />}
           {!vivo && <FontesResposta etapas={etapas} />}

@@ -54,7 +54,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 | ✅ | Escrever e editar arquivos | Claude, com o cartão e o diff do que muda (12/11/2026: provado — `-def subtrai` / `+def diminui` no cartão antes de aprovar) | P1 |
 | ✅ | Terminal | Claude, com o cartão. A saída ao vivo (12/11/2026): o CLI escreve a saída de um comando que passa de ~2 s num arquivo temporário enquanto ele roda, e o Solis lê e mostra embaixo da resposta; no fim ela fica no passo "Rodei no terminal", que abre. Provado pelo app: 3, 5, 6 e 8 linhas chegando de um comando de 8 s. Não é API pública do SDK: se mudar, só o ao vivo some | P1 |
 | ✅ | "Aprovar sempre" esta ferramenta / esta pasta | 12/11/2026: "Sempre este comando" (o comando exato) e "Sempre nesta conversa" (as edições), valendo enquanto o servidor está de pé. Provado: a edição e o comando seguintes passaram sem cartão | P1 |
-| ⬜ | Lista de tarefas do próprio trabalho (o plano que ele mostra fazendo) | o Claude usa (TodoWrite), a tela não mostra | P2 |
+| ✅ | Lista de tarefas do próprio trabalho (o plano que ele mostra fazendo) | 15/11/2026: no modo SDK a lista vinha desligada; ligada (CLAUDE_CODE_ENABLE_TODO_TOOLS), o Claude cria o plano (TaskCreate) e vai marcando (TaskUpdate). Na resposta, "Plano · N de M feitos" com as marcas das etapas: aberto ao vivo, recolhido no fim; o plano continua de uma mensagem pra outra, como no Claude Code. Provado pelo app nas duas navegações | P2 |
 | ⬜ | Navegador: abrir, ler, clicar, preencher | — | P2 |
 | ⬜ | Controle da tela (ver, clicar, digitar em qualquer app) | — | P3 |
 | ⬜ | Tarefas agendadas e recorrentes | — (os avisos de lembrete existem) | P2 |

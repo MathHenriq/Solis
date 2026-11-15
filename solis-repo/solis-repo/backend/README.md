@@ -240,6 +240,7 @@ mesmos eventos vão pra tela (no stream) e pro log do servidor — no terminal e
 | `pensando` | o modelo começou a raciocinar (Claude, qwen3) | `cerebro` |
 | `primeira_palavra` | a primeira palavra da resposta chegou | `cerebro` |
 | `ferramenta` | uma ferramenta foi usada (pc.py no local; as do Claude pelo agente) | `ferramenta`, `alvo`, `ok`; no Claude o `id` do uso, num comando a `saida` (as últimas 40 linhas), numa busca na web os `links` achados |
+| `plano` | a lista de tarefas do Claude como está agora (TaskCreate/TaskUpdate; a tela mostra a última) | `itens`: `id`, `texto`, `estado` (pendente, fazendo, feita) |
 | `pesquisa` | o Matheus mandou com o botão Pesquisa (pesquisa longa, pelo Claude) | — |
 | `fonte` | uma página que um ajudante leu durante a resposta | `url` |
 | `fontes` | numa resposta que veio sozinha: as fontes da rodada inteira (desde a última mensagem), do Claude e dos ajudantes | `fontes`: `url`, `titulo`, `lida` |

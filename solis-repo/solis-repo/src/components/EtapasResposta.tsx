@@ -104,6 +104,60 @@ export function SaidaTerminal({ texto, rotulo, recuo = 0 }: { texto: string; rot
   );
 }
 
+/** O plano do Claude — a lista de tarefas que ele faz e vai marcando, como
+ *  no Claude Code. Ao vivo, aberto; pronta a resposta, recolhe em "Plano · 3
+ *  de 3 feitos". As marcas são as das etapas (check, ponto, anel).
+ *
+ *  PROVISÓRIO — desenho próprio (15/11/2026): a lista das etapas (--et-*) sob
+ *  o título "Plano" na dobra (--et-dobra-*) (layout.thread.etapas._plan no
+ *  solis-tokens.json). */
+export function PlanoResposta({ etapas, vivo }: { etapas: EtapaRecebida[]; vivo: boolean }) {
+  const ultimo = [...etapas].reverse().find((e) => e.etapa === 'plano');
+  const [aberta, definirAberta] = useState<boolean | null>(null);
+  const itens = ultimo?.itens ?? [];
+  if (!itens.length) return null;
+  const feitos = itens.filter((i) => i.estado === 'feita').length;
+  const mostrar = aberta ?? vivo;
+  return (
+    <div style={{ marginTop: 'var(--et-chip-top)', maxWidth: 'var(--th-texto-max)' }}>
+      <button
+        type="button"
+        onClick={() => definirAberta(!mostrar)}
+        aria-expanded={mostrar}
+        className="flex items-center text-text-secondary hover:text-text-primary"
+        style={{ gap: 6, fontSize: 'var(--et-dobra-texto)' }}
+      >
+        <Icone nome="tarefas" tamanho={14} />
+        Plano · {feitos} de {itens.length} {itens.length === 1 ? 'feito' : 'feitos'}
+        <Icone nome="chevron" tamanho={14} style={{ transform: mostrar ? 'rotate(180deg)' : undefined }} />
+      </button>
+      {mostrar && (
+        <ol aria-label="Plano do Claude" style={{ marginTop: 4 }}>
+          {itens.map((i) => (
+            <li
+              key={i.id}
+              className={`flex items-center ${i.estado === 'fazendo' ? 'text-text-primary' : 'text-text-secondary'}`}
+              style={{ minHeight: 'var(--et-passo)', fontSize: 'var(--et-texto)' }}
+            >
+              <Marca estado={i.estado === 'feita' ? 'feita' : i.estado === 'fazendo' ? 'atual' : 'futura'} />
+              <span
+                className="min-w-0"
+                style={{
+                  marginLeft: 'calc(var(--et-recuo) - var(--et-icone) - 3px)',
+                  textDecoration: i.estado === 'feita' ? 'line-through' : undefined,
+                  opacity: i.estado === 'pendente' ? 'var(--et-futura)' : undefined,
+                }}
+              >
+                {i.texto}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 /** Os comandos rodando agora, cada um com a saída chegando — embaixo do texto,
  *  como os cartões: a lista de etapas pode estar recolhida. */
 export function TerminaisAoVivo({ etapas }: { etapas: EtapaRecebida[] }) {
