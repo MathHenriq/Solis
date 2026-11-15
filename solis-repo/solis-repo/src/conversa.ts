@@ -124,7 +124,7 @@ export function useConversa() {
   /** `desde`: editar ou refazer — a thread volta a antes da fala com esse id
    *  no banco (ela e tudo depois saem) e `texto` vai no lugar dela. */
   const enviar = useCallback(
-    async (texto: string, desde?: number, anexos?: Anexo[]) => {
+    async (texto: string, desde?: number, anexos?: Anexo[], pesquisa = false) => {
       // Só o anexo, sem texto, também vale (como no Claude).
       const limpo = texto.trim() || (anexos?.length ? 'Veja o que eu anexei.' : '');
       if (!limpo || respondendo) return;
@@ -187,7 +187,7 @@ export function useConversa() {
             definirRespondendo(false);
           }
         },
-      }, respostaFalada.proxima, desde, anexos?.map((a) => a.caminho));
+      }, respostaFalada.proxima, desde, anexos?.map((a) => a.caminho), pesquisa);
 
       // Depois do `fim` a próxima mensagem já pode estar respondendo: liberar o
       // campo de novo aqui o soltaria no meio dela.

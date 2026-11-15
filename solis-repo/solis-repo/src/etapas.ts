@@ -151,6 +151,44 @@ export function conectorDe(ferramenta?: string): { nome: string; acao: string } 
   return m ? { nome: m[1].replace(/_/g, ' '), acao: m[2] } : null;
 }
 
+/** As fontes de uma resposta: as páginas lidas (pelo Claude ou um ajudante) e
+ *  o que a busca achou e não foi lido. O título vem da busca, quando houver. */
+export type Fonte = { url: string; titulo: string };
+export function fontesDe(etapas: Etapa[]): { lidas: Fonte[]; achadas: Fonte[] } {
+  const titulos = new Map<string, string>();
+  for (const e of etapas) for (const l of e.links ?? []) if (l.titulo) titulos.set(l.url, l.titulo);
+  const lidas: Fonte[] = [];
+  const vistas = new Set<string>();
+  const ler = (url?: string) => {
+    if (!url || !/^https?:\/\//.test(url) || vistas.has(url)) return;
+    vistas.add(url);
+    lidas.push({ url, titulo: titulos.get(url) ?? '' });
+  };
+  for (const e of etapas) {
+    if (e.etapa === 'ferramenta' && e.ferramenta === 'WebFetch' && e.ok !== false) ler(e.alvo);
+    if (e.etapa === 'fonte') ler(e.url);
+    // O relatório que veio sozinho: as fontes da rodada inteira.
+    for (const f of e.etapa === 'fontes' ? (e.fontes ?? []) : []) {
+      if (f.titulo) titulos.set(f.url, f.titulo);
+      if (f.lida) ler(f.url);
+    }
+  }
+  const achadas: Fonte[] = [];
+  const naRodada = etapas.flatMap((e) => (e.etapa === 'fontes' ? (e.fontes ?? []).filter((f) => !f.lida) : []));
+  for (const f of naRodada)
+    if (!vistas.has(f.url)) {
+      vistas.add(f.url);
+      achadas.push({ url: f.url, titulo: f.titulo });
+    }
+  for (const e of etapas)
+    for (const l of e.links ?? [])
+      if (!vistas.has(l.url)) {
+        vistas.add(l.url);
+        achadas.push({ url: l.url, titulo: l.titulo });
+      }
+  return { lidas, achadas };
+}
+
 /** Os pedidos de aprovação que ainda esperam o Matheus. */
 export function aprovacoesPendentes(etapas: Etapa[]): Etapa[] {
   const respondidas = new Set(etapas.filter((e) => e.etapa === 'aprovacao_resposta').map((e) => e.id));
@@ -194,6 +232,8 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
     const fim = etapas.findIndex((x, j) => j > i && x.etapa === 'cerebro');
     const tentativa = etapas.slice(i + 1, fim === -1 ? undefined : fim);
     const nome = quem(e.cerebro);
+    if (!sozinha && etapas.some((x) => x.etapa === 'pesquisa'))
+      saida.push({ estado: 'feita', texto: 'Modo pesquisa: várias fontes, com citações' });
     if (!sozinha) saida.push({ estado: 'feita', texto: `Escolhi ${nome}` });
 
     // O que ele fez antes de responder, um passo por uso, na ordem: as

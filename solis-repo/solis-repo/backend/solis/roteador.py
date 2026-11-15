@@ -212,6 +212,16 @@ def nota_projeto(conversa: int, le_arquivos: bool) -> str:
     return '\n\n'.join(partes)
 
 
+# O botão Pesquisa (docs/PARIDADE.md → pesquisa longa): o que o claude.ai faz
+# no modo Research, pedido ao Claude do Solis.
+NOTA_PESQUISA = (
+    '\n\n[Modo pesquisa ligado pelo Matheus: faça uma pesquisa longa e cuidadosa. Busque e LEIA várias '
+    'fontes (pelo menos 5, de lugares diferentes, as mais confiáveis e recentes), use ajudantes pra ler em '
+    'paralelo se ajudar, confira o que se contradiz. Responda com um relatório organizado, citando no texto '
+    'com links [assim](url), e termine com uma seção "Fontes" listando o que leu.]'
+)
+
+
 def nota_anexos(anexos: list[dict] | None) -> str:
     """Os arquivos que o Matheus anexou, onde o modelo pode lê-los (o Claude,
     com a ferramenta de ler: texto, PDF e imagem)."""

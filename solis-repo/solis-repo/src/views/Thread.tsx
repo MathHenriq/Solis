@@ -5,6 +5,7 @@ import {
   CartoesAprovacao,
   DobraEtapas,
   ehArtefato,
+  FontesResposta,
   ListaEtapas,
   TerminaisAoVivo,
 } from '../components/EtapasResposta';
@@ -356,6 +357,7 @@ function RespostaSolis({
           )}
           {vivo && <TerminaisAoVivo etapas={etapas} />}
           {vivo && <CartoesAprovacao etapas={etapas} />}
+          {!vivo && <FontesResposta etapas={etapas} />}
           <ArquivosCriados etapas={etapas} aoVer={aoVer} />
           <AvisosDepois etapas={etapas} />
         </div>
@@ -378,7 +380,7 @@ export function Thread({
   turnos: Turno[];
   respondendo: boolean;
   /** `desde`: editar — a fala com esse id no banco sai, e o que vinha depois. */
-  aoEnviar: (texto: string, desde?: number, anexos?: Anexo[]) => void;
+  aoEnviar: (texto: string, desde?: number, anexos?: Anexo[], pesquisa?: boolean) => void;
   /** Para a resposta em andamento. */
   aoParar?: () => void;
   /** Refaz a última resposta. */
@@ -392,6 +394,9 @@ export function Thread({
   ouvindo?: boolean;
 }) {
   const [rascunho, definirRascunho] = useState('');
+  // O botão Pesquisa: a próxima mensagem vai como pesquisa longa (fica ligado
+  // até desligar, como no claude.ai).
+  const [pesquisa, definirPesquisa] = useState(false);
   // Os arquivos que vão com a próxima mensagem: sobem assim que escolhidos
   // (como no Claude), e a mensagem só sai quando todos subiram.
   const [pendentes, definirPendentes] = useState<{ id: number; nome: string; estado: 'enviando' | 'pronto' | 'falhou'; anexo?: Anexo }[]>([]);
@@ -610,7 +615,7 @@ export function Thread({
             grudada.current = true;
             respostaFalada.proxima = ditado.current && falaAutomatica();
             ditado.current = false;
-            aoEnviar(rascunho, undefined, prontos);
+            aoEnviar(rascunho, undefined, prontos, pesquisa);
             definirRascunho('');
             definirPendentes([]);
           }}
@@ -650,6 +655,30 @@ export function Thread({
             style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)' }}
           >
             <Icone nome="adicionar" tamanho={22} />
+          </button>
+          {/* PROVISÓRIO — desenho próprio (15/11/2026), base no Research do
+              claude.ai: ligado, a pílula em accent com o nome; desligado, só o
+              ícone, como os outros (layout.thread.etapas._sources). */}
+          <button
+            type="button"
+            onClick={() => definirPesquisa((p) => !p)}
+            aria-pressed={pesquisa}
+            aria-label="Pesquisa longa"
+            title="Pesquisa longa: o Claude busca e lê várias fontes e responde com citações"
+            className={`flex items-center justify-center shrink-0 ${pesquisa ? 'text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+            style={{
+              height: 'var(--mac-alvo)',
+              minWidth: 'var(--mac-alvo)',
+              padding: pesquisa ? '0 12px 0 10px' : 0,
+              gap: 6,
+              borderRadius: 999,
+              fontSize: 'var(--et-dobra-texto)',
+              background: pesquisa ? 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)' : undefined,
+              border: pesquisa ? '1px solid color-mix(in srgb, var(--accent) var(--et-chip-borda), transparent)' : '1px solid transparent',
+            }}
+          >
+            <Icone nome="web" tamanho={20} />
+            {pesquisa && 'Pesquisa'}
           </button>
           <EscolhaClaude />
           <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />

@@ -237,7 +237,10 @@ mesmos eventos vão pra tela (no stream) e pro log do servidor — no terminal e
 | `primeira_linha` | o CLI escreveu a primeira linha — já subiu | `cerebro` |
 | `pensando` | o modelo começou a raciocinar (Claude, qwen3) | `cerebro` |
 | `primeira_palavra` | a primeira palavra da resposta chegou | `cerebro` |
-| `ferramenta` | uma ferramenta foi usada (pc.py no local; as do Claude pelo agente) | `ferramenta`, `alvo`, `ok`; no Claude o `id` do uso, e num comando a `saida` (as últimas 40 linhas) |
+| `ferramenta` | uma ferramenta foi usada (pc.py no local; as do Claude pelo agente) | `ferramenta`, `alvo`, `ok`; no Claude o `id` do uso, num comando a `saida` (as últimas 40 linhas), numa busca na web os `links` achados |
+| `pesquisa` | o Matheus mandou com o botão Pesquisa (pesquisa longa, pelo Claude) | — |
+| `fonte` | uma página que um ajudante leu durante a resposta | `url` |
+| `fontes` | numa resposta que veio sozinha: as fontes da rodada inteira (desde a última mensagem), do Claude e dos ajudantes | `fontes`: `url`, `titulo`, `lida` |
 | `sozinha` | primeira etapa de uma resposta que o Claude começou sozinho (um comando em segundo plano acabou) — não há busca nem escolha antes | — |
 | `arquivos` | no fim de uma resposta do Claude: os documentos que ele criou ou mudou na pasta (`lista` de caminhos) — a tela mostra com Abrir | `lista` |
 | `saida` | só ao vivo, não vai pro banco: um comando do Claude que passa de ~2 s, com o fim da saída até agora (lido do arquivo temporário do CLI) | `id`, `comando`, `saida` |

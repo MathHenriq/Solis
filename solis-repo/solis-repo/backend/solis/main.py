@@ -252,6 +252,9 @@ class Envio(BaseModel):
     desde: int | None = None
     # Os caminhos devolvidos por POST /anexos.
     anexos: list[str] = []
+    # O botão Pesquisa: vai pro Claude, com a orientação de pesquisa longa
+    # (várias fontes, citações, as fontes no fim) — roteador.NOTA_PESQUISA.
+    pesquisa: bool = False
 
 
 # Referência forte às respostas em andamento: sem ela o coletor de lixo pode
@@ -286,6 +289,9 @@ async def enviar(conversa: int, envio: Envio):
 
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
+    if envio.pesquisa and not forcado:
+        # Pesquisa longa é do Claude: ele busca, lê, usa ajudantes e cita.
+        ordem, forcado = ['claude'], True
     if anexos and not forcado:
         # Com anexo, o Claude primeiro: ele lê texto, PDF e imagem; o modelo
         # local não enxerga imagem nem tem a pasta de trabalho.
@@ -310,9 +316,12 @@ async def enviar(conversa: int, envio: Envio):
     etapas = Etapas(conversa)
     # O id da mensagem guardada: é por ele que a tela edita ou refaz depois.
     etapas.marcar('guardada', pessoa=mensagem_id)
+    if envio.pesquisa:
+        etapas.marcar('pesquisa')
     parar = _paradas[conversa] = asyncio.Event()
     tarefa = asyncio.create_task(
-        _responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz, anexos)
+        _responder(etapas, envio.modelo, conversa, texto, ordem, forcado, mensagem_id, envio.voz, anexos,
+                   envio.pesquisa)
     )
     _tarefas.add(tarefa)
     tarefa.add_done_callback(_tarefas.discard)
@@ -796,6 +805,7 @@ async def _responder(
     mensagem_id: int,
     voz: bool = False,
     anexos: list[dict] | None = None,
+    pesquisa: bool = False,
 ) -> None:
     resposta_id = None
     parar = _paradas.get(conversa)
@@ -841,7 +851,8 @@ async def _responder(
         try:
             aberto, parada = await _ate_parar(
                 roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido,
-                                   texto + roteador.nota_anexos(anexos), etapas, voz=voz),
+                                   texto + roteador.nota_anexos(anexos) + (roteador.NOTA_PESQUISA if pesquisa else ''),
+                                   etapas, voz=voz),
                 parar,
             )
             if parada:

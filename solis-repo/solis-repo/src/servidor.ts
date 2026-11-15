@@ -233,6 +233,12 @@ export type Etapa = {
   entrada?: string;
   /** Etapa `arquivos`: os documentos que o Claude criou nesta resposta (caminhos). */
   lista?: string[];
+  /** Etapa `ferramenta` de uma busca na web: os resultados (as fontes encontradas). */
+  links?: { titulo: string; url: string }[];
+  /** Etapa `fonte`: uma página que um ajudante leu. */
+  url?: string;
+  /** Etapa `fontes`: as fontes da rodada, numa resposta que veio sozinha (o relatório). */
+  fontes?: { url: string; titulo: string; lida: boolean }[];
 };
 
 /** `cerebro`: quem respondeu — uma chave de NOMES_CEREBRO. Nulo nas falas da
@@ -697,6 +703,8 @@ export async function conversar(
   voz = false,
   desde?: number,
   anexos: string[] = [],
+  /** O botão Pesquisa: pesquisa longa, pelo Claude, com as fontes. */
+  pesquisa = false,
 ): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
@@ -716,7 +724,14 @@ export async function conversar(
     r = await fetch(`${BASE}/conversas/${conversa}/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelo: modelo ?? '', texto, voz, anexos, ...(desde !== undefined ? { desde } : {}) }),
+      body: JSON.stringify({
+        modelo: modelo ?? '',
+        texto,
+        voz,
+        anexos,
+        ...(desde !== undefined ? { desde } : {}),
+        ...(pesquisa ? { pesquisa } : {}),
+      }),
     });
   } catch {
     return { tipo: 'sem-servidor' };

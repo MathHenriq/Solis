@@ -3,6 +3,8 @@ import {
   aprovacoesPendentes,
   comandosRodando,
   conectorDe,
+  fontesDe,
+  type Fonte,
   depois,
   duracao,
   passos,
@@ -286,6 +288,82 @@ export function ArquivosCriados({ etapas, aoVer }: { etapas: EtapaRecebida[]; ao
           {falhou === c && <span className="text-[var(--erro)] shrink-0">não abriu</span>}
         </div>
       ))}
+    </div>
+  );
+}
+
+const dominio = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
+function LinhaFonte({ f }: { f: Fonte }) {
+  return (
+    <li className="flex items-baseline min-w-0" style={{ gap: 8, padding: '3px 0' }}>
+      <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--et-chip-texto)' }}>
+        {dominio(f.url)}
+      </span>
+      <a
+        href={f.url}
+        target="_blank"
+        rel="noreferrer"
+        title={f.url}
+        className="text-text-primary hover:text-accent hover:underline truncate min-w-0"
+        style={{ fontSize: 'var(--et-dobra-texto)' }}
+      >
+        {f.titulo || new URL(f.url).pathname.replace(/\/$/, '') || f.url}
+      </a>
+    </li>
+  );
+}
+
+/** As fontes da resposta — as páginas lidas e o resto do que a busca achou —,
+ *  recolhidas em "N fontes" embaixo do texto, como no Research do claude.ai.
+ *
+ *  PROVISÓRIO — desenho próprio (15/11/2026): a dobra das etapas (--et-dobra-*)
+ *  e, aberta, a lista no texto pequeno: o domínio em secundário e o título
+ *  em link (layout.thread.etapas._sources no solis-tokens.json). */
+export function FontesResposta({ etapas }: { etapas: EtapaRecebida[] }) {
+  const [aberta, definirAberta] = useState(false);
+  const { lidas, achadas } = fontesDe(etapas);
+  const n = lidas.length + achadas.length;
+  if (!n) return null;
+  return (
+    <div style={{ marginTop: 'var(--et-chip-top)', maxWidth: 'var(--th-texto-max)' }}>
+      <button
+        type="button"
+        onClick={() => definirAberta((a) => !a)}
+        aria-expanded={aberta}
+        className="flex items-center text-text-secondary hover:text-text-primary"
+        style={{ gap: 6, fontSize: 'var(--et-dobra-texto)' }}
+      >
+        <Icone nome="web" tamanho={14} />
+        {lidas.length ? `${lidas.length} ${lidas.length === 1 ? 'fonte lida' : 'fontes lidas'}` : ''}
+        {lidas.length && achadas.length ? ' · ' : ''}
+        {achadas.length ? `${achadas.length} ${achadas.length === 1 ? 'encontrada' : 'encontradas'} na busca` : ''}
+        <Icone nome="chevron" tamanho={14} style={{ transform: aberta ? 'rotate(180deg)' : undefined }} />
+      </button>
+      {aberta && (
+        <div style={{ marginTop: 8, paddingLeft: 20 }}>
+          {lidas.length > 0 && (
+            <>
+              <div className="text-text-secondary" style={{ fontSize: 'var(--et-chip-texto)', marginBottom: 2 }}>Lidas</div>
+              <ul aria-label="Fontes lidas">{lidas.map((f) => <LinhaFonte key={f.url} f={f} />)}</ul>
+            </>
+          )}
+          {achadas.length > 0 && (
+            <>
+              <div className="text-text-secondary" style={{ fontSize: 'var(--et-chip-texto)', margin: lidas.length ? '10px 0 2px' : '0 0 2px' }}>
+                Encontradas na busca
+              </div>
+              <ul aria-label="Fontes encontradas">{achadas.map((f) => <LinhaFonte key={f.url} f={f} />)}</ul>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

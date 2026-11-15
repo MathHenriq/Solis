@@ -447,6 +447,13 @@ class _Resposta:
                     if nome in EDICAO and not b.is_error and viva.sessao_id and conversa is not None:
                         banco.ponto_mudou(conversa, viva.sessao_id)
                     extra = {}
+                    if nome == 'WebSearch' and not b.is_error:
+                        # Os resultados da busca: as fontes encontradas (a tela lista).
+                        extra['links'] = _links_da_busca(_texto_do_resultado(b.content))
+                        for l in extra['links']:
+                            viva.anotar_fonte(l['url'], l['titulo'])
+                    if nome == 'WebFetch' and not b.is_error and entrada.get('url'):
+                        viva.anotar_fonte(str(entrada['url']), lida=True)
                     if nome in TERMINAL:
                         # A saída fica no passo, pra abrir depois. Um comando em
                         # segundo plano só devolve o aviso de que começou.
@@ -556,6 +563,20 @@ class _Viva:
         self.fechar_ja = False
         # nome da ferramenta de conector → anotações dela (readOnly, destructive...)
         self.anotacoes: dict[str, dict] | None = None
+        # As fontes da rodada — desde a última mensagem do Matheus —, do Claude
+        # e dos ajudantes: {'url', 'titulo', 'lida'}. A resposta que vem
+        # sozinha (o relatório, quando os ajudantes voltam) leva todas.
+        self.fontes: list[dict] = []
+
+    def anotar_fonte(self, url: str, titulo: str = '', lida: bool = False) -> None:
+        if not url.startswith(('http://', 'https://')):
+            return
+        for f in self.fontes:
+            if f['url'] == url:
+                f['lida'] = f['lida'] or lida
+                f['titulo'] = f['titulo'] or titulo
+                return
+        self.fontes.append({'url': url[:1000], 'titulo': titulo[:200], 'lida': lida})
 
     async def so_le(self, nome: str) -> bool:
         """A ferramenta de conector só lê? Pergunta ao CLI uma vez por sessão."""
@@ -605,6 +626,8 @@ class _Viva:
 
     def _comecar_sozinha(self) -> None:
         self.sozinha = _Coletor(self.conversa)
+        if self.fontes:
+            self.sozinha.marcar('fontes', fontes=[dict(f) for f in self.fontes])
         modo = banco.projeto_da_conversa(self.conversa)['modo'] if self.conversa is not None else 'pedir'
         self.resposta = _Resposta(self, self.sozinha.por, {}, modo, sozinha=True)
         log.info('claude (agente): resposta começada sozinho, conversa %s', self.conversa)
@@ -651,6 +674,15 @@ class _Viva:
                         continue
                     if nome in EDICAO and not b.is_error and self.sessao_id and self.conversa is not None:
                         banco.ponto_mudou(self.conversa, self.sessao_id)
+                    # Uma página que o ajudante leu (ou achou) é fonte da rodada, e
+                    # da resposta da vez, se houver uma aberta.
+                    if nome == 'WebFetch' and not b.is_error and entrada.get('url'):
+                        self.anotar_fonte(str(entrada['url']), lida=True)
+                        if self.resposta is not None:
+                            self.resposta.por('etapa', ('fonte', {'url': str(entrada['url'])[:1000]}))
+                    if nome == 'WebSearch' and not b.is_error:
+                        for l in _links_da_busca(_texto_do_resultado(b.content)):
+                            self.anotar_fonte(l['url'], l['titulo'])
                     t['passos'] = (t.get('passos', []) + [
                         {'ferramenta': nome, 'alvo': _alvo(nome, entrada), 'ok': not b.is_error}])[-AJUDANTE_PASSOS:]
 
@@ -694,6 +726,7 @@ class _Viva:
                 self.modo = modo
             estado['cliente'] = self.cliente
             estado['laco'] = asyncio.get_running_loop()
+            self.fontes = []
             self.resposta = _Resposta(self, por, estado, modo)
             resposta = self.resposta
             # Os documentos da pasta antes: no fim, o que ele criou aparece
@@ -868,6 +901,24 @@ def _limpar_saida(texto: str) -> str:
     progresso, com \\r) fica só com o que sobrou nela; e só o fim."""
     linhas = [l.rsplit('\r', 1)[-1] for l in _ANSI.sub('', texto).replace('\r\n', '\n').split('\n')]
     return '\n'.join(linhas[-SAIDA_LINHAS:])[-SAIDA_MAX:]
+
+
+_LINKS = re.compile(r'Links:\s*(\[.*?\])\s*(?:\n|$)', re.S)
+
+
+def _links_da_busca(texto: str, limite: int = 10) -> list[dict]:
+    """O WebSearch devolve "Links: [{"title", "url"}, ...]" no texto do
+    resultado (visto em 15/11/2026): os encontrados, pra tela listar."""
+    links: list[dict] = []
+    for m in _LINKS.finditer(texto or ''):
+        try:
+            for item in json.loads(m.group(1)):
+                url = str(item.get('url') or '')
+                if url.startswith(('http://', 'https://')) and all(l['url'] != url for l in links):
+                    links.append({'titulo': str(item.get('title') or '')[:200], 'url': url[:1000]})
+        except (ValueError, AttributeError):
+            continue
+    return links[:limite]
 
 
 def _texto_do_resultado(conteudo) -> str:
