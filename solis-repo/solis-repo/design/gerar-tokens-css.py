@@ -209,7 +209,7 @@ for chave, var in [('frequencyWidth', '--agd-freq-l'), ('minuteWidth', '--agd-mi
     w('  %s: %s;' % (var, agd[chave]))
 w('  /* Navegador (Configuracoes) - desenho proprio, APROVADO em 15/11/2026. Ver layout.configuracoes.navegador. */')
 w('  --nav-escolha-l: %s;' % T['layout']['configuracoes']['navegador']['selectWidth'])
-w('  /* Skills (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.skills. */')
+w('  /* Skills (Configuracoes) - desenho proprio, APROVADO em 15/11/2026. Ver layout.configuracoes.skills. */')
 w('  --skl-para-l: %s;' % T['layout']['configuracoes']['skills']['forWidth'])
 w('  --skl-instrucoes-h: %s;' % T['layout']['configuracoes']['skills']['instructionsHeight'])
 w('  /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */')

@@ -8,7 +8,7 @@ import { apagarSkill, lerSkill, ligarSkill, listarSkills, salvarSkill, type Skil
  *  necessariamente pro GPT (o Matheus, 15/11/2026); as da conta do claude.ai
  *  chegam sozinhas e mudam lá.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), as
  *  ações em texto e o formulário das Tarefas agendadas (--agd-*, --mac-*), o
  *  interruptor da Aparência. Medidas novas em layout.configuracoes.skills. */
