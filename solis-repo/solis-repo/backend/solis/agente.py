@@ -247,10 +247,20 @@ def _no_projeto(caminho: str | None, projeto: str | None) -> bool:
 _CONECTOR = re.compile(r'^mcp__claude_ai_(.+?)__(.+)$')
 
 
+_MCP = re.compile(r'^mcp__(.+?)__(.+)$')
+# Os do próprio Solis (as ferramentas dele e o navegador) têm regra própria.
+_DO_SOLIS = {'solis', 'navegador'}
+
+
 def conector_de(nome: str) -> tuple[str, str] | None:
-    """('Google Calendar', 'create_event') de mcp__claude_ai_Google_Calendar__create_event."""
+    """('Google Calendar', 'create_event') de mcp__claude_ai_Google_Calendar__create_event.
+    Um servidor MCP que o Matheus pôs (servidores_mcp.py) conta como conector:
+    ('notion', 'search') de mcp__notion__search — ler é livre, mudar pede."""
     m = _CONECTOR.match(nome)
-    return (m.group(1).replace('_', ' '), m.group(2)) if m else None
+    if m:
+        return m.group(1).replace('_', ' '), m.group(2)
+    m = _MCP.match(nome)
+    return (m.group(1), m.group(2)) if m and m.group(1) not in _DO_SOLIS else None
 
 
 def _normalizar_servidor(nome: str) -> str:

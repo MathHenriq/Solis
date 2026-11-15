@@ -151,6 +151,8 @@
   /* Skills (Configuracoes) - desenho proprio, APROVADO em 15/11/2026. Ver layout.configuracoes.skills. */
   --skl-para-l: 160px;
   --skl-instrucoes-h: 208px;
+  /* Servidores MCP (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.mcp. */
+  --mcp-tipo-l: 180px;
   /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */
   --ch-topo: 10px;
   --ch-fundo: #000000;

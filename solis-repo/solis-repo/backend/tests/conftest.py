@@ -52,6 +52,53 @@ def skills_numa_casa_de_mentira(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def mcp_de_mentira(monkeypatch, tmp_path):
+    """Nenhum teste mexe nos servidores MCP do Matheus: os CLIs (claude mcp,
+    codex mcp) viram falsos que escrevem num ~/.claude.json temporário e numa
+    lista do Codex em memória. Devolve as chamadas e a lista do Codex."""
+    import json as _json
+    from solis import servidores_mcp
+    casa = tmp_path / 'casa-mcp'
+    casa.mkdir()
+    monkeypatch.setattr(servidores_mcp, '_casa', lambda: casa)
+    estado = {'chamadas': [], 'codex': []}
+
+    def rodar(cli, *args, timeout=60):
+        estado['chamadas'].append((cli, *args))
+        arquivo = casa / '.claude.json'
+        if cli == 'claude':
+            dados = _json.loads(arquivo.read_text()) if arquivo.exists() else {}
+            servidores = dados.setdefault('mcpServers', {})
+            if args[:2] == ('mcp', 'add-json'):
+                servidores[args[4]] = _json.loads(args[5])
+            elif args[:2] == ('mcp', 'remove'):
+                servidores.pop(args[4])
+            arquivo.write_text(_json.dumps(dados))
+            return ''
+        if args[:2] == ('mcp', 'list'):
+            return _json.dumps(estado['codex'])
+        if args[:2] == ('mcp', 'add'):
+            nome, resto = args[2], list(args[3:])
+            if resto[0] == '--url':
+                t = {'type': 'streamable_http', 'url': resto[1]}
+            else:
+                env = {}
+                while resto[0] == '--env':
+                    k, _, v = resto[1].partition('=')
+                    env[k] = v
+                    resto = resto[2:]
+                t = {'type': 'stdio', 'command': resto[1], 'args': resto[2:], 'env': env}
+            estado['codex'].append({'name': nome, 'enabled': True, 'transport': t})
+            return ''
+        if args[:2] == ('mcp', 'remove'):
+            estado['codex'] = [x for x in estado['codex'] if x['name'] != args[2]]
+            return ''
+        raise AssertionError(args)
+    monkeypatch.setattr(servidores_mcp, '_rodar', rodar)
+    return estado
+
+
+@pytest.fixture(autouse=True)
 def sem_navegador_de_verdade(monkeypatch):
     """Nenhum teste abre o Chrome do Matheus: o servidor do navegador "não sobe"."""
     from solis import navegador

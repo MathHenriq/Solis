@@ -16,6 +16,7 @@ nenhuma ferramenta — quem está do outro lado é um modelo de nuvem.
 Como registrar: ver backend/README.md, seção "Servidor MCP".
 """
 from mcp.server.mcpserver import MCPServer
+from mcp.types import ToolAnnotations
 
 from . import banco, busca, memoria, ollama
 
@@ -30,16 +31,19 @@ servidor = MCPServer(
 )
 
 PERFIL_MAX = 60
+# As que só leem dizem isso: o Claude do Solis e o GPT (Codex) usam sem pedir
+# aprovação (servidores_mcp.py); guardar continua pedindo.
+SO_LE = ToolAnnotations(read_only_hint=True, destructive_hint=False)
 
 
-@servidor.tool()
+@servidor.tool(annotations=SO_LE)
 async def memorias_do_matheus() -> list[dict]:
     """O que o Solis sabe sobre o Matheus: trabalho, estudos, preferências,
     projetos e decisões. As mais recentes primeiro."""
     return [_publica(m) for m in banco.memorias() if not m['privada']][:PERFIL_MAX]
 
 
-@servidor.tool()
+@servidor.tool(annotations=SO_LE)
 async def buscar_na_memoria(assunto: str, quantas: int = 10) -> dict:
     """Memórias, trechos de conversas antigas e trechos dos arquivos que o
     Matheus deu pro Solis ler (com o nome e a página), ligados a um assunto, por

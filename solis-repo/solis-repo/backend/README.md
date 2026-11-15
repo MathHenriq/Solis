@@ -105,6 +105,12 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
 | `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
 | `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
+| `GET /mcp` | os servidores MCP: `nome`, `tipo` (`comando` ou `endereco`), `comando` ou `url`, `variaveis` (só os nomes), `para` (`claude`, `codex`), `origem` (`seu`, `solis`, `codex`), `editavel` e as `ferramentas` da última conferida (`total`, `so_leem`, `erro`) |
+| `GET /mcp/{nome}` | um dos seus inteiro, pra editar (com os valores das variáveis) |
+| `POST /mcp` | `{"nome", "tipo", "comando"?, "url"?, "variaveis"?, "para"}` → adiciona pelos CLIs (`claude mcp add-json --scope user`, `codex mcp add`). `400` com `servidor_invalido` e o `motivo` |
+| `PUT /mcp/{nome}` | o mesmo corpo → muda (tira de onde estava e põe onde `para` diz) |
+| `DELETE /mcp/{nome}` | remove do Claude e do Codex |
+| `POST /mcp/{nome}/conferir` | conecta no servidor e lista as ferramentas → `{"total", "so_leem", "lista", "erro"}` |
 | `GET /skills` | as skills: as suas (`origem` `solis`, com `para`: `claude`, `codex` ou os dois) e as da conta do claude.ai (`conta` ou `anthropic`), com `descricao`, `editavel` e `ligada` (desligar é só do Claude) |
 | `GET /skills/{nome}` | uma das suas inteira, pra editar: `nome`, `descricao`, `instrucoes`, `para` |
 | `POST /skills` | `{"nome", "descricao", "instrucoes", "para"}` → escreve o SKILL.md em `~/.claude/skills` e/ou `~/.codex/skills`. `400` com `skill_invalida` e o `motivo` (`nome`, `descrição`, `instruções`, `pra quem`, ou já existe) |
@@ -506,6 +512,25 @@ Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o 
 `mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
 `allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
 inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
+
+## Servidores MCP
+
+`solis/servidores_mcp.py`: ferramentas de fora pro Claude e pro GPT, como os servidores MCP do Claude
+Code. Cada um diz pra quem vale: pro Claude, na configuração de usuário do Claude Code
+(`~/.claude.json`, que o Claude do Solis já carrega: `setting_sources` "user"); pro GPT, na do Codex
+(`~/.codex/config.toml`). Quem escreve são os próprios CLIs (`claude mcp add-json/remove --scope
+user`, `codex mcp add/remove`); o Solis só lê o `~/.claude.json` e o `codex mcp list --json`. Valem
+também no Claude Code e no Codex do terminal. A memória do Solis (`solis`) e os servidores que o
+app do Codex instala pra ele (computer use) aparecem, mas não se mexem pela tela.
+
+"Conferir" conecta no servidor (stdio ou HTTP, pela biblioteca `mcp`) e lista as ferramentas, com
+as que só leem (a marca `readOnlyHint` do servidor); fica guardado (`ajustes.mcp_ferramentas`). No
+Claude, um servidor seu conta como conector (`agente.conector_de`): o que só lê é livre, o resto
+pede cartão "O Claude quer usar o notion" com o que vai ser mandado. No GPT, que roda no `codex
+exec` sem ninguém pra aprovar, o Solis passa `-c mcp_servers.X.tools.Y.approval_mode=approve` só
+pras ferramentas que leem dos servidores que estão no Codex (`liberadas_no_codex`); as outras falham
+("MCP tool call requires approval") e ele diz que não pôde. A memória do Solis marca as duas de
+leitura (`servidor_mcp.SO_LE`): o GPT passou a poder buscar nela.
 
 ## Skills
 

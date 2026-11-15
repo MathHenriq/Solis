@@ -1,0 +1,294 @@
+"""Servidores MCP configuráveis (docs/PARIDADE.md): ferramentas de fora (um
+servidor do Notion, do GitHub, um do Matheus) pro Claude e pro GPT do Solis.
+
+Cada servidor diz pra quem vale, como as skills (o Matheus, 15/11/2026): pro
+Claude, na configuração de usuário do Claude Code (~/.claude.json, que o Claude
+do Solis já carrega: setting_sources "user"); pro GPT, na do Codex
+(~/.codex/config.toml). Quem escreve são os próprios CLIs (`claude mcp
+add-json/remove --scope user`, `codex mcp add/remove`): o Solis não edita os
+arquivos deles à mão. Valem também no Claude Code e no Codex do terminal.
+
+As ferramentas: o Solis conecta em cada servidor e lista o que ele oferece,
+com o que só lê (a marca readOnlyHint do próprio servidor). No Claude, ler é
+livre e o resto pede cartão (agente._decidir). No GPT, que roda sem ninguém pra
+aprovar (codex exec), só as que leem são liberadas (`-c mcp_servers.X.tools.Y.
+approval_mode="approve"`, testado no Codex 0.166 em 15/11/2026); as outras
+falham e ele diz que não pôde."""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import re
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+from . import banco
+
+log = logging.getLogger('solis.servidores_mcp')
+
+PARA = ('claude', 'codex')
+NOSSOS = {'solis'}             # a memória do Solis (servidor_mcp.py): registrada pelo README, não pela tela
+TESTE_MAX_S = 40.0
+CACHE_S = 600
+_NOME = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+_CHAVE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+
+class ServidorInvalido(Exception):
+    pass
+
+
+def _casa() -> Path:
+    return Path.home()
+
+
+def _cli(nome: str) -> list[str]:
+    caminho = shutil.which(nome)
+    if caminho is None:
+        raise ServidorInvalido(f'o {"Claude Code" if nome == "claude" else "Codex"} não está instalado')
+    return ['cmd', '/c', caminho] if caminho.lower().endswith(('.cmd', '.bat')) else [caminho]
+
+
+def _rodar(cli: str, *args: str, timeout: float = 60) -> str:
+    r = subprocess.run([*_cli(cli), *args], capture_output=True, text=True, encoding='utf-8', errors='replace',
+                       timeout=timeout, stdin=subprocess.DEVNULL,
+                       creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    if r.returncode != 0:
+        raise ServidorInvalido(' '.join((r.stderr or r.stdout or 'falhou').split())[:300])
+    return r.stdout
+
+
+# — o que está configurado ————————————————————————————————————————————————————
+def _do_claude() -> dict[str, dict]:
+    """Os de usuário do Claude Code (~/.claude.json → mcpServers)."""
+    try:
+        dados = json.loads((_casa() / '.claude.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    saida = {}
+    for nome, c in (dados.get('mcpServers') or {}).items():
+        if c.get('url'):
+            saida[nome] = {'tipo': 'endereco', 'url': c['url'], 'comando': [], 'env': {}}
+        else:
+            saida[nome] = {'tipo': 'comando', 'url': '', 'comando': [c.get('command', ''), *(c.get('args') or [])],
+                           'env': dict(c.get('env') or {})}
+    return saida
+
+
+def _interno_do_codex(t: dict) -> bool:
+    """Os que o app do Codex instala pra ele mesmo (computer use, o app): do Codex, não do Matheus."""
+    caminho = f'{t.get("command") or ""} {t.get("cwd") or ""}'.replace('/', '\\').lower()
+    return '\\openai\\codex\\' in caminho or '\\.codex\\plugins\\' in caminho
+
+
+def _do_codex() -> dict[str, dict]:
+    try:
+        lista = json.loads(_rodar('codex', 'mcp', 'list', '--json', timeout=30))
+    except (ServidorInvalido, ValueError, OSError, subprocess.TimeoutExpired):
+        return {}
+    saida = {}
+    for s in lista:
+        t = s.get('transport') or {}
+        if t.get('type') == 'stdio':
+            saida[s['name']] = {'tipo': 'comando', 'url': '', 'comando': [t.get('command', ''), *(t.get('args') or [])],
+                                'env': dict(t.get('env') or {}), 'interno': _interno_do_codex(t),
+                                'ligado': s.get('enabled', True)}
+        else:
+            saida[s['name']] = {'tipo': 'endereco', 'url': t.get('url', ''), 'comando': [], 'env': {},
+                                'interno': False, 'ligado': s.get('enabled', True)}
+    return saida
+
+
+def _comando_legivel(partes: list[str]) -> str:
+    return subprocess.list2cmdline([p for p in partes if p])
+
+
+def listar() -> list[dict]:
+    """`nome`, `tipo` (comando ou endereco), `comando` (a linha) ou `url`,
+    `variaveis` (só os nomes), `para`, `origem` (seu, solis, codex),
+    `editavel` e as `ferramentas` da última conferida."""
+    claude, codex = _do_claude(), _do_codex()
+    cache = _cache()
+    saida = []
+    for nome in sorted(set(claude) | set(codex), key=str.lower):
+        c = claude.get(nome) or codex[nome]
+        interno = bool((codex.get(nome) or {}).get('interno')) and nome not in claude
+        origem = 'solis' if nome in NOSSOS else 'codex' if interno else 'seu'
+        saida.append({
+            'nome': nome, 'tipo': c['tipo'], 'comando': _comando_legivel(c['comando']), 'url': c['url'],
+            'variaveis': sorted(c['env']), 'para': [p for p, l in (('claude', claude), ('codex', codex)) if nome in l],
+            'origem': origem, 'editavel': origem == 'seu',
+            'desligado_no_codex': nome in codex and not codex[nome].get('ligado', True),
+            'ferramentas': cache.get(nome),
+        })
+    return sorted(saida, key=lambda s: ({'seu': 0, 'solis': 1, 'codex': 2}[s['origem']], s['nome'].lower()))
+
+
+def ler(nome: str) -> dict | None:
+    """Um dos seus inteiro, pra editar (com os valores das variáveis: é o PC dele)."""
+    claude, codex = _do_claude(), _do_codex()
+    c = claude.get(nome) or codex.get(nome)
+    if c is None or nome in NOSSOS or (codex.get(nome) or {}).get('interno'):
+        return None
+    return {'nome': nome, 'tipo': c['tipo'], 'comando': _comando_legivel(c['comando']), 'url': c['url'],
+            'variaveis': '\n'.join(f'{k}={v}' for k, v in c['env'].items()),
+            'para': [p for p, l in (('claude', claude), ('codex', codex)) if nome in l]}
+
+
+# — escrever ——————————————————————————————————————————————————————————————————
+def _partes(linha: str) -> list[str]:
+    """A linha de comando como o Windows divide (aspas pra caminho com espaço)."""
+    partes, atual, aspas, tem = [], [], False, False
+    for ch in linha.strip():
+        if ch == '"':
+            aspas, tem = not aspas, True
+        elif ch.isspace() and not aspas:
+            if atual or tem:
+                partes.append(''.join(atual))
+            atual, tem = [], False
+        else:
+            atual.append(ch)
+    if aspas:
+        raise ServidorInvalido('comando')
+    if atual or tem:
+        partes.append(''.join(atual))
+    return partes
+
+
+def _variaveis(texto: str) -> dict[str, str]:
+    env = {}
+    for linha in (texto or '').splitlines():
+        if not linha.strip():
+            continue
+        chave, igual, valor = linha.strip().partition('=')
+        if not igual or not _CHAVE.match(chave.strip()):
+            raise ServidorInvalido('variáveis')
+        env[chave.strip()] = valor.strip()
+    return env
+
+
+def _validar(nome: str, tipo: str, comando: str, url: str, variaveis: str, para: list[str]) -> tuple[list[str], dict]:
+    if not _NOME.match(nome or '') or nome in NOSSOS:
+        raise ServidorInvalido('nome')
+    if tipo not in ('comando', 'endereco'):
+        raise ServidorInvalido('tipo')
+    if not para or any(p not in PARA for p in para):
+        raise ServidorInvalido('pra quem')
+    partes = _partes(comando) if tipo == 'comando' else []
+    if tipo == 'comando' and not partes:
+        raise ServidorInvalido('comando')
+    if tipo == 'endereco' and not re.match(r'^https?://\S+$', url or ''):
+        raise ServidorInvalido('endereço')
+    env = _variaveis(variaveis) if tipo == 'comando' else {}
+    return partes, env
+
+
+def salvar(nome: str, tipo: str, comando: str, url: str, variaveis: str, para: list[str],
+           antigo: str | None = None) -> dict:
+    """Adiciona (ou muda, com `antigo`) um dos seus, pelos CLIs: tira o de antes
+    de onde estava e põe em cada lugar de `para`."""
+    partes, env = _validar(nome, tipo, comando, url, variaveis, para)
+    existentes = {s['nome']: s for s in listar()}
+    if antigo:
+        if antigo not in existentes or not existentes[antigo]['editavel']:
+            raise ServidorInvalido('esse servidor não existe mais')
+    if nome in existentes and nome != antigo:
+        raise ServidorInvalido('já existe um servidor com esse nome')
+    if antigo:
+        remover(antigo)
+    if 'claude' in para:
+        config = {'type': 'http', 'url': url} if tipo == 'endereco' else \
+            {'type': 'stdio', 'command': partes[0], 'args': partes[1:], 'env': env}
+        _rodar('claude', 'mcp', 'add-json', '--scope', 'user', nome, json.dumps(config, ensure_ascii=False))
+    if 'codex' in para:
+        if tipo == 'endereco':
+            _rodar('codex', 'mcp', 'add', nome, '--url', url)
+        else:
+            _rodar('codex', 'mcp', 'add', nome, *[a for k, v in env.items() for a in ('--env', f'{k}={v}')],
+                   '--', *partes)
+    _esquecer(nome)
+    if antigo and antigo != nome:
+        _esquecer(antigo)
+    return next(s for s in listar() if s['nome'] == nome)
+
+
+def remover(nome: str) -> bool:
+    s = next((x for x in listar() if x['nome'] == nome), None)
+    if s is None or not s['editavel']:
+        return False
+    if 'claude' in s['para']:
+        _rodar('claude', 'mcp', 'remove', '--scope', 'user', nome)
+    if 'codex' in s['para']:
+        _rodar('codex', 'mcp', 'remove', nome)
+    _esquecer(nome)
+    return True
+
+
+# — as ferramentas de cada um —————————————————————————————————————————————————
+def _cache() -> dict:
+    return dict(banco.ajuste('mcp_ferramentas') or {})
+
+
+def _esquecer(nome: str) -> None:
+    c = _cache()
+    if c.pop(nome, None) is not None:
+        banco.guardar_ajuste('mcp_ferramentas', c)
+
+
+async def _listar_ferramentas(c: dict) -> list[dict]:
+    from mcp import ClientSession
+    if c['tipo'] == 'endereco':
+        from mcp.client.streamable_http import streamable_http_client
+        abrir = streamable_http_client(c['url'])
+    else:
+        from mcp.client.stdio import StdioServerParameters, stdio_client
+        abrir = stdio_client(StdioServerParameters(command=c['comando'][0], args=c['comando'][1:],
+                                                   env={**os.environ, **c['env']}))
+    async with abrir as (leitura, escrita, *_):
+        async with ClientSession(leitura, escrita) as sessao:
+            await sessao.initialize()
+            r = await sessao.list_tools()
+    return [{'nome': t.name, 'so_le': bool(t.annotations and t.annotations.read_only_hint
+                                           and not t.annotations.destructive_hint)} for t in r.tools]
+
+
+async def conferir(nome: str) -> dict:
+    """Conecta no servidor e lista as ferramentas: {total, so_leem, lista, erro, quando}."""
+    claude, codex = _do_claude(), await asyncio.to_thread(_do_codex)
+    c = claude.get(nome) or codex.get(nome)
+    if c is None:
+        raise ServidorInvalido('esse servidor não existe')
+    try:
+        lista = await asyncio.wait_for(_listar_ferramentas(c), TESTE_MAX_S)
+        r = {'total': len(lista), 'so_leem': sum(t['so_le'] for t in lista), 'lista': lista, 'erro': None}
+    except Exception as e:  # noqa: BLE001 — o servidor não subiu: a tela diz
+        motivo = 'demorou demais pra responder' if isinstance(e, (asyncio.TimeoutError, TimeoutError)) else \
+            ' '.join(str(getattr(e, 'exceptions', [e])[0] if hasattr(e, 'exceptions') else e).split())[:200]
+        r = {'total': 0, 'so_leem': 0, 'lista': [], 'erro': motivo or 'não respondeu'}
+    r['quando'] = time.time()
+    # Só servidor que está no Codex ganha o -c: um -c de servidor que ele não
+    # conhece criaria uma entrada sem comando e quebraria a configuração dele.
+    r['no_codex'] = nome in codex
+    cache = _cache()
+    cache[nome] = r
+    banco.guardar_ajuste('mcp_ferramentas', cache)
+    return r
+
+
+def liberadas_no_codex() -> list[str]:
+    """Os `-c` do `codex exec` do Solis: as ferramentas que só leem, dos
+    servidores do Codex, rodam sem aprovação (o resto falha: não há quem aprove)."""
+    args = []
+    for nome, r in sorted(_cache().items()):
+        if not _NOME.match(nome) or not r.get('no_codex'):
+            continue
+        for t in r.get('lista') or []:
+            if t.get('so_le') and re.match(r'^[A-Za-z0-9_-]+$', t.get('nome', '')):
+                # Sem aspas: o codex.cmd passa pelo cmd.exe, e o Codex aceita o
+                # valor cru quando não é TOML válido.
+                args += ['-c', f'mcp_servers.{nome}.tools.{t["nome"]}.approval_mode=approve']
+    return args

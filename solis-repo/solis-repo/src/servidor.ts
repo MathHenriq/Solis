@@ -1284,6 +1284,92 @@ export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'ho
   ativa?: boolean;
 };
 
+/** Um servidor MCP (backend/solis/servidores_mcp.py): os seus (`origem` seu),
+ *  o da memória do Solis e os internos do Codex. `ferramentas`: a última
+ *  conferida (nula se nunca conferido). */
+export type FerramentasMcp = { total: number; so_leem: number; erro: string | null; quando: number };
+export type ServidorMcp = {
+  nome: string;
+  tipo: 'comando' | 'endereco';
+  comando: string;
+  url: string;
+  variaveis: string[];
+  para: ('claude' | 'codex')[];
+  origem: 'seu' | 'solis' | 'codex';
+  editavel: boolean;
+  desligado_no_codex: boolean;
+  ferramentas: FerramentasMcp | null;
+};
+export type ServidorMcpInteiro = {
+  nome: string;
+  tipo: 'comando' | 'endereco';
+  comando: string;
+  url: string;
+  variaveis: string;
+  para: ('claude' | 'codex')[];
+};
+
+export async function listarServidoresMcp(): Promise<ServidorMcp[] | null> {
+  try {
+    const r = await fetch(`${BASE}/mcp`);
+    return r.ok ? ((await r.json()) as { servidores: ServidorMcp[] }).servidores : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function lerServidorMcp(nome: string): Promise<ServidorMcpInteiro | null> {
+  try {
+    const r = await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}`);
+    return r.ok ? ((await r.json()) as ServidorMcpInteiro) : null;
+  } catch {
+    return null;
+  }
+}
+
+const MOTIVO_MCP: Record<string, string> = {
+  nome: 'O nome precisa ter só letras, números, hífen ou sublinhado.',
+  tipo: 'Escolha se é um comando no PC ou um endereço.',
+  comando: 'Escreva o comando que sobe o servidor (aspas fechadas).',
+  'endereço': 'O endereço precisa começar com https:// (ou http://).',
+  'variáveis': 'Uma variável por linha, no formato CHAVE=valor.',
+  'pra quem': 'Escolha pra quem o servidor vale.',
+};
+
+/** Adiciona (sem `antigo`) ou muda. Erro: o motivo em português. */
+export async function salvarServidorMcp(dados: ServidorMcpInteiro, antigo?: string): Promise<ServidorMcp | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/mcp${antigo ? `/${encodeURIComponent(antigo)}` : ''}`, {
+      method: antigo ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    if (r.ok) return (await r.json()) as ServidorMcp;
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    const motivo = corpo.motivo ?? '';
+    return { erro: MOTIVO_MCP[motivo] ?? (motivo ? motivo.charAt(0).toUpperCase() + motivo.slice(1) + '.' : 'Não deu pra salvar.') };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
+
+export async function removerServidorMcp(nome: string): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function conferirServidorMcp(nome: string): Promise<FerramentasMcp | null> {
+  try {
+    const r = await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}/conferir`, { method: 'POST' });
+    return r.ok ? ((await r.json()) as FerramentasMcp) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Uma skill (backend/solis/skills.py): as suas (`origem` solis, escritas no
  *  Solis ou à mão) e as da conta do claude.ai (`conta`: as suas de lá;
  *  `anthropic`: as da Anthropic). `ligada` só conta pro Claude. */

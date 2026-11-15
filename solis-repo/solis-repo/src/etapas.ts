@@ -187,7 +187,11 @@ export function siteDe(url: string): string {
  *  mcp__claude_ai_<Conector>__<ação> (backend agente.conector_de). */
 export function conectorDe(ferramenta?: string): { nome: string; acao: string } | null {
   const m = /^mcp__claude_ai_(.+?)__(.+)$/.exec(ferramenta ?? '');
-  return m ? { nome: m[1].replace(/_/g, ' '), acao: m[2] } : null;
+  if (m) return { nome: m[1].replace(/_/g, ' '), acao: m[2] };
+  // Um servidor MCP que o Matheus pôs (Configurações → Servidores MCP) conta
+  // como conector; os do próprio Solis (solis, navegador) têm frases próprias.
+  const s = /^mcp__(.+?)__(.+)$/.exec(ferramenta ?? '');
+  return s && s[1] !== 'solis' && s[1] !== 'navegador' ? { nome: s[1], acao: s[2] } : null;
 }
 
 /** As fontes de uma resposta: as páginas lidas (pelo Claude ou um ajudante) e

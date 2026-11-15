@@ -212,6 +212,8 @@ w('  --nav-escolha-l: %s;' % T['layout']['configuracoes']['navegador']['selectWi
 w('  /* Skills (Configuracoes) - desenho proprio, APROVADO em 15/11/2026. Ver layout.configuracoes.skills. */')
 w('  --skl-para-l: %s;' % T['layout']['configuracoes']['skills']['forWidth'])
 w('  --skl-instrucoes-h: %s;' % T['layout']['configuracoes']['skills']['instructionsHeight'])
+w('  /* Servidores MCP (Configuracoes) - desenho proprio, PROVISORIO. Ver layout.configuracoes.mcp. */')
+w('  --mcp-tipo-l: %s;' % T['layout']['configuracoes']['mcp']['typeWidth'])
 w('  /* Chamada: a ilha preta no topo - desenho proprio, PROVISORIO. Ver layout.chamada. */')
 ch = T['layout']['chamada']
 for chave, var in [('top', '--ch-topo'), ('fill', '--ch-fundo'), ('text', '--ch-texto'), ('textMuted', '--ch-texto-2'),

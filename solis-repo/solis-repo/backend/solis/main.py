@@ -870,6 +870,78 @@ async def ligar_skill(nome: str, corpo: SkillLigada):
     return {'ok': True}
 
 
+# — Servidores MCP ———————————————————————————————————————————————————————————
+class ServidorCorpo(BaseModel):
+    nome: str
+    tipo: str
+    comando: str = ''
+    url: str = ''
+    variaveis: str = ''
+    para: list[str]
+
+
+@app.get('/mcp')
+async def listar_servidores_mcp():
+    """Os servidores MCP do Claude (configuração de usuário do Claude Code) e do
+    GPT (Codex): os seus, o da memória do Solis e os internos do Codex, com
+    `para` e as `ferramentas` da última conferida."""
+    from . import servidores_mcp
+    return {'servidores': await asyncio.to_thread(servidores_mcp.listar)}
+
+
+@app.get('/mcp/{nome}')
+async def ler_servidor_mcp(nome: str):
+    from . import servidores_mcp
+    s = await asyncio.to_thread(servidores_mcp.ler, nome)
+    return s if s else JSONResponse({'erro': 'servidor_inexistente'}, status_code=404)
+
+
+async def _salvar_servidor(corpo: ServidorCorpo, antigo: str | None):
+    from . import servidores_mcp
+    try:
+        s = await asyncio.to_thread(servidores_mcp.salvar, corpo.nome.strip(), corpo.tipo, corpo.comando,
+                                    corpo.url.strip(), corpo.variaveis, corpo.para, antigo)
+    except servidores_mcp.ServidorInvalido as e:
+        return JSONResponse({'erro': 'servidor_invalido', 'motivo': str(e)}, status_code=400)
+    # O registro de ações guarda sem os valores das variáveis (chave de API).
+    banco.registrar_acao(None, 'salvar_servidor_mcp', {'nome': s['nome'], 'para': s['para'], 'antigo': antigo},
+                         s['comando'] or s['url'], True)
+    return s
+
+
+@app.post('/mcp')
+async def criar_servidor_mcp(corpo: ServidorCorpo):
+    return await _salvar_servidor(corpo, None)
+
+
+@app.put('/mcp/{nome}')
+async def editar_servidor_mcp(nome: str, corpo: ServidorCorpo):
+    return await _salvar_servidor(corpo, nome)
+
+
+@app.delete('/mcp/{nome}')
+async def remover_servidor_mcp(nome: str):
+    from . import servidores_mcp
+    try:
+        ok = await asyncio.to_thread(servidores_mcp.remover, nome)
+    except servidores_mcp.ServidorInvalido as e:
+        return JSONResponse({'erro': 'servidor_invalido', 'motivo': str(e)}, status_code=400)
+    if not ok:
+        return JSONResponse({'erro': 'servidor_inexistente'}, status_code=404)
+    banco.registrar_acao(None, 'remover_servidor_mcp', {'nome': nome}, 'removido', True)
+    return {'ok': True}
+
+
+@app.post('/mcp/{nome}/conferir')
+async def conferir_servidor_mcp(nome: str):
+    """Conecta no servidor e lista as ferramentas (quantas, quantas só leem, ou o erro)."""
+    from . import servidores_mcp
+    try:
+        return await servidores_mcp.conferir(nome)
+    except servidores_mcp.ServidorInvalido:
+        return JSONResponse({'erro': 'servidor_inexistente'}, status_code=404)
+
+
 # — Navegador do Claude ————————————————————————————————————————————————————————
 class EscolhaNavegador(BaseModel):
     navegador: str

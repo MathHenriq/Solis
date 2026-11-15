@@ -301,7 +301,11 @@ async def codex(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     # O exec não documenta prompt de sistema: as instruções vão no começo do
     # próprio prompt. O texto chega de uma vez, sem pedaços — o Codex não manda
     # deltas; vale a última agent_message do turno.
-    comando = _comando('codex', 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'read-only', '-')
+    # As ferramentas MCP que só leem rodam sem aprovação (não há quem aprove
+    # no exec); as que mudam algo falham, e ele diz (servidores_mcp.py).
+    from . import servidores_mcp
+    comando = _comando('codex', 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'read-only',
+                       *servidores_mcp.liberadas_no_codex(), '-')
     ultima = None
     async for linha in _linhas(comando, f'{sistema}\n\n{prompt}', etapas, 'codex'):
         try:
