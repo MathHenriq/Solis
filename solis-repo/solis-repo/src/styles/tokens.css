@@ -251,6 +251,8 @@
   --art-largura: clamp(420px, 44vw, 780px);
   --art-cabecalho: 52px;
   --art-px: 20px;
+  --proj-largura: 560px;
+  --proj-gap: 20px;
   --et-apr-py: 12px;
   --et-apr-px: 16px;
   --et-apr-raio: 8px;

@@ -297,7 +297,88 @@ export async function enviarAnexo(arquivo: File): Promise<Anexo | null> {
 }
 
 /** A pasta de projeto da conversa e o modo do Claude nela. */
-export type Projeto = { pasta: string | null; modo: 'pedir' | 'aceitar' | 'planejar'; recentes: string[] };
+export type Projeto = {
+  pasta: string | null;
+  modo: 'pedir' | 'aceitar' | 'planejar';
+  recentes: string[];
+  /** O projeto da conversa (instruções, arquivos fixos, pasta), ou null. */
+  projeto: { id: number; nome: string } | null;
+};
+
+/** Um projeto: nome, instruções, arquivos fixos e, se quiser, a pasta de código. */
+export type ArquivoProjeto = { id: number; nome: string; caminho: string; tipo: string; tamanho: number };
+export type ProjetoSolis = {
+  id: number;
+  nome: string;
+  instrucoes: string;
+  pasta: string | null;
+  /** Na lista: quantos; num projeto aberto: os arquivos. */
+  arquivos: number | ArquivoProjeto[];
+  conversas?: number;
+};
+
+export async function listarProjetos(): Promise<ProjetoSolis[] | null> {
+  try {
+    const r = await fetch(`${BASE}/projetos`);
+    return r.ok ? ((await r.json()) as { projetos: ProjetoSolis[] }).projetos : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function lerProjetoSolis(id: number): Promise<ProjetoSolis | null> {
+  try {
+    const r = await fetch(`${BASE}/projetos/${id}`);
+    return r.ok ? ((await r.json()) as ProjetoSolis) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Cria (sem id) ou edita. Erro: 'pasta-inexistente', 'sem-nome' ou null (servidor fora). */
+export async function salvarProjetoSolis(
+  dados: { id?: number; nome: string; instrucoes: string; pasta: string | null },
+): Promise<ProjetoSolis | 'pasta-inexistente' | 'sem-nome' | null> {
+  try {
+    const r = await fetch(`${BASE}/projetos${dados.id ? `/${dados.id}` : ''}`, {
+      method: dados.id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: dados.nome, instrucoes: dados.instrucoes, pasta: dados.pasta }),
+    });
+    if (r.status === 400) return (await r.json()).erro === 'sem_nome' ? 'sem-nome' : 'pasta-inexistente';
+    return r.ok ? ((await r.json()) as ProjetoSolis) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function apagarProjetoSolis(id: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/projetos/${id}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function enviarArquivoProjeto(id: number, arquivo: File): Promise<ArquivoProjeto | null> {
+  try {
+    const r = await fetch(`${BASE}/projetos/${id}/arquivos?nome=${encodeURIComponent(arquivo.name)}`, {
+      method: 'POST',
+      body: arquivo,
+    });
+    return r.ok ? ((await r.json()) as ArquivoProjeto) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function removerArquivoProjeto(id: number, arquivo: number): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/projetos/${id}/arquivos/${arquivo}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
 
 export async function lerProjeto(conversa: number): Promise<Projeto | null> {
   try {
@@ -312,12 +393,14 @@ export async function guardarProjeto(
   conversa: number,
   pasta: string | null,
   modo: Projeto['modo'],
+  /** O projeto (id), ou null pra tirar; sem ele, fica o que era. */
+  projeto?: number | null,
 ): Promise<Projeto | 'pasta-inexistente' | null> {
   try {
     const r = await fetch(`${BASE}/conversas/${conversa}/projeto`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pasta, modo }),
+      body: JSON.stringify(projeto === undefined ? { pasta, modo } : { pasta, modo, projeto }),
     });
     if (r.status === 400) return 'pasta-inexistente';
     return r.ok ? ((await r.json()) as Projeto) : null;
