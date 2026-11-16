@@ -489,6 +489,17 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      (3) O Gemini grátis respondeu 503 (sobrecarregado) e o Claude ficou de reserva. O que falta
      pro "perto de 1 s" do `IDEIAS.md` é um cérebro rápido pra voz: o local (Ollama ligado) ou
      uma chave grátis da Groq.
+   - **O local na voz, medido com o Ollama ligado (16/11/2026):** o Matheus escolheu "os dois"
+     (local primeiro, Groq de reserva), e o Solis passou a ligar o Ollama sozinho. Medido com a
+     placa livre: o qwen3:8b deu a primeira palavra em 11 a 38 s nas perguntas comuns e errou
+     fatos ("Não sei" pra capital da Austrália; "o Sol é a única estrela que não é azul"); só a
+     conta saiu em 0,2 s. O motivo da lentidão: o aprendizado de depois de cada resposta roda no
+     mesmo modelo, e a pergunta seguinte espera (a memória chegou a 22 s esperando os vetores).
+     Pela regra-mãe ("nada de lorota"), o local não serve de primeiro na voz nesta máquina. Ligar o
+     Ollama sozinho ficou desligado por padrão (`SOLIS_LIGAR_OLLAMA=1` liga), e o Ollama que o
+     Solis tinha ligado foi desligado. Ficaram: com o modelo vazio (a tela leu a lista com o
+     Ollama fora), o servidor usa o último escolhido; e um cérebro de API que não começa a
+     responder em 15 s cai pro próximo (o Gemini grátis tinha ficado 60 s calado).
 
 ### Controle do PC e visão da tela
 

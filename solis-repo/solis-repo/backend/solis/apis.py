@@ -19,6 +19,7 @@ recebe pra melhorar os produtos do Google; o Mistral treina até ser desligado n
 console; no OpenRouter quem roda o modelo grátis pode guardar o pedido. O que é
 privado nunca chega aqui — o roteador tira antes, como faz pro Claude e o Codex.
 """
+import asyncio
 import json
 import re
 import time
@@ -66,6 +67,10 @@ PROVEDORES = {
 # começo ou no meio) é travado — o maior silêncio aceito pros CLIs (cerebros.py).
 TIMEOUT_LISTA = httpx.Timeout(15.0, connect=5.0)
 TIMEOUT_RESPOSTA = httpx.Timeout(60.0, connect=5.0)
+# O primeiro pedaço tem prazo próprio: em 16/11/2026 o Gemini grátis ficou 60 s
+# calado até o ReadTimeout, numa resposta por voz. Quem não começa em 15 s está
+# falhando, e o próximo cérebro tenta. Entre um pedaço e outro, os 60 s valem.
+PRIMEIRO_MAX = 15.0
 
 
 class ChaveRecusada(Exception):
@@ -215,11 +220,18 @@ async def responder(
                     raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:160]}')
                 pensou = False
                 linhas = r.aiter_lines()
+                primeira = True
                 while True:
                     try:
-                        linha = await anext(linhas)
+                        if primeira:
+                            linha = await asyncio.wait_for(anext(linhas), PRIMEIRO_MAX)
+                            primeira = False
+                        else:
+                            linha = await anext(linhas)
                     except StopAsyncIteration:
                         return
+                    except asyncio.TimeoutError as e:
+                        raise CerebroFalhou(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
                     if not linha.startswith('data:'):
                         continue
                     dado = linha[5:].strip()

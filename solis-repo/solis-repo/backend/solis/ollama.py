@@ -55,6 +55,63 @@ def fora() -> bool:
     """O Ollama falhou há pouco (sem perguntar de novo)."""
     return time.monotonic() < _fora_ate
 
+
+# Ligar o Ollama quando o Solis sobe, se ele estiver instalado e parado (o
+# Matheus, 16/11/2026: "o local primeiro quando o Ollama estiver ligado; a Groq
+# de reserva"). Instalado e marcado pra iniciar com o Windows, ele estava fora:
+# a voz caía no Claude (3,5 a 14 s) e a memória ficava sem a busca por
+# significado. O serviço parado gasta pouco; a placa só é usada quando um
+# modelo carrega, e o Ollama descarrega depois do keep_alive.
+# Desligado por padrão: medido em 16/11/2026 com o Ollama ligado e a placa
+# livre, o qwen3:8b deu a primeira palavra da voz em 11 a 38 s (o aprendizado
+# de depois de cada resposta ocupa o mesmo modelo) e errou fatos ("Não sei" pra
+# capital da Austrália). Ligar é decisão do Matheus (SOLIS_LIGAR_OLLAMA=1).
+LIGAR = os.environ.get('SOLIS_LIGAR_OLLAMA', '0') == '1'
+
+
+def _executavel() -> str | None:
+    import shutil
+    from pathlib import Path
+    achado = shutil.which('ollama')
+    if achado:
+        return achado
+    padrao = Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Ollama' / 'ollama.exe'
+    return str(padrao) if padrao.is_file() else None
+
+
+async def ligar_se_parado(espera: float = 15.0) -> str:
+    """'ja' (respondia), 'ligou', 'sem' (não instalado ou desligado por
+    SOLIS_LIGAR_OLLAMA=0) ou 'falhou'."""
+    global _fora_ate
+    try:
+        await instalados()
+        return 'ja'
+    except OllamaIndisponivel:
+        pass
+    exe = _executavel() if LIGAR else None
+    if not exe:
+        return 'sem'
+    import subprocess
+    try:
+        subprocess.Popen([exe, 'serve'], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL,
+                         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                         | getattr(subprocess, 'DETACHED_PROCESS', 0))
+    except OSError:
+        log.warning('não consegui ligar o Ollama (%s)', exe, exc_info=True)
+        return 'falhou'
+    fim = time.monotonic() + espera
+    while time.monotonic() < fim:
+        await asyncio.sleep(0.5)
+        _fora_ate = 0.0  # a lembrança de "fora" não vale pra quem acabou de ligar
+        try:
+            await instalados()
+            log.info('Ollama ligado pelo Solis (%s)', exe)
+            return 'ligou'
+        except OllamaIndisponivel:
+            continue
+    return 'falhou'
+
 # Na conversa os 8s não servem: o primeiro pedaço só sai depois que o Ollama
 # carrega o modelo na memória, e um 14B frio passa disso fácil. O limite vale
 # ENTRE pedaços — um modelo que travou no meio ainda é cortado, só que em 2 min.

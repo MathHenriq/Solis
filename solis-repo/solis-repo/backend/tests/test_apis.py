@@ -199,3 +199,18 @@ def test_chave_recusada_na_resposta_pausa_um_dia():
 def test_sem_chave_falha_sem_chamar_ninguem():
     with pytest.raises(cerebros.CerebroFalhou, match='sem chave'):
         coletar(apis.responder('gemini', 's', 'p', transporte=servico(lambda req: 1 / 0)))
+
+
+def test_quem_nao_comeca_a_responder_cai_pro_proximo(monkeypatch):
+    """16/11/2026: o Gemini grátis ficou 60 s calado numa resposta por voz."""
+    com_chave()
+    monkeypatch.setattr(apis, 'PRIMEIRO_MAX', 0.2)
+
+    class Calado(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            await asyncio.sleep(5)
+            yield b''
+
+    t = servico(lambda req: httpx.Response(200, stream=Calado(), headers={'content-type': 'text/event-stream'}))
+    with pytest.raises(cerebros.CerebroFalhou, match='não começou a responder'):
+        coletar(apis.responder('groq', 's', 'p', transporte=t))

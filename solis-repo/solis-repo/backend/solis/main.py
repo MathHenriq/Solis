@@ -63,6 +63,8 @@ async def _vida(_app):
     leitura = asyncio.create_task(ocr.ler_se_livre())
     # E a vigiar a Agenda e as Tarefas: o aviso do Windows na hora.
     vigia = asyncio.create_task(avisos.vigiar())
+    # O Ollama, se estiver instalado e parado: o local responde a voz primeiro.
+    ligando = asyncio.create_task(ollama.ligar_se_parado())
     # E as tarefas agendadas: o pedido ao Claude na hora marcada.
     relogio = asyncio.create_task(_vigiar_agendadas())
     # E a tirar o Whisper da memória quando ninguém fala há um tempo.
@@ -74,6 +76,7 @@ async def _vida(_app):
     leitura.cancel()
     vigia.cancel()
     relogio.cancel()
+    ligando.cancel()
     ouvido.cancel()
     # O navegador do Claude (e a janela dele) fecha junto com o servidor.
     from . import navegador
@@ -347,6 +350,11 @@ async def enviar(conversa: int, envio: Envio):
     if envio.modelo and envio.modelo != _ultimo_modelo:
         _ultimo_modelo = envio.modelo
         banco.guardar_ajuste('modelo_local', envio.modelo)
+    # A tela manda vazio quando leu os modelos com o Ollama fora; ligado depois
+    # (o Solis liga sozinho), o local usa o último escolhido, e não cai como
+    # "Ollama fora do ar" (visto em 16/11/2026).
+    if not envio.modelo:
+        envio.modelo = _ultimo_modelo or banco.ajuste('modelo_local') or ''
 
     # A mensagem da pessoa é guardada antes de perguntar ao modelo: o que ela
     # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
