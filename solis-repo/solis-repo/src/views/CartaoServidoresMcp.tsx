@@ -17,7 +17,7 @@ import {
  *  como as skills; no Claude, o que só lê é livre e o resto pede cartão; no
  *  GPT, só o que lê roda.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), os
  *  grupos e o formulário das Skills (--skl-*, --agd-*, --mac-*). Medida nova em
  *  layout.configuracoes.mcp. */
