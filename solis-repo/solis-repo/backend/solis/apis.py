@@ -196,6 +196,58 @@ def _espera(r: httpx.Response) -> float | None:
         return None
 
 
+# As tarefas de fundo (o aprendizado com o Ollama fora) esperam mais: ninguém
+# está olhando, e o modelo pensa antes.
+TIMEOUT_FUNDO = httpx.Timeout(60.0, connect=5.0)
+FUNDO_TENTATIVAS = 3
+FUNDO_ESPERA_MAX = 30.0
+
+
+async def responder_json(
+    nome: str, sistema: str, prompt: str, esquema: dict, qual: str | None = None,
+    transporte: httpx.AsyncBaseTransport | None = None,
+) -> dict:
+    """Uma resposta presa a um JSON Schema (o response_format da API), inteira,
+    sem streaming. `qual`: o modelo (senão, o escolhido pra conversa). Pro
+    aprendizado: não pausa o cérebro no limite grátis — quem responde a
+    conversa usa outro modelo, e o limite é por modelo."""
+    chave = _chave_de(nome)
+    escolhido = qual or modelo(nome)
+    if not chave or not escolhido:
+        raise CerebroFalhou('sem chave')
+    corpo = {
+        'model': escolhido,
+        'messages': [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}],
+        'response_format': {'type': 'json_schema', 'json_schema': {'name': 'resposta', 'schema': esquema}},
+    }
+    async with contextlib.AsyncExitStack() as pilha:
+        c = (conexoes.cliente(nome) if transporte is None
+             else await pilha.enter_async_context(httpx.AsyncClient(transport=transporte)))
+        for tentativa in range(FUNDO_TENTATIVAS):
+            try:
+                r = await c.post(f"{PROVEDORES[nome]['base']}/chat/completions", json=corpo,
+                                 headers={'Authorization': f'Bearer {chave}'}, timeout=TIMEOUT_FUNDO)
+            except httpx.HTTPError as e:
+                raise CerebroFalhou(f'{type(e).__name__}: {e}'[:200]) from e
+            ultima = tentativa == FUNDO_TENTATIVAS - 1
+            if r.status_code == 429 and not ultima:
+                # O limite por minuto (medido: ~1.300 tokens de entrada por
+                # aprendizado, e o grátis do 20b aguenta 2 a 3 por minuto).
+                # Ninguém espera esta resposta: espera o que a Groq disse.
+                quando = _espera(r)
+                await asyncio.sleep(min(FUNDO_ESPERA_MAX, max(1.0, (quando or time.time() + 10) - time.time())))
+                continue
+            if r.status_code == 400 and 'json_validate_failed' in r.text and not ultima:
+                continue  # o modelo saiu do esquema: de novo, uma vez
+            break
+    if r.status_code >= 400:
+        raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:200]}')
+    try:
+        return json.loads(r.json()['choices'][0]['message']['content'])
+    except (ValueError, KeyError, IndexError, TypeError) as e:
+        raise CerebroFalhou(f'não veio JSON: {r.text[:200]}') from e
+
+
 async def responder(
     nome: str, sistema: str, prompt: str, etapas=MUDA, transporte: httpx.AsyncBaseTransport | None = None,
     rapido: bool = False,

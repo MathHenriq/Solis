@@ -180,7 +180,9 @@ def notas_do_cerebro(nome: str, depois: list[str]) -> str:
     notas = ''
     if nome not in COM_FERRAMENTAS and nome != 'local':
         notas += NOTA_PASSAR if any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
-    if ollama.fora():
+    # Com o Ollama fora e a Groq aprendendo no lugar (memoria.na_nuvem), o que
+    # não é privado continua sendo guardado: o aviso só vale sem os dois.
+    if not memoria.aprende_agora():
         notas += NOTA_SEM_APRENDIZADO_CLAUDE if nome == 'claude' else NOTA_SEM_APRENDIZADO
     return notas
 

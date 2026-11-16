@@ -386,6 +386,72 @@ def guardar_pedido_cru(texto: str, conversa: int | None) -> None:
     banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa, privada=eh_privado(texto))
 
 
+# O aprendizado na nuvem, com o Ollama fora: a Groq, no gpt-oss-20b — o limite
+# grátis da Groq é por modelo, e o 120b fica pra responder (a voz). PROVISÓRIO:
+# medido pelo teste do aprendizado (aprendizado_teste.py).
+MODELO_NUVEM = __import__('os').environ.get('SOLIS_APRENDIZADO_NUVEM', 'openai/gpt-oss-20b')
+
+
+def na_nuvem() -> bool:
+    """A Groq pode aprender agora (tem a chave e não está pausada)."""
+    from . import apis, cerebros
+    return bool(apis._chave_de('groq')) and cerebros.disponivel('groq')
+
+
+def aprende_agora() -> bool:
+    """Alguém vai aprender com o que não é privado: o Ollama, ou a Groq no lugar dele."""
+    return not ollama.fora() or na_nuvem()
+
+
+def _mensagem_privada(mensagem_id: int | None) -> bool:
+    if mensagem_id is None:
+        return False
+    return any(m.get('privada') for m in banco.mensagens_por_id([mensagem_id]))
+
+
+def texto_da_extracao(mensagem: str, candidatas: list[dict], contexto: list[dict], agora: dt.datetime,
+                      antiga: str | None = None, pedido: bool = False) -> str:
+    anteriores = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in contexto)
+    if antiga:
+        fala = (
+            f'\n\nFalas do Matheus numa conversa antiga ({antiga}). Fato que pode ter mudado '
+            'desde então vai com a data ("Em 2023, trabalhava na X."), e nunca substitui '
+            f'uma memória guardada (substitui = 0):\n{mensagem}'
+        )
+    else:
+        fala = f'\n\nÚltima mensagem do Matheus:\n{mensagem}'
+    texto = (
+        'Memórias já guardadas sobre assuntos parecidos (número: texto):\n'
+        + ('\n'.join(f'{m["id"]}: {m["texto"]}' for m in candidatas) or '(nenhuma)')
+        + f'\n\nContexto anterior:\n{anteriores or "(nenhum)"}'
+        + ('' if antiga else '\n\n' + calendario(agora))
+        + fala
+    )
+    if pedido:
+        texto += '\n\nO Matheus PEDIU pra guardar algo nesta mensagem: extraia o que ele pediu.'
+    return texto
+
+
+async def extrair(onde: str, modelo: str, mensagem: str, candidatas: list[dict], contexto: list[dict],
+                  agora: dt.datetime, antiga: str | None = None, pedido: bool = False) -> dict:
+    """O que o modelo tira da mensagem (memórias, tarefas, compromissos), sem
+    guardar nada. `onde`: 'local' (o Ollama) ou um cérebro de API ('groq').
+
+    COM raciocínio, de propósito — o contrário do título e do resumo. Medido no
+    qwen3:8b em 12 casos (fatos, perguntas, pedidos, sigilo, mudança de emprego
+    e de cidade): pensando acertou 12, em ~11 s; sem pensar acertou 10, em ~1 s,
+    e deixou de guardar uma preferência dita com todas as letras e a senha do
+    wifi. Guardar é a razão de o Solis existir, e isto roda depois da resposta,
+    sem prender a conversa."""
+    texto = texto_da_extracao(mensagem, candidatas, contexto, agora, antiga, pedido)
+    instrucao, esquema = ((INSTRUCAO, ESQUEMA) if antiga else
+                          (INSTRUCAO + INSTRUCAO_TAREFAS + INSTRUCAO_COMPROMISSOS, ESQUEMA_COMPLETO))
+    if onde == 'local':
+        return await ollama.responder_json(modelo, instrucao, texto, esquema)
+    from . import apis
+    return await apis.responder_json(onde, instrucao, texto, esquema, qual=modelo)
+
+
 async def aprender(
     modelo: str,
     conversa: int,
@@ -416,37 +482,19 @@ async def aprender(
     guardadas = banco.memorias()
     candidatas = await busca.memorias_parecidas(mensagem, CANDIDATAS)
 
-    anteriores = '\n'.join(f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in contexto)
-    if antiga:
-        fala = (
-            f'\n\nFalas do Matheus numa conversa antiga ({antiga}). Fato que pode ter mudado '
-            'desde então vai com a data ("Em 2023, trabalhava na X."), e nunca substitui '
-            f'uma memória guardada (substitui = 0):\n{mensagem}'
-        )
-    else:
-        fala = f'\n\nÚltima mensagem do Matheus:\n{mensagem}'
-    texto = (
-        'Memórias já guardadas sobre assuntos parecidos (número: texto):\n'
-        + ('\n'.join(f'{m["id"]}: {m["texto"]}' for m in candidatas) or '(nenhuma)')
-        + f'\n\nContexto anterior:\n{anteriores or "(nenhum)"}'
-        + ('' if antiga else '\n\n' + calendario(agora))
-        + fala
-    )
-    if pedido:
-        texto += '\n\nO Matheus PEDIU pra guardar algo nesta mensagem: extraia o que ele pediu.'
-
     try:
-        # COM raciocínio, de propósito — o contrário do título e do resumo.
-        # Medido no qwen3:8b em 12 casos (fatos, perguntas, pedidos, sigilo,
-        # mudança de emprego e de cidade): pensando acertou 12, em ~11 s; sem
-        # pensar acertou 10, em ~1 s, e deixou de guardar uma preferência dita
-        # com todas as letras e a senha do wifi. Guardar é a razão de o Solis
-        # existir, e isto roda depois da resposta, sem prender a conversa.
-        if antiga:
-            resposta = await ollama.responder_json(modelo, INSTRUCAO, texto, ESQUEMA)
-        else:
-            resposta = await ollama.responder_json(
-                modelo, INSTRUCAO + INSTRUCAO_TAREFAS + INSTRUCAO_COMPROMISSOS, texto, ESQUEMA_COMPLETO
+        try:
+            resposta = await extrair('local', modelo, mensagem, candidatas, contexto, agora, antiga, pedido)
+        except ollama.OllamaIndisponivel:
+            # O Ollama fora: o que não é privado aprende na Groq (decisão do
+            # Matheus, 16/11/2026). Sem o privado também no que vai junto: as
+            # memórias parecidas e as falas de antes.
+            if privado or _mensagem_privada(mensagem_id) or not na_nuvem():
+                raise
+            candidatas = [m for m in candidatas if not m.get('privada')]
+            resposta = await extrair(
+                'groq', MODELO_NUVEM, mensagem, candidatas, [m for m in contexto if not m.get('privada')],
+                agora, antiga, pedido,
             )
         novas = resposta.get('memorias', [])
         achadas = [] if antiga else [t for t in resposta.get('tarefas', []) if (t.get('texto') or '').strip()]

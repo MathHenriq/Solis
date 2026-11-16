@@ -588,6 +588,19 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      modelo pensando pouco). **Não medido ao vivo:** o pedido passando pro Claude, porque ele age
      de verdade no PC (pausar a música, abrir programa) — fica pro Matheus testar. E o Claude pela
      voz leva 3,5 a 14 s: falta o Solis dizer algo enquanto isso (a narração do `IDEIAS.md`).
+   - **O aprendizado na Groq com o Ollama fora (16/11/2026, decisão do Matheus).** O aprendizado
+     roda no modelo local (lê o privado, não gasta cota); com o Ollama desligado — o padrão desde
+     que ligar sozinho ficou desligado — nada era guardado. Agora, se o local não responde, o que
+     não é privado aprende na Groq: sem a mensagem privada, e sem as memórias e as falas privadas
+     que iriam junto. No gpt-oss-20b, porque o limite grátis da Groq é por modelo e o 120b fica pra
+     voz. O limite por minuto (tokens: ~1.300 de entrada por aprendizado, 2 a 3 por minuto no
+     grátis) é esperado sozinho, até 30 s, e o JSON fora do esquema é refeito uma vez. O aviso
+     "aprendizado desligado" pros cérebros só vale agora sem o Ollama e sem a Groq.
+     **O teste do aprendizado** (`aprendizado_teste.py`, `POST /aprendizado/teste?onde=groq|local`):
+     14 casos inventados (fato, pergunta, pedido de guardar, mudança de cidade e de emprego com
+     substituição, tarefa, compromisso com dia e hora, saúde marcada privada, agradecimento) pela
+     extração, sem guardar nada. Na Groq (gpt-oss-20b): **14 de 14**, 0,82 s cada (o qwen3:8b levava
+     11 a 13 s). O título e o resumo da conversa continuam só no local.
 
 ### Controle do PC e visão da tela
 

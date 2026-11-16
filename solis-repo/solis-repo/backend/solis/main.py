@@ -1364,9 +1364,11 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     mensagem nova (a pergunta do Solis que ela talvez responda), não o histórico
     inteiro.
 
-    Todos rodam SEMPRE no modelo local, qualquer que seja o cérebro que
-    respondeu: leem tudo, inclusive o que é privado, e não podem gastar cota.
-    E no modelo de fundo (MODELO_FUNDO), não no da conversa."""
+    Rodam no modelo local, qualquer que seja o cérebro que respondeu: leem
+    tudo, inclusive o que é privado, e não gastam cota. E no modelo de fundo
+    (MODELO_FUNDO), não no da conversa. A exceção (16/11/2026, decisão do
+    Matheus): com o Ollama fora, o aprendizado do que não é privado vai pra
+    Groq (memoria.aprender) — senão nada era guardado."""
     modelo = await _modelo_de_fundo(modelo)
     if titulo := await resumo.titular(modelo, conversa):
         etapas.marcar('titulo', titulo=titulo)
@@ -1820,6 +1822,18 @@ async def _transcrever_escuta(audio: bytes) -> str:
 
 # — Teste da escuta (voz_teste.py) ——————————————————————————————————————————————
 _medindo: dict[str, asyncio.Task] = {}
+
+
+@app.post('/aprendizado/teste')
+async def testar_aprendizado(onde: str = 'groq', modelo: str = '', pausa: float = 0.0):
+    """O teste do aprendizado (aprendizado_teste.py): casos inventados pela
+    extração, sem guardar nada. `onde`: 'local' ou 'groq'. `pausa`: segundos
+    entre um caso e outro (o limite grátis da Groq é por minuto)."""
+    from . import aprendizado_teste
+    if onde not in ('local', 'groq'):
+        return JSONResponse({'erro': 'onde_invalido'}, status_code=400)
+    modelo = modelo or (MODELO_FUNDO if onde == 'local' else memoria.MODELO_NUVEM)
+    return await aprendizado_teste.medir(onde, modelo, pausa)
 
 
 @app.get('/voz/teste/roteiro')
