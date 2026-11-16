@@ -217,3 +217,31 @@ def test_cada_modelo_com_os_seus_prefixos():
     if busca.MODELO == 'embeddinggemma':
         assert (busca.PERGUNTA, busca.DOCUMENTO) == ('task: search result | query: ', 'title: none | text: ')
         assert busca.PISO_ARQUIVO == busca.PISO_TRECHO == 0.37
+
+
+def test_busca_lenta_nao_segura_a_resposta(monkeypatch):
+    """16/11/2026: com o Ollama ocupado no aprendizado, a etapa da memória levou
+    22 s. Passado o prazo, a resposta segue com as memórias e sem os trechos; o
+    pedido do vetor continua, pra deixar o modelo carregado."""
+    import asyncio
+    import time
+    banco.adicionar_memoria('Trabalha na Syngenta.', 'Trabalho', False, None)
+    terminou = []
+
+    async def lento(modelo, textos, **_):
+        await asyncio.sleep(0.5)
+        terminou.append(1)
+        return [[0.1] * 8 for _ in textos]
+    monkeypatch.setattr(ollama, 'embeddings', lento)
+    monkeypatch.setattr(busca, 'CONSULTA_MAX', 0.05)
+
+    async def rodar():
+        t0 = time.perf_counter()
+        memorias, trechos = await busca.contexto('onde eu trabalho?', 1)
+        demora = time.perf_counter() - t0
+        await asyncio.sleep(0.6)
+        return memorias, trechos, demora
+    memorias, trechos, demora = asyncio.run(rodar())
+    assert demora < 0.3 and trechos == []
+    assert [m['texto'] for m in memorias] == ['Trabalha na Syngenta.']
+    assert terminou == [1]

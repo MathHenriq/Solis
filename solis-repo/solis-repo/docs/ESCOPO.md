@@ -528,6 +528,20 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      decisão passa de 1,5 s — só o tempo, nunca o que foi dito. Não dá pra afirmar que foi
      isso naquela manhã (o log não guarda o que o Whisper ouviu), mas é o caminho medido que
      perdia a chamada.
+   - **"Às vezes demora": a etapa da memória (16/11/2026).** No log, ela ia de 0,05 s a 22 s
+     antes de cada resposta. Duas causas, as duas no vetor da pergunta (o embeddinggemma no
+     Ollama):
+     - **Ollama desligado:** a porta recusada custa **2,05 s** no Windows (medido). A
+       lembrança de "fora" durava 60 s, e na voz as perguntas vêm a mais de um minuto uma da
+       outra: quase toda pergunta por voz pagava os 2 s (a de 11:14:57 ficou em 2,36 s). Agora,
+       passado o prazo, as perguntas continuam falhando na hora, e uma sonda em segundo plano
+       (uma conexão numa thread, a cada 5 s) vê quando ele volta. Medido com o Ollama fora: a
+       primeira busca 2,2 s, as seguintes **0,01 s** — inclusive depois do prazo.
+     - **Ollama ocupado** (o aprendizado de fundo rodando no mesmo Ollama): 22, 18 e 11 s no log.
+       Agora o vetor tem **1,5 s**; passado isso, a resposta segue sem os trechos de conversas
+       antigas (as memórias vão todas até 30, como já ia com o Ollama fora), e o pedido do
+       vetor continua, pra deixar o modelo carregado. Não medido ao vivo com o Ollama ocupado
+       (ele estava desligado na hora): os números são os do log.
 
 ### Controle do PC e visão da tela
 

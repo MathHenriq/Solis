@@ -124,3 +124,14 @@ def sem_whisper_de_verdade(monkeypatch):
     monkeypatch.setattr(voz, '_aquecer_de_verdade', voz.aquecer, raising=False)
     monkeypatch.setattr(voz, 'aquecer', lambda: None)
     monkeypatch.setattr(voz, '_segurando', 0)
+
+
+@pytest.fixture(autouse=True)
+def ollama_sem_lembranca_de_fora(monkeypatch):
+    """A lembrança de "o Ollama está fora" não passa de um teste pro outro, e a
+    sonda nunca abre uma conexão de verdade."""
+    monkeypatch.setattr(ollama, '_fora', False)
+    monkeypatch.setattr(ollama, '_fora_ate', 0.0)
+    monkeypatch.setattr(ollama, '_sondado', 0.0)
+    monkeypatch.setattr(ollama, '_sonda', None)
+    monkeypatch.setattr(ollama, '_porta_abre', lambda: False)

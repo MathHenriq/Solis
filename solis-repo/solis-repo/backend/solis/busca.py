@@ -164,6 +164,27 @@ async def _consulta(texto: str) -> np.ndarray | None:
     return np.frombuffer(_bytes(v), dtype=np.float32)
 
 
+# O vetor da pergunta tem CONSULTA_MAX pra chegar; depois, a resposta segue sem
+# a busca (as memórias vão pelas mais recentes, como com o Ollama fora). No log
+# de 16/11/2026, com o Ollama ocupado no aprendizado de fundo, a etapa da
+# memória levou 22, 18 e 11 s; com ele livre, 0,05 a 0,3 s.
+CONSULTA_MAX = 1.5
+_atrasadas: set[asyncio.Task] = set()
+
+
+async def _consulta_com_prazo(texto: str) -> np.ndarray | None:
+    tarefa = asyncio.ensure_future(_consulta(texto))
+    await asyncio.wait({tarefa}, timeout=CONSULTA_MAX)
+    if tarefa.done():
+        return tarefa.result()
+    # Não cancela: o pedido segue e o embeddinggemma fica carregado pra próxima.
+    log.info('a busca na memória passou de %.1f s; a resposta segue sem ela', CONSULTA_MAX)
+    _atrasadas.add(tarefa)
+    tarefa.add_done_callback(_atrasadas.discard)
+    tarefa.add_done_callback(lambda t: t.cancelled() or t.exception())
+    return None
+
+
 def _ordenar(q: np.ndarray, ativas: list[dict]) -> list[dict]:
     """As memórias que valem, da mais parecida com `q` pra menos. As
     substituídas ainda têm vetor no banco, mas não entram."""
@@ -198,7 +219,7 @@ async def contexto(mensagem: str, conversa: int, desde: int = 0) -> tuple[list[d
     já vão inteiras no histórico. As de antes viraram resumo, e um trecho exato
     delas ainda pode ser o que a pergunta precisa."""
     todas = banco.memorias()
-    q = await _consulta(mensagem)
+    q = await _consulta_com_prazo(mensagem)
     if q is None:
         return todas[: TODAS_ATE + MEMORIAS_RECENTES], []
 

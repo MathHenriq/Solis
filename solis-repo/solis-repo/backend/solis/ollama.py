@@ -31,29 +31,75 @@ TIMEOUT = httpx.Timeout(8.0, connect=2.0)
 # modelo local da voz, no vocabulário do Whisper. Medido em 16/11/2026 numa
 # resposta por voz: 2,0 s só pra descobrir que ele não estava lá. Agora a
 # primeira falha vale por FORA_S: as perguntas nesse tempo falham na hora.
+#
+# Passados os FORA_S, quem perguntava de novo era a próxima pergunta — e na voz
+# elas vêm a mais de um minuto uma da outra: quase toda pergunta por voz com o
+# Ollama desligado pagava os 2 s (medido de novo em 16/11/2026: 2,05 s pra
+# porta recusar; a etapa da memória em 2,36 s). Agora, passado o prazo, as
+# perguntas continuam falhando na hora e quem confere se ele voltou é uma
+# sonda em segundo plano (uma conexão só, numa thread), a cada SONDA_S.
 FORA_S = 60.0
+SONDA_S = 5.0
 _fora_ate = 0.0
+_fora = False  # falhou e ainda não voltou
+_sonda: asyncio.Task | None = None
+_sondado = 0.0
+
+
+def _porta_abre() -> bool:
+    import socket
+    url = httpx.URL(OLLAMA)
+    try:
+        socket.create_connection((url.host, url.port or 11434), timeout=3).close()
+        return True
+    except OSError:
+        return False
+
+
+async def _sondar() -> None:
+    global _fora, _fora_ate
+    if await asyncio.to_thread(_porta_abre):
+        _fora, _fora_ate = False, 0.0
+
+
+def _sondar_se_preciso() -> None:
+    global _sonda, _sondado
+    if (_sonda and not _sonda.done()) or time.monotonic() - _sondado < SONDA_S:
+        return
+    _sondado = time.monotonic()
+    try:
+        _sonda = asyncio.get_running_loop().create_task(_sondar())
+    except RuntimeError:
+        _sonda = None
 
 
 class _Guardado(httpx.AsyncHTTPTransport):
     """O transporte dos clientes do Ollama, com a lembrança de que ele está fora."""
 
     async def handle_async_request(self, request):
-        global _fora_ate
-        if time.monotonic() < _fora_ate:
+        global _fora_ate, _fora
+        if _fora:
+            if time.monotonic() >= _fora_ate:
+                _sondar_se_preciso()
             raise httpx.ConnectError('o Ollama estava fora há pouco', request=request)
         try:
             resposta = await super().handle_async_request(request)
         except (httpx.ConnectError, httpx.ConnectTimeout):
-            _fora_ate = time.monotonic() + FORA_S
+            _fora, _fora_ate = True, time.monotonic() + FORA_S
             raise
-        _fora_ate = 0.0
+        _fora, _fora_ate = False, 0.0
         return resposta
 
 
 def fora() -> bool:
-    """O Ollama falhou há pouco (sem perguntar de novo)."""
-    return time.monotonic() < _fora_ate
+    """O Ollama falhou e a sonda ainda não viu ele voltar (sem perguntar de novo)."""
+    return _fora
+
+
+def esquecer_fora() -> None:
+    """Quem acabou de ligar o Ollama (ou um teste) pergunta de novo na hora."""
+    global _fora, _fora_ate
+    _fora, _fora_ate = False, 0.0
 
 
 # Ligar o Ollama quando o Solis sobe, se ele estiver instalado e parado (o
@@ -82,7 +128,6 @@ def _executavel() -> str | None:
 async def ligar_se_parado(espera: float = 15.0) -> str:
     """'ja' (respondia), 'ligou', 'sem' (não instalado ou desligado por
     SOLIS_LIGAR_OLLAMA=0) ou 'falhou'."""
-    global _fora_ate
     try:
         await instalados()
         return 'ja'
@@ -103,7 +148,7 @@ async def ligar_se_parado(espera: float = 15.0) -> str:
     fim = time.monotonic() + espera
     while time.monotonic() < fim:
         await asyncio.sleep(0.5)
-        _fora_ate = 0.0  # a lembrança de "fora" não vale pra quem acabou de ligar
+        esquecer_fora()  # a lembrança de "fora" não vale pra quem acabou de ligar
         try:
             await instalados()
             log.info('Ollama ligado pelo Solis (%s)', exe)
