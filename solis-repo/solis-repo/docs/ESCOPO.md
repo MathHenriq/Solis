@@ -442,8 +442,23 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      2,35 s pra 0,11–0,18 s.
    - **A base, com voz sintética (Maria do Windows) e o `small`:** acordou 12 de 12, entendeu 7 de
      12, 0 alarmes falsos, 1,0 s. O que sobra do tempo é a espera de 0,9 s de silêncio pra dar a
-     fala por acabada. Falta: a gravação com a voz do Matheus, o turbo no PC de verdade e o Silero
-     VAD no lugar da energia.
+     fala por acabada.
+   - **O turbo no PC de verdade** (16/11/2026, 1,62 GB, baixado pelo terminal do painel). O Solis
+     troca de modelo sozinho quando um melhor chega na pasta.
+   - **O Silero VAD** (o detector de fala de 2 MB que já vem com o faster-whisper), quadro a
+     quadro, como opção da escuta (`SOLIS_ESCUTA_VAD=silero`); fim da fala depois de 0,6 s de
+     silêncio, contra 0,9 s da energia. Na mesma gravação sintética:
+
+     | Escuta | Acordou | Entendeu | Falsos | Fim da fala → texto |
+     |---|---|---|---|---|
+     | energia + small | 12/12 | 7/12 | 0 | 1,02 s |
+     | Silero + small | 12/12 | 7/12 | 0 | 0,76 s |
+     | energia + turbo | 12/12 | 6/12 | 0 | 1,12 s |
+     | Silero + turbo | 12/12 | 7/12 | 0 | 0,88 s |
+
+     Os erros que sobram são do Whisper com a voz robótica da Maria ("beber ígua", "desliga a
+     MCC"). O padrão não muda com base nela: a gravação do Matheus é medida com as duas escutas, e
+     a decisão sai da voz dele.
 
 ### Controle do PC e visão da tela
 

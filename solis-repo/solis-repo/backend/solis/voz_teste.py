@@ -200,11 +200,11 @@ async def _transcrever(audio: bytes) -> tuple[str, float]:
     return texto, time.perf_counter() - t0
 
 
-async def rodar_escuta(amostras: array.array, transcrever=_transcrever) -> list[dict]:
+async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str = 'energia') -> list[dict]:
     """A escuta de hoje sobre a gravação, como no laço do /escuta: cada evento com
     o momento da gravação em que saiu (`t`) e quando o texto ficou pronto
     (`pronto`, somando o tempo do Whisper)."""
-    escuta = ativacao.Escuta(whisper=True)
+    escuta = ativacao.Escuta(whisper=True, vad=vad)
     eventos, n, atraso = [], escuta.n, 0.0
     dados = amostras.tobytes()
     passo = n * 2
@@ -281,7 +281,8 @@ async def medir(id_: str, motor: str = 'atual', transcrever=_transcrever) -> dic
     passos = json.loads((d / 'roteiro.json').read_text(encoding='utf-8'))['passos']
     t0 = time.perf_counter()
     try:
-        eventos = await rodar_escuta(amostras, transcrever)
+        # O motor diz o que medir: 'atual' (a escuta como está no Solis) ou 'energia'/'silero'.
+        eventos = await rodar_escuta(amostras, transcrever, ativacao.VAD if motor == 'atual' else motor)
     except WhisperFalhou as e:
         r = {'resumo': {'motor': motor, 'erro': str(e), 'medido': datetime.now().isoformat(timespec='seconds')}}
         (d / f'medida-{motor}.json').write_text(json.dumps(r, ensure_ascii=False, indent=1), encoding='utf-8')

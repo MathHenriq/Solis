@@ -59,6 +59,8 @@ export function TesteEscuta() {
   const [agora, definirAgora] = useState(0);
   const [erro, definirErro] = useState('');
   const [medida, definirMedida] = useState<MedidaEscuta | null>(null);
+  // A mesma gravação medida com o Silero VAD no lugar da energia (em teste).
+  const [silero, definirSilero] = useState<MedidaEscuta | null>(null);
   const parar = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -68,6 +70,7 @@ export function TesteEscuta() {
       const ultimo = l?.testes.find((t) => t.medidas.atual);
       if (ultimo) {
         definirMedida(ultimo.medidas.atual);
+        definirSilero(ultimo.medidas.silero ?? null);
         definirFase('pronto');
       }
     });
@@ -137,13 +140,14 @@ export function TesteEscuta() {
   function esperarMedida(id: string) {
     const conferir = async () => {
       const l = await listarTestesEscuta();
-      const m = l?.testes.find((t) => t.id === id)?.medidas.atual;
-      if (m) {
-        definirMedida(m);
+      const medidas = l?.testes.find((t) => t.id === id)?.medidas;
+      if (medidas?.atual) {
+        definirMedida(medidas.atual);
+        definirSilero(medidas.silero ?? null);
         definirFase('pronto');
-      } else {
-        window.setTimeout(conferir, 3000);
       }
+      // Continua até a do Silero chegar também (vem depois: o Whisper é um só).
+      if (!medidas?.silero) window.setTimeout(conferir, 3000);
     };
     window.setTimeout(conferir, 3000);
   }
@@ -220,6 +224,12 @@ export function TesteEscuta() {
           {linhaNumero('Entendeu o pedido', `${medida.entendeu} de ${medida.chamadas}`, medida.entendeu / medida.chamadas < 0.9)}
           {linhaNumero('Alarmes falsos', `${medida.falsos} em ${medida.trechos_sem} trechos sem "Solis"`, medida.falsos > 0)}
           {linhaNumero('Do fim da fala ao texto', `${segundos(medida.latencia_mediana)} no meio, ${segundos(medida.latencia_max)} no pior`)}
+          {linhaNumero(
+            'Com o detector de fala novo (em teste)',
+            silero
+              ? `entendeu ${silero.entendeu} de ${silero.chamadas}, ${silero.falsos} falsos, ${segundos(silero.latencia_mediana)}`
+              : 'medindo…',
+          )}
         </div>
       )}
 

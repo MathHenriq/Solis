@@ -1826,18 +1826,20 @@ async def guardar_teste(request: Request):
         r = await asyncio.to_thread(voz_teste.guardar, await request.body(), passos)
     except voz_teste.TesteInvalido as e:
         return JSONResponse({'erro': 'teste_invalido', 'motivo': str(e)}, status_code=400)
-    _comecar_medida(r['id'], 'atual')
+    # A escuta como está, e a com o Silero VAD: a decisão sai da voz dele.
+    _comecar_medida(r['id'], 'atual', 'silero')
     return r
 
 
-def _comecar_medida(id_: str, motor: str) -> None:
+def _comecar_medida(id_: str, *motores: str) -> None:
     from . import voz_teste
 
     async def medir():
-        try:
-            await voz_teste.medir(id_, motor)
-        except Exception:
-            log.exception('a medida do teste da escuta %s falhou', id_)
+        for motor in motores:  # uma de cada vez: o Whisper é um só
+            try:
+                await voz_teste.medir(id_, motor)
+            except Exception:
+                log.exception('a medida %s do teste da escuta %s falhou', motor, id_)
     _medindo[id_] = asyncio.create_task(medir())
 
 

@@ -64,6 +64,42 @@ FALA_MIN_DB = -55.0
 PICO_ALVO = 0.7
 GANHO_MAX = 30.0
 
+# Quem decide o que é fala: 'energia' (o som acima do ruído de fundo, o de
+# antes) ou 'silero' (o Silero VAD, um modelo de 2 MB que já vem com o
+# faster-whisper, quadro a quadro na CPU: 0,08 ms por quadro, medido em
+# 16/11/2026). Com ele, o fim da fala pode esperar menos.
+VAD = os.environ.get('SOLIS_ESCUTA_VAD', 'energia')
+VAD_LIMIAR = 0.5        # é fala a partir desta probabilidade...
+VAD_LIMIAR_SAIR = 0.35  # ...e continua sendo até cair abaixo desta (o Silero sugere 0,15 a menos)
+FIM_SILENCIO_VAD = 0.6  # PROVISÓRIO: sai da medição com a voz do Matheus
+
+
+class _Silero:
+    """O Silero VAD ao vivo: cada quadro de 512 amostras com as 64 de antes, e o
+    estado (h, c) passando de um quadro pro outro — igual ao do lote do
+    faster-whisper (conferido: diferença zero)."""
+
+    def __init__(self):
+        import numpy as np
+        from faster_whisper.vad import get_vad_model
+        self.np = np
+        self.sessao = get_vad_model().session
+        self.h = np.zeros((1, 1, 128), dtype=np.float32)
+        self.c = np.zeros((1, 1, 128), dtype=np.float32)
+        self.antes = np.zeros(64, dtype=np.float32)
+        self.falando = False
+
+    def fala(self, quadro: array.array) -> bool:
+        np = self.np
+        x = np.frombuffer(quadro.tobytes(), dtype=np.int16).astype(np.float32) / 32768.0
+        saida, self.h, self.c = self.sessao.run(
+            None, {'input': np.concatenate([self.antes, x])[None, :], 'h': self.h, 'c': self.c})
+        self.antes = x[-64:]
+        p = float(np.ravel(saida)[0])
+        self.falando = p >= (VAD_LIMIAR_SAIR if self.falando else VAD_LIMIAR)
+        return self.falando
+
+
 # Motor Whisper. PROVISÓRIO até medir com a voz do Matheus.
 PREVIA = 2.0  # segundos do começo do trecho que vão pro Whisper procurar a palavra
 # Segundos guardados antes do som subir: o "S" de Solis é baixo e ficava de
@@ -215,7 +251,7 @@ class Escuta:
     decide (confirmar/descartar), e o quadro seguinte já vê a decisão. Separada
     do WebSocket pra ser testada com áudio de arquivo."""
 
-    def __init__(self, motor_=None, whisper=False):
+    def __init__(self, motor_=None, whisper=False, vad: str | None = None):
         if motor_ is None and not whisper:
             qual = motor()
             if qual is None:
@@ -237,6 +273,10 @@ class Escuta:
         self.t_fala = self.t_silencio = 0.0
         self.previa_feita = False
         self.trechos = 0  # quantos foram pro Whisper (pra medir o custo)
+        self.vad = vad or VAD
+        self.silero = _Silero() if self.vad == 'silero' else None
+        self.fim_silencio = FIM_SILENCIO_VAD if self.silero else FIM_SILENCIO
+        self._fala_vad = False
 
     def fechar(self):
         try:
@@ -269,11 +309,16 @@ class Escuta:
         self.previa_feita = True
 
     def _e_fala(self, db: float, margem: float = ACIMA_DO_PISO) -> bool:
+        if self.silero:
+            return self._fala_vad
         return db > max(self.piso + margem, FALA_MIN_DB)
 
     def _quadro(self, quadro: array.array):
         dur = self.n / TAXA
         db = _energia(quadro)
+        if self.silero:
+            # Todo quadro passa pelo Silero, até no comando: o estado dele é contínuo.
+            self._fala_vad = self.silero.fala(quadro)
         if self.comando is None:
             # O piso de ruído acompanha o ambiente devagar, só fora do comando.
             self.piso = 0.98 * self.piso + 0.02 * db
@@ -292,7 +337,7 @@ class Escuta:
         else:
             self.silencio += dur
         total = len(self.comando) / TAXA
-        acabou = (self.fala >= FALA_MINIMA and self.silencio >= FIM_SILENCIO) or total >= COMANDO_MAX
+        acabou = (self.fala >= FALA_MINIMA and self.silencio >= self.fim_silencio) or total >= COMANDO_MAX
         desistiu = self.fala < FALA_MINIMA and total >= INICIO_MAX
         if acabou or desistiu:
             audio, self.comando = self.comando, None
@@ -319,7 +364,7 @@ class Escuta:
         else:
             self.t_silencio += dur
         total = len(self.trecho) / TAXA
-        if self.t_silencio >= FIM_SILENCIO or total >= COMANDO_MAX:
+        if self.t_silencio >= self.fim_silencio or total >= COMANDO_MAX:
             trecho, self.trecho = self.trecho, None
             if self.previa_feita or self.t_fala < FALA_MINIMA / 2:
                 return None  # já conferido (sem a palavra), ou só um estalo

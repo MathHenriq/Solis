@@ -46,6 +46,8 @@ class ModeloFalso:
 def modelo(monkeypatch):
     falso = ModeloFalso()
     monkeypatch.setattr(voz, '_modelo', falso)
+    # O falso é "o modelo em uso": senão o Solis trocaria pelo que está na pasta.
+    monkeypatch.setattr(voz, '_carregado', voz.modelo_em_uso())
     return falso
 
 

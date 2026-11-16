@@ -97,6 +97,7 @@ class AudioRuim(Exception):
 
 _modelo = None
 _dispositivo = None  # onde o _modelo está carregado
+_carregado = None  # qual modelo está carregado (modelo_em_uso pode mudar)
 _sem_gpu = False  # a GPU falhou uma vez: daqui pra frente, CPU
 _ultimo_uso = 0.0
 _trava = threading.Lock()
@@ -170,7 +171,11 @@ def _onde() -> str:
 
 
 def _carregar():
-    global _modelo, _dispositivo, _sem_gpu
+    global _modelo, _dispositivo, _sem_gpu, _carregado
+    # Um modelo melhor chegou na pasta (o turbo baixado depois): troca sem reiniciar.
+    if _modelo is not None and modelo_em_uso() != _carregado:
+        log.info('whisper: %s chegou na pasta, trocando o %s', modelo_em_uso(), _carregado)
+        _modelo = None
     if _modelo is None:
         if not disponivel():
             raise SemModelo(f'falta o modelo do Whisper ({MODELO} ou uma reserva) em {PASTA}')
@@ -190,8 +195,7 @@ def _carregar():
             log.warning('whisper sem GPU (%s); indo pra CPU', e)
             _sem_gpu, onde = True, 'cpu'
             _modelo = WhisperModel(str(PASTA / qual), device=onde, compute_type=TIPOS[onde])
-        _dispositivo = onde
-
+        _dispositivo, _carregado = onde, qual
         log.info('whisper %s carregado (%s/%s) em %.1f s', qual, onde, TIPOS[onde], time.perf_counter() - t0)
     return _modelo
 

@@ -116,9 +116,9 @@ def test_rotas(monkeypatch):
     passos = [{'i': 0, 'tipo': 'chamada', 'esperado': 'que horas são', 'inicio': 5.1, 'fim': 13.2}]
     r = cli.post('/voz/teste', content=_wav([0] * (12 * TAXA)), headers={'X-Solis-Roteiro': quote(json.dumps(passos))})
     id_ = r.json()['id']
-    assert r.json()['duracao'] == 12.0 and medidos == [(id_, 'atual')]
+    assert r.json()['duracao'] == 12.0 and medidos == [(id_, 'atual'), (id_, 'silero')]
     assert json.loads((voz_teste.pasta() / id_ / 'roteiro.json').read_text(encoding='utf-8'))['passos'] == passos
-    assert cli.get('/voz/teste').json()['testes'][0] == {'id': id_, 'medidas': {'atual': {'acordou': 1}}}
+    assert cli.get('/voz/teste').json()['testes'][0]['medidas']['atual'] == {'acordou': 1}
     assert cli.get(f'/voz/teste/{id_}/medida/atual').json() == {'resumo': {'acordou': 1}}
     assert cli.get(f'/voz/teste/{id_}/medida/nada').status_code == 404
     assert cli.post('/voz/teste/99999/medir').status_code == 404
