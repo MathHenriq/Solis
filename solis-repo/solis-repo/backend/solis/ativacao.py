@@ -104,6 +104,42 @@ class _Silero:
 
 # Motor Whisper. PROVISÓRIO até medir com a voz do Matheus.
 PREVIA = 2.0  # segundos do começo do trecho que vão pro Whisper procurar a palavra
+
+# A cascata (16/11/2026): o fim da fala custava FIM_SILENCIO de espera e mais
+# ~0,3 s de Whisper depois dela. Agora, calado há RASCUNHO_SILENCIO, o que ele
+# disse já vai pro Whisper; se ele continuar calado até o fim, o texto já está
+# pronto. E um rascunho que termina em pergunta encerra em FIM_CEDO. Voltou a
+# falar, o rascunho não vale e tudo segue como antes. PROVISÓRIO: os números
+# saem do teste da escuta com a voz do Matheus.
+RASCUNHO_SILENCIO = 0.35
+FIM_CEDO = 0.6
+FIM_CEDO_PONTOS = ('?',)
+# O Whisper errou mais com o trecho cortado em RASCUNHO_SILENCIO do que com os
+# FIM_SILENCIO de silêncio no fim (o teste da escuta, 16/11/2026: "sexta" virou
+# "cesta"). Com isto, o silêncio do fim é completado (repetindo o ruído do
+# próprio cômodo) até FIM_SILENCIO antes de ir pro Whisper.
+COMPLETAR_SILENCIO = True
+# A conferência cedo que não acha a palavra não fecha o trecho: no fim do
+# silêncio ele é conferido de novo, inteiro, como antes da cascata. Medido em
+# 16/11/2026: sem isto, "Solis, desliga a música" virou "Sani, Zizlega" na
+# conferência cedo e não acordou. Custa um Whisper a mais por fala sem "Solis".
+RECONFERIR = True
+
+
+def _completado(amostras: array.array, silencio: float) -> array.array:
+    # Em amostras inteiras: com segundos em float, a sobra de uma fração de
+    # amostra virava um laço sem fim (e travou o servidor, 16/11/2026).
+    falta = int(round((FIM_SILENCIO - silencio) * TAXA))
+    n = min(int(silencio * TAXA), len(amostras))
+    if not COMPLETAR_SILENCIO or falta <= 0 or n <= 0:
+        return amostras
+    ruido = amostras[-n:]
+    saida = array.array('h', amostras)
+    while falta > 0:
+        k = min(n, falta)
+        saida.extend(ruido[:k])
+        falta -= k
+    return saida
 # Segundos guardados antes do som subir: o "S" de Solis é baixo e ficava de
 # fora do trecho (11/11/2026: 4 de 6 chamadas reais voltaram vazias).
 ANTES = 0.6
@@ -286,6 +322,14 @@ class Escuta:
         # fila, e a pessoa só começa o pedido depois do bipe. Os prazos do comando
         # contam a partir do bipe, não do "Solis".
         self.espera_extra = 0.0
+        # A cascata: o texto do comando até aqui (vale enquanto ele não voltar a
+        # falar), se já foi pedido nesta pausa, e o texto pronto do comando que acabou.
+        self.rascunho: str | None = None
+        self.rascunho_pedido = False
+        self.pronto: str | None = None
+        self.conferido = False  # o trecho já foi conferido (sem a palavra): não confere no fim
+        self.cedo_feito = False  # a conferência cedo desta pausa já saiu
+        self._ultimo = ''  # o último evento de trecho: 'previa', 'cedo' ou 'frase'
 
     def fechar(self):
         try:
@@ -303,22 +347,47 @@ class Escuta:
             if evento:
                 yield evento
 
-    def confirmar(self, atraso: float = 0.0):
-        """A palavra estava no trecho: ele vira o começo do comando (ou, se o
-        trecho já acabou só com "Solis", o comando começa vazio). `atraso`: quanto
-        a decisão demorou (o Whisper carregando, por exemplo) — o prazo pra
-        começar a falar estica isso, até ATRASO_MAX."""
+    def confirmar(self, atraso: float = 0.0, resto: str = '') -> str | None:
+        """A palavra estava no trecho. `resto`: o que veio depois dela no texto.
+        `atraso`: quanto a decisão demorou (o Whisper carregando, por exemplo) —
+        o prazo pra começar a falar estica isso, até ATRASO_MAX.
+
+        Devolve o comando já pronto quando o trecho acabou com ele inteiro
+        ("Solis, que horas são?" e silêncio); senão None, e o comando segue:
+        - na prévia (a pessoa ainda fala), o trecho vira o começo do comando;
+        - conferido cedo com o pedido junto, o trecho vira o comando e o texto
+          fica de rascunho — se ela continuar calada, já está pronto;
+        - só "Solis" (e a pausa), o comando começa vazio: o pedido vem depois do bipe."""
         self.ativacoes += 1
         self.espera_extra = min(max(0.0, atraso), ATRASO_MAX)
-        if self.trecho is not None:
+        self.rascunho, self.rascunho_pedido, self.pronto = None, False, None
+        aberto = self.trecho is not None
+        if not aberto and resto:
+            return resto
+        if aberto and (self._ultimo == 'previa' or resto):
             self.comando, self.fala, self.silencio = self.trecho, self.t_fala, self.t_silencio
-            self.trecho = None
+            if self._ultimo == 'cedo':
+                self.rascunho, self.rascunho_pedido = resto, True
+                # O pedido já foi dito: o fim não pode esperar mais fala.
+                self.fala = max(self.fala, FALA_MINIMA)
         else:
             self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
+        self.trecho = None
+        return None
 
     def descartar(self):
-        """Sem a palavra: o resto do trecho é ignorado até ele acabar."""
-        self.previa_feita = True
+        """Sem a palavra: o resto do trecho é ignorado até ele acabar. Conferido
+        cedo, não: no fim do silêncio o trecho inteiro é conferido de novo
+        (RECONFERIR), e também se a pessoa voltar a falar."""
+        if self._ultimo != 'cedo':
+            self.previa_feita = True
+        elif not RECONFERIR:
+            self.conferido = True
+
+    def guardar_rascunho(self, texto: str):
+        """O texto do evento 'rascunho' (sem a palavra do começo)."""
+        if self.comando is not None:
+            self.rascunho = texto
 
     def _e_fala(self, db: float, margem: float = ACIMA_DO_PISO) -> bool:
         if self.silero:
@@ -347,14 +416,25 @@ class Escuta:
         if self._e_fala(db, ACIMA_DO_PISO_COMANDO):
             self.fala += dur
             self.silencio = 0.0
+            # Voltou a falar: o rascunho ficou velho.
+            self.rascunho, self.rascunho_pedido = None, False
         else:
             self.silencio += dur
         total = len(self.comando) / TAXA
-        acabou = (self.fala >= FALA_MINIMA and self.silencio >= self.fim_silencio) or total >= COMANDO_MAX + self.espera_extra
+        cedo = (self.rascunho is not None and self.rascunho.rstrip().endswith(FIM_CEDO_PONTOS)
+                and self.silencio >= FIM_CEDO)
+        acabou = ((self.fala >= FALA_MINIMA and (self.silencio >= self.fim_silencio or cedo))
+                  or total >= COMANDO_MAX + self.espera_extra)
         desistiu = self.fala < FALA_MINIMA and total >= INICIO_MAX + self.espera_extra
         if acabou or desistiu:
             audio, self.comando = self.comando, None
+            # O rascunho que vale (ele não falou mais depois) é o texto do comando.
+            self.pronto = None if desistiu else self.rascunho
+            self.rascunho, self.rascunho_pedido = None, False
             return ('comando', None if desistiu else _wav(audio))
+        if (not self.rascunho_pedido and self.fala >= FALA_MINIMA and self.silencio >= RASCUNHO_SILENCIO):
+            self.rascunho_pedido = True
+            return ('rascunho', _wav(_completado(self.comando, self.silencio)))
         return None
 
     def _trecho(self, quadro: array.array, db: float, dur: float):
@@ -368,26 +448,39 @@ class Escuta:
             for q in self.antes:
                 self.trecho.extend(q)
             self.antes.clear()
-            self.t_fala, self.t_silencio, self.previa_feita = dur, 0.0, False
+            self.t_fala, self.t_silencio, self.previa_feita, self.conferido = dur, 0.0, False, False
+            self.cedo_feito = False
             return None
         self.trecho.extend(quadro)
         if fala:
             self.t_fala += dur
             self.t_silencio = 0.0
+            # Conferido cedo e voltou a falar: confere de novo, inteiro, no fim.
+            self.conferido = self.cedo_feito = False
         else:
             self.t_silencio += dur
         total = len(self.trecho) / TAXA
         if self.t_silencio >= self.fim_silencio or total >= COMANDO_MAX:
             trecho, self.trecho = self.trecho, None
-            if self.previa_feita or self.t_fala < FALA_MINIMA / 2:
+            if self.previa_feita or self.conferido or self.t_fala < FALA_MINIMA / 2:
                 return None  # já conferido (sem a palavra), ou só um estalo
             self.trechos += 1
+            self._ultimo = 'frase'
             return ('frase', _wav(trecho))
+        # A cascata: calado há RASCUNHO_SILENCIO, o trecho já vai conferir — com a
+        # palavra, não espera o resto do silêncio.
+        if (not self.previa_feita and not self.cedo_feito and not fala
+                and self.t_silencio >= RASCUNHO_SILENCIO and self.t_fala >= FALA_MINIMA / 2):
+            self.cedo_feito = True
+            self.trechos += 1
+            self._ultimo = 'cedo'
+            return ('frase', _wav(_completado(self.trecho, self.t_silencio)))
         # A prévia só sai com a pessoa ainda falando: trecho que está acabando
         # vai inteiro como 'frase' (senão "Solis" + pausa viraria prévia).
         if not self.previa_feita and fala and total >= PREVIA:
             self.previa_feita = True
             self.trechos += 1
+            self._ultimo = 'previa'
             return ('previa', _wav(self.trecho))
         return None
 

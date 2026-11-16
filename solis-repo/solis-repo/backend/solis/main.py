@@ -1783,6 +1783,10 @@ ESCUTA_LOG = os.environ.get('SOLIS_ESCUTA_LOG') == '1'
 def _aquecer() -> None:
     """Ouviu "Solis": carrega o modelo local enquanto a pessoa ainda fala o
     pedido — a resposta não espera o modelo subir na GPU."""
+    # A conexão com a Groq e com a Fish abre agora, enquanto a pessoa fala:
+    # a resposta não paga o TLS (conexoes.py).
+    from . import apis, conexoes
+    conexoes.aquecer(*[n for n, tem in (('groq', apis._chave_de('groq')), ('fish', fala.chave_fish())) if tem])
     # Depois de o servidor reiniciar, o da última vez (guardado).
     modelo = _ultimo_modelo or banco.ajuste('modelo_local')
     if modelo:
@@ -1939,16 +1943,22 @@ async def escuta(ws: WebSocket):
                         continue
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
-                    if tipo == 'frase' and resto:
+                    pronto = escutando.confirmar(atraso=demora, resto=resto if tipo == 'frase' else '')
+                    if pronto:
                         # "Solis, que horas são?" de uma vez, e acabou: já é o comando.
-                        await ws.send_json({'tipo': 'texto', 'texto': resto})
-                    else:
-                        escutando.confirmar(atraso=demora)
+                        await ws.send_json({'tipo': 'texto', 'texto': pronto})
+                elif tipo == 'rascunho':
+                    # A cascata: calado há pouco, o texto adianta; vale se ele não voltar a falar.
+                    _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                    escutando.guardar_rascunho(texto)
                 elif audio is None:
                     await ws.send_json({'tipo': 'nada'})
                 else:
+                    # Com o rascunho valendo, o texto já está pronto; senão, o Whisper agora.
                     # O comando pode trazer a própria palavra no começo (veio do trecho).
-                    _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                    texto = escutando.pronto
+                    if texto is None:
+                        _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
                     await ws.send_json({'tipo': 'texto', 'texto': texto} if texto else {'tipo': 'nada'})
     except WebSocketDisconnect:
         pass

@@ -45,7 +45,7 @@ from pathlib import Path
 
 import httpx
 
-from . import banco, memoria
+from . import banco, conexoes, memoria
 
 log = logging.getLogger('solis.fala')
 
@@ -457,10 +457,12 @@ async def _fish_aos_pedacos(texto: str, lingua_: str, chave_cache) -> 'AsyncIter
     corpo = {'text': texto, 'format': 'mp3', 'latency': 'balanced', 'language': 'pt-BR' if lingua_ == 'pt' else 'en'}
     if voz_fish():
         corpo['reference_id'] = voz_fish()
-    cliente = httpx.AsyncClient(timeout=TEMPO_NUVEM, transport=_transporte_fish)
+    # A conexão guardada (conexoes.py); com um transporte de teste, uma só desta vez.
+    proprio = _transporte_fish is not None
+    cliente = httpx.AsyncClient(transport=_transporte_fish) if proprio else conexoes.cliente('fish')
     try:
         r = await cliente.send(
-            cliente.build_request('POST', FISH_URL, json=corpo,
+            cliente.build_request('POST', FISH_URL, json=corpo, timeout=TEMPO_NUVEM,
                                   headers={'Authorization': f'Bearer {chave_fish()}', 'model': FISH_MODELO}),
             stream=True,
         )
@@ -474,7 +476,8 @@ async def _fish_aos_pedacos(texto: str, lingua_: str, chave_cache) -> 'AsyncIter
             await r.aclose()
             raise SemVoz('Fish não devolveu áudio')
     except BaseException:
-        await cliente.aclose()
+        if proprio:
+            await cliente.aclose()
         raise
 
     async def resto():
@@ -488,7 +491,8 @@ async def _fish_aos_pedacos(texto: str, lingua_: str, chave_cache) -> 'AsyncIter
             completo = True
         finally:
             await r.aclose()
-            await cliente.aclose()
+            if proprio:
+                await cliente.aclose()
             # Inteiro, entra no cache como os outros: repetir a frase é na hora.
             if completo:
                 _cache[chave_cache] = (b''.join(recebido), 'audio/mpeg', 'fish')

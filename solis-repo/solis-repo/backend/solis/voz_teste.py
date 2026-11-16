@@ -210,7 +210,10 @@ async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str
     o momento da gravação em que saiu (`t`) e quando o texto ficou pronto
     (`pronto`, somando o tempo do Whisper)."""
     escuta = ativacao.Escuta(whisper=True, vad=vad)
-    eventos, n, atraso = [], escuta.n, 0.0
+    eventos, n = [], escuta.n
+    # Até quando o Whisper está ocupado (no tempo da gravação): no /escuta o laço
+    # espera a transcrição, e o áudio que chega nesse tempo fica na fila.
+    livre = 0.0
     dados = amostras.tobytes()
     passo = n * 2
     for k in range(0, len(dados) - passo + 1, passo):
@@ -218,25 +221,31 @@ async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str
         for tipo, audio in escuta.alimentar(dados[k:k + passo]):
             if tipo in ('previa', 'frase'):
                 texto, gasto = await transcrever(audio)
-                atraso += gasto
+                livre = max(livre, t) + gasto
                 achou, resto = ativacao.palavra_no_inicio(texto)
                 if not achou:
                     escuta.descartar()
                     # Guardado pra entender a chamada que não acordou: o que ele ouviu.
-                    eventos.append({'tipo': 'descartado', 't': round(t, 2), 'pronto': round(t + gasto, 2), 'ouviu': texto})
+                    eventos.append({'tipo': 'descartado', 't': round(t, 2), 'pronto': round(livre, 2), 'ouviu': texto})
                     continue
-                eventos.append({'tipo': 'ativou', 't': round(t, 2), 'pronto': round(t + gasto, 2), 'ouviu': texto})
-                if tipo == 'frase' and resto:
-                    eventos.append({'tipo': 'texto', 't': round(t, 2), 'pronto': round(t + gasto, 2), 'texto': resto})
-                else:
-                    escuta.confirmar()
+                eventos.append({'tipo': 'ativou', 't': round(t, 2), 'pronto': round(livre, 2), 'ouviu': texto})
+                pronto = escuta.confirmar(resto=resto if tipo == 'frase' else '')
+                if pronto:
+                    eventos.append({'tipo': 'texto', 't': round(t, 2), 'pronto': round(livre, 2), 'texto': pronto})
+            elif tipo == 'rascunho':
+                texto, gasto = await transcrever(audio)
+                livre = max(livre, t) + gasto
+                escuta.guardar_rascunho(ativacao.palavra_no_inicio(texto)[1])
             elif tipo == 'comando':
                 if audio is None:
-                    eventos.append({'tipo': 'nada', 't': round(t, 2), 'pronto': round(t, 2)})
+                    eventos.append({'tipo': 'nada', 't': round(t, 2), 'pronto': round(max(livre, t), 2)})
                     continue
-                texto, gasto = await transcrever(audio)
-                _, resto = ativacao.palavra_no_inicio(texto)
-                eventos.append({'tipo': 'texto' if resto else 'nada', 't': round(t, 2), 'pronto': round(t + gasto, 2),
+                resto = escuta.pronto
+                if resto is None:
+                    texto, gasto = await transcrever(audio)
+                    livre = max(livre, t) + gasto
+                    _, resto = ativacao.palavra_no_inicio(texto)
+                eventos.append({'tipo': 'texto' if resto else 'nada', 't': round(t, 2), 'pronto': round(max(livre, t), 2),
                                 'texto': resto})
     return eventos
 

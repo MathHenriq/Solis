@@ -50,7 +50,8 @@ def test_sem_a_palavra_nada_acontece():
 def test_palavra_depois_fala_e_silencio_vira_comando():
     e = ativacao.Escuta(MotorFalso())
     audio = quadros(1, tom=False) + palavra() + quadros(1.5) + quadros(1.2, tom=False)
-    eventos = list(e.alimentar(audio.tobytes()))
+    # O 'rascunho' (a cascata) tem teste próprio, mais abaixo.
+    eventos = [ev for ev in e.alimentar(audio.tobytes()) if ev[0] != 'rascunho']
     assert [t for t, _ in eventos] == ['ativou', 'comando']
     wav = eventos[1][1]
     assert wav[:4] == b'RIFF'
@@ -63,7 +64,7 @@ def test_alimentado_aos_pedacos_da_no_mesmo():
     audio = (palavra() + quadros(1) + quadros(1.2, tom=False)).tobytes()
     eventos = []
     for i in range(0, len(audio), 333):  # pedaços que não batem com o quadro
-        eventos += list(e.alimentar(audio[i:i + 333]))
+        eventos += [ev for ev in e.alimentar(audio[i:i + 333]) if ev[0] != 'rascunho']
     assert [t for t, _ in eventos] == ['ativou', 'comando']
 
 
@@ -180,7 +181,8 @@ def fala_com_silencio(segundos):
     return quadros(0.5, tom=False) + quadros(segundos) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)
 
 
-def test_whisper_trecho_curto_vai_inteiro_quando_acaba():
+def test_whisper_trecho_curto_vai_inteiro_quando_acaba(monkeypatch):
+    monkeypatch.setattr(ativacao, 'RASCUNHO_SILENCIO', 99.0)  # sem a cascata (o fim do trecho, como antes)
     e = ativacao.Escuta(whisper=True)
     eventos = list(e.alimentar(fala_com_silencio(1.0).tobytes()))
     assert [t for t, _ in eventos] == ['frase']
@@ -193,6 +195,8 @@ def test_whisper_trecho_longo_manda_a_previa_e_confirmado_vira_comando():
     e = ativacao.Escuta(whisper=True)
     eventos = []
     for ev in e.alimentar(fala_com_silencio(4.0).tobytes()):
+        if ev[0] == 'rascunho':
+            continue
         eventos.append(ev)
         if ev[0] == 'previa':
             assert ativacao.PREVIA <= (len(ev[1]) - 44) / 2 / TAXA < ativacao.PREVIA + 0.1
@@ -202,7 +206,8 @@ def test_whisper_trecho_longo_manda_a_previa_e_confirmado_vira_comando():
     assert (len(eventos[1][1]) - 44) / 2 / TAXA >= 4.0
 
 
-def test_whisper_sem_a_palavra_o_trecho_e_ignorado_ate_acabar():
+def test_whisper_sem_a_palavra_o_trecho_e_ignorado_ate_acabar(monkeypatch):
+    monkeypatch.setattr(ativacao, 'RASCUNHO_SILENCIO', 99.0)  # sem a cascata (o fim do trecho, como antes)
     e = ativacao.Escuta(whisper=True)
     eventos = []
     for ev in e.alimentar((fala_com_silencio(4.0) + fala_com_silencio(1.0)).tobytes()):
@@ -217,9 +222,11 @@ def test_whisper_so_a_palavra_e_depois_o_comando():
     eventos = []
     audio = fala_com_silencio(0.6) + quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)
     for ev in e.alimentar(audio.tobytes()):
+        if ev[0] == 'rascunho':
+            continue
         eventos.append(ev[0])
         if ev[0] == 'frase':
-            e.confirmar()
+            e.confirmar()  # só "Solis": sem o resto
     assert eventos == ['frase', 'comando']
 
 
@@ -231,7 +238,9 @@ def test_whisper_estalo_nao_vai_pro_whisper():
 def test_websocket_whisper_acha_a_palavra_e_manda_o_comando(monkeypatch):
     original = ativacao.Escuta
     monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
-    respostas = iter(['O sol está forte.', 'Solis, que horas são?', 'Solis', 'me lembra de pagar a luz'])
+    # A fala sem "Solis" vai duas vezes pro Whisper: cedo e, inteira, no fim (RECONFERIR).
+    respostas = iter(['O sol está forte.', 'O sol está forte.', 'Solis, que horas são?', 'Solis',
+                      'me lembra de pagar a luz'])
 
     async def transcrever(audio, **_):
         return {'texto': next(respostas)}
@@ -310,3 +319,141 @@ def test_websocket_segura_o_whisper_enquanto_a_escuta_esta_aberta(monkeypatch):
     while voz._segurando and _t.monotonic() < fim:
         _t.sleep(0.02)
     assert voz._segurando == 0 and aquecidos == [1]
+
+
+# — A cascata (16/11/2026) ————————————————————————————————————————————————————
+
+def _rodar(e, audio, transcreve):
+    """Como o laço do /escuta: cada evento com o momento (em s de áudio) em que saiu."""
+    eventos, t = [], 0.0
+    for ev in e.alimentar(audio.tobytes()):
+        tipo, wav = ev
+        t = (len(e.comando or []) / TAXA)  # só pra depurar
+        eventos.append(tipo)
+        if tipo in ('previa', 'frase'):
+            achou, resto = ativacao.palavra_no_inicio(transcreve(tipo, wav))
+            if not achou:
+                e.descartar()
+                continue
+            pronto = e.confirmar(resto=resto if tipo == 'frase' else '')
+            if pronto:
+                eventos.append(('texto', pronto))
+        elif tipo == 'rascunho':
+            e.guardar_rascunho(ativacao.palavra_no_inicio(transcreve(tipo, wav))[1])
+        elif tipo == 'comando':
+            eventos.append(('pronto', e.pronto))
+    return eventos
+
+
+def _seg(wav):
+    return (len(wav) - 44) / 2 / TAXA
+
+
+def test_cascata_pergunta_inteira_sai_no_fim_cedo_sem_transcrever_de_novo():
+    """"Solis, que horas são?" e silêncio: conferido com RASCUNHO_SILENCIO, o
+    texto já é o comando, e por ser pergunta acaba em FIM_CEDO."""
+    e = ativacao.Escuta(whisper=True)
+    pedidos = []
+
+    def transcreve(tipo, wav):
+        pedidos.append((tipo, round(_seg(wav), 1)))
+        return 'Solis, que horas são?'
+    audio = quadros(0.5, tom=False) + quadros(1.2) + quadros(2.0, tom=False)
+    comandos = []
+    for ev in e.alimentar(audio.tobytes()):
+        if ev[0] == 'frase':
+            assert e.confirmar(resto=ativacao.palavra_no_inicio(transcreve(*ev))[1]) is None
+        elif ev[0] == 'comando':
+            comandos.append((ev[1], e.pronto))
+        else:
+            raise AssertionError(ev[0])
+    # Um Whisper só, no trecho conferido cedo.
+    assert [t for t, _ in pedidos] == ['frase']
+    [(wav, pronto)] = comandos
+    assert pronto == 'Que horas são?'
+    # O comando acabou em FIM_CEDO de silêncio, não em FIM_SILENCIO.
+    fala = 1.2 + 0.5  # o antes guardado é o meio segundo de silêncio que havia
+    assert fala + ativacao.FIM_CEDO - 0.1 <= _seg(wav) <= fala + ativacao.FIM_CEDO + 0.1
+
+
+def test_cascata_sem_pergunta_espera_o_silencio_inteiro_mas_nao_transcreve_de_novo():
+    e = ativacao.Escuta(whisper=True)
+    pedidos = []
+
+    def transcreve(tipo, wav):
+        pedidos.append(tipo)
+        return 'Solis, me lembra de pagar a luz.'
+    audio = quadros(0.5, tom=False) + quadros(1.5) + quadros(2.0, tom=False)
+    eventos = _rodar(e, audio, transcreve)
+    assert eventos == ['frase', 'comando', ('pronto', 'Me lembra de pagar a luz.')]
+    assert pedidos == ['frase']
+
+
+def test_cascata_voltou_a_falar_o_rascunho_nao_vale():
+    """"Solis, me lembra..." (pausa) "...de pagar a luz": o rascunho da pausa
+    fica velho, e o comando inteiro vai pro Whisper no fim."""
+    e = ativacao.Escuta(whisper=True)
+    pedidos = []
+
+    def transcreve(tipo, wav):
+        pedidos.append(tipo)
+        return 'Solis, me lembra' if tipo == 'frase' else 'Solis, me lembra de pagar a luz.'
+    audio = (quadros(0.5, tom=False) + quadros(1.0) + quadros(0.6, tom=False) + quadros(1.0)
+             + quadros(2.0, tom=False))
+    eventos = _rodar(e, audio, transcreve)
+    # A pausa de 0,6 s não encerra; depois, o rascunho da fala inteira vale.
+    assert eventos == ['frase', 'rascunho', 'comando', ('pronto', 'Me lembra de pagar a luz.')]
+    assert pedidos == ['frase', 'rascunho']
+
+
+def test_cascata_so_solis_espera_o_pedido_depois_do_bipe():
+    e = ativacao.Escuta(whisper=True)
+
+    def transcreve(tipo, wav):
+        return 'Solis.' if tipo == 'frase' else 'Que horas são?'
+    audio = quadros(0.5, tom=False) + quadros(0.6) + quadros(1.5, tom=False) + quadros(1.0) + quadros(2.0, tom=False)
+    eventos = _rodar(e, audio, transcreve)
+    assert eventos == ['frase', 'rascunho', 'comando', ('pronto', 'Que horas são?')]
+
+
+def test_cascata_conferido_cedo_sem_a_palavra_confere_de_novo_se_ele_continuar():
+    """"Bom dia" (pausa curta) "Solis, que horas são?": a conferência cedo não
+    acha a palavra, mas ele continuou — o trecho inteiro é conferido no fim."""
+    e = ativacao.Escuta(whisper=True)
+    pedidos = []
+
+    def transcreve(tipo, wav):
+        pedidos.append(tipo)
+        return 'Bom dia.' if len(pedidos) == 1 else 'Bom dia, Solis, que horas são?'
+    audio = (quadros(0.5, tom=False) + quadros(0.6) + quadros(0.5, tom=False) + quadros(1.0)
+             + quadros(2.0, tom=False))
+    eventos = _rodar(e, audio, transcreve)
+    # Continuou: a prévia (já com 2 s) acha a palavra, e o pedido sai inteiro.
+    assert eventos == ['frase', 'previa', 'rascunho', 'comando', ('pronto', 'Que horas são?')]
+
+
+def test_cascata_sem_a_palavra_confere_de_novo_no_fim(monkeypatch):
+    """16/11/2026, a voz do Matheus: "Solis, desliga a música" virou "Sani,
+    Zizlega" na conferência cedo; no fim, inteiro, o Whisper acerta."""
+    e = ativacao.Escuta(whisper=True)
+    pedidos = []
+
+    def transcreve(tipo, wav):
+        pedidos.append(tipo)
+        return 'Sani, Zizlega, Muzica.' if len(pedidos) == 1 else 'Solis, desliga a música.'
+    eventos = _rodar(e, quadros(0.5, tom=False) + quadros(1.0) + quadros(2.0, tom=False), transcreve)
+    assert eventos == ['frase', 'frase', ('texto', 'Desliga a música.')] and pedidos == ['frase', 'frase']
+    # Sem reconferir: uma conferência só, e a chamada se perdia.
+    monkeypatch.setattr(ativacao, 'RECONFERIR', False)
+    e, pedidos[:] = ativacao.Escuta(whisper=True), []
+    assert _rodar(e, quadros(0.5, tom=False) + quadros(1.0) + quadros(2.0, tom=False), transcreve) == ['frase']
+
+
+@pytest.mark.parametrize('silencio', [0.0, 0.35, 0.352, 0.3520000001, 1 / 3, 0.8999999, 0.9, 1.2])
+def test_completar_o_silencio_sempre_termina_e_no_tamanho_certo(silencio):
+    """16/11/2026: em segundos float, uma sobra de fração de amostra virou laço
+    sem fim e travou o servidor de verdade."""
+    amostras = array.array('h', [5] * int(1.0 * TAXA))
+    saida = ativacao._completado(amostras, silencio)
+    falta = max(0, round((ativacao.FIM_SILENCIO - silencio) * TAXA)) if int(silencio * TAXA) else 0
+    assert len(saida) == len(amostras) + falta

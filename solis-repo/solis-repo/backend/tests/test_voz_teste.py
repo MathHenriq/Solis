@@ -73,18 +73,21 @@ def test_guardar_recusa_o_que_nao_e_a_gravacao():
 def test_a_escuta_roda_na_gravacao_como_ao_vivo(monkeypatch):
     """Duas "falas": a primeira tem "Solis" e o pedido de uma vez; a segunda não."""
     amostras = _gravacao([(4.0, 5.2), (10.0, 11.0)], 15.0)
-    ouvidos = iter(['Solis, que horas são?', 'O sol está forte'])
+    ouvidos = iter(['Solis, que horas são?', 'O sol está forte', 'O sol está forte'])
 
     async def falso(audio):
         return next(ouvidos), 0.5
     eventos = asyncio.run(voz_teste.rodar_escuta(amostras, falso))
     tipos = [(e['tipo'], e.get('texto')) for e in eventos]
     # A segunda fala, sem "Solis", fica guardada como descartada (com o que ele ouviu).
-    assert tipos == [('ativou', None), ('texto', 'Que horas são?'), ('descartado', None)]
+    # Conferida cedo e, inteira, no fim (RECONFERIR): duas vezes descartada.
+    assert tipos == [('ativou', None), ('texto', 'Que horas são?'), ('descartado', None), ('descartado', None)]
     assert eventos[2]['ouviu'] == 'O sol está forte'
-    # Sai depois do fim da fala (o silêncio que encerra) e fica pronto com o Whisper.
-    assert 5.2 < eventos[1]['t'] < 5.2 + ativacao.FIM_SILENCIO + 0.2
-    assert eventos[1]['pronto'] == pytest.approx(eventos[1]['t'] + 0.5, abs=0.01)
+    # A cascata: conferido com RASCUNHO_SILENCIO de silêncio, e como é pergunta,
+    # sai em FIM_CEDO — o texto fica pronto com o Whisper daquela conferência,
+    # sem esperar os FIM_SILENCIO nem transcrever de novo (antes: ~6,6 s).
+    assert 5.2 < eventos[1]['t'] < 5.2 + ativacao.FIM_CEDO + 0.1
+    assert eventos[1]['pronto'] == pytest.approx(5.2 + ativacao.RASCUNHO_SILENCIO + 0.5, abs=0.1)
 
 
 def test_pontuar_conta_acertos_falsos_e_tempo(monkeypatch):

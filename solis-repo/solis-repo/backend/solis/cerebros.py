@@ -325,7 +325,9 @@ async def codex(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
 EXECUTORES = {'claude': claude, 'codex': codex}
 
 
-async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = None) -> AsyncIterator[str]:
+async def abrir(
+    nome: str, sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = None, rapido: bool = False,
+) -> AsyncIterator[str]:
     """Começa a resposta e só devolve depois da primeira palavra.
 
     É aqui que a falha aparece — CLI sem login, cota acabada, erro — enquanto
@@ -337,7 +339,7 @@ async def abrir(nome: str, sistema: str, prompt: str, etapas=MUDA, sessao: dict 
         fluxo = EXECUTORES[nome](sistema, prompt, etapas, **extra)
     else:
         from . import apis
-        fluxo = apis.responder(nome, sistema, prompt, etapas)
+        fluxo = apis.responder(nome, sistema, prompt, etapas, **({'rapido': True} if rapido else {}))
     try:
         # Sem prazo aqui: quem decide que o CLI travou é o _linhas, pela
         # primeira linha e pelo silêncio — uma resposta longa que está saindo

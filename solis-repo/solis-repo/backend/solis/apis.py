@@ -22,12 +22,13 @@ privado nunca chega aqui — o roteador tira antes, como faz pro Claude e o Code
 import asyncio
 import json
 import re
+import contextlib
 import time
 from collections.abc import AsyncIterator
 
 import httpx
 
-from . import banco, cofre
+from . import banco, cofre, conexoes
 from .cerebros import CerebroFalhou, pausar
 from .etapas import MUDA
 
@@ -71,6 +72,13 @@ TIMEOUT_RESPOSTA = httpx.Timeout(60.0, connect=5.0)
 # calado até o ReadTimeout, numa resposta por voz. Quem não começa em 15 s está
 # falhando, e o próximo cérebro tenta. Entre um pedaço e outro, os 60 s valem.
 PRIMEIRO_MAX = 15.0
+# Na voz, o prazo é do pedido inteiro até a primeira palavra (não só da primeira
+# linha): em 16/11/2026, com a Groq no limite, o Gemini levou 12 s só pra dizer
+# 503, e a resposta falada saiu em 22 s. A Groq medida: 0,36 a 2,04 s.
+PRIMEIRO_VOZ = 5.0
+# Na voz, quanto o gpt-oss pensa antes de responder (None: o padrão dele).
+# PROVISÓRIO: medindo tempo e acerto.
+RACIOCINIO_NA_VOZ = 'low'
 
 
 class ChaveRecusada(Exception):
@@ -189,9 +197,11 @@ def _espera(r: httpx.Response) -> float | None:
 
 
 async def responder(
-    nome: str, sistema: str, prompt: str, etapas=MUDA, transporte: httpx.AsyncBaseTransport | None = None
+    nome: str, sistema: str, prompt: str, etapas=MUDA, transporte: httpx.AsyncBaseTransport | None = None,
+    rapido: bool = False,
 ) -> AsyncIterator[str]:
-    """A resposta em pedaços, pelo streaming (SSE) do chat/completions."""
+    """A resposta em pedaços, pelo streaming (SSE) do chat/completions.
+    `rapido` (a voz): o gpt-oss pensa pouco antes de responder."""
     chave, escolhido = _chave_de(nome), modelo(nome)
     if not chave or not escolhido:
         raise CerebroFalhou('sem chave')
@@ -200,53 +210,66 @@ async def responder(
         'stream': True,
         'messages': [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}],
     }
-    async with httpx.AsyncClient(timeout=TIMEOUT_RESPOSTA, transport=transporte) as c:
+    if rapido and RACIOCINIO_NA_VOZ and 'gpt-oss' in escolhido:
+        corpo['reasoning_effort'] = RACIOCINIO_NA_VOZ
+    # A conexão guardada (conexoes.py); com um transporte de teste, uma só desta vez.
+    async with contextlib.AsyncExitStack() as pilha:
+        if transporte is None:
+            c = conexoes.cliente(nome)
+        else:
+            c = await pilha.enter_async_context(httpx.AsyncClient(transport=transporte))
+        prazo = PRIMEIRO_VOZ if rapido else None
         try:
-            async with c.stream(
-                'POST',
-                f"{PROVEDORES[nome]['base']}/chat/completions",
-                headers={'Authorization': f'Bearer {chave}'},
-                json=corpo,
-            ) as r:
-                etapas.marcar('pedido', cerebro=nome)
-                if r.status_code == 429:
-                    pausar(nome, _espera(r), 'o limite grátis acabou')
-                    raise CerebroFalhou('o limite grátis acabou')
-                if r.status_code in (401, 403):
-                    pausar(nome, time.time() + 24 * 3600, 'a chave foi recusada')
-                    raise CerebroFalhou('a chave foi recusada')
-                if r.status_code >= 400:
-                    await r.aread()
-                    raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:160]}')
-                pensou = False
-                linhas = r.aiter_lines()
-                primeira = True
-                while True:
-                    try:
-                        if primeira:
-                            linha = await asyncio.wait_for(anext(linhas), PRIMEIRO_MAX)
-                            primeira = False
-                        else:
-                            linha = await anext(linhas)
-                    except StopAsyncIteration:
-                        return
-                    except asyncio.TimeoutError as e:
-                        raise CerebroFalhou(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
-                    if not linha.startswith('data:'):
-                        continue
-                    dado = linha[5:].strip()
-                    if dado == '[DONE]':
-                        return
-                    try:
-                        delta = json.loads(dado)['choices'][0].get('delta', {})
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        continue
-                    # Modelos que raciocinam mandam o raciocínio à parte; não vai
-                    # pra tela, só o fato de que está pensando.
-                    if not pensou and (delta.get('reasoning') or delta.get('reasoning_content')):
-                        etapas.marcar('pensando', cerebro=nome)
-                        pensou = True
-                    if delta.get('content'):
-                        yield delta['content']
+            async with asyncio.timeout(prazo) as ate_a_primeira:
+                async with c.stream(
+                    'POST',
+                    f"{PROVEDORES[nome]['base']}/chat/completions",
+                    headers={'Authorization': f'Bearer {chave}'},
+                    json=corpo,
+                    timeout=TIMEOUT_RESPOSTA,
+                ) as r:
+                    etapas.marcar('pedido', cerebro=nome)
+                    if r.status_code == 429:
+                        pausar(nome, _espera(r), 'o limite grátis acabou')
+                        raise CerebroFalhou('o limite grátis acabou')
+                    if r.status_code in (401, 403):
+                        pausar(nome, time.time() + 24 * 3600, 'a chave foi recusada')
+                        raise CerebroFalhou('a chave foi recusada')
+                    if r.status_code >= 400:
+                        await r.aread()
+                        raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:160]}')
+                    pensou = False
+                    linhas = r.aiter_lines()
+                    primeira = True
+                    while True:
+                        try:
+                            if primeira:
+                                linha = await asyncio.wait_for(anext(linhas), PRIMEIRO_MAX)
+                                primeira = False
+                            else:
+                                linha = await anext(linhas)
+                        except StopAsyncIteration:
+                            return
+                        except asyncio.TimeoutError as e:
+                            raise CerebroFalhou(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
+                        if not linha.startswith('data:'):
+                            continue
+                        dado = linha[5:].strip()
+                        if dado == '[DONE]':
+                            return
+                        try:
+                            delta = json.loads(dado)['choices'][0].get('delta', {})
+                        except (json.JSONDecodeError, KeyError, IndexError):
+                            continue
+                        # Modelos que raciocinam mandam o raciocínio à parte; não vai
+                        # pra tela, só o fato de que está pensando.
+                        if not pensou and (delta.get('reasoning') or delta.get('reasoning_content')):
+                            etapas.marcar('pensando', cerebro=nome)
+                            pensou = True
+                        if delta.get('content'):
+                            ate_a_primeira.reschedule(None)
+                            yield delta['content']
+        except TimeoutError as e:
+            raise CerebroFalhou(f'não começou a responder em {prazo:.0f} s') from e
         except httpx.HTTPError as e:
             raise CerebroFalhou(f'{type(e).__name__}: {e}'[:200]) from e

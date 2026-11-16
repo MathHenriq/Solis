@@ -214,3 +214,47 @@ def test_quem_nao_comeca_a_responder_cai_pro_proximo(monkeypatch):
     t = servico(lambda req: httpx.Response(200, stream=Calado(), headers={'content-type': 'text/event-stream'}))
     with pytest.raises(cerebros.CerebroFalhou, match='não começou a responder'):
         coletar(apis.responder('groq', 's', 'p', transporte=t))
+
+
+def test_na_voz_o_gpt_oss_pensa_pouco():
+    com_chave()
+    pedidos = []
+
+    def rota(req):
+        pedidos.append(json.loads(req.content))
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'Oi.'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+    coletar(apis.responder('groq', 's', 'p', transporte=servico(rota), rapido=True))
+    coletar(apis.responder('groq', 's', 'p', transporte=servico(rota)))
+    # Medido em 16/11/2026: 10 de 10 certas nos dois, a 1a palavra de 0,68 s pra 0,47 s.
+    assert pedidos[0]['reasoning_effort'] == 'low' and 'reasoning_effort' not in pedidos[1]
+
+
+def test_na_voz_quem_demora_a_comecar_cai_em_poucos_segundos(monkeypatch):
+    """16/11/2026: o Gemini levou 12 s só pra devolver 503. Na voz, o prazo vale
+    do pedido à primeira palavra — inclusive esperando o cabeçalho."""
+    com_chave()
+    monkeypatch.setattr(apis, 'PRIMEIRO_VOZ', 0.2)
+
+    async def rota(req):
+        await asyncio.sleep(5)
+        return httpx.Response(503)
+    t0 = time.monotonic()
+    with pytest.raises(cerebros.CerebroFalhou, match='não começou a responder'):
+        coletar(apis.responder('groq', 's', 'p', transporte=httpx.MockTransport(rota), rapido=True))
+    assert time.monotonic() - t0 < 2
+
+
+def test_na_voz_o_prazo_acaba_na_primeira_palavra(monkeypatch):
+    """Depois da primeira palavra, a resposta pode levar o tempo que for."""
+    com_chave()
+    monkeypatch.setattr(apis, 'PRIMEIRO_VOZ', 0.3)
+
+    class Devagar(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield ('data: ' + json.dumps({'choices': [{'delta': {'content': 'Um '}}]}) + '\n\n').encode()
+            await asyncio.sleep(0.6)
+            yield ('data: ' + json.dumps({'choices': [{'delta': {'content': 'dois.'}}]}) + '\n\ndata: [DONE]\n\n').encode()
+
+    t = servico(lambda req: httpx.Response(200, stream=Devagar(), headers={'content-type': 'text/event-stream'}))
+    assert ''.join(coletar(apis.responder('groq', 's', 'p', transporte=t, rapido=True))) == 'Um dois.'

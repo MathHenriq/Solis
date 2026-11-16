@@ -542,6 +542,34 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
        antigas (as memórias vão todas até 30, como já ia com o Ollama fora), e o pedido do
        vetor continua, pra deixar o modelo carregado. Não medido ao vivo com o Ollama ocupado
        (ele estava desligado na hora): os números são os do log.
+   - **A cascata (16/11/2026).** Medido antes, no servidor de verdade, do envio do texto ao
+     primeiro byte de som: memória 0,02–0,04 s, primeira palavra da Groq 0,47–0,93 s, o resto da
+     resposta e os pedidos da fala +0,08 s, o primeiro byte da Fish +0,64–0,73 s — 1,2 a 1,7 s;
+     antes disso, os 0,9 s de silêncio e ~0,3 s de Whisper na escuta. O que mudou:
+     - **A escuta transcreve no silêncio.** Calado há 0,35 s, o que ele disse já vai pro
+       Whisper (com o silêncio completado até 0,9 s repetindo o ruído do cômodo — cortado
+       ali, o Whisper errava mais: "sexta" virou "cesta"). Se ele continuar calado, o texto já
+       está pronto; se for pergunta ("?"), acaba em 0,6 s. Voltou a falar, vale o de antes. A
+       conferência cedo que não acha "Solis" é refeita no fim, inteira ("Solis, desliga a
+       música" virou "Sani, Zizlega" cedo): custa um Whisper a mais por fala sem "Solis" (na
+       gravação, 37 contra 29).
+       Na gravação do Matheus, num processo só e duas rodadas iguais:
+
+       | | acordou | entendeu | falsos | latência mediana | p90 |
+       |---|---|---|---|---|---|
+       | antes | 11 | 10 | 0 | 1,03 s | 1,12 s |
+       | cascata | 11 | **11** | 0 | **0,61 s** | 0,81 s |
+
+       O teste da escuta passou pela primeira vez (11 de 12, a meta é 9 de 10).
+     - **A Groq pensa pouco na voz** (`reasoning_effort: low` no gpt-oss): 10 perguntas de
+       fato, 10 certas nos dois; a primeira palavra mediana de 0,68 s pra 0,47 s.
+     - **Conexões guardadas com a Groq e a Fish** (`conexoes.py`), abertas quando a escuta ouve
+       "Solis": a conexão nova custava 0,05 a 0,25 s a mais que a reusada.
+     - **Na voz, 5 s do pedido à primeira palavra**: com a Groq no limite, o Gemini levou 12 s
+       só pra devolver 503, e a resposta saiu em 22 s; agora quem não começa em 5 s passa a vez.
+     - Medido depois, as mesmas 4 perguntas: o primeiro byte de som de 1,22–1,72 s pra
+       1,17–1,37 s. A tela ainda espera a resposta inteira pra começar a falar; com a Groq isso
+       custa ~0,06 s (a resposta curta acaba logo), por isso ficou pra depois.
 
 ### Controle do PC e visão da tela
 

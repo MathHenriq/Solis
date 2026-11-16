@@ -336,6 +336,7 @@ async def responder(
                     etapas,
                     sessao=sessao_claude(conversa, historico, memorias, trechos, mensagem, voz)
                     if nome == 'claude' else None,
+                    **({'rapido': True} if voz else {}),
                 )
             return fluxo, nome
         except (ollama.OllamaIndisponivel, ollama.ModeloInexistente, cerebros.CerebroFalhou) as e:
