@@ -6,7 +6,7 @@ import { quando } from './CartaoAgendadas';
  *  a semana) e quando volta — como Configurações → Uso no Claude Desktop
  *  (backend/solis/uso.py, pelo /usage do CLI, que não gasta cota).
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), o "Ver
  *  de novo" dos Conectores e uma barra fina por cota (layout.configuracoes.uso). */
 
