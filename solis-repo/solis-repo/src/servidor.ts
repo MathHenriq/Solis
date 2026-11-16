@@ -231,8 +231,11 @@ export type Etapa = {
   ajudante?: string;
   /** Etapa `aprovacao` de um conector: o que vai ser mandado (JSON). */
   entrada?: string;
-  /** Etapa `aprovacao` do navegador: o site da página aberta ("loja.com.br"). */
+  /** Etapa `aprovacao` do navegador: o site da página aberta ("loja.com.br");
+   *  na tela, o programa onde a ação cai ("Bloco de Notas"). */
   site?: string;
+  /** Etapa `aprovacao` na tela: o print marcado (data URL). */
+  imagem?: string;
   /** Etapa `arquivos`: os documentos que o Claude criou nesta resposta (caminhos). */
   lista?: string[];
   /** Etapa `ferramenta` de uma busca na web: os resultados (as fontes encontradas). */
@@ -1283,6 +1286,31 @@ export type Agendada = {
 export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'hora' | 'dia_semana' | 'data'> & {
   ativa?: boolean;
 };
+
+/** O controle da tela (backend/solis/tela.py): desligado até o Matheus ligar. */
+export type Tela = { ligada: boolean; disponivel: boolean };
+
+export async function lerTela(): Promise<Tela | null> {
+  try {
+    const r = await fetch(`${BASE}/tela`);
+    return r.ok ? ((await r.json()) as Tela) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function ligarTela(ligada: boolean): Promise<Tela | null> {
+  try {
+    const r = await fetch(`${BASE}/tela`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ligada }),
+    });
+    return r.ok ? ((await r.json()) as Tela) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** O uso da cota do Claude (backend/solis/uso.py): cada cota com quanto já foi
  *  (0-100) e quando volta. */

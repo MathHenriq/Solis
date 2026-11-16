@@ -479,6 +479,12 @@ const QUER: Record<string, string> = {
   mcp__navegador__browser_file_upload: 'O Claude quer enviar arquivos pra uma página',
   mcp__navegador__browser_evaluate: 'O Claude quer rodar um script numa página',
   mcp__navegador__browser_handle_dialog: 'O Claude quer responder um aviso da página',
+  // A tela (backend/solis/tela.py): agir em qualquer programa.
+  mcp__solis__tela_clicar: 'O Claude quer clicar na tela',
+  mcp__solis__tela_digitar: 'O Claude quer digitar na tela',
+  mcp__solis__tela_tecla: 'O Claude quer apertar uma tecla',
+  mcp__solis__tela_rolar: 'O Claude quer rolar a tela',
+  mcp__solis__tela_mover: 'O Claude quer mover o mouse',
 };
 
 /** PROVISÓRIO — desenho próprio, sem referência (layout.thread.etapas._approval
@@ -534,6 +540,8 @@ function rotuloSempre(ferramenta?: string, site?: string): string | null {
   if (ferramenta === 'ExitPlanMode' || ferramenta === 'mcp__solis__agendar_tarefa') return null;
   // No navegador, o "sempre" é do site (como o Claude in Chrome); sem saber o site, não há.
   if (ferramenta?.startsWith('mcp__navegador__')) return site ? 'Sempre neste site' : null;
+  // Na tela, o "sempre" é do programa (o Bloco de Notas, não a tela toda).
+  if (ferramenta?.startsWith('mcp__solis__tela_')) return site ? 'Sempre neste programa' : null;
   if (ferramenta === 'Bash' || ferramenta === 'PowerShell') return 'Sempre este comando';
   return 'Sempre nesta conversa';
 }
@@ -563,7 +571,9 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
   const titulo = pedido.ajudante !== undefined ? doClaude.replace(/^O Claude quer/, 'O ajudante quer') : doClaude;
   const sempre = rotuloSempre(pedido.ferramenta, pedido.site);
   const agendar = pedido.ferramenta === 'mcp__solis__agendar_tarefa';
-  const navegar = pedido.ferramenta?.startsWith('mcp__navegador__') ?? false;
+  // O navegador e a tela mostram igual: o que vai fazer · onde, e o texto embaixo.
+  const naTela = pedido.ferramenta?.startsWith('mcp__solis__tela_') ?? false;
+  const navegar = (pedido.ferramenta?.startsWith('mcp__navegador__') ?? false) || naTela;
   const script = pedido.ferramenta === 'mcp__navegador__browser_evaluate';
   return (
     <div
@@ -665,6 +675,16 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
         </div>
       </div>
       {pedido.diff && <Diff texto={pedido.diff} />}
+      {/* Na tela: o print — o pedaço em volta do clique, com o alvo marcado; pra
+          digitar e tecla, a tela inteira pequena (tela.imagem_do_cartao). */}
+      {naTela && pedido.imagem && (
+        <img
+          src={pedido.imagem}
+          alt={`Onde: ${pedido.alvo ?? ''}`}
+          className="block border border-divider"
+          style={{ marginTop: 10, maxWidth: 'var(--tel-print-l)', width: '100%', borderRadius: 'var(--cod-raio)' }}
+        />
+      )}
       {/* Num conector: o que vai ser mandado (o evento, o arquivo, a mensagem). */}
       {pedido.entrada && !agendar && !navegar && (
         <div style={{ marginTop: 10 }}>

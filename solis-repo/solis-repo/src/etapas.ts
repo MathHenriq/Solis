@@ -119,6 +119,18 @@ export function textoFerramenta(f: Pick<Etapa, 'ferramenta' | 'alvo' | 'fundo'>)
     case 'mcp__navegador__browser_network_requests':
     case 'mcp__navegador__browser_network_request':
       return 'Olhei o que a página carregou';
+    case 'mcp__solis__tela_ver':
+      return 'Olhei a tela';
+    case 'mcp__solis__tela_clicar':
+      return 'Cliquei na tela';
+    case 'mcp__solis__tela_digitar':
+      return alvo ? `Digitei "${alvo.length > 60 ? `${alvo.slice(0, 60)}…` : alvo}"` : 'Digitei um texto';
+    case 'mcp__solis__tela_tecla':
+      return `Apertei ${alvo}`;
+    case 'mcp__solis__tela_rolar':
+      return `Rolei a tela pra ${alvo || 'baixo'}`;
+    case 'mcp__solis__tela_mover':
+      return 'Levei o mouse';
     case 'mcp__solis__ver_agenda':
       return RAPIDA.agenda;
     case 'mcp__solis__ver_tarefas':

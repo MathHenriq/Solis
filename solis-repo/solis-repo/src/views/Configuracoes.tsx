@@ -8,6 +8,7 @@ import { CartaoEstilos } from './CartaoEstilos';
 import { CartaoNavegador } from './CartaoNavegador';
 import { CartaoServidoresMcp } from './CartaoServidoresMcp';
 import { CartaoSkills } from './CartaoSkills';
+import { CartaoTela } from './CartaoTela';
 import { CartaoUso } from './CartaoUso';
 import { CartaoDocumentos } from './CartaoDocumentos';
 import { CartaoVoz } from './CartaoVoz';
@@ -198,6 +199,7 @@ export function Configuracoes({
         <CartaoConectores />
         <CartaoServidoresMcp />
         <CartaoNavegador />
+        <CartaoTela />
         <CartaoDocumentos />
         <CartaoAgendadas aoAbrirConversa={aoAbrirConversa} />
         <CartaoSkills />

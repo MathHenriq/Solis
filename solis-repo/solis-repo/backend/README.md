@@ -105,6 +105,8 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
 | `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
 | `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
+| `GET /tela` | o controle da tela: `ligada` (desligado até o Matheus ligar) e `disponivel` (só no Windows) |
+| `PUT /tela` | `{"ligada": bool}` → liga ou desliga |
 | `GET /uso` | o uso da cota do Claude: `plano` ("Claude Pro") e as `cotas` (`tipo`: `sessao`, `semana`, `semana-fable`; `rotulo`, `usado` de 0 a 100, `volta`), pelo `/usage` do CLI (não gasta cota). Guardado um minuto; `?atualizar=true` lê de novo. `502` com `nao_deu` |
 | `GET /estilos` | o estilo de resposta escolhido (`atual`) e os estilos: os prontos (`normal`, `conciso`, `explicativo`, `formal`) e os seus (`seu`) |
 | `PUT /estilos/atual` | `{"id"}` → escolhe (vale pra toda resposta, de qualquer cérebro, até trocar) |
@@ -518,6 +520,20 @@ Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o 
 `mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
 `allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
 inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
+
+## Controle da tela
+
+`solis/tela.py`: o Claude vê a tela e clica, digita e aperta teclas em qualquer programa, como o
+computer use do Claude Desktop. Desligado até o Matheus ligar (Configurações → Controle da tela):
+o que está na tela vai pro Claude. Ligado, entram as ferramentas `mcp__solis__tela_*` (ver, clicar,
+digitar, tecla, rolar, mover). Ver é livre; cada ação pede cartão (`agente.TELA_PEDEM`) com o que
+vai fazer, o programa onde cai e o print: o recorte em volta do clique com o alvo marcado, ou a tela
+inteira pequena pra digitar e tecla. "Sempre neste programa" libera as ações nele, na conversa.
+Nada cai numa janela do `solis.exe` (o cartão nem aparece: recusado), pra o Claude não aprovar os
+próprios cartões. Cada ação devolve o print de depois. Pela API do Windows (ctypes: `SendInput`; o
+texto vai como Unicode, então acento sai certo) e o Pillow pro print, em pixels de verdade
+(`SetProcessDpiAwareness`). O print vai reduzido a 1366 de largura; as coordenadas do Claude voltam
+pra tela aqui. Só a tela principal.
 
 ## Uso da cota
 

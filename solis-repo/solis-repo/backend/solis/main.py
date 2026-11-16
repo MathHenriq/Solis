@@ -870,6 +870,26 @@ async def ligar_skill(nome: str, corpo: SkillLigada):
     return {'ok': True}
 
 
+# — Controle da tela ——————————————————————————————————————————————————————————
+class TelaLigada(BaseModel):
+    ligada: bool
+
+
+@app.get('/tela')
+async def ler_tela():
+    """Se o Claude pode ver e controlar a tela (desligado até o Matheus ligar)."""
+    from . import tela
+    return {'ligada': tela.ligada(), 'disponivel': os.name == 'nt'}
+
+
+@app.put('/tela')
+async def ligar_tela(corpo: TelaLigada):
+    from . import tela
+    ligada = tela.ligar(corpo.ligada)
+    banco.registrar_acao(None, 'controle_da_tela', {'ligada': corpo.ligada}, 'ligado' if ligada else 'desligado', True)
+    return {'ligada': ligada, 'disponivel': os.name == 'nt'}
+
+
 # — Uso da cota do Claude ————————————————————————————————————————————————————
 @app.get('/uso')
 async def ler_uso(atualizar: bool = False):
