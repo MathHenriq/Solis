@@ -4,6 +4,11 @@ Nas palavras do Matheus (11/11/2026), organizadas. Este documento é o norte: o 
 mapa do que falta, o `ESCOPO.md` o registro do que foi feito e medido. Quando uma decisão de
 detalhe não estiver clara, a pergunta é "isso aproxima o Solis do que está aqui?".
 
+> **Há um documento mais novo:** o `IDEIAS.md` (15/11/2026), do Matheus, com a regra-mãe, os
+> princípios, o cérebro na nuvem, as personalidades e a voz como prioridade. Onde os dois falam do
+> mesmo assunto, o `IDEIAS.md` é o mais recente. As diferenças, como "local primeiro" contra
+> "cérebro na nuvem", estão listadas no fim dele, esperando a decisão do Matheus.
+
 ## O que ele é
 
 **O Jarvis do Matheus — e, um dia, um produto.** Um sistema que centraliza a vida dele: dia a dia,
