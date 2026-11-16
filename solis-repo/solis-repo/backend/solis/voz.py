@@ -46,6 +46,19 @@ PASTA = Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'Solis' / 'whisper'
 # de "que horas são") e o turbo erra perto ("E horas são", que o rapidas.py
 # entende). Custa 0,15 s a mais por comando (0,33 contra 0,18 s, mediana).
 MODELO = os.environ.get('SOLIS_WHISPER', 'faster-whisper-large-v3-turbo-ct2')
+# Se o escolhido não está na pasta, o melhor que estiver, nesta ordem — e o log
+# diz. Em 16/11/2026 o turbo existia só numa pasta isolada das ferramentas do
+# Claude Code (baixado por um processo delas), e o Solis de verdade, sem ele,
+# ficou sem transcrever nada: a escuta nem começava.
+RESERVAS = ('faster-whisper-large-v3-turbo-ct2', 'faster-whisper-medium', 'faster-whisper-small')
+
+
+def modelo_em_uso() -> str | None:
+    """O modelo que vai rodar: o escolhido, ou a melhor reserva que está na pasta."""
+    for m in dict.fromkeys((MODELO, *RESERVAS)):
+        if (PASTA / m / 'model.bin').exists():
+            return m
+    return None
 # 'auto' tenta a GPU e cai pra CPU; 'cpu' e 'cuda' forçam.
 DISPOSITIVO = os.environ.get('SOLIS_WHISPER_DISPOSITIVO', 'auto')
 TIPOS = {'cuda': 'int8_float16', 'cpu': 'int8'}
@@ -147,7 +160,7 @@ def disponivel() -> bool:
     except ImportError as e:
         log.warning('faster-whisper não importa neste processo: %s', e)
         return False
-    return (PASTA / MODELO / 'model.bin').exists()
+    return modelo_em_uso() is not None
 
 
 def _onde() -> str:
@@ -160,22 +173,26 @@ def _carregar():
     global _modelo, _dispositivo, _sem_gpu
     if _modelo is None:
         if not disponivel():
-            raise SemModelo(f'falta o modelo {MODELO} em {PASTA}')
+            raise SemModelo(f'falta o modelo do Whisper ({MODELO} ou uma reserva) em {PASTA}')
+        qual = modelo_em_uso()
+        if qual != MODELO:
+            log.warning('o whisper %s não está em %s: usando a reserva %s', MODELO, PASTA, qual)
         from faster_whisper import WhisperModel
         onde = _onde()
         if onde == 'cuda' and CUBLAS_DO_OLLAMA.exists() and str(CUBLAS_DO_OLLAMA) not in os.environ['PATH']:
             os.environ['PATH'] = str(CUBLAS_DO_OLLAMA) + os.pathsep + os.environ['PATH']
         t0 = time.perf_counter()
         try:
-            _modelo = WhisperModel(str(PASTA / MODELO), device=onde, compute_type=TIPOS[onde])
+            _modelo = WhisperModel(str(PASTA / qual), device=onde, compute_type=TIPOS[onde])
         except Exception as e:
             if onde != 'cuda' or DISPOSITIVO != 'auto':
                 raise
             log.warning('whisper sem GPU (%s); indo pra CPU', e)
             _sem_gpu, onde = True, 'cpu'
-            _modelo = WhisperModel(str(PASTA / MODELO), device=onde, compute_type=TIPOS[onde])
+            _modelo = WhisperModel(str(PASTA / qual), device=onde, compute_type=TIPOS[onde])
         _dispositivo = onde
-        log.info('whisper %s carregado (%s/%s) em %.1f s', MODELO, onde, TIPOS[onde], time.perf_counter() - t0)
+
+        log.info('whisper %s carregado (%s/%s) em %.1f s', qual, onde, TIPOS[onde], time.perf_counter() - t0)
     return _modelo
 
 
@@ -222,19 +239,42 @@ def transcrever_agora(audio: bytes, vocab: str | None = None, vad: bool = True) 
             log.info('whisper devolveu o vocabulário (som que não é fala); ignorado')
             texto = ''
         return {'texto': texto, 'segundos': round(info.duration, 1), 'duracao': round(time.perf_counter() - t0, 2),
-                'modelo': MODELO, 'onde': _dispositivo}
+                'modelo': modelo_em_uso(), 'onde': _dispositivo}
 
 
 async def transcrever(audio: bytes, vad: bool = True) -> dict:
     """`vad=False` na escuta da palavra: o trecho já foi separado pela energia, e
     o filtro de voz do Whisper descartava o "Solis" curto e baixo (11/11/2026: 4
     de 6 chamadas reais voltaram vazias)."""
+    return await asyncio.to_thread(transcrever_agora, audio, vocabulario(_modelos_do_ollama()), vad)
+
+
+# Os modelos do Ollama, pro vocabulário: guardados, e atualizados em segundo
+# plano. Perguntar a cada transcrição custava 2 s com o Ollama desligado (o
+# Windows insiste na porta fechada de 127.0.0.1) — medido em 16/11/2026: 2,35 s
+# por trecho na escuta, dos quais 0,3 s eram o Whisper.
+OLLAMA_CACHE_S = 300
+_ollama: dict = {'quando': -1e9, 'nomes': [], 'buscando': False}
+
+
+def _modelos_do_ollama() -> list[str]:
+    if time.monotonic() - _ollama['quando'] > OLLAMA_CACHE_S and not _ollama['buscando']:
+        _ollama['buscando'] = True
+        try:
+            asyncio.get_running_loop().create_task(_buscar_ollama())
+        except RuntimeError:
+            _ollama['buscando'] = False
+    return _ollama['nomes']
+
+
+async def _buscar_ollama() -> None:
     from . import ollama
     try:
-        instalados = sorted(await ollama.instalados())
+        _ollama['nomes'] = sorted(await ollama.instalados())
     except ollama.OllamaIndisponivel:
-        instalados = []
-    return await asyncio.to_thread(transcrever_agora, audio, vocabulario(instalados), vad)
+        pass
+    finally:
+        _ollama.update(quando=time.monotonic(), buscando=False)
 
 
 def descarregar_se_ocioso() -> bool:

@@ -1211,6 +1211,54 @@ export async function amostraFish(voz: string | null): Promise<{ audio: Blob; se
 /** O endereço do WebSocket da escuta (o mesmo servidor, em ws://). */
 export const urlEscuta = () => `${BASE.replace(/^http/, 'ws')}/escuta`;
 
+/** O teste da escuta (backend/solis/voz_teste.py). */
+export type PassoTeste = { i: number; tipo: 'chamada' | 'sem'; mostrar: string; esperado: string; inicio: number; fim: number };
+export type RoteiroTeste = { inicio: number; preparo: number; passos: PassoTeste[]; duracao: number };
+export type MedidaEscuta = {
+  chamadas: number;
+  acordou: number;
+  entendeu: number;
+  falsos: number;
+  trechos_sem: number;
+  latencia_mediana: number | null;
+  latencia_max: number | null;
+  passou: boolean;
+};
+
+export async function lerRoteiroTeste(): Promise<RoteiroTeste | null> {
+  try {
+    const r = await fetch(`${BASE}/voz/teste/roteiro`);
+    return r.ok ? ((await r.json()) as RoteiroTeste) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listarTestesEscuta(): Promise<{ testes: { id: string; medidas: Record<string, MedidaEscuta> }[] } | null> {
+  try {
+    const r = await fetch(`${BASE}/voz/teste`);
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A gravação e os tempos de cada frase; o servidor já começa a medir. */
+export async function enviarTesteEscuta(wav: Blob, passos: PassoTeste[]): Promise<{ id: string } | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/voz/teste`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/wav', 'X-Solis-Roteiro': encodeURIComponent(JSON.stringify(passos)) },
+      body: wav,
+    });
+    if (r.ok) return (await r.json()) as { id: string };
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    return { erro: corpo.motivo ? `Não deu pra guardar: ${corpo.motivo}.` : 'Não deu pra guardar a gravação.' };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
+
 /** `motor`: quem ouve a palavra — 'whisper' (hoje), 'porcupine' (se um dia
  *  houver chave) ou null (falta o modelo). */
 export type EstadoAtivacao = { chave: boolean; palavra: boolean; idioma: boolean; motor: 'whisper' | 'porcupine' | null };

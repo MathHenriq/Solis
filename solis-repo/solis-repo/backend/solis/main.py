@@ -1547,7 +1547,7 @@ async def apagar_tarefa(id_: int):
 @app.get('/voz')
 async def estado_voz():
     """Se dá pra falar: o faster-whisper instalado e o modelo na pasta."""
-    return {'disponivel': voz.disponivel(), 'modelo': voz.MODELO}
+    return {'disponivel': voz.disponivel(), 'modelo': voz.modelo_em_uso() or voz.MODELO}
 
 
 @app.post('/voz')
@@ -1790,6 +1790,75 @@ async def _transcrever_escuta(audio: bytes) -> str:
     if ESCUTA_LOG:
         log.info('escuta: %.1f s -> %r', (len(audio) - 44) / 2 / ativacao.TAXA, texto)
     return texto
+
+
+# — Teste da escuta (voz_teste.py) ——————————————————————————————————————————————
+_medindo: dict[str, asyncio.Task] = {}
+
+
+@app.get('/voz/teste/roteiro')
+async def roteiro_do_teste():
+    """O roteiro do teste da escuta: cada frase, o tipo (chamada ou sem "Solis")
+    e a janela em segundos da gravação."""
+    from . import voz_teste
+    return voz_teste.roteiro()
+
+
+@app.get('/voz/teste')
+async def listar_testes():
+    from . import voz_teste
+    return {'testes': await asyncio.to_thread(voz_teste.listar),
+            'medindo': [i for i, t in _medindo.items() if not t.done()]}
+
+
+@app.post('/voz/teste')
+async def guardar_teste(request: Request):
+    """A gravação (WAV 16 kHz mono no corpo) e, no cabeçalho X-Solis-Roteiro, os
+    tempos de verdade de cada frase. Já começa a medir com a escuta de hoje."""
+    from urllib.parse import unquote
+
+    from . import voz_teste
+    try:
+        passos = json.loads(unquote(request.headers.get('x-solis-roteiro', ''))) or None
+    except ValueError:
+        passos = None
+    try:
+        r = await asyncio.to_thread(voz_teste.guardar, await request.body(), passos)
+    except voz_teste.TesteInvalido as e:
+        return JSONResponse({'erro': 'teste_invalido', 'motivo': str(e)}, status_code=400)
+    _comecar_medida(r['id'], 'atual')
+    return r
+
+
+def _comecar_medida(id_: str, motor: str) -> None:
+    from . import voz_teste
+
+    async def medir():
+        try:
+            await voz_teste.medir(id_, motor)
+        except Exception:
+            log.exception('a medida do teste da escuta %s falhou', id_)
+    _medindo[id_] = asyncio.create_task(medir())
+
+
+@app.post('/voz/teste/{id_}/medir')
+async def medir_teste(id_: str, motor: str = 'atual'):
+    from . import voz_teste
+    if not (voz_teste.pasta() / id_ / 'gravacao.wav').is_file():
+        return JSONResponse({'erro': 'teste_inexistente'}, status_code=404)
+    if id_ in _medindo and not _medindo[id_].done():
+        return {'medindo': True}
+    _comecar_medida(id_, motor)
+    return {'medindo': True}
+
+
+@app.get('/voz/teste/{id_}/medida/{motor}')
+async def ler_medida(id_: str, motor: str):
+    from . import voz_teste
+    arquivo = voz_teste.pasta() / id_ / f'medida-{motor}.json'
+    if not re.match(r'^[0-9-]+$', id_) or not re.match(r'^[a-z0-9-]+$', motor) or not arquivo.is_file():
+        return JSONResponse({'erro': 'medida_inexistente'}, status_code=404)
+    return json.loads(arquivo.read_text(encoding='utf-8'))
 
 
 @app.websocket('/escuta')

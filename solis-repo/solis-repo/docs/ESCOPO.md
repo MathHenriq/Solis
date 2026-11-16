@@ -424,6 +424,26 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
    longe ("E oração") e o turbo perto; custa 0,15 s a mais. A voz é o gargalo que sobra: 3 a 6 s
    pra uma frase curta (o Gemini grátis acabou a cota do dia; a Ava leva 4 a 6 s; o Kokoro na
    CPU, 5,6 s).
+5. **Voz em primeiro (16/11/2026, `docs/IDEIAS.md`: "nada novo antes de a voz passar no teste").**
+   - **O teste de qualidade:** Configurações → Voz → Teste da escuta (`voz_teste.py`). Um roteiro
+     de ~3,5 min com 12 chamadas (baixinho, de longe, rápido, com pausa) e 6 trechos sem "Solis"
+     (fala normal, "sol", "Lis", "solista", silêncio). A escuta roda sobre a gravação como ao vivo
+     e conta: acordou, entendeu (as palavras do pedido), alarmes falsos e o tempo do fim da fala
+     (marcado pelo Silero VAD) ao texto. Meta: 9 em 10, sem alarme falso.
+   - **Achado 1 — o Whisper do PC de verdade era outro:** o `large-v3-turbo` só existia numa
+     pasta isolada das ferramentas do Claude Code (baixado por um processo delas em 11/11). No
+     Windows de verdade só há o `small`. O Solis procurava o turbo e não achava, então nem a
+     escuta nem o microfone transcreviam. Agora usa o melhor que estiver na pasta (turbo, medium,
+     small) e diz no log.
+   - **Achado 2 — 2 s perdidos em toda transcrição:** antes de cada uma, o Solis perguntava ao
+     Ollama os modelos instalados (pro vocabulário). Com o Ollama desligado, o Windows leva ~2 s
+     pra desistir da porta. Agora a lista fica guardada e é atualizada em segundo plano. Medido na
+     mesma gravação: do fim da fala ao texto, de 3,25 s pra 1,02 s; o Whisper por trecho, de
+     2,35 s pra 0,11–0,18 s.
+   - **A base, com voz sintética (Maria do Windows) e o `small`:** acordou 12 de 12, entendeu 7 de
+     12, 0 alarmes falsos, 1,0 s. O que sobra do tempo é a espera de 0,9 s de silêncio pra dar a
+     fala por acabada. Falta: a gravação com a voz do Matheus, o turbo no PC de verdade e o Silero
+     VAD no lugar da energia.
 
 ### Controle do PC e visão da tela
 

@@ -390,6 +390,11 @@
         "printWidth": "520px",
         "_printWidth": "O print no cartao: o recorte e de 520x320 px da tela de verdade (tela.RECORTE) e aparece em tamanho real, sem borrar; a miniatura da tela inteira (640px) desce pra 520 pra caber na mesma largura."
       },
+      "testeEscuta": {
+        "_status": "PROVISORIO - desenho proprio (16/11/2026), espera a aprovacao do Matheus pelos prints: Configuracoes -> Voz -> Teste da escuta (TesteEscuta.tsx). Uma linha do cartao Voz (as linhas aprovadas) com o botao 'Testar'; gravando, a frase da vez em --cfg-secao (texto principal enquanto e hora de falar; secundario no 'Prepare-se'), a barra do cartao Uso (--uso-barra-*) e 'N de 18 · falta X s'; no fim, a meta (accent se passou, --erro se nao) e os numeros em linhas como as do cartao Uso (o valor em --erro abaixo de 9 em 10).",
+        "phraseMinHeight": "56px",
+        "_phraseMinHeight": "A frase da vez reserva duas linhas de --cfg-secao (20px x 1,4 = 28 cada): as frases mais longas do roteiro quebram em duas na largura de leitura, e a barra embaixo nao pula quando a frase muda."
+      },
       "uso": {
         "_status": "APROVADO pelo Matheus em 15/11/2026 nos 3 temas e 2 navs - desenho proprio (15/11/2026): Configuracoes -> Uso (CartaoUso.tsx), como Configuracoes -> Uso no Claude Desktop. O cartao e as linhas do de Cerebros (cardGap, rowPadY, textMax) e o 'Ver de novo' dos Conectores. Cada cota: o rotulo em --cfg-rotulo e 'N% usado' a direita em --cfg-dica (em --erro a partir de 90%), a barra embaixo (trilho --divider, preenchida em --accent; --erro a partir de 90%) e 'Volta amanha as 0:30' em --cfg-dica.",
         "barHeight": "6px",

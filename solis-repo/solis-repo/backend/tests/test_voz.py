@@ -135,3 +135,18 @@ def test_gpu_que_falha_na_hora_de_transcrever_cai_pra_cpu(monkeypatch):
     monkeypatch.setattr(voz, '_modelo', None)
     voz.transcrever_agora(wav())
     assert criados[-1] == ('cpu', 'int8')
+
+
+def test_sem_o_escolhido_usa_a_melhor_reserva(monkeypatch, tmp_path):
+    """16/11/2026: o turbo não estava no PC de verdade e a escuta nem começava."""
+    from solis import voz
+    monkeypatch.setattr(voz, 'PASTA', tmp_path)
+    monkeypatch.setattr(voz, 'MODELO', 'faster-whisper-large-v3-turbo-ct2')
+    assert voz.modelo_em_uso() is None
+    for m in ('faster-whisper-small', 'faster-whisper-medium'):
+        (tmp_path / m).mkdir()
+        (tmp_path / m / 'model.bin').write_bytes(b'x')
+    assert voz.modelo_em_uso() == 'faster-whisper-medium'
+    (tmp_path / 'faster-whisper-large-v3-turbo-ct2').mkdir()
+    (tmp_path / 'faster-whisper-large-v3-turbo-ct2' / 'model.bin').write_bytes(b'x')
+    assert voz.modelo_em_uso() == 'faster-whisper-large-v3-turbo-ct2'

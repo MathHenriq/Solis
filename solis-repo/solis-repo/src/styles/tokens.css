@@ -156,6 +156,8 @@
   /* Uso (Configuracoes) - desenho proprio, APROVADO em 15/11/2026. Ver layout.configuracoes.uso. */
   --uso-barra-h: 6px;
   --uso-barra-top: 10px;
+  /* Teste da escuta (Configuracoes -> Voz) - desenho proprio, PROVISORIO. Ver layout.configuracoes.testeEscuta. */
+  --te-frase-h: 56px;
   /* Controle da tela - desenho proprio, APROVADO em 16/11/2026. Ver layout.configuracoes.tela. */
   --tel-print-l: 520px;
   /* Estilo de resposta (campo de digitar) - desenho proprio, APROVADO em 15/11/2026. Ver layout.thread.estilo. */

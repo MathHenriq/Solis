@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Botao, Interruptor } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { definirEscutaLigada, escutaLigada } from '../escuta';
+import { TesteEscuta } from './TesteEscuta';
 import { VozesFish } from './VozesFish';
 import { definirFalaAutomatica, falaAutomatica } from '../fala';
 import {
@@ -391,6 +392,7 @@ export function CartaoVoz() {
           </Linha>
 
           <PalavraAtivacao />
+          <TesteEscuta />
 
           <Linha rotulo="Responder falando" dica="Quando você fala com o microfone, a resposta é lida em voz alta">
             <Interruptor

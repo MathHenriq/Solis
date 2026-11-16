@@ -125,6 +125,11 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /skills/{nome}` | o mesmo corpo → muda (o nome, o texto, pra quem); os arquivos de apoio da pasta vão junto |
 | `DELETE /skills/{nome}` | tira do Claude e do Codex: a pasta vai pra `skills-apagadas`, ao lado do banco |
 | `PUT /skills/{nome}/ligada` | `{"ligada": bool}` → liga ou desliga pro Claude |
+| `GET /voz/teste/roteiro` | o roteiro do teste da escuta: cada frase, o `tipo` (`chamada` ou `sem`), o pedido `esperado` e a janela (`inicio`, `fim`, em segundos da gravação) |
+| `POST /voz/teste` | a gravação (WAV 16 kHz mono no corpo) e, no cabeçalho `X-Solis-Roteiro`, os tempos de cada frase → `{"id", "duracao"}`; já começa a medir |
+| `GET /voz/teste` | os testes guardados, com o resumo de cada medida (`acordou`, `entendeu`, `falsos`, `latencia_mediana`, `passou`…) e os que estão `medindo` |
+| `POST /voz/teste/{id}/medir` | mede de novo (`?motor=`) |
+| `GET /voz/teste/{id}/medida/{motor}` | a medida inteira: cada passo do roteiro e cada evento da escuta |
 | `GET /navegador` | o navegador do Claude: `escolhido` (`chrome`, `msedge` ou nulo), `desligado`, `instalados` (`canal`, `nome`), `pronto` (o `@playwright/mcp` está no `node_modules`) e `aberto` (o servidor dele de pé) |
 | `PUT /navegador` | `{"navegador": "chrome" \| "msedge" \| "desligado"}` → troca (a janela do outro fecha). `400` com `navegador_invalido` se não está no PC |
 | `POST /navegador/abrir` | abre a janela do navegador do Solis (pra entrar nas contas). `503` com `nao_abriu` e o `motivo` |
