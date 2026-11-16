@@ -156,11 +156,14 @@ def do_pc(texto: str) -> bool:
 def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
     """(texto sem o comando, ordem a tentar, se foi forçado).
 
-    Pela voz (a resposta vai ser falada), o local vai primeiro e a nuvem fica
-    de reserva: medido em 11/11/2026, o qwen3:8b sem raciocínio dá a primeira
-    palavra em 0,07 s e a resposta em 0,6 s (mediana, 16 pedidos de voz, 12 de
-    13 certos; o lembrete com hora vem calculado em código) — o Claude levava 7
-    a 10 s só até a primeira palavra. "Que horas são" não precisa da nuvem."""
+    Pela voz (a resposta vai ser falada), os de API primeiro (Groq, Gemini...,
+    na ordem escolhida), depois o local, e os que sobem um CLI (Claude, Codex)
+    por último. Medido em 16/11/2026 nas mesmas perguntas: a Groq deu a
+    primeira palavra em 0,6–0,7 s e acertou as 5; o local (qwen3:8b, com o
+    Ollama ligado e o aprendizado de cada resposta no mesmo modelo) deu 0,6 a
+    53 s e errou fatos; o Claude, 3,5 a 14 s. Decisão do Matheus: Groq
+    primeiro. Hora, data e lembrete saem antes, em código (rapidas.py), e o
+    privado continua só no local."""
     primeira, _, resto = texto.strip().partition(' ')
     if primeira.lower() in COMANDOS and resto.strip():
         return resto.strip(), [COMANDOS[primeira.lower()]], True
@@ -169,12 +172,9 @@ def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
     if pc.disponivel() and do_pc(texto):
         return texto, ['local'], False
     if voz:
-        # Na reserva, os de API (Gemini, Groq...) antes dos que sobem um CLI
-        # (Claude, Codex): numa resposta por voz de verdade (16/11/2026), com o
-        # Ollama fora, o Claude levou 20 s e caiu, e o Codex deu a primeira
-        # palavra em 27 s. A ordem entre eles continua a escolhida pelo Matheus.
         nuvem = [c for c in _ordem() if c != 'local' and cerebros.disponivel(c)]
-        return texto, ['local'] + [c for c in nuvem if c not in cerebros.CLIS]             + [c for c in nuvem if c in cerebros.CLIS], False
+        return texto, [c for c in nuvem if c not in cerebros.CLIS] + ['local'] \
+            + [c for c in nuvem if c in cerebros.CLIS], False
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 

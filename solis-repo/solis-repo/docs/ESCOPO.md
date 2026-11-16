@@ -500,6 +500,14 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Solis tinha ligado foi desligado. Ficaram: com o modelo vazio (a tela leu a lista com o
      Ollama fora), o servidor usa o último escolhido; e um cérebro de API que não começa a
      responder em 15 s cai pro próximo (o Gemini grátis tinha ficado 60 s calado).
+   - **A Groq na voz (16/11/2026, chave grátis do Matheus, `openai/gpt-oss-120b`):** nas mesmas
+     perguntas, a primeira palavra em 0,6 a 1,5 s depois do texto, e as cinco certas ("Canberra",
+     "quarenta e cinco"). Decisão do Matheus: **na voz, a Groq primeiro** — os de API na ordem
+     escolhida, depois o local, e o Claude e o Codex por último; o privado continua só no local;
+     hora, data, lembrete e agenda continuam em código, antes de tudo. Uma pergunta comum por voz
+     fica em ~2,5 a 3 s do fim da fala ao primeiro som (escuta ~1,0 s + Groq ~0,7–1,5 s + Fish
+     ~0,75 s); antes, 5 a 30 s. Falta pro "perto de 1 s": transcrever enquanto ele fala e a voz
+     começar pela primeira frase (a cascata do `IDEIAS.md`).
 
 ### Controle do PC e visão da tela
 

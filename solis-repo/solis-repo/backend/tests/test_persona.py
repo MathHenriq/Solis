@@ -65,10 +65,13 @@ def test_voz_vai_pro_local_primeiro(monkeypatch):
 
 
 def test_na_voz_os_de_api_vem_antes_dos_cli(monkeypatch):
-    """16/11/2026: com o Ollama fora, o Claude levou 20 s e caiu; o Codex, 27 s."""
+    """16/11/2026, medido: Groq 0,6–0,7 s e certa; o local 0,6 a 53 s e errando; o
+    Claude 3,5 a 14 s. Na voz: as de API, o local, e os CLI por último."""
     monkeypatch.setattr(roteador, '_ordem', lambda: ['claude', 'codex', 'local', 'gemini', 'groq'])
     monkeypatch.setattr(roteador.cerebros, 'disponivel', lambda c: True)
-    assert roteador.escolher('Que horas são?', voz=True)[1] == ['local', 'gemini', 'groq', 'claude', 'codex']
+    assert roteador.escolher('Que horas são?', voz=True)[1] == ['gemini', 'groq', 'local', 'claude', 'codex']
+    # O privado continua só no local, pela voz também.
+    assert roteador.escolher('Isso é privado: anota minha senha do banco', voz=True)[1] == ['local']
     # Fora da voz, a ordem escolhida.
     assert roteador.escolher('Que horas são?')[1] == ['claude', 'codex', 'local', 'gemini', 'groq']
 
