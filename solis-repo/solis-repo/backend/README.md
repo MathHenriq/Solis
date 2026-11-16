@@ -105,6 +105,11 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
 | `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
 | `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
+| `GET /estilos` | o estilo de resposta escolhido (`atual`) e os estilos: os prontos (`normal`, `conciso`, `explicativo`, `formal`) e os seus (`seu`) |
+| `PUT /estilos/atual` | `{"id"}` → escolhe (vale pra toda resposta, de qualquer cérebro, até trocar) |
+| `POST /estilos` | `{"nome", "instrucoes"}` → cria um estilo seu. `400` com `estilo_invalido` e o `motivo` |
+| `PUT /estilos/{id}` | o mesmo corpo → muda um seu |
+| `DELETE /estilos/{id}` | apaga um seu (se era o escolhido, volta pro Normal) |
 | `GET /mcp` | os servidores MCP: `nome`, `tipo` (`comando` ou `endereco`), `comando` ou `url`, `variaveis` (só os nomes), `para` (`claude`, `codex`), `origem` (`seu`, `solis`, `codex`), `editavel` e as `ferramentas` da última conferida (`total`, `so_leem`, `erro`) |
 | `GET /mcp/{nome}` | um dos seus inteiro, pra editar (com os valores das variáveis) |
 | `POST /mcp` | `{"nome", "tipo", "comando"?, "url"?, "variaveis"?, "para"}` → adiciona pelos CLIs (`claude mcp add-json --scope user`, `codex mcp add`). `400` com `servidor_invalido` e o `motivo` |
@@ -512,6 +517,15 @@ Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o 
 `mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
 `allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
 inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
+
+## Estilos de resposta
+
+`solis/estilos.py`: como o cérebro escreve, como os estilos do claude.ai. Os prontos (Normal,
+Conciso, Explicativo, Formal) e os do Matheus (`ajustes.estilos_seus`); o escolhido
+(`ajustes.estilo`) vai como uma nota no fim da mensagem pro cérebro (`estilos.nota()`, como a da
+pesquisa), pra qualquer cérebro; no Normal, nada. Na conversa fica só o que ele escreveu. Escolhe-se
+no campo de digitar (a pena, depois da Pesquisa) ou em Configurações → Estilos de resposta, onde se
+criam os seus.
 
 ## Servidores MCP
 

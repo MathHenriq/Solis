@@ -88,6 +88,7 @@ export default function App() {
           aoRecarregar={() => {
             if (conversa.conversa !== null) void conversa.abrir(conversa.conversa);
           }}
+          aoCriarEstilo={() => definirTela('configuracoes')}
           conversa={conversa.conversa}
           ouvindo={ouvindo}
         />

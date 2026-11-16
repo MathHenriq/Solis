@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, fala, memoria, ocr, ollama, pc, rapidas, resumo, roteador, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, ocr, ollama, pc, rapidas, resumo, roteador, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -870,6 +870,54 @@ async def ligar_skill(nome: str, corpo: SkillLigada):
     return {'ok': True}
 
 
+# — Estilos de resposta ———————————————————————————————————————————————————————
+class EstiloEscolha(BaseModel):
+    id: str
+
+
+class EstiloCorpo(BaseModel):
+    nome: str
+    instrucoes: str
+
+
+@app.get('/estilos')
+async def listar_estilos():
+    """O estilo de resposta escolhido (`atual`) e os estilos: os prontos (Normal,
+    Conciso, Explicativo, Formal) e os do Matheus (`seu`)."""
+    return estilos.listar()
+
+
+@app.put('/estilos/atual')
+async def escolher_estilo(corpo: EstiloEscolha):
+    try:
+        return estilos.escolher(corpo.id)
+    except estilos.EstiloInvalido:
+        return JSONResponse({'erro': 'estilo_inexistente'}, status_code=404)
+
+
+@app.post('/estilos')
+async def criar_estilo(corpo: EstiloCorpo):
+    try:
+        return estilos.salvar(corpo.nome, corpo.instrucoes)
+    except estilos.EstiloInvalido as e:
+        return JSONResponse({'erro': 'estilo_invalido', 'motivo': str(e)}, status_code=400)
+
+
+@app.put('/estilos/{id_}')
+async def editar_estilo(id_: str, corpo: EstiloCorpo):
+    try:
+        return estilos.salvar(corpo.nome, corpo.instrucoes, id_)
+    except estilos.EstiloInvalido as e:
+        return JSONResponse({'erro': 'estilo_invalido', 'motivo': str(e)}, status_code=400)
+
+
+@app.delete('/estilos/{id_}')
+async def apagar_estilo(id_: str):
+    if not estilos.apagar(id_):
+        return JSONResponse({'erro': 'estilo_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
 # — Servidores MCP ———————————————————————————————————————————————————————————
 class ServidorCorpo(BaseModel):
     nome: str
@@ -1209,7 +1257,7 @@ async def _responder(
             aberto, parada = await _ate_parar(
                 roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido,
                                    texto + roteador.nota_anexos(anexos) + (roteador.NOTA_PESQUISA if pesquisa else '')
-                                   + roteador.nota_agendada(agendada),
+                                   + roteador.nota_agendada(agendada) + estilos.nota(),
                                    etapas, voz=voz),
                 parar,
             )

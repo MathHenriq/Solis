@@ -483,6 +483,11 @@
       "composerHeight": "98px",
       "composerBottom": "35px",
       "timeSize": "14px",
+      "estilo": {
+        "_status": "PROVISORIO - desenho proprio (15/11/2026), espera a aprovacao do Matheus pelos prints: o estilo de resposta no campo de digitar (EscolhaEstilo.tsx) e Configuracoes -> Estilos de resposta (CartaoEstilos.tsx), como os estilos do claude.ai. No campo, depois da Pesquisa e no mesmo desenho dela: no Normal, so o icone (a pena, 20px, secundario); num estilo, a pilula em accent com o icone e o nome (--et-dobra-texto, borda e fundo do chip --et-chip-*). O menu abre pra cima, alinhado a esquerda do botao, na caixa do seletor de modelo (--kn-menu-*): 'Estilo da resposta', os prontos, 'Seus' e 'Criar ou editar estilos' (abre Configuracoes). O cartao de Configuracoes usa os grupos e as linhas das Skills.",
+        "pillMaxWidth": "160px",
+        "_pillMaxWidth": "O nome na pilula corta com reticencias acima disso: o campo de digitar tem 768px e ja leva +, Pesquisa (ate 108px ligada), o modelo e o microfone; 'Explicativo' (o pronto mais longo) cabe com folga."
+      },
       "etapas": {
         "_fonte": "Medido em referencias/telas/20-conversa-etapas.png pelo metodo de layout.memoria._escala: ancorado no CORPO. A caixa alta do V de 'Voce' na resposta tem 16px na imagem e o corpo do app e 16px de Inter (caixa alta 11,6px), entao 1px do app = 1,375px da imagem. Da referencia vale a ESTRUTURA (simbolo no estado real, lista com check, etapa atual, futuras, linha recolhida acima do cabecalho, chip de memoria guardada). Ela nao bate com a 19 nem com a 18 em sidebar, fonte e simbolo: o nome 'Solis' no cabecalho, o avatar do Matheus e o simbolo creme ficaram de fora, porque a thread validada (18) nao os tem.",
         "textSize": "14px",

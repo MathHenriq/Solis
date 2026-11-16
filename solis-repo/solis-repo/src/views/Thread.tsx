@@ -16,6 +16,7 @@ import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
 import { ComandosFundo } from '../components/ComandosFundo';
 import { EscolhaClaude } from '../components/EscolhaClaude';
+import { EscolhaEstilo } from '../components/EscolhaEstilo';
 import { Markdown } from '../components/Markdown';
 import { Icone } from '../components/icons';
 import { SolisEstado } from '../components/SolisEstado';
@@ -378,6 +379,7 @@ export function Thread({
   aoRefazer,
   aoCortar,
   aoRecarregar,
+  aoCriarEstilo,
 }: {
   turnos: Turno[];
   respondendo: boolean;
@@ -391,6 +393,8 @@ export function Thread({
   aoCortar?: (desde: number) => void;
   /** Lê a conversa de novo do banco (chegou uma resposta que o Claude começou sozinho). */
   aoRecarregar?: () => void;
+  /** "Criar ou editar estilos", no menu do estilo: abre Configurações. */
+  aoCriarEstilo?: () => void;
   conversa?: number | null;
   /** A palavra "Solis" foi ouvida e o que vem depois está sendo escutado. */
   ouvindo?: boolean;
@@ -682,6 +686,7 @@ export function Thread({
             <Icone nome="web" tamanho={20} />
             {pesquisa && 'Pesquisa'}
           </button>
+          <EscolhaEstilo aoCriar={aoCriarEstilo} />
           <EscolhaClaude />
           <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
           {/* Respondendo, o enviar vira o parar (como no Claude): o mesmo

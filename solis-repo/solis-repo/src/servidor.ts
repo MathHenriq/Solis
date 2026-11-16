@@ -1284,6 +1284,60 @@ export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'ho
   ativa?: boolean;
 };
 
+/** Os estilos de resposta (backend/solis/estilos.py): `atual` é o escolhido. */
+export type Estilo = { id: string; nome: string; instrucoes: string; seu: boolean };
+export type Estilos = { atual: string; estilos: Estilo[] };
+
+export async function listarEstilos(): Promise<Estilos | null> {
+  try {
+    const r = await fetch(`${BASE}/estilos`);
+    return r.ok ? ((await r.json()) as Estilos) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function escolherEstilo(id: string): Promise<Estilos | null> {
+  try {
+    const r = await fetch(`${BASE}/estilos/atual`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    return r.ok ? ((await r.json()) as Estilos) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Cria (sem `id`) ou muda um estilo seu. Erro: o motivo em português. */
+export async function salvarEstilo(nome: string, instrucoes: string, id?: string): Promise<Estilo | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/estilos${id ? `/${encodeURIComponent(id)}` : ''}`, {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, instrucoes }),
+    });
+    if (r.ok) return (await r.json()) as Estilo;
+    const motivo = ((await r.json().catch(() => ({}))) as { motivo?: string }).motivo ?? '';
+    const frases: Record<string, string> = {
+      nome: 'Dê um nome ao estilo (até 40 caracteres).',
+      'instruções': 'Diga como escrever (até 2000 caracteres).',
+    };
+    return { erro: frases[motivo] ?? (motivo ? motivo.charAt(0).toUpperCase() + motivo.slice(1) + '.' : 'Não deu pra salvar.') };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
+
+export async function apagarEstilo(id: string): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/estilos/${encodeURIComponent(id)}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Um servidor MCP (backend/solis/servidores_mcp.py): os seus (`origem` seu),
  *  o da memória do Solis e os internos do Codex. `ferramentas`: a última
  *  conferida (nula se nunca conferido). */

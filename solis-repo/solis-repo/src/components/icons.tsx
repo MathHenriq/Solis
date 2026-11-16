@@ -122,6 +122,9 @@ const CAMINHOS = {
     'M6.5 10.5h11a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5V12a1.5 1.5 0 0 1 1.5-1.5z M8 10.5V7.5a4 4 0 0 1 8 0v3',
   'painel':
     'M4.5 3.5h15a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V5a1.5 1.5 0 0 1 1.5-1.5z M9.5 3.5v17',
+  // A pena do estilo de resposta (o "feather" do Lucide, o traço dos outros).
+  'estilo':
+    'M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z M16 8 2 22 M17.5 15H9',
 } as const;
 
 export type NomeIcone = keyof typeof CAMINHOS;
