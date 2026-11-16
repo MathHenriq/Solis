@@ -169,8 +169,11 @@ def entendeu(ouvido: str, esperado: str) -> bool:
     return bool(conteudo) and all(tem(p) for p in conteudo)
 
 
-def _fim_da_fala(amostras: array.array, inicio: float, fim: float) -> float | None:
-    """Quando a pessoa parou de falar dentro da janela (Silero VAD)."""
+def _fim_da_fala(amostras: array.array, inicio: float, fim: float, ate: float | None = None) -> float | None:
+    """Quando a pessoa parou de falar (Silero VAD): o fim do último pedaço de
+    fala da janela que acabou até `ate` (o momento do texto). Sem o `ate`, o
+    16/11/2026 deu tempos negativos: o Matheus continuou falando depois do
+    pedido, e o "fim da fala" caía depois do texto."""
     import numpy as np
     from faster_whisper.vad import VadOptions, get_speech_timestamps
     a, b = int(inicio * TAXA), int(min(len(amostras), (fim + 1.0) * TAXA))
@@ -178,7 +181,9 @@ def _fim_da_fala(amostras: array.array, inicio: float, fim: float) -> float | No
         return None
     trecho = np.frombuffer(amostras[a:b].tobytes(), dtype=np.int16).astype(np.float32) / 32768.0
     falas = get_speech_timestamps(trecho, VadOptions(min_silence_duration_ms=500, speech_pad_ms=0))
-    return round(inicio + falas[-1]['end'] / TAXA, 2) if falas else None
+    fins = [inicio + f['end'] / TAXA for f in falas]
+    antes = [f for f in fins if ate is None or f <= ate]
+    return round((antes or fins or [None])[-1], 2) if (antes or fins) else None
 
 
 class WhisperFalhou(Exception):
@@ -217,6 +222,8 @@ async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str
                 achou, resto = ativacao.palavra_no_inicio(texto)
                 if not achou:
                     escuta.descartar()
+                    # Guardado pra entender a chamada que não acordou: o que ele ouviu.
+                    eventos.append({'tipo': 'descartado', 't': round(t, 2), 'pronto': round(t + gasto, 2), 'ouviu': texto})
                     continue
                 eventos.append({'tipo': 'ativou', 't': round(t, 2), 'pronto': round(t + gasto, 2), 'ouviu': texto})
                 if tipo == 'frase' and resto:
@@ -245,13 +252,15 @@ def pontuar(passos: list[dict], eventos: list[dict], amostras: array.array) -> d
         ativou = any(e['tipo'] == 'ativou' for e in dentro)
         if p['tipo'] == 'chamada':
             texto = next((e for e in dentro if e['tipo'] == 'texto'), None)
-            fim_fala = _fim_da_fala(amostras, p['inicio'], p['fim'])
+            # Desde o "Prepare-se": tem quem comece a falar antes da hora (16/11/2026).
+            fim_fala = _fim_da_fala(amostras, max(0.0, p['inicio'] - PREPARO), p['fim'], texto['t'] if texto else None)
             semelhanca = parecido(texto['texto'], p['esperado']) if texto else 0.0
             resultado.append({
                 **p, 'acordou': ativou or bool(texto), 'ouvido': texto['texto'] if texto else '',
                 'semelhanca': round(semelhanca, 2), 'entendeu': bool(texto) and entendeu(texto['texto'], p['esperado']),
                 'fim_fala': fim_fala,
-                'latencia': round(texto['pronto'] - fim_fala, 2) if texto and fim_fala is not None else None})
+                'latencia': round(texto['pronto'] - fim_fala, 2) if texto and fim_fala is not None else None,
+                'descartados': [e['ouviu'] for e in dentro if e['tipo'] == 'descartado']})
         else:
             resultado.append({**p, 'falsos': sum(1 for e in dentro if e['tipo'] == 'ativou'),
                               'ouviu': [e.get('ouviu', '') for e in dentro if e['tipo'] == 'ativou']})

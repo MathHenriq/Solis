@@ -166,6 +166,11 @@ def test_websocket_sem_configuracao_avisa_e_fecha(monkeypatch):
     ('A solidão faz bem.', (False, 'A solidão faz bem.')),
     ('Isso é sólido.', (False, 'Isso é sólido.')),
     ('Me passa o Solis aí.', (False, 'Me passa o Solis aí.')),
+    # 16/11/2026, a voz do Matheus: "Ei Solis" virou isto.
+    ('É isso, Solis.', (True, '')),
+    ('Olha, Solis, abre a agenda.', (True, 'Abre a agenda.')),
+    ('Eu falei com o Solis ontem.', (False, 'Eu falei com o Solis ontem.')),
+    ('Solidão, Solistas, Sólido.', (False, 'Solidão, Solistas, Sólido.')),
 ])
 def test_palavra_no_inicio(texto, esperado):
     assert ativacao.palavra_no_inicio(texto) == esperado

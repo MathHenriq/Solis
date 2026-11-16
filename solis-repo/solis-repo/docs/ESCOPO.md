@@ -459,6 +459,19 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Os erros que sobram são do Whisper com a voz robótica da Maria ("beber ígua", "desliga a
      MCC"). O padrão não muda com base nela: a gravação do Matheus é medida com as duas escutas, e
      a decisão sai da voz dele.
+   - **A voz do Matheus (16/11/2026, 09:09, o microfone do notebook, o turbo):** a escuta de hoje
+     (energia) acordou 10 de 12, entendeu 10 de 12, 0 alarmes falsos (nem com "sol", "Lis",
+     "solista"), ~1,0 s do fim da fala ao texto. Com o Silero: 8 de 12 ("Dizlega, Muzica", "agenda
+     de cesta" — corta a fala em lugares piores pro Whisper): **o padrão continua a energia.**
+     As duas que faltaram: "Ei Solis…" virou "É isso, Solis." e foi descartado (o "Solis" só valia
+     na primeira palavra ou depois de ei/oi/ok); e "mais baixo que o normal" não passou nem pelo
+     Silero (baixo demais pro microfone). Agora o "Solis" vale depois de até duas palavras curtas
+     ("é isso, Solis", "olha, Solis"), e não com três ou mais ("me passa o Solis"). Na mesma
+     gravação: **acordou 11 de 12, entendeu 10 de 12, 0 falsos.** O que sobra: o Whisper ouviu
+     "Conta 15 vezes 3" no lugar de "quanto é quinze vezes três", e a fala baixa demais.
+     A régua também foi corrigida: o fim da fala é o do pedaço que acabou antes do texto, contado
+     desde o "Prepare-se" (havia tempos negativos), e o que o Whisper ouviu e foi descartado fica
+     guardado na medida.
 
 ### Controle do PC e visão da tela
 

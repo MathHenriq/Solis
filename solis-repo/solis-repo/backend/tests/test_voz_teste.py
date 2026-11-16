@@ -79,7 +79,9 @@ def test_a_escuta_roda_na_gravacao_como_ao_vivo(monkeypatch):
         return next(ouvidos), 0.5
     eventos = asyncio.run(voz_teste.rodar_escuta(amostras, falso))
     tipos = [(e['tipo'], e.get('texto')) for e in eventos]
-    assert tipos == [('ativou', None), ('texto', 'Que horas são?')]
+    # A segunda fala, sem "Solis", fica guardada como descartada (com o que ele ouviu).
+    assert tipos == [('ativou', None), ('texto', 'Que horas são?'), ('descartado', None)]
+    assert eventos[2]['ouviu'] == 'O sol está forte'
     # Sai depois do fim da fala (o silêncio que encerra) e fica pronto com o Whisper.
     assert 5.2 < eventos[1]['t'] < 5.2 + ativacao.FIM_SILENCIO + 0.2
     assert eventos[1]['pronto'] == pytest.approx(eventos[1]['t'] + 0.5, abs=0.01)
@@ -96,7 +98,7 @@ def test_pontuar_conta_acertos_falsos_e_tempo(monkeypatch):
         {'tipo': 'texto', 't': 5.0, 'pronto': 5.4, 'texto': 'Que horas são?'},
         {'tipo': 'ativou', 't': 20.0, 'pronto': 20.3, 'ouviu': 'Sol is forte'},
     ]
-    monkeypatch.setattr(voz_teste, '_fim_da_fala', lambda a, ini, fim: 4.0 if ini == 2.0 else 13.0)
+    monkeypatch.setattr(voz_teste, '_fim_da_fala', lambda a, ini, fim, ate=None: 4.0 if fim == 8.0 else 13.0)
     r = voz_teste.pontuar(passos, eventos, array.array('h'))
     assert r['resumo'] == {'chamadas': 2, 'acordou': 1, 'entendeu': 1, 'falsos': 1, 'trechos_sem': 1,
                            'latencia_mediana': 1.4, 'latencia_max': 1.4, 'passou': False}

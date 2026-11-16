@@ -203,9 +203,12 @@ def _sem_acento(texto: str) -> str:
 
 
 # "Solis", como o Whisper costuma escrever (Sólis, Solís, Sollis, Solys), no
-# começo da frase ou depois de um chamado ("ei, Solis").
+# começo da frase ou depois de até duas palavras curtas ("ei, Solis", "olha,
+# Solis"). Antes era só ei/oi/ok: no teste com a voz do Matheus (16/11/2026) o
+# "Ei Solis" virou "É isso, Solis." e a chamada se perdeu. Três palavras ou
+# mais antes ("me passa o Solis") é conversa, não chamada.
 # O "S" pode sumir no começo da fala ("Olis").
-_PALAVRA = re.compile(r"^[\s\W]*(?:(?:ei|hey|oi|ola|ok|e ai)[\s,!.]+)?s?ol+[eiy]s+e?\b[\s,!.:;?-]*")
+_PALAVRA = re.compile(r"^[\s\W]*(?:[a-z]{1,5}[\s,!.?-]+){0,2}?s?ol+[eiy]s+e?\b[\s,!.:;?-]*")
 
 
 def palavra_no_inicio(texto: str) -> tuple[bool, str]:
