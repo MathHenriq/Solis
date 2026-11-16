@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { Icone, type NomeIcone } from '../components/icons';
-import { falaAutomatica, respostaFalada } from '../fala';
+import { falaAutomatica, marcarRespostaFalada } from '../fala';
 import { useVoz, type EstadoVoz } from '../voz';
 
 /** Tela de Conversa — estado de abertura.
@@ -99,7 +99,7 @@ export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: str
             // A primeira mensagem é o que abre a thread — o shell troca de
             // estado assim que a conversa deixa de estar vazia.
             if (!rascunho.trim()) return;
-            respostaFalada.proxima = ditado.current && falaAutomatica();
+            marcarRespostaFalada(ditado.current && falaAutomatica());
             aoEnviar?.(rascunho);
           }}
         >

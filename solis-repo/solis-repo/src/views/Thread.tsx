@@ -24,7 +24,7 @@ import { SolisSimbolo } from '../components/SolisSimbolo';
 import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
 import { NOMES_CEREBRO, enviarAnexo, lerVolta, type Anexo } from '../servidor';
-import { falaAutomatica, respostaFalada, useFala } from '../fala';
+import { falaAutomatica, marcarRespostaFalada, respostaFalada, useFala } from '../fala';
 import { useFundo } from '../fundo';
 import { useVoz } from '../voz';
 
@@ -437,6 +437,18 @@ export function Thread({
     fala.ouvir(ultima.id, ultima.texto);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ultima?.id, ultima?.digitando]);
+  // A narração: pela voz, quando o pedido vai pro Claude ou pro Codex (passou
+  // pra quem tem ferramentas, ou os rápidos caíram), uma frase fixa avisa
+  // enquanto ele trabalha — sem ela, eram 3,5 a 14 s de silêncio.
+  const lento = ultima?.digitando
+    ? ultima.etapas?.find((e) => e.etapa === 'cerebro' && (e.cerebro === 'claude' || e.cerebro === 'codex'))?.cerebro
+    : undefined;
+  useEffect(() => {
+    if (!lento || !respostaFalada.proxima || respostaFalada.narrou) return;
+    respostaFalada.narrou = true;
+    fala.narrar(lento);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lento]);
   // Voltar atrás: a última fala depois da qual o Claude mudou arquivo (dela
   // pra trás, toda fala pode voltar). Relida no fim de cada resposta.
   const [ultimaVolta, definirUltimaVolta] = useState<number | null>(null);
@@ -619,7 +631,7 @@ export function Thread({
             const prontos = pendentes.flatMap((p) => (p.anexo ? [p.anexo] : []));
             if (respondendo || subindo || (!rascunho.trim() && !prontos.length)) return;
             grudada.current = true;
-            respostaFalada.proxima = ditado.current && falaAutomatica();
+            marcarRespostaFalada(ditado.current && falaAutomatica());
             ditado.current = false;
             aoEnviar(rascunho, undefined, prontos, pesquisa);
             definirRascunho('');

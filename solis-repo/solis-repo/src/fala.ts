@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { partesDaFala, prepararFala } from './servidor';
+import { partesDaFala, prepararFala, urlFrase } from './servidor';
 import { PedacoDeFala } from './somAosPedacos';
 
 /** O Solis falando: toca uma resposta em pedaços. O primeiro pedaço é curto
@@ -18,7 +18,17 @@ import { PedacoDeFala } from './somAosPedacos';
 /** Marcado quando a mensagem foi ditada pela voz: a resposta dela é falada
  *  sozinha. Fica no módulo porque a primeira mensagem sai da tela de abertura
  *  e a resposta chega na thread. */
-export const respostaFalada = { proxima: false };
+export const respostaFalada = { proxima: false, narrou: false };
+
+/** A próxima resposta vai ser falada (ou não): e ainda não foi narrada. */
+export function marcarRespostaFalada(falada: boolean) {
+  respostaFalada.proxima = falada;
+  respostaFalada.narrou = false;
+}
+
+// Enquanto a narração toca, `falando` fica neste valor (nenhuma mensagem tem
+// esse id): a escuta pausa igual, e nenhuma mensagem aparece falando.
+const NARRANDO = -1;
 
 const CHAVE_AUTO = 'solis.fala.auto';
 
@@ -76,6 +86,8 @@ export function useFala(conversa: number | null) {
   const audio = useRef<PedacoDeFala | null>(null);
   // O pedaço seguinte, já carregando: parar tem que cortar ele também.
   const seguinte = useRef<Promise<PedacoDeFala | null> | null>(null);
+  // A narração tocando (uma frase fixa enquanto o Claude trabalha).
+  const narracao = useRef<{ el: PedacoDeFala; fim: Promise<void> } | null>(null);
 
   const eu = useRef(Symbol('fala'));
 
@@ -95,12 +107,33 @@ export function useFala(conversa: number | null) {
     audio.current = null;
     void seguinte.current?.then((p) => p?.cancelar());
     seguinte.current = null;
+    narracao.current?.el.cancelar();
+    narracao.current = null;
     definirFalando(null);
     definirPreparando(false);
   };
   useEffect(() => parar, []);
 
+  /** A narração (IDEIAS.md): pela voz, o Claude leva de 3,5 a 14 s até a
+   *  primeira palavra, e era silêncio. Uma frase fixa, gravada uma vez no
+   *  servidor, avisa o que está acontecendo. Não toca por cima de outra fala. */
+  function narrar(nome: string) {
+    if (narracao.current || audio.current) return;
+    const el = new PedacoDeFala(urlFrase(nome));
+    definirFalando(NARRANDO);
+    const fim = el
+      .tocar(() => {})
+      .then(() => undefined)
+      .finally(() => {
+        if (narracao.current?.el === el) narracao.current = null;
+        definirFalando((f) => (f === NARRANDO ? null : f));
+      });
+    narracao.current = { el, fim };
+  }
+
   async function ouvir(id: number, texto: string) {
+    // A resposta chegou com a narração ainda tocando: espera ela acabar (é curta).
+    if (narracao.current) await narracao.current.fim;
     parar();
     const minha = ++vez.current;
     definirFalando(id);
@@ -144,5 +177,5 @@ export function useFala(conversa: number | null) {
     }
   }
 
-  return { falando, preparando, falhou, ouvir, parar };
+  return { falando, preparando, falhou, ouvir, parar, narrar };
 }

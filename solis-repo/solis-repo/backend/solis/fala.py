@@ -514,3 +514,52 @@ async def vigiar() -> None:
     while True:
         await asyncio.sleep(60)
         descarregar_se_ocioso()
+
+
+# — Frases fixas (a narração do IDEIAS.md) ——————————————————————————————————————
+# O que o Solis diz enquanto um cérebro lento trabalha: pela voz, o Claude leva
+# de 3,5 a 14 s até a primeira palavra, e era silêncio. Cada frase é gerada uma
+# vez, com a voz escolhida, e fica no disco — depois, custo zero e sem espera.
+# Texto fixo, nada do Matheus: pode ir pra voz de nuvem.
+FRASES = {
+    'claude': 'Vou passar pro Claude, um instante.',
+    'codex': 'Vou passar pro Codex, um instante.',
+}
+PASTA_FRASES = PASTA / 'frases'
+
+
+def _arquivo_da_frase(nome: str, ext: str) -> Path:
+    import hashlib
+    # A voz escolhida entra na chave: trocou a voz, a frase é gravada de novo.
+    marca = hashlib.sha1(f'{FRASES[nome]}|{voz_fish()}|{voz_gemini()}|{FISH_MODELO}'.encode()).hexdigest()[:12]
+    return PASTA_FRASES / f'{nome}-{marca}.{ext}'
+
+
+async def frase(nome: str) -> tuple[bytes, str, str]:
+    """(áudio, tipo, quem) de uma frase fixa: do disco, ou gerada agora e guardada.
+    KeyError se a frase não existe."""
+    texto = FRASES[nome]
+    for ext, tipo in (('mp3', 'audio/mpeg'), ('wav', 'audio/wav')):
+        arquivo = _arquivo_da_frase(nome, ext)
+        if arquivo.is_file():
+            return arquivo.read_bytes(), tipo, 'gravada'
+    audio, tipo, quem = await falar(texto)
+    # Só fica gravada na voz escolhida: com a Fish configurada, a reserva que
+    # falou porque a Fish caiu não vira a frase pra sempre.
+    if quem == 'fish' or (not chave_fish() and quem not in {n for n, _, _ in LOCAL}):
+        PASTA_FRASES.mkdir(parents=True, exist_ok=True)
+        _arquivo_da_frase(nome, 'mp3' if tipo == 'audio/mpeg' else 'wav').write_bytes(audio)
+    return audio, tipo, quem
+
+
+async def gravar_frases() -> None:
+    """Grava (em segundo plano, quando o servidor sobe) as frases que faltam.
+    Só com a Fish: é a voz de nuvem que leva ~2,5 s pra gerar a frase (medido
+    em 16/11/2026: 2,47 s a primeira vez, 0,004 a 0,013 s do disco depois)."""
+    if not chave_fish():
+        return
+    for nome in FRASES:
+        try:
+            await frase(nome)
+        except Exception as e:  # noqa: BLE001 — sem a frase, ela é gerada na hora
+            log.info('a frase %s não foi gravada: %s', nome, e)

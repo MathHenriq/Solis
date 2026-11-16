@@ -71,8 +71,11 @@ async def _vida(_app):
     # E a tirar o Whisper da memória quando ninguém fala há um tempo.
     ouvido = asyncio.create_task(voz.vigiar())
     boca = asyncio.create_task(fala.vigiar())
+    # As frases da narração, gravadas já: a primeira vez não espera a voz gerar.
+    frases = asyncio.create_task(fala.gravar_frases())
     yield
     boca.cancel()
+    frases.cancel()
     indexacao.cancel()
     leitura.cancel()
     vigia.cancel()
@@ -1648,6 +1651,20 @@ async def preparar_fluxo(corpo: TextoFala):
     id_ = uuid.uuid4().hex
     _fluxos[id_] = (corpo.texto, corpo.conversa, agora)
     return {'id': id_}
+
+
+@app.get('/fala/frase/{nome}')
+async def falar_frase(nome: str):
+    """Uma frase fixa do Solis (fala.FRASES): gravada uma vez com a voz
+    escolhida, depois sai do disco. É o que a tela fala enquanto o Claude
+    trabalha num pedido de voz."""
+    if nome not in fala.FRASES:
+        return JSONResponse({'erro': 'frase_inexistente'}, status_code=404)
+    try:
+        audio, tipo, quem = await fala.frase(nome)
+    except fala.SemVoz as e:
+        return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
+    return Response(audio, media_type=tipo, headers={'X-Solis-Voz': quem, 'Cache-Control': 'no-store'})
 
 
 @app.get('/fala/fluxo/{id_}')

@@ -9,7 +9,7 @@ import { useChamada } from './chamada';
 import { noApp, useIlhaNoApp } from './tauri';
 import { useConversa } from './conversa';
 import { useEscuta } from './escuta';
-import { falaAutomatica, respostaFalada } from './fala';
+import { falaAutomatica, marcarRespostaFalada } from './fala';
 import { useTheme } from './theme/useTheme';
 import { Agenda } from './views/Agenda';
 import { Conhecimento } from './views/Conhecimento';
@@ -38,7 +38,7 @@ export default function App() {
   // conversa aberta, e a resposta é falada (se "Responder falando" estiver ligado).
   const escuta = useEscuta((texto) => {
     definirTela('conversa');
-    respostaFalada.proxima = falaAutomatica();
+    marcarRespostaFalada(falaAutomatica());
     conversa.enviar(texto);
     chamada.enviado(texto);
   });

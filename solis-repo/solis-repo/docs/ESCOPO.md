@@ -601,6 +601,16 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      substituição, tarefa, compromisso com dia e hora, saúde marcada privada, agradecimento) pela
      extração, sem guardar nada. Na Groq (gpt-oss-20b): **14 de 14**, 0,82 s cada (o qwen3:8b levava
      11 a 13 s). O título e o resumo da conversa continuam só no local.
+   - **A narração (16/11/2026).** Pela voz, quando o pedido vai pro Claude ou pro Codex (passou
+     pra quem tem ferramentas, ou os rápidos caíram), a tela fala na hora uma frase fixa: "Vou
+     passar pro Claude, um instante." — eram 3,5 a 14 s de silêncio. A frase é gravada uma vez com
+     a voz escolhida (`GET /fala/frase/{nome}`, `fala.FRASES`) e fica no disco
+     (`%LOCALAPPDATA%\Solis\voz\frases`); trocou a voz, grava de novo; a voz de reserva (a Fish
+     caiu) não fica gravada. O servidor grava as que faltam quando sobe (só com a Fish). Medido: a
+     primeira vez 2,47 s (a Fish gerando), depois **0,004 a 0,013 s**. A resposta espera a frase
+     acabar em vez de cortá-la, e a escuta pausa durante ela. **Não visto ao vivo:** precisa de um
+     pedido por voz que passe pro Claude, que age de verdade no PC — fica pro Matheus testar
+     ("Solis, pesquisa o preço do dólar hoje").
 
 ### Controle do PC e visão da tela
 

@@ -1036,6 +1036,12 @@ export async function transcreverAudio(audio: Blob): Promise<ResultadoVoz> {
 // — Fala ——————————————————————————————————————————————————————————————————————————
 
 /** A resposta em pedaços pra falar: o primeiro é curto, pra começar logo. */
+/** Uma frase fixa do Solis (a narração: "Vou passar pro Claude, um instante."),
+ *  gravada uma vez no servidor com a voz escolhida. */
+export function urlFrase(nome: string): string {
+  return `${BASE}/fala/frase/${encodeURIComponent(nome)}`;
+}
+
 export async function partesDaFala(texto: string): Promise<string[] | null> {
   try {
     const r = await fetch(`${BASE}/fala/partes`, {
