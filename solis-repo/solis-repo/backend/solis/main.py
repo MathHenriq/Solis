@@ -870,6 +870,18 @@ async def ligar_skill(nome: str, corpo: SkillLigada):
     return {'ok': True}
 
 
+# — Uso da cota do Claude ————————————————————————————————————————————————————
+@app.get('/uso')
+async def ler_uso(atualizar: bool = False):
+    """Quanto da cota do Claude já foi (a sessão de 5 horas, a semana) e quando
+    volta, pelo /usage do CLI (não gasta cota). Guardado um minuto."""
+    from . import uso
+    try:
+        return await uso.ler(atualizar)
+    except uso.UsoIndisponivel as e:
+        return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
+
+
 # — Estilos de resposta ———————————————————————————————————————————————————————
 class EstiloEscolha(BaseModel):
     id: str

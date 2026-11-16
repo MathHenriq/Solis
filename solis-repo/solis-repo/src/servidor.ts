@@ -1284,6 +1284,20 @@ export type NovaAgendada = Pick<Agendada, 'nome' | 'pedido' | 'frequencia' | 'ho
   ativa?: boolean;
 };
 
+/** O uso da cota do Claude (backend/solis/uso.py): cada cota com quanto já foi
+ *  (0-100) e quando volta. */
+export type Cota = { tipo: string; rotulo: string; usado: number; volta: string | null };
+export type Uso = { plano: string | null; cotas: Cota[]; quando: string };
+
+export async function lerUso(atualizar = false): Promise<Uso | null> {
+  try {
+    const r = await fetch(`${BASE}/uso${atualizar ? '?atualizar=true' : ''}`);
+    return r.ok ? ((await r.json()) as Uso) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Os estilos de resposta (backend/solis/estilos.py): `atual` é o escolhido. */
 export type Estilo = { id: string; nome: string; instrucoes: string; seu: boolean };
 export type Estilos = { atual: string; estilos: Estilo[] };

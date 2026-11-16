@@ -8,6 +8,7 @@ import { CartaoEstilos } from './CartaoEstilos';
 import { CartaoNavegador } from './CartaoNavegador';
 import { CartaoServidoresMcp } from './CartaoServidoresMcp';
 import { CartaoSkills } from './CartaoSkills';
+import { CartaoUso } from './CartaoUso';
 import { CartaoDocumentos } from './CartaoDocumentos';
 import { CartaoVoz } from './CartaoVoz';
 
@@ -193,6 +194,7 @@ export function Configuracoes({
         </section>
 
         <CartaoCerebros />
+        <CartaoUso />
         <CartaoConectores />
         <CartaoServidoresMcp />
         <CartaoNavegador />

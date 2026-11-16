@@ -105,6 +105,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /agendadas/{id}` | o mesmo corpo, mais `ativa` → muda (desligar é `ativa: false`) |
 | `DELETE /agendadas/{id}` | apaga a tarefa (as conversas que ela abriu ficam) |
 | `POST /agendadas/{id}/rodar` | roda agora, sem mexer na próxima vez → `{"conversa"}`: onde o Claude vai responder |
+| `GET /uso` | o uso da cota do Claude: `plano` ("Claude Pro") e as `cotas` (`tipo`: `sessao`, `semana`, `semana-fable`; `rotulo`, `usado` de 0 a 100, `volta`), pelo `/usage` do CLI (não gasta cota). Guardado um minuto; `?atualizar=true` lê de novo. `502` com `nao_deu` |
 | `GET /estilos` | o estilo de resposta escolhido (`atual`) e os estilos: os prontos (`normal`, `conciso`, `explicativo`, `formal`) e os seus (`seu`) |
 | `PUT /estilos/atual` | `{"id"}` → escolhe (vale pra toda resposta, de qualquer cérebro, até trocar) |
 | `POST /estilos` | `{"nome", "instrucoes"}` → cria um estilo seu. `400` com `estilo_invalido` e o `motivo` |
@@ -517,6 +518,14 @@ Com o Solis fechado não roda nada; a que venceu nesse tempo roda ao abrir se o 
 `mcp__solis__agendar_tarefa`, a única do Solis que pede cartão (`agente.SOLIS_PEDEM`; fica fora do
 `allowed_tools`, que passaria por cima do cartão). O cartão mostra o nome, quando e o pedido
 inteiro, e não tem "Sempre": cada agendamento se aprova um a um. Tabela `agendadas`, migração 20.
+
+## Uso da cota
+
+`solis/uso.py`: quanto da cota do Claude já foi, como Configurações → Uso no Claude Desktop. O CLI
+do Claude responde `/usage` sem chamar o modelo, com linhas como "Current session: 74% used · resets
+Nov 16, 12:29am"; o Solis pede numa sessão própria (thread com laço Proactor, como os conectores),
+lê as linhas (`ler_texto`) e guarda um minuto. Se o CLI mudar o texto, a rota diz `nao_deu` e o
+texto cru vai pro log. Na assinatura não há custo em dinheiro por resposta: o que conta é a cota.
 
 ## Estilos de resposta
 

@@ -385,6 +385,13 @@
         "instructionsHeight": "208px",
         "_instructionsHeight": "A caixa das instrucoes comeca com 8 linhas: 8 x 16px (--cfg-rotulo) x 1,5 de entrelinha = 192, mais o padding de 8 em cima e embaixo (--mac-campo-py). Cresce puxando o canto."
       },
+      "uso": {
+        "_status": "PROVISORIO - desenho proprio (15/11/2026), espera a aprovacao do Matheus pelos prints: Configuracoes -> Uso (CartaoUso.tsx), como Configuracoes -> Uso no Claude Desktop. O cartao e as linhas do de Cerebros (cardGap, rowPadY, textMax) e o 'Ver de novo' dos Conectores. Cada cota: o rotulo em --cfg-rotulo e 'N% usado' a direita em --cfg-dica (em --erro a partir de 90%), a barra embaixo (trilho --divider, preenchida em --accent; --erro a partir de 90%) e 'Volta amanha as 0:30' em --cfg-dica.",
+        "barHeight": "6px",
+        "_barHeight": "A barra da cota: fina como a das barras de uso do Claude Desktop; com 6px o preenchido le em qualquer tema sem pesar ao lado do texto de 13px.",
+        "barTop": "10px",
+        "_barTop": "Do rotulo a barra: um pouco mais que o --cfg-dica-top (6px), pra barra nao colar no texto."
+      },
       "mcp": {
         "_status": "APROVADO pelo Matheus em 15/11/2026 nos 3 temas e 2 navs - desenho proprio (15/11/2026): Configuracoes -> Servidores MCP (CartaoServidoresMcp.tsx), como os servidores MCP do Claude Code. O cartao e as linhas do de Cerebros (cardGap, rowPadY, textMax), os grupos das Skills ('Seus', 'Do Solis', 'Do Codex', titulo em --cfg-dica separados pelo cardGap). Cada linha: o nome em --cfg-rotulo, o comando ou o endereco em mono (--cod-texto) cortado numa linha, e embaixo 'Claude e GPT', o estado das ferramentas ('5 ferramentas, 3 so leem'; erro em --erro) e as acoes em texto (Conferir, Editar, Remover com confirmacao na linha). O formulario e o das Skills: comando, endereco e variaveis em mono; o tipo e o 'pra quem' (--skl-para-l) nos seletores dos campos.",
         "typeWidth": "180px",
