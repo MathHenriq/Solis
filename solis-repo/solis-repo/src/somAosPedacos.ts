@@ -11,6 +11,12 @@
  *
  *  Abrir já começa a baixar (e a guardar o que chega): o pedaço seguinte
  *  carrega enquanto o atual toca. */
+// Prazos (16/11/2026): a fonte do áudio tem de abrir em 5 s, e o áudio não pode
+// ficar 15 s sem avançar (o primeiro som da Fish sai em ~0,8 s; a voz local, em
+// até ~6 s pra frase inteira).
+const ABRIR_MAX_MS = 5000;
+const PARADO_MAX_MS = 15000;
+
 export class PedacoDeFala {
   private pedacos: Uint8Array[] = [];
   private acabou = false;
@@ -84,7 +90,15 @@ export class PedacoDeFala {
     const fonte = new MediaSource();
     const url = URL.createObjectURL(fonte);
     this.el.src = url;
-    await new Promise<void>((ok) => fonte.addEventListener('sourceopen', () => ok(), { once: true }));
+    // Sem prazo, uma fonte que não abre deixava a fala (e a escuta, pausada) presa.
+    const abriu = await new Promise<boolean>((ok) => {
+      fonte.addEventListener('sourceopen', () => ok(true), { once: true });
+      window.setTimeout(() => ok(false), ABRIR_MAX_MS);
+    });
+    if (!abriu) {
+      URL.revokeObjectURL(url);
+      return false;
+    }
     const buffer = fonte.addSourceBuffer('audio/mpeg');
     // mp3 não traz carimbo de tempo: em sequência, cada pedaço vem depois do outro.
     buffer.mode = 'sequence';
@@ -107,12 +121,26 @@ export class PedacoDeFala {
     return ok && !this.erro;
   }
 
+  /** Toca até o fim. Áudio que empaca (PARADO_MAX_MS sem avançar) conta como
+   *  falha: sem isso, o "terminou" nunca vinha e a escuta ficava pausada. */
   private esperarTocar(aoComecar: () => void): Promise<boolean> {
     return new Promise<boolean>((fim) => {
-      this.el.onplaying = () => aoComecar();
-      this.el.onended = () => fim(true);
-      this.el.onerror = () => fim(false);
-      this.el.play().catch(() => fim(false));
+      let ultimo = Date.now();
+      const vigia = window.setInterval(() => {
+        if (Date.now() - ultimo > PARADO_MAX_MS) acabar(false);
+      }, 1000);
+      const acabar = (ok: boolean) => {
+        window.clearInterval(vigia);
+        fim(ok);
+      };
+      this.el.ontimeupdate = () => (ultimo = Date.now());
+      this.el.onplaying = () => {
+        ultimo = Date.now();
+        aoComecar();
+      };
+      this.el.onended = () => acabar(true);
+      this.el.onerror = () => acabar(false);
+      this.el.play().catch(() => acabar(false));
     });
   }
 }

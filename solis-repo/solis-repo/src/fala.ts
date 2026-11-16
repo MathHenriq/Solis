@@ -43,9 +43,28 @@ export function definirFalaAutomatica(ligada: boolean) {
 /** Quem precisa saber que o Solis está falando: a escuta da palavra pausa
  *  enquanto ele fala, senão a própria voz dele (dizendo "Solis") o acordaria. */
 const ouvintesDaFala = new Set<(falando: boolean) => void>();
+// Quem está falando agora (cada useFala é um). Global, e não o estado de um
+// componente: em 16/11/2026 o Matheus saiu da conversa enquanto (ou logo
+// depois que) o Solis falava, o componente sumiu sem avisar "parei", e a
+// escuta da palavra ficou pausada pra sempre — dez "Solis" sem resposta.
+const falandoAgora = new Set<symbol>();
+
+function avisarFala() {
+  const falando = falandoAgora.size > 0;
+  ouvintesDaFala.forEach((o) => o(falando));
+}
+
+function marcarFala(quem: symbol, falando: boolean) {
+  const antes = falandoAgora.size > 0;
+  if (falando) falandoAgora.add(quem);
+  else falandoAgora.delete(quem);
+  if (antes !== falandoAgora.size > 0) avisarFala();
+}
 
 export function aoMudarFala(ouvinte: (falando: boolean) => void): () => void {
   ouvintesDaFala.add(ouvinte);
+  // Quem chega no meio de uma fala já sabe que é pra pausar.
+  if (falandoAgora.size) ouvinte(true);
   return () => ouvintesDaFala.delete(ouvinte);
 }
 
@@ -58,9 +77,17 @@ export function useFala(conversa: number | null) {
   // O pedaço seguinte, já carregando: parar tem que cortar ele também.
   const seguinte = useRef<Promise<PedacoDeFala | null> | null>(null);
 
+  const eu = useRef(Symbol('fala'));
+
   useEffect(() => {
-    ouvintesDaFala.forEach((o) => o(falando !== null));
+    marcarFala(eu.current, falando !== null);
   }, [falando]);
+  // Saindo da tela (no meio da fala ou não): este não fala mais. O setState do
+  // parar() num componente que sumiu não roda o efeito de cima — por isso aqui.
+  useEffect(() => {
+    const quem = eu.current;
+    return () => marcarFala(quem, false);
+  }, []);
 
   const parar = () => {
     vez.current += 1;

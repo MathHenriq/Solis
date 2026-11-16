@@ -508,6 +508,15 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      fica em ~2,5 a 3 s do fim da fala ao primeiro som (escuta ~1,0 s + Groq ~0,7–1,5 s + Fish
      ~0,75 s); antes, 5 a 30 s. Falta pro "perto de 1 s": transcrever enquanto ele fala e a voz
      começar pela primeira frase (a cascata do `IDEIAS.md`).
+   - **A escuta presa depois de uma resposta falada (16/11/2026):** o Matheus chamou, ouviu a
+     hora, e depois dez "Solis" sem resposta. No log: as duas respostas foram faladas, ele foi
+     pra Memória logo depois, e nenhum áudio chegou mais ao servidor. A escuta pausa enquanto o
+     Solis fala, e o "parei de falar" vinha do estado da tela de conversa — saindo dela, o aviso
+     nunca vinha e a escuta ficava pausada pra sempre. Agora: quem fala fica num registro
+     global, e sair da tela conta como "parei" (`src/fala.ts`); o áudio que não abre em 5 s ou
+     fica 15 s sem avançar conta como falha (`src/somAosPedacos.ts`); e uma pausa de mais de
+     90 s volta a ouvir sozinha (`src/escuta.ts`). Falta conferir no uso dele. A primeira
+     chamada que não foi ouvida ainda não foi investigada.
 
 ### Controle do PC e visão da tela
 

@@ -12,6 +12,7 @@ import { urlEscuta } from './servidor';
  *  Ligada em Configurações → Voz; o estado fica no navegador, como a aparência. */
 
 const CHAVE = 'solis.escuta';
+const PAUSA_MAX_MS = 90_000;
 
 export function escutaLigada(): boolean {
   try {
@@ -72,9 +73,23 @@ export function useEscuta(aoTexto: (texto: string) => void) {
     let espera: number | undefined;
     let pausada = false;
     let analisador: AnalyserNode | null = null;
-    const pararDeOuvirFala = aoMudarFala((falando) => {
+    let tetoDaPausa: number | undefined;
+    const pausar = (falando: boolean) => {
       pausada = falando;
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ pausa: falando }));
+    };
+    const pararDeOuvirFala = aoMudarFala((falando) => {
+      pausar(falando);
+      // Trava de segurança (16/11/2026: a escuta ficou pausada pra sempre
+      // depois de uma resposta falada): nenhuma fala do Solis dura isso, então
+      // uma pausa maior é um "parei" que se perdeu — a escuta volta sozinha.
+      window.clearTimeout(tetoDaPausa);
+      if (falando) {
+        tetoDaPausa = window.setTimeout(() => {
+          console.warn('escuta: pausada há mais de 90 s; voltando a ouvir');
+          pausar(false);
+        }, PAUSA_MAX_MS);
+      }
     });
 
     // O microfone (e o áudio a 16 kHz) só fica aberto enquanto o servidor
@@ -166,6 +181,7 @@ export function useEscuta(aoTexto: (texto: string) => void) {
 
     return () => {
       fim = true;
+      window.clearTimeout(tetoDaPausa);
       pararDeOuvirFala();
       window.clearTimeout(espera);
       ws?.close();
