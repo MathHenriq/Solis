@@ -6,7 +6,7 @@ import { Icone } from './icons';
  *  (backend/solis/estilos.py). Vale pra toda resposta, de qualquer cérebro,
  *  até trocar.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o botão da Pesquisa (no Normal, só o ícone; num estilo, a pílula em accent
  *  com o nome) e o menu do seletor de modelo (--kn-menu-*), abrindo pra cima.
  *  Ver layout.thread.estilo no solis-tokens.json. */

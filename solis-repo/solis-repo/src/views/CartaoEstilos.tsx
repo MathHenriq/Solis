@@ -7,7 +7,7 @@ import { apagarEstilo, escolherEstilo, listarEstilos, salvarEstilo, type Estilo,
  *  claude.ai (backend/solis/estilos.py). Escolher também se faz no campo de
  *  digitar.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão, os grupos e as linhas das Skills (layout.configuracoes.skills),
  *  o formulário das Tarefas agendadas (--agd-*, --mac-*). Ver
  *  layout.thread.estilo. */
