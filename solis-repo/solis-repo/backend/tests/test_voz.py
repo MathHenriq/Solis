@@ -152,3 +152,33 @@ def test_sem_o_escolhido_usa_a_melhor_reserva(monkeypatch, tmp_path):
     (tmp_path / 'faster-whisper-large-v3-turbo-ct2').mkdir()
     (tmp_path / 'faster-whisper-large-v3-turbo-ct2' / 'model.bin').write_bytes(b'x')
     assert voz.modelo_em_uso() == 'faster-whisper-large-v3-turbo-ct2'
+
+
+def test_modelo_segurado_nao_sai_da_memoria(modelo, monkeypatch):
+    monkeypatch.setattr(voz, '_ultimo_uso', time.monotonic() - voz.OCIOSO - 1)
+    voz.segurar()
+    assert voz.descarregar_se_ocioso() is False and voz._modelo is modelo
+    voz.soltar()
+    # Solto, os 10 min contam a partir de agora.
+    assert voz.descarregar_se_ocioso() is False
+    monkeypatch.setattr(voz, '_ultimo_uso', time.monotonic() - voz.OCIOSO - 1)
+    assert voz.descarregar_se_ocioso() is True
+
+
+def test_aquecer_carrega_e_transcreve_silencio(monkeypatch):
+    transcritos = []
+
+    class Falso:
+        def transcribe(self, som, **_):
+            transcritos.append(len(som))
+            return iter([]), None
+    monkeypatch.setattr(voz, '_modelo', None)
+
+    def carregar():
+        voz._modelo = Falso()
+        voz._carregado = voz.modelo_em_uso()
+    monkeypatch.setattr(voz, '_carregar', carregar)
+    voz._aquecer_de_verdade()
+    assert isinstance(voz._modelo, Falso) and transcritos == [16000]
+    voz._aquecer_de_verdade()  # já quente: não transcreve de novo
+    assert transcritos == [16000]

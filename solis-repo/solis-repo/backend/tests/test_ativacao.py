@@ -265,3 +265,48 @@ def test_trecho_baixo_e_normalizado_pro_whisper():
     forte = array.array('h', [30000, -30000])
     assert ativacao._normalizar(forte) == forte
     assert ativacao._normalizar(array.array('h', [0, 0])) == array.array('h', [0, 0])
+
+
+def test_whisper_decisao_demorada_estica_o_prazo_do_pedido():
+    """16/11/2026: o Whisper frio levou ~7 s pra decidir. O áudio desse tempo
+    fica na fila, e quem chamou só fala depois do bipe: o prazo pra começar o
+    pedido conta a partir dele."""
+    atraso = 6.0
+    # Silêncio até 2 s depois do prazo de sempre (e antes do prazo esticado), e o pedido.
+    audio = fala_com_silencio(0.6) + quadros(ativacao.INICIO_MAX + 2.0, tom=False) \
+        + quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)
+    for demora, esperado in ((0.0, None), (atraso, 'pedido')):
+        e = ativacao.Escuta(whisper=True)
+        comando = 'sem'
+        for tipo, wav in e.alimentar(audio.tobytes()):
+            if tipo == 'frase':
+                e.confirmar(atraso=demora)
+            elif tipo == 'comando':
+                comando = wav
+                break
+        if esperado is None:
+            assert comando is None  # desistiu antes do pedido chegar
+        else:
+            assert comando not in (None, 'sem') and (len(comando) - 44) / 2 / TAXA >= 1.0
+
+
+def test_whisper_o_atraso_tem_teto():
+    e = ativacao.Escuta(whisper=True)
+    e.confirmar(atraso=120.0)
+    assert e.espera_extra == ativacao.ATRASO_MAX
+
+
+def test_websocket_segura_o_whisper_enquanto_a_escuta_esta_aberta(monkeypatch):
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
+    aquecidos = []
+    monkeypatch.setattr(voz, 'aquecer', lambda: aquecidos.append(1))
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        assert voz._segurando == 1
+    import time as _t
+    fim = _t.monotonic() + 2
+    while voz._segurando and _t.monotonic() < fim:
+        _t.sleep(0.02)
+    assert voz._segurando == 0 and aquecidos == [1]

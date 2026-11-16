@@ -114,3 +114,13 @@ def sem_cli_de_verdade(monkeypatch):
     monkeypatch.setattr(cerebros, 'instalado', lambda nome: False)
     monkeypatch.setattr(cerebros, '_fora_ate', {})
     monkeypatch.setattr(cerebros, '_motivo_pausa', {})
+
+
+@pytest.fixture(autouse=True)
+def sem_whisper_de_verdade(monkeypatch):
+    """Abrir a escuta aquece o Whisper (voz.aquecer): nos testes, não carrega
+    o modelo de verdade na GPU. O teste do aquecer chama o original."""
+    from solis import voz
+    monkeypatch.setattr(voz, '_aquecer_de_verdade', voz.aquecer, raising=False)
+    monkeypatch.setattr(voz, 'aquecer', lambda: None)
+    monkeypatch.setattr(voz, '_segurando', 0)

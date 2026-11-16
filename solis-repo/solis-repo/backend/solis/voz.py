@@ -101,6 +101,12 @@ _carregado = None  # qual modelo está carregado (modelo_em_uso pode mudar)
 _sem_gpu = False  # a GPU falhou uma vez: daqui pra frente, CPU
 _ultimo_uso = 0.0
 _trava = threading.Lock()
+# Quantas escutas da palavra estão abertas: com alguma, o modelo não sai da
+# memória. Medido em 16/11/2026 (RTX 4060 8 GB, turbo): carregar 5,5 s e a
+# primeira transcrição 1,2 s, contra 0,3 s com ele carregado — a primeira
+# chamada depois de 10 min quieto esperava ~7 s pelo bipe e se perdia. O preço:
+# 1,1 GB de VRAM enquanto a escuta estiver ligada.
+_segurando = 0
 
 # — Vocabulário ——————————————————————————————————————————————————————————————————
 
@@ -281,10 +287,42 @@ async def _buscar_ollama() -> None:
         _ollama.update(quando=time.monotonic(), buscando=False)
 
 
+def segurar() -> None:
+    """Uma escuta abriu: o modelo fica na memória até ela fechar."""
+    global _segurando
+    with _trava:
+        _segurando += 1
+
+
+def soltar() -> None:
+    global _segurando, _ultimo_uso
+    with _trava:
+        _segurando = max(0, _segurando - 1)
+        # Os 10 min de folga contam a partir de agora, não da última fala.
+        _ultimo_uso = time.monotonic()
+
+
+def aquecer() -> None:
+    """Bloqueia (roda numa thread). Carrega o modelo e faz uma transcrição de
+    silêncio: a primeira transcrição na GPU carrega a cuBLAS (1,2 s em vez de
+    0,3 s) — melhor aqui do que no primeiro "Solis"."""
+    global _ultimo_uso
+    import numpy as np
+    with _trava:
+        if _modelo is not None and _carregado == modelo_em_uso():
+            return
+        _carregar()
+        try:
+            _transcrever(np.zeros(16000, dtype=np.float32), None, vad=False)  # 1 s a 16 kHz
+        except RuntimeError:
+            pass  # a GPU falhando aparece (e cai pra CPU) na transcrição de verdade
+        _ultimo_uso = time.monotonic()
+
+
 def descarregar_se_ocioso() -> bool:
     global _modelo
     with _trava:
-        if _modelo is not None and time.monotonic() - _ultimo_uso > OCIOSO:
+        if _modelo is not None and not _segurando and time.monotonic() - _ultimo_uso > OCIOSO:
             _modelo = None
             log.info('whisper descarregado (%d min sem uso)', OCIOSO // 60)
             return True

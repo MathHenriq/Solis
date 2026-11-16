@@ -515,8 +515,19 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      nunca vinha e a escuta ficava pausada pra sempre. Agora: quem fala fica num registro
      global, e sair da tela conta como "parei" (`src/fala.ts`); o áudio que não abre em 5 s ou
      fica 15 s sem avançar conta como falha (`src/somAosPedacos.ts`); e uma pausa de mais de
-     90 s volta a ouvir sozinha (`src/escuta.ts`). Falta conferir no uso dele. A primeira
-     chamada que não foi ouvida ainda não foi investigada.
+     90 s volta a ouvir sozinha (`src/escuta.ts`). Falta conferir no uso dele.
+   - **A primeira chamada perdida (16/11/2026):** o Whisper saía da memória depois de 10 min
+     sem fala, e voltar custa caro — medido nesta máquina (RTX 4060 8 GB, turbo): carregar
+     5,5 s e a primeira transcrição 1,2 s, contra 0,3 s com ele carregado. O primeiro "Solis"
+     depois de um tempo quieto esperava ~7 s pelo bipe; e o prazo de 8 s pra começar o pedido
+     contava do "Solis", não do bipe — sobrava 1 s, ou nada. Agora: com a escuta ligada, o
+     Whisper fica carregado e já sobe (com uma transcrição de silêncio, que carrega a cuBLAS)
+     quando ela abre — a primeira chamada medida em 0,32 s; e uma decisão que demora estica o
+     prazo do pedido pelo mesmo tempo (até 10 s). O preço: **1,1 GB de VRAM** enquanto a
+     escuta estiver ligada (desligando, os 10 min voltam a valer). O log anota quando uma
+     decisão passa de 1,5 s — só o tempo, nunca o que foi dito. Não dá pra afirmar que foi
+     isso naquela manhã (o log não guarda o que o Whisper ouviu), mas é o caminho medido que
+     perdia a chamada.
 
 ### Controle do PC e visão da tela
 

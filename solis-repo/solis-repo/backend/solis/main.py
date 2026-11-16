@@ -12,6 +12,7 @@ import logging
 import os
 import mimetypes
 import re
+import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -1790,6 +1791,19 @@ def _aquecer() -> None:
         tarefa.add_done_callback(_tarefas.discard)
 
 
+def _aquecer_whisper() -> None:
+    async def aquecer():
+        try:
+            await asyncio.to_thread(voz.aquecer)
+        except voz.SemModelo:
+            pass
+        except Exception:
+            log.exception('o whisper não aqueceu')
+    tarefa = asyncio.create_task(aquecer())
+    _tarefas.add(tarefa)
+    tarefa.add_done_callback(_tarefas.discard)
+
+
 async def _transcrever_escuta(audio: bytes) -> str:
     try:
         texto = (await voz.transcrever(audio, vad=False))['texto']
@@ -1886,11 +1900,15 @@ async def escuta(ws: WebSocket):
         await ws.send_json({'tipo': 'erro', 'motivo': str(e)[:300]})
         await ws.close()
         return
-    # A tela só abre o microfone depois disto: escuta que não funciona (falta o
-    # modelo, por exemplo) não pode deixar o microfone do PC aberto à toa.
-    await ws.send_json({'tipo': 'pronta'})
+    # Com a escuta aberta, o Whisper fica carregado (voz.segurar) e já sobe
+    # agora: frio, o primeiro "Solis" esperava ~7 s pela decisão (16/11/2026).
+    voz.segurar()
+    _aquecer_whisper()
     pausada = False
     try:
+        # A tela só abre o microfone depois disto: escuta que não funciona (falta o
+        # modelo, por exemplo) não pode deixar o microfone do PC aberto à toa.
+        await ws.send_json({'tipo': 'pronta'})
         while True:
             msg = await ws.receive()
             if msg.get('type') == 'websocket.disconnect':
@@ -1910,7 +1928,12 @@ async def escuta(ws: WebSocket):
                     _aquecer()
                 elif tipo in ('previa', 'frase'):
                     # Whisper: o começo de um trecho de fala tem "Solis"?
+                    t0 = time.monotonic()
                     achou, resto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                    demora = time.monotonic() - t0
+                    if demora > 1.5:
+                        # Sem o que foi dito: só quanto demorou (pra achar chamada perdida).
+                        log.info('escuta: a decisão do trecho demorou %.1f s', demora)
                     if not achou:
                         escutando.descartar()
                         continue
@@ -1920,7 +1943,7 @@ async def escuta(ws: WebSocket):
                         # "Solis, que horas são?" de uma vez, e acabou: já é o comando.
                         await ws.send_json({'tipo': 'texto', 'texto': resto})
                     else:
-                        escutando.confirmar()
+                        escutando.confirmar(atraso=demora)
                 elif audio is None:
                     await ws.send_json({'tipo': 'nada'})
                 else:
@@ -1931,6 +1954,7 @@ async def escuta(ws: WebSocket):
         pass
     finally:
         escutando.fechar()
+        voz.soltar()
 
 
 # — Aprovações do agente (agente.py) ——————————————————————————————————————————————

@@ -50,6 +50,8 @@ COMANDO_MAX = 15.0
 # Sem falar nada depois da palavra: desiste. Era 5 s, e no teste de 11/11/2026
 # a primeira chamada ouviu "Solis" e desistiu antes do pedido chegar.
 INICIO_MAX = 8.0
+# O máximo que a demora da decisão estica os prazos acima.
+ATRASO_MAX = 10.0
 
 # Fala é o que passa ACIMA_DO_PISO dB do ruído de fundo (e de FALA_MIN_DB).
 # Medido com o microfone do Matheus no app (11/11/2026), sem o processamento de
@@ -280,6 +282,10 @@ class Escuta:
         self.silero = _Silero() if self.vad == 'silero' else None
         self.fim_silencio = FIM_SILENCIO_VAD if self.silero else FIM_SILENCIO
         self._fala_vad = False
+        # Segundos que a decisão do Whisper demorou: o áudio desse tempo ficou na
+        # fila, e a pessoa só começa o pedido depois do bipe. Os prazos do comando
+        # contam a partir do bipe, não do "Solis".
+        self.espera_extra = 0.0
 
     def fechar(self):
         try:
@@ -297,10 +303,13 @@ class Escuta:
             if evento:
                 yield evento
 
-    def confirmar(self):
+    def confirmar(self, atraso: float = 0.0):
         """A palavra estava no trecho: ele vira o começo do comando (ou, se o
-        trecho já acabou só com "Solis", o comando começa vazio)."""
+        trecho já acabou só com "Solis", o comando começa vazio). `atraso`: quanto
+        a decisão demorou (o Whisper carregando, por exemplo) — o prazo pra
+        começar a falar estica isso, até ATRASO_MAX."""
         self.ativacoes += 1
+        self.espera_extra = min(max(0.0, atraso), ATRASO_MAX)
         if self.trecho is not None:
             self.comando, self.fala, self.silencio = self.trecho, self.t_fala, self.t_silencio
             self.trecho = None
@@ -329,6 +338,7 @@ class Escuta:
                 if self.motor.process(quadro) >= 0:
                     self.ativacoes += 1
                     self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
+                    self.espera_extra = 0.0
                     return ('ativou', None)
                 return None
             return self._trecho(quadro, db, dur)
@@ -340,8 +350,8 @@ class Escuta:
         else:
             self.silencio += dur
         total = len(self.comando) / TAXA
-        acabou = (self.fala >= FALA_MINIMA and self.silencio >= self.fim_silencio) or total >= COMANDO_MAX
-        desistiu = self.fala < FALA_MINIMA and total >= INICIO_MAX
+        acabou = (self.fala >= FALA_MINIMA and self.silencio >= self.fim_silencio) or total >= COMANDO_MAX + self.espera_extra
+        desistiu = self.fala < FALA_MINIMA and total >= INICIO_MAX + self.espera_extra
         if acabou or desistiu:
             audio, self.comando = self.comando, None
             return ('comando', None if desistiu else _wav(audio))
