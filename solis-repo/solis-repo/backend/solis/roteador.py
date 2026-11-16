@@ -129,6 +129,89 @@ def sistema_para(nome: str) -> str:
     return SISTEMA_CLAUDE if nome == 'claude' else SISTEMA_NUVEM
 
 
+# Quem age de verdade: o Claude pelo Agent SDK (comandos, web, as ferramentas
+# do Solis). O Codex roda em read-only; a Groq, o Gemini e os outros de API só
+# escrevem texto.
+COM_FERRAMENTAS = ('claude',)
+
+# Medido em 16/11/2026, pela voz, com a Groq: "desliga a música" -> "Música
+# desligada.", "abre a minha agenda de sexta" -> "Abrindo sua agenda de sexta.",
+# e "pesquisa o preço do dólar hoje" -> "Não sei." Nada disso aconteceu. Quem não
+# tem ferramenta responde só a marca, e o pedido passa pra quem tem.
+PASSA = '[FERRAMENTA]'
+_PASSA = re.compile(r'^[\s*_`"\']*\[\s*FERRAMENTA\s*\]', re.IGNORECASE)
+
+_SEM_FERRAMENTAS = (
+    'Nesta resposta você só escreve texto: não age no computador, não abre nem fecha programas, '
+    'não toca nem desliga música, não acessa a internet e não sabe o que mudou hoje (notícias, '
+    'clima, cotações, resultados de jogos). Nunca diga que fez, abriu, desligou, pesquisou ou '
+    'mandou algo: você não fez.'
+)
+NOTA_PASSAR = (
+    f'\n\n{_SEM_FERRAMENTAS} Quando o pedido precisar de uma dessas coisas, responda exatamente '
+    f'{PASSA} e mais nada: o Solis passa o pedido pra quem tem as ferramentas. O que você já sabe '
+    '(fatos, história, ciência, livros, geografia, contas), conversa, e lembrete, tarefa ou '
+    'compromisso pra anotar não precisam disso: responda normalmente, com o que você sabe.'
+)
+NOTA_NAO_CONSEGUE = (
+    f'\n\n{_SEM_FERRAMENTAS} Quando o pedido precisar de uma dessas coisas, diga em uma frase que '
+    'isso você não consegue fazer agora. O que você já sabe (fatos, história, ciência, livros, '
+    'geografia, contas), responda normalmente.'
+)
+# Com o Ollama fora, o aprendizado (que é sempre no modelo local) não roda:
+# confirmar "guardei" ou "anotei" seria mentira.
+NOTA_SEM_APRENDIZADO = (
+    '\n\nAgora o aprendizado do Solis está desligado (o modelo local não está ligado): nada desta '
+    'conversa vai ser guardado como memória, e o que ele pedir pra anotar não vai ser anotado sozinho. '
+    'Se ele pedir pra guardar, lembrar ou anotar algo, diga que agora não dá pra guardar e que volta '
+    'quando o Ollama estiver ligado. Nunca diga que guardou ou anotou.'
+)
+NOTA_SEM_APRENDIZADO_CLAUDE = (
+    '\n\nAgora o aprendizado do Solis está desligado (o modelo local não está ligado): a memória não '
+    'vai ser guardada sozinha depois da sua resposta, então não diga que guardou. Lembrete e '
+    'compromisso, faça pelas ferramentas mcp__solis__ (essas funcionam).'
+)
+
+
+def notas_do_cerebro(nome: str, depois: list[str]) -> str:
+    """O que vai no fim do sistema de cada cérebro: sem ferramentas, a marca pra
+    passar o pedido (se alguém com ferramentas vem depois na fila) ou dizer que
+    não consegue; e, com o aprendizado fora, que nada vai ser guardado."""
+    notas = ''
+    if nome not in COM_FERRAMENTAS and nome != 'local':
+        notas += NOTA_PASSAR if any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
+    if ollama.fora():
+        notas += NOTA_SEM_APRENDIZADO_CLAUDE if nome == 'claude' else NOTA_SEM_APRENDIZADO
+    return notas
+
+
+class _PediuFerramenta(Exception):
+    pass
+
+
+async def _sem_a_marca(fluxo: AsyncIterator[str]) -> AsyncIterator[str]:
+    """Olha o começo da resposta: se for a marca PASSA, o pedido passa adiante
+    (_PediuFerramenta). Senão, devolve a resposta inteira, como veio."""
+    lidos: list[str] = []
+    texto = ''
+    async for pedaco in fluxo:
+        lidos.append(pedaco)
+        texto += pedaco
+        inicio = texto.lstrip(' \n\t*_`"\'')
+        if len(inicio) >= len(PASSA) or not PASSA.startswith(inicio.upper()[:len(PASSA)]):
+            break
+    if _PASSA.match(texto):
+        await fluxo.aclose()
+        raise _PediuFerramenta()
+
+    async def resto():
+        for p in lidos:
+            yield p
+        async for p in fluxo:
+            yield p
+    return resto()
+
+
 class NinguemRespondeu(Exception):
     def __init__(self, ordem: list[str], erros: dict[str, Exception]):
         super().__init__(', '.join(f'{c}: {e}' for c, e in erros.items()))
@@ -307,7 +390,9 @@ async def responder(
     """(texto em pedaços, quem está respondendo). Tenta na ordem até alguém
     começar a responder."""
     erros: dict[str, Exception] = {}
-    for nome in ordem:
+    fila = list(ordem)
+    while fila:
+        nome = fila.pop(0)
         etapas.marcar('cerebro', cerebro=nome)
         try:
             if nome == 'local':
@@ -324,7 +409,8 @@ async def responder(
             else:
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome) + nota_projeto(conversa, le_arquivos=nome == 'claude'),
+                    sistema_para(nome) + nota_projeto(conversa, le_arquivos=nome == 'claude')
+                    + notas_do_cerebro(nome, fila),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],
@@ -338,7 +424,14 @@ async def responder(
                     if nome == 'claude' else None,
                     **({'rapido': True} if voz else {}),
                 )
+                if nome not in COM_FERRAMENTAS:
+                    fluxo = await _sem_a_marca(fluxo)
             return fluxo, nome
+        except _PediuFerramenta as e:
+            # Só quem tem ferramentas, dali pra frente: outro de API diria o mesmo.
+            erros[nome] = e
+            etapas.marcar('queda', cerebro=nome, motivo='precisa de ferramenta')
+            fila = [c for c in fila if c in COM_FERRAMENTAS]
         except (ollama.OllamaIndisponivel, ollama.ModeloInexistente, cerebros.CerebroFalhou) as e:
             erros[nome] = e
             etapas.marcar('queda', cerebro=nome, motivo=_motivo(e))

@@ -570,6 +570,24 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      - Medido depois, as mesmas 4 perguntas: o primeiro byte de som de 1,22–1,72 s pra
        1,17–1,37 s. A tela ainda espera a resposta inteira pra começar a falar; com a Groq isso
        custa ~0,06 s (a resposta curta acaba logo), por isso ficou pra depois.
+   - **Nada de lorota na voz (16/11/2026).** Com a Groq na frente, os pedidos de ação do roteiro
+     do teste da escuta receberam: "Desliga a música." → "Música desligada."; "Abre a minha agenda
+     de sexta." → "Abrindo sua agenda de sexta."; "Anota que gastei trinta reais" → "Anotei" —
+     nada disso aconteceu (o "anotei" porque o aprendizado roda sempre no modelo local, e o Ollama
+     estava desligado). E "pesquisa o preço do dólar" → "Não sei". Agora (`roteador.py`):
+     - quem não tem ferramenta (Groq, Gemini, Mistral, OpenRouter) é avisado de que só escreve
+       texto e nunca diz que fez algo; se o pedido precisar de ação, internet ou do que mudou hoje,
+       responde só a marca `[FERRAMENTA]` e o pedido passa direto pro Claude (o único que age, pelo
+       Agent SDK), sem perguntar os outros de API; sem o Claude na fila, diz que não consegue;
+     - com o Ollama fora, todos são avisados de que o aprendizado está desligado: ninguém diz que
+       guardou (o Claude ainda cria lembrete e compromisso pelas ferramentas `mcp__solis__`).
+     Medido com `/groq` na frente (só a Groq, sem passar): os 6 pedidos de ação honestos ("Desculpe,
+     não consigo desligar a música agora."; "agora não dá pra guardar isso; volta quando o Ollama
+     estiver ligado"). As 10 perguntas de fato continuam na Groq (nenhuma passou por engano), 9 de
+     10 certas — o "Dom Casmurro" deu "Não sei" uma vez e 4 de 4 certas repetido sozinho (acaso do
+     modelo pensando pouco). **Não medido ao vivo:** o pedido passando pro Claude, porque ele age
+     de verdade no PC (pausar a música, abrir programa) — fica pro Matheus testar. E o Claude pela
+     voz leva 3,5 a 14 s: falta o Solis dizer algo enquanto isso (a narração do `IDEIAS.md`).
 
 ### Controle do PC e visão da tela
 
