@@ -472,6 +472,23 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      A régua também foi corrigida: o fim da fala é o do pedaço que acabou antes do texto, contado
      desde o "Prepare-se" (havia tempos negativos), e o que o Whisper ouviu e foi descartado fica
      guardado na medida.
+   - **A resposta inteira, por voz (16/11/2026, no servidor de verdade):**
+
+     | Parte | Tempo |
+     |---|---|
+     | fim da fala → texto (escuta) | ~1,0 s |
+     | texto → primeira palavra, hora/data/lembrete/agenda (`rapidas.py`, em código) | 0,03 s |
+     | texto → primeira palavra, pergunta comum (Claude) | 3,5 a 13,7 s |
+     | primeira frase → primeiro som (Fish Audio) | 0,7 a 0,8 s |
+
+     Achados: (1) o Ollama desligado custava 2 s em toda consulta (o `connect=2.0` esperando o
+     Windows desistir): na memória antes de cada resposta, no modelo local da voz. Agora a falha
+     vale por 60 s (`ollama.FORA_S`): medido, 2,1 s na primeira e 0,01 s nas seguintes. (2) Uma
+     resposta por voz de verdade (09:10) passou do local (fora) ao Claude (20 s e caiu) e ao Codex
+     (primeira palavra em 27 s). Agora, na voz, os cérebros de API vêm antes dos que sobem um CLI.
+     (3) O Gemini grátis respondeu 503 (sobrecarregado) e o Claude ficou de reserva. O que falta
+     pro "perto de 1 s" do `IDEIAS.md` é um cérebro rápido pra voz: o local (Ollama ligado) ou
+     uma chave grátis da Groq.
 
 ### Controle do PC e visão da tela
 

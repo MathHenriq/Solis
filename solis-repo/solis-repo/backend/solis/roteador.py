@@ -169,7 +169,12 @@ def escolher(texto: str, voz: bool = False) -> tuple[str, list[str], bool]:
     if pc.disponivel() and do_pc(texto):
         return texto, ['local'], False
     if voz:
-        return texto, ['local'] + [c for c in _ordem() if c != 'local' and cerebros.disponivel(c)], False
+        # Na reserva, os de API (Gemini, Groq...) antes dos que sobem um CLI
+        # (Claude, Codex): numa resposta por voz de verdade (16/11/2026), com o
+        # Ollama fora, o Claude levou 20 s e caiu, e o Codex deu a primeira
+        # palavra em 27 s. A ordem entre eles continua a escolhida pelo Matheus.
+        nuvem = [c for c in _ordem() if c != 'local' and cerebros.disponivel(c)]
+        return texto, ['local'] + [c for c in nuvem if c not in cerebros.CLIS]             + [c for c in nuvem if c in cerebros.CLIS], False
     return texto, [c for c in _ordem() if c == 'local' or cerebros.disponivel(c)], False
 
 

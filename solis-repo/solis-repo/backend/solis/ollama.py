@@ -9,6 +9,7 @@ import base64
 import json
 import logging
 import os
+import time
 from datetime import date, datetime
 from collections.abc import AsyncIterator
 
@@ -24,6 +25,35 @@ OLLAMA = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')
 # A conexão em si falha rápido: se nada escuta na porta, não adianta esperar 8s
 # pra dizer que o Ollama está fora do ar.
 TIMEOUT = httpx.Timeout(8.0, connect=2.0)
+
+# O Ollama desligado custava 2 s em cada pergunta (o Windows insiste na porta
+# fechada até o connect=2.0 desistir): na memória antes de cada resposta, no
+# modelo local da voz, no vocabulário do Whisper. Medido em 16/11/2026 numa
+# resposta por voz: 2,0 s só pra descobrir que ele não estava lá. Agora a
+# primeira falha vale por FORA_S: as perguntas nesse tempo falham na hora.
+FORA_S = 60.0
+_fora_ate = 0.0
+
+
+class _Guardado(httpx.AsyncHTTPTransport):
+    """O transporte dos clientes do Ollama, com a lembrança de que ele está fora."""
+
+    async def handle_async_request(self, request):
+        global _fora_ate
+        if time.monotonic() < _fora_ate:
+            raise httpx.ConnectError('o Ollama estava fora há pouco', request=request)
+        try:
+            resposta = await super().handle_async_request(request)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            _fora_ate = time.monotonic() + FORA_S
+            raise
+        _fora_ate = 0.0
+        return resposta
+
+
+def fora() -> bool:
+    """O Ollama falhou há pouco (sem perguntar de novo)."""
+    return time.monotonic() < _fora_ate
 
 # Na conversa os 8s não servem: o primeiro pedaço só sai depois que o Ollama
 # carrega o modelo na memória, e um 14B frio passa disso fácil. O limite vale
@@ -225,7 +255,7 @@ async def instalados(transporte: httpx.AsyncBaseTransport | None = None) -> set[
     """Só os nomes, numa chamada só: pra decidir qual modelo usar não precisa
     dos detalhes de cada um que o listar_modelos busca."""
     try:
-        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT, transport=transporte) as c:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT, transport=transporte or _Guardado()) as c:
             r = await c.get('/api/tags')
             r.raise_for_status()
     except httpx.HTTPError as e:
@@ -234,7 +264,7 @@ async def instalados(transporte: httpx.AsyncBaseTransport | None = None) -> set[
 
 
 async def listar_modelos(transporte: httpx.AsyncBaseTransport | None = None) -> list[dict]:
-    async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT, transport=transporte) as c:
+    async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT, transport=transporte or _Guardado()) as c:
         try:
             tags, ps = await asyncio.gather(c.get('/api/tags'), c.get('/api/ps'))
             tags.raise_for_status()
@@ -308,7 +338,7 @@ async def conversar(
     if ferramentas:
         from . import pc
         corpo['tools'] = pc.FERRAMENTAS
-    cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte)
+    cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado())
 
     async def abrir():
         try:
@@ -402,7 +432,7 @@ async def aquecer(modelo: str, transporte: httpx.AsyncBaseTransport | None = Non
     """Carrega o modelo na GPU sem perguntar nada (um /api/chat sem mensagens).
     Erro aqui não importa: é só pra adiantar."""
     try:
-        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado()) as c:
             await c.post('/api/chat', json={'model': modelo, 'messages': [], 'keep_alive': FICA_NA_VOZ})
     except httpx.HTTPError:
         pass
@@ -437,7 +467,7 @@ async def _perguntar(
     if formato:
         corpo['format'] = formato
     try:
-        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado()) as c:
             r = await c.post('/api/chat', json=corpo)
     except httpx.HTTPError as e:
         raise OllamaIndisponivel() from e
@@ -491,7 +521,7 @@ async def ler_imagem(
         'messages': [{'role': 'user', 'content': instrucao, 'images': [base64.b64encode(imagem).decode()]}],
     }
     try:
-        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado()) as c:
             r = await c.post('/api/chat', json=corpo)
             if r.status_code == 400 and 'think' in r.text:
                 # Modelo de visão que não pensa (gemma3) recusa o `think`.
@@ -514,7 +544,7 @@ async def embeddings(
 ) -> list[list[float]]:
     """Um vetor por texto, na mesma ordem (/api/embed aceita a lista inteira)."""
     try:
-        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte) as c:
+        async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado()) as c:
             r = await c.post('/api/embed', json={'model': modelo, 'input': textos})
     except httpx.HTTPError as e:
         raise OllamaIndisponivel() from e
