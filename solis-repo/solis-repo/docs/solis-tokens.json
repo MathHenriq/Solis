@@ -386,7 +386,7 @@
         "_instructionsHeight": "A caixa das instrucoes comeca com 8 linhas: 8 x 16px (--cfg-rotulo) x 1,5 de entrelinha = 192, mais o padding de 8 em cima e embaixo (--mac-campo-py). Cresce puxando o canto."
       },
       "tela": {
-        "_status": "PROVISORIO - desenho proprio (15/11/2026), espera a aprovacao do Matheus pelos prints: o controle da tela (tela.py) - Configuracoes -> Controle da tela (CartaoTela.tsx: uma linha do cartao de Cerebros com o interruptor da Aparencia) e o cartao de aprovacao das acoes na tela, no desenho do do navegador ('Clicar em (300, 200) · Bloco de Notas', o texto a digitar embaixo) com o print embaixo: o recorte em volta do clique com o alvo marcado (anel vermelho com borda branca, que se ve em qualquer fundo), ou a tela inteira pequena pra digitar e tecla; borda --divider e o raio dos blocos de codigo (--cod-raio).",
+        "_status": "APROVADO pelo Matheus em 16/11/2026 nos 3 temas e 2 navs - desenho proprio (15/11/2026): o controle da tela (tela.py) - Configuracoes -> Controle da tela (CartaoTela.tsx: uma linha do cartao de Cerebros com o interruptor da Aparencia) e o cartao de aprovacao das acoes na tela, no desenho do do navegador ('Clicar em (300, 200) · Bloco de Notas', o texto a digitar embaixo) com o print embaixo: o recorte em volta do clique com o alvo marcado (anel vermelho com borda branca, que se ve em qualquer fundo), ou a tela inteira pequena pra digitar e tecla; borda --divider e o raio dos blocos de codigo (--cod-raio).",
         "printWidth": "520px",
         "_printWidth": "O print no cartao: o recorte e de 520x320 px da tela de verdade (tela.RECORTE) e aparece em tamanho real, sem borrar; a miniatura da tela inteira (640px) desce pra 520 pra caber na mesma largura."
       },

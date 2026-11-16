@@ -6,7 +6,7 @@ import { lerTela, ligarTela, type Tela } from '../servidor';
  *  digitar e apertar teclas em qualquer programa, como o computer use do
  *  Claude Desktop (backend/solis/tela.py). Desligado até o Matheus ligar.
  *
- *  PROVISÓRIO — desenho próprio (15/11/2026), precisa da aprovação do Matheus:
+ *  Aprovado pelo Matheus em 16/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e uma linha do de Cérebros (layout.configuracoes.cerebros) com o
  *  interruptor da Aparência. Ver layout.configuracoes.tela. */
 
