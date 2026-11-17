@@ -621,6 +621,18 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      curta acaba em ~0,06 s) quase não muda; com o Claude, são os segundos da resposta inteira.
      Resposta que falha no meio fecha a fila (a escuta não fica pausada); depois de tudo, a tela
      volta a "parado".
+   - **A chamada que nunca acorda: "mais baixo que o normal" (16/11/2026).** É a única que falha
+     no teste da escuta, antes e depois da cascata. Medido na gravação: as chamadas normais têm
+     pico de −19 a −25 dBFS sobre um ruído de −39 a −44; a baixa, pico −32,7 e quase toda em −39,
+     só 4 a 10 dB acima do ruído — 0,1 s passa do limiar (+7 dB), e trecho com menos de 0,2 s é
+     tratado como estalo. Testado na gravação: limiar +5 dá o mesmo (11 de 12); +4 cai pra 8 e +3
+     pra 7 com um falso acordar (o ruído gruda na fala); energia **ou** Silero, 10 de 12. E no
+     trecho dela o Silero não marca fala nenhuma, e o Whisper, com o trecho inteiro amplificado,
+     ouve "Obrigado por assistir." (o que ele inventa no silêncio). Ou seja: nessa gravação a voz
+     baixa está no nível do ruído do cômodo — nenhum detector tira ela dali. O caminho é o
+     microfone (o `IDEIAS.md` já diz: o do notebook piora; testar com headset). Ficou do estudo
+     só uma correção: o limiar era o valor padrão do argumento, congelado quando o módulo
+     carregava, e mudar ACIMA_DO_PISO no teste não mudava nada.
 
 ### Controle do PC e visão da tela
 

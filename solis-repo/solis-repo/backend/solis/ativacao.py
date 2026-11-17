@@ -389,10 +389,12 @@ class Escuta:
         if self.comando is not None:
             self.rascunho = texto
 
-    def _e_fala(self, db: float, margem: float = ACIMA_DO_PISO) -> bool:
+    def _e_fala(self, db: float, margem: float | None = None) -> bool:
         if self.silero:
             return self._fala_vad
-        return db > max(self.piso + margem, FALA_MIN_DB)
+        # Lido na hora (e não como valor padrão do argumento, que congelava o de
+        # quando o módulo carregou): o teste da escuta mede variações dele.
+        return db > max(self.piso + (ACIMA_DO_PISO if margem is None else margem), FALA_MIN_DB)
 
     def _quadro(self, quadro: array.array):
         dur = self.n / TAXA

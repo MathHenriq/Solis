@@ -457,3 +457,13 @@ def test_completar_o_silencio_sempre_termina_e_no_tamanho_certo(silencio):
     saida = ativacao._completado(amostras, silencio)
     falta = max(0, round((ativacao.FIM_SILENCIO - silencio) * TAXA)) if int(silencio * TAXA) else 0
     assert len(saida) == len(amostras) + falta
+
+
+def test_o_limiar_da_fala_vale_o_de_agora(monkeypatch):
+    """16/11/2026: o limiar era o valor padrão do argumento, congelado quando o
+    módulo carregou — o teste da escuta mudava ACIMA_DO_PISO e nada mudava."""
+    e = ativacao.Escuta(whisper=True)
+    e.piso = -50.0
+    assert not e._e_fala(-44.0)  # 6 dB acima do piso, com o limiar de 7
+    monkeypatch.setattr(ativacao, 'ACIMA_DO_PISO', 5.0)
+    assert e._e_fala(-44.0)
