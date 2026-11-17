@@ -233,7 +233,7 @@ for chave, pre in [('tiny', '--ch-min'), ('compact', '--ch-pilula'), ('listening
     w('  %s-l: %s; %s-a: %s;' % (pre, ch[chave][0], pre, ch[chave][1]))
 for chave, var in [('morphMs', '--ch-forma'), ('contentMs', '--ch-conteudo'), ('contentDelayMs', '--ch-conteudo-atraso')]:
     w('  %s: %sms;' % (var, ch[chave]))
-w('  /* Esfera: o visual da voz dentro do app - desenho proprio, PROVISORIO. Ver layout.esfera. */')
+w('  /* Esfera: o visual da voz dentro do app - desenho proprio, APROVADO em 16/11/2026. Ver layout.esfera. */')
 es = T['layout']['esfera']
 w('  --es-fundo-centro: rgba(7, 16, 25, %s); --es-fundo-meio: rgba(7, 16, 25, %s); --es-fundo-borda: rgba(7, 16, 25, %s);'
   % tuple(es['overlay']))

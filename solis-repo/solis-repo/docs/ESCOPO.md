@@ -633,7 +633,7 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      microfone (o `IDEIAS.md` já diz: o do notebook piora; testar com headset). Ficou do estudo
      só uma correção: o limiar era o valor padrão do argumento, congelado quando o módulo
      carregava, e mudar ACIMA_DO_PISO no teste não mudava nada.
-   - **O visual da voz no app (16/11/2026, PROVISÓRIO, esperando os prints).** Pedido no
+   - **O visual da voz no app (16/11/2026, aprovado pelo Matheus pelos prints).** Pedido no
      `IDEIAS.md` (a tela escurece e uma esfera mostra o estado real). Já existia a ilha
      (`Chamada.tsx`, pedida em 10/11), que segue os estados de verdade. Decisão do Matheus: com a
      janela do Solis na frente, o visual dentro do app; atrás ou minimizada, a ilha por cima das

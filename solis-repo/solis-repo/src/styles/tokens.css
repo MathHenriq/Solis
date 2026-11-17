@@ -180,7 +180,7 @@
   --ch-forma: 560ms;
   --ch-conteudo: 220ms;
   --ch-conteudo-atraso: 140ms;
-  /* Esfera: o visual da voz dentro do app - desenho proprio, PROVISORIO. Ver layout.esfera. */
+  /* Esfera: o visual da voz dentro do app - desenho proprio, APROVADO em 16/11/2026. Ver layout.esfera. */
   --es-fundo-centro: rgba(7, 16, 25, 0.97); --es-fundo-meio: rgba(7, 16, 25, 0.9); --es-fundo-borda: rgba(7, 16, 25, 0.62);
   --es-simbolo: 190px;
   --es-texto: #F5F1EA;

@@ -4,8 +4,8 @@ import { SolisEstado, type EstadoSolis } from './SolisEstado';
 
 /** O visual da voz dentro do app (IDEIAS.md): a conversa escurece e o símbolo
  *  do Solis aparece no meio, mostrando o estado REAL — não é enfeite.
- *  PROVISÓRIO: desenho próprio, aguardando aprovação pelos prints. Números e
- *  porquês em layout.esfera.
+ *  Desenho próprio, aprovado pelo Matheus pelos prints (16/11/2026,
+ *  design/esfera-validacao.png). Números e porquês em layout.esfera.
  *
  *  É o símbolo com os estados já aprovados (SolisEstado, states.glow), a 190px
  *  — a largura em que o halo "folha" foi medido contra as referências da marca.

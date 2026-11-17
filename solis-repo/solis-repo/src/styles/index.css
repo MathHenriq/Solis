@@ -379,8 +379,8 @@ main {
 }
 
 /* A esfera (src/components/EsferaVoz.tsx): o visual da voz dentro do app, com a
-   janela do Solis na frente. PROVISÓRIO — desenho próprio, números e porquês em
-   layout.esfera. No meio, o símbolo com os estados aprovados (SolisEstado); o
+   janela do Solis na frente. Desenho próprio, APROVADO em 16/11/2026; números e
+   porquês em layout.esfera. No meio, o símbolo com os estados aprovados (SolisEstado); o
    fundo é estático. */
 .solis-esfera-fundo {
   /* O centro do gradiente é o do sol: o meio da área de conteúdo, subido. */
