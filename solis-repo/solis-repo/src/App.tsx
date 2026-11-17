@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
-import { Chamada } from './components/Chamada';
+import { Chamada, type FaseChamada } from './components/Chamada';
+import { pedeConversa, useConversaVoz } from './conversaVoz';
 import { EsferaVoz } from './components/EsferaVoz';
 import { useJanelaEmFrente } from './janelaEmFrente';
 import { Horizonte } from './components/Horizonte';
@@ -38,12 +39,25 @@ export default function App() {
   const { tema, setTema, cena, setCena, nav, setNav } = useTheme();
   // "Solis, ..." de qualquer tela: o que veio depois da palavra vira mensagem na
   // conversa aberta, e a resposta é falada (se "Responder falando" estiver ligado).
-  const escuta = useEscuta((texto) => {
-    definirTela('conversa');
-    marcarRespostaFalada(falaAutomatica());
-    conversa.enviar(texto);
-    chamada.enviado(texto);
-  });
+  // O modo Conversa (conversaVoz.ts): bate-papo por voz em tempo real. Cada troca
+  // fica salva na conversa, que recarrega pra mostrar.
+  const voz = useConversaVoz((id) => void conversa.abrir(id));
+  // Só em desenvolvimento: abrir o modo Conversa pela página (pra ver sem microfone de verdade).
+  if (import.meta.env.DEV) (window as unknown as { __conversa?: () => void }).__conversa = () => voz.iniciar(conversa.conversa);
+  const escuta = useEscuta(
+    (texto) => {
+      definirTela('conversa');
+      if (pedeConversa(texto)) {
+        voz.iniciar(conversa.conversa);
+        return;
+      }
+      marcarRespostaFalada(falaAutomatica());
+      conversa.enviar(texto);
+      chamada.enviado(texto);
+    },
+    // Na conversa, o microfone é dela: a escuta do "Solis" desliga.
+    voz.fase !== null,
+  );
   const ouvindo = escuta.estado === 'ouvindo';
   // O Solis aparecendo quando é chamado (components/Chamada.tsx).
   const ultimo = conversa.turnos[conversa.turnos.length - 1];
@@ -53,7 +67,12 @@ export default function App() {
   // atrás ou minimizada, na ilha — no app Tauri, uma janela própria por cima
   // de tudo (tauri.ts). Decisão do Matheus, 16/11/2026.
   const emFrente = useJanelaEmFrente();
-  useIlhaNoApp({ fase: emFrente ? null : chamada.fase, legenda: chamada.legenda, resposta });
+  // Na conversa, o mesmo visual: ouvindo (com o que ele está dizendo) ou falando.
+  const emConversa = voz.fase !== null;
+  const faseVoz: FaseChamada | null = emConversa ? (voz.fase === 'falando' ? 'respondendo' : 'ouvindo') : chamada.fase;
+  const legendaVoz = emConversa ? voz.ouviu : chamada.legenda;
+  const respostaVoz = emConversa ? voz.disse : resposta;
+  useIlhaNoApp({ fase: emFrente ? null : faseVoz, legenda: legendaVoz, resposta: respostaVoz });
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
@@ -128,11 +147,11 @@ export default function App() {
       {!comSidebar && <GavetaConversas {...lista} visivel={gaveta} aoFechar={() => definirGaveta(false)} />}
       {(TELAS[tela] ?? TELAS.conversa)()}
       {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
-      {chamada.fase && emFrente && (
-        <EsferaVoz fase={chamada.fase} legenda={chamada.legenda} resposta={resposta} comSidebar={comSidebar} />
+      {faseVoz && emFrente && (
+        <EsferaVoz fase={faseVoz} legenda={legendaVoz} resposta={respostaVoz} comSidebar={comSidebar} />
       )}
-      {chamada.fase && !emFrente && !noApp && (
-        <Chamada fase={chamada.fase} legenda={chamada.legenda} resposta={resposta} comSidebar={comSidebar} />
+      {faseVoz && !emFrente && !noApp && (
+        <Chamada fase={faseVoz} legenda={legendaVoz} resposta={respostaVoz} comSidebar={comSidebar} />
       )}
     </div>
   );

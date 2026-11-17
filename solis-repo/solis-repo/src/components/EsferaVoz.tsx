@@ -63,7 +63,8 @@ export function EsferaVoz({
     return () => cancelAnimationFrame(q);
   }, []);
 
-  const texto = fase === 'pensando' ? legenda : fase === 'respondendo' ? resposta : undefined;
+  // Ouvindo, a legenda só existe no modo Conversa (o que ele está dizendo); no Pedido, vem vazia.
+  const texto = fase === 'respondendo' ? resposta : fase === 'saindo' ? undefined : legenda;
   const legendaPlana = texto ? plano(texto) : '';
 
   return (

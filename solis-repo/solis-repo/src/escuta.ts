@@ -72,7 +72,8 @@ function bipe(contexto: AudioContext) {
 
 export type EstadoEscuta = 'desligada' | 'esperando' | 'ouvindo' | 'erro';
 
-export function useEscuta(aoTexto: (texto: string) => void) {
+/** `suspensa`: desligada por enquanto (o modo Conversa, com o microfone dele). */
+export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
   const [ligada, definirLigada] = useState(escutaLigada);
   const [rapida, definirRapida] = useState(escutaRapida);
   const [estado, definirEstado] = useState<EstadoEscuta>('desligada');
@@ -90,7 +91,7 @@ export function useEscuta(aoTexto: (texto: string) => void) {
   }, []);
 
   useEffect(() => {
-    if (!ligada) {
+    if (!ligada || suspensa) {
       definirEstado('desligada');
       return;
     }
@@ -216,7 +217,7 @@ export function useEscuta(aoTexto: (texto: string) => void) {
       fecharMicrofone();
     };
     // Trocar a escuta rápida reconecta: o servidor decide se segura o Whisper na conexão.
-  }, [ligada, rapida]);
+  }, [ligada, rapida, suspensa]);
 
   return { estado, erro, ligada };
 }
