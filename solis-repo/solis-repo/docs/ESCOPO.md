@@ -746,8 +746,8 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
        "me lembra de conversar com o João".
      - **Botão** (`BotaoConversa.tsx`, ícone `ondas`): ao lado do microfone nas duas caixas, com o
        Claude como base (o botão de voz dele), no mesmo tamanho (35 e 38 px) e cor do microfone;
-       na conversa, o accent, e clicar sai. PROVISÓRIO até os prints:
-       `design/botao-conversa-validacao.png`.
+       na conversa, o accent, e clicar sai. Aprovado pelo Matheus pelos prints
+       (`design/botao-conversa-validacao.png`, 17/11/2026).
      Visto na tela com um Gemini de mentira e o microfone falso do navegador
      (`design/capturar-conversa.mjs`): ouvindo → falando → ouvindo, a troca salva e mostrada na
      conversa, Esc fecha. **Falta:** a voz dele ao vivo com o microfone de verdade (o app estava

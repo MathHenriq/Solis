@@ -3,9 +3,10 @@ import { Icone } from './icons';
 
 /** O modo Conversa (conversaVoz.ts) pelas caixas de conversa, ao lado do
  *  microfone — decisão do Matheus (17/11/2026): entrar falando ou por um botão.
- *  PROVISÓRIO: desenho próprio com o Claude como base (o botão de voz dele, com
- *  as ondas de som), no mesmo tamanho, cor e espaço do microfone. Na conversa,
- *  o accent; clicar sai. */
+ *  Desenho próprio com o Claude como base (o botão de voz dele, com as ondas de
+ *  som), no mesmo tamanho, cor e espaço do microfone. Aprovado pelo Matheus pelos
+ *  prints (17/11/2026, design/botao-conversa-validacao.png). Na conversa, o
+ *  accent; clicar sai. */
 export function BotaoConversa({ tamanho, interativo = true }: { tamanho: number; interativo?: boolean }) {
   const ativa = useConversaAtiva();
   return (
