@@ -574,7 +574,7 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      A escuta rápida segura o small (453 MB) com internet, o turbo (1,2 GB) sem. O teste da escuta
      mede o mesmo caminho. Três frases da tela ficaram falsas e foram corrigidas: "nada sai dele"
      (palavra de ativação), "1,2 GB" (escuta rápida) e "a gravação fica só neste computador" (teste
-     da escuta) — `design/voz-textos-online-validacao.png`.
+     da escuta) — `design/voz-textos-online-validacao.png`, aprovados pelo Matheus em 17/11/2026.
      Medido no ambiente de verdade, o teste da escuta na gravação dele (3 vezes): **acordou 11,
      entendeu 11, 0 falsos, mediana 0,76 s — passou**. A chamada mais lenta (3,2–3,8 s) é a Groq no
      limite por minuto: o teste roda os 3,5 min em ~18 s (~19 pedidos de uma vez); a reserva (o
