@@ -376,7 +376,9 @@ problema real, se o Claude Code já faz, e como medir.
       ou saem com a nova arquitetura?
 - [ ] A regra da OpenAI permite usar a cota do ChatGPT/Codex dentro do Solis?
 - [ ] Qual modelo de voz em tempo real vence num teste real em português (Gemini Live x
-      gpt-realtime mini)?
+      gpt-realtime mini)? *16/11/2026: só o Gemini medido — `gemini-3.8-live` acertou 8 de 8 e
+      deu o primeiro som 1,37 s depois do fim da fala (mediana), grátis na faixa grátis. A
+      OpenAI ficou de fora por ora (sem faixa grátis). Números em `ESCOPO.md` → o modo Conversa.*
 - [ ] Quais são os números reais de custo por função, depois de 1–2 meses de uso medido?
 - [ ] Nome definitivo da função Auditoria.
 - [ ] Política da Syngenta sobre IA pessoal no notebook da empresa e transcrição de reuniões.

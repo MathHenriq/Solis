@@ -652,6 +652,31 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      tela sem o visual, zero layouts. Folha: `design/esfera-validacao.png`; prints por
      `design/capturar-esfera.mjs`. De quebra: a ilha ficava em "respondendo" (sem texto) enquanto a
      narração tocava — agora fica em "pensando" até a resposta ter texto.
+   - **O modo Conversa: o primeiro teste (16/11/2026).** A voz em tempo real do `IDEIAS.md` (Gemini
+     Live x gpt-realtime mini). Decisão do Matheus: só o Gemini por agora (grátis; a OpenAI não tem
+     faixa grátis no Realtime e o Solis não tem chave dela). Preços oficiais conferidos nas páginas
+     do Google e da OpenAI: Gemini Live (`gemini-3.8-live`) grátis na faixa grátis, e pago US$ 3
+     por milhão de tokens de áudio entrando (~US$ 0,005/min) e US$ 12 saindo (~US$ 0,018/min);
+     `gpt-realtime-2.1-mini` US$ 10 e US$ 20 (600 tokens/min da pessoa, 1.200/min dele), sem
+     faixa grátis. No grátis, o Google pode usar o que é mandado pra melhorar os produtos dele.
+     O teste (`design/testar-conversa.py`, a Live API pelo SDK oficial `google-genai`, instalado
+     no ambiente do backend com o OK do Matheus): 10 perguntas faladas pela voz Maria do Windows
+     (nada dele), mandadas como um microfone ao vivo (100 ms por vez, depois silêncio, e o VAD
+     dele decide o fim), uma sessão nova por pergunta:
+
+     | | respondeu | certas (8 de fato) | do fim da fala ao 1º som | tokens por pergunta |
+     |---|---|---|---|---|
+     | `gemini-3.8-live` | 10/10 | **8/8** | **mediana 1,37 s** (1,19–1,70) | ~700 entrando, ~100 saindo |
+     | `gemini-3.1-flash-live-preview` | 10/10 | 7/8 | mediana 1,45 s (1,28–2,69) | ~300, ~140 |
+
+     A latência já soma os ~0,87 s de silêncio que o WAV da Maria tem no fim (a primeira conta,
+     do fim do arquivo, dava 0,50 s — enganosa). O 3.1 termina toda resposta com "Quer saber
+     mais?"; o 3.8 responde curto e direto. Pra comparar: o modo Pedido de hoje fica em ~1,8–2,0 s
+     no mesmo trecho. Pago, uma pergunta no 3.8 sairia por ~US$ 0,003. Detalhes: o `models.list`
+     dessa chave não mostra os modelos Live, mas a conexão funciona — com `api_version` `v1beta`
+     explícito (o padrão do SDK 3.4.0 dava HTTP 404). Amostras das vozes:
+     `design/conversa-amostras/`. Falta: a voz dele ao vivo, interromper no meio, conversa de
+     vários turnos, e a decisão de grátis (dados pro Google) ou pago.
 
 ### Controle do PC e visão da tela
 
