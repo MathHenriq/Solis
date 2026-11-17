@@ -542,6 +542,25 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      3 temas × 2 navegações, ligada e desligada; o interruptor no mesmo x e tamanho da linha de
      cima). Ele disse junto: o Whisper local é pro modo offline; online, a transcrição vai pra nuvem
      — a regra é online primeiro, o computador só quando não der.
+   - **A escuta online, medida (17/11/2026).** A regra do Matheus: online primeiro, o computador
+     só quando não der (offline). Medido na gravação dele (mandada à Groq com o OK dele), a escuta
+     de hoje com a cascata, só trocando quem transcreve. Pra nuvem vai só o vocabulário fixo
+     (Matheus, Solis, Claude…) — o local usa também nomes das memórias, e isso não sai do PC:
+
+     | caminho | placa | acordou | entendeu | falsos | latência mediana | pedidos à Groq |
+     |---|---|---|---|---|---|---|
+     | local: turbo no PC (hoje) | 1,2 GB | 11 | 11 | 0 | 0,61 s | 0 |
+     | tudo online: turbo da Groq | 0 | 10 | 8 | 0 | 0,67 s | 38 |
+     | **tudo online: large-v3 da Groq** | 0 | **11** | **11** | 0 | **0,61 s** | 36 |
+     | misto: "Solis" no small do PC, o resto na Groq (turbo) | 453 MB | 10 | 8 | 0 | 0,75 s | 19 |
+     | **misto com o large-v3 da Groq** | 453 MB | 10 | 10 | 0 | 0,71 s | 19 |
+
+     Groq (página oficial): turbo US$ 0,04/h, large-v3 US$ 0,111/h, cobrança mínima de 10 s por
+     pedido; limites (tabela do plano Developer; a do grátis não carregou): 20 pedidos/min,
+     2.000/dia, 2 h de áudio por hora, 8 h por dia. Por padrão a Groq não guarda o áudio (só até
+     30 dias pra investigar erro ou abuso; a "Zero Data Retention" desliga até isso); a página não
+     diz se usa pra treinar. No "tudo online", toda fala do cômodo (de qualquer pessoa) vai pra Groq;
+     no misto, só o que vem depois de "Solis". Decisão pendente com o Matheus.
    - **"Às vezes demora": a etapa da memória (16/11/2026).** No log, ela ia de 0,05 s a 22 s
      antes de cada resposta. Duas causas, as duas no vetor da pergunta (o embeddinggemma no
      Ollama):
