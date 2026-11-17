@@ -12,6 +12,7 @@ import { urlEscuta } from './servidor';
  *  Ligada em Configurações → Voz; o estado fica no navegador, como a aparência. */
 
 const CHAVE = 'solis.escuta';
+const CHAVE_RAPIDA = 'solis.escuta.rapida';
 const PAUSA_MAX_MS = 90_000;
 
 export function escutaLigada(): boolean {
@@ -20,6 +21,28 @@ export function escutaLigada(): boolean {
   } catch {
     return false;
   }
+}
+
+/** Escuta rápida (Configurações → Voz): o Whisper fica na placa de vídeo enquanto
+ *  a escuta estiver ligada — 1,2 GB, medido em 17/11/2026 —, e a primeira chamada
+ *  responde na hora. Desligada, ele sai depois de 10 min parado e a primeira
+ *  chamada depois disso espera ele carregar (3 a 7 s). Escolha do Matheus: a
+ *  opção é dele. Ligada por padrão: foi assim que a escuta passou no teste. */
+export function escutaRapida(): boolean {
+  try {
+    return localStorage.getItem(CHAVE_RAPIDA) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function definirEscutaRapida(rapida: boolean) {
+  try {
+    localStorage.setItem(CHAVE_RAPIDA, rapida ? '1' : '0');
+  } catch {
+    /* sem armazenamento: vale só nesta sessão */
+  }
+  window.dispatchEvent(new Event('solis-escuta'));
 }
 
 export function definirEscutaLigada(ligada: boolean) {
@@ -50,13 +73,17 @@ export type EstadoEscuta = 'desligada' | 'esperando' | 'ouvindo' | 'erro';
 
 export function useEscuta(aoTexto: (texto: string) => void) {
   const [ligada, definirLigada] = useState(escutaLigada);
+  const [rapida, definirRapida] = useState(escutaRapida);
   const [estado, definirEstado] = useState<EstadoEscuta>('desligada');
   const [erro, definirErro] = useState<string | null>(null);
   const aoTextoAtual = useRef(aoTexto);
   aoTextoAtual.current = aoTexto;
 
   useEffect(() => {
-    const atualizar = () => definirLigada(escutaLigada());
+    const atualizar = () => {
+      definirLigada(escutaLigada());
+      definirRapida(escutaRapida());
+    };
     window.addEventListener('solis-escuta', atualizar);
     return () => window.removeEventListener('solis-escuta', atualizar);
   }, []);
@@ -139,7 +166,7 @@ export function useEscuta(aoTexto: (texto: string) => void) {
 
     function conectar(tentativa = 0) {
       if (fim) return;
-      ws = new WebSocket(urlEscuta());
+      ws = new WebSocket(urlEscuta(rapida));
       ws.binaryType = 'arraybuffer';
       ws.onopen = () => {
         definirErro(null);
@@ -187,7 +214,8 @@ export function useEscuta(aoTexto: (texto: string) => void) {
       ws?.close();
       fecharMicrofone();
     };
-  }, [ligada]);
+    // Trocar a escuta rápida reconecta: o servidor decide se segura o Whisper na conexão.
+  }, [ligada, rapida]);
 
   return { estado, erro, ligada };
 }

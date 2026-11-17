@@ -1215,7 +1215,9 @@ export async function amostraFish(voz: string | null): Promise<{ audio: Blob; se
 // — Palavra de ativação ———————————————————————————————————————————————————————————
 
 /** O endereço do WebSocket da escuta (o mesmo servidor, em ws://). */
-export const urlEscuta = () => `${BASE.replace(/^http/, 'ws')}/escuta`;
+/** `rapida`: o Whisper fica na placa enquanto a escuta estiver aberta (Configurações
+ *  → Voz → Escuta rápida); senão, sai depois de 10 min parado. */
+export const urlEscuta = (rapida = true) => `${BASE.replace(/^http/, 'ws')}/escuta?segurar=${rapida ? 1 : 0}`;
 
 /** O teste da escuta (backend/solis/voz_teste.py). */
 export type PassoTeste = { i: number; tipo: 'chamada' | 'sem'; mostrar: string; esperado: string; inicio: number; fim: number };

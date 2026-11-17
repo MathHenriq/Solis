@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Botao, Interruptor } from '../components/Controles';
 import { Icone } from '../components/icons';
-import { definirEscutaLigada, escutaLigada } from '../escuta';
+import { definirEscutaLigada, definirEscutaRapida, escutaLigada, escutaRapida } from '../escuta';
 import { TesteEscuta } from './TesteEscuta';
 import { VozesFish } from './VozesFish';
 import { definirFalaAutomatica, falaAutomatica } from '../fala';
@@ -96,6 +96,28 @@ function PalavraAtivacao() {
               }
             : undefined
         }
+      />
+    </Linha>
+  );
+}
+
+/** Escuta rápida (17/11/2026, escolha do Matheus): o Whisper na placa de vídeo o
+ *  tempo todo (1,2 GB) ou só enquanto é usado. PROVISÓRIO — a mesma linha e o
+ *  mesmo interruptor das outras do cartão (aprovadas); só o texto é novo. */
+function EscutaRapida() {
+  const [rapida, definirRapida] = useState(escutaRapida);
+  const dica = rapida
+    ? 'Ligada: o Whisper fica na placa de vídeo enquanto a escuta estiver ligada (usa 1,2 GB) e a primeira chamada responde na hora.'
+    : 'Desligada: o Whisper sai da placa de vídeo depois de 10 minutos parado (libera 1,2 GB), e a primeira chamada depois disso demora de 3 a 7 segundos.';
+  return (
+    <Linha rotulo="Escuta rápida" dica={dica}>
+      <Interruptor
+        ligado={rapida}
+        rotulo="Escuta rápida"
+        aoTrocar={(v) => {
+          definirRapida(v);
+          definirEscutaRapida(v);
+        }}
       />
     </Linha>
   );
@@ -392,6 +414,7 @@ export function CartaoVoz() {
           </Linha>
 
           <PalavraAtivacao />
+          <EscutaRapida />
           <TesteEscuta />
 
           <Linha rotulo="Responder falando" dica="Quando você fala com o microfone, a resposta é lida em voz alta">

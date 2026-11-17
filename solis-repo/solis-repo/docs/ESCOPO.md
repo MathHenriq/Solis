@@ -528,6 +528,18 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      decisão passa de 1,5 s — só o tempo, nunca o que foi dito. Não dá pra afirmar que foi
      isso naquela manhã (o log não guarda o que o Whisper ouviu), mas é o caminho medido que
      perdia a chamada.
+   - **Escuta rápida: a placa fica com o Matheus (17/11/2026).** Ele achou relevante prender 1,2 GB
+     da placa o tempo todo. Medido antes de mudar: no processador, sem a placa, o Whisper leva
+     1,47 s (small), 3,8 s (medium) e 5,7 s (turbo) por trecho de 2 s — não serve. Na placa: small
+     453 MB e 0,14 s; medium 1.093 MB e 0,24 s; turbo 1.189 MB e 0,23 s. E na gravação dele, com a
+     cascata: small entendeu 7 de 12 (e "Desliga a música" virou "Liga a música"), medium 10 de 12,
+     turbo 11 de 12. Não há modelo menor que entenda igual. Decisão do Matheus: a escolha fica com
+     ele, em Configurações → Voz → **Escuta rápida** (ligada por padrão, que é como a escuta passou
+     no teste). Ligada, o Whisper fica na placa enquanto a escuta estiver ligada; desligada, sai
+     depois de 10 min parado, e a primeira chamada depois disso espera ele carregar (3 a 7 s). A
+     escolha vai na conexão da escuta (`/escuta?segurar=0|1`) e trocar reconecta. A linha é a mesma
+     das outras do cartão (PROVISÓRIO até os prints: `design/escuta-rapida-validacao.png`, 3 temas
+     × 2 navegações, ligada e desligada; o interruptor no mesmo x e tamanho da linha de cima).
    - **"Às vezes demora": a etapa da memória (16/11/2026).** No log, ela ia de 0,05 s a 22 s
      antes de cada resposta. Duas causas, as duas no vetor da pergunta (o embeddinggemma no
      Ollama):

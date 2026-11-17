@@ -467,3 +467,17 @@ def test_o_limiar_da_fala_vale_o_de_agora(monkeypatch):
     assert not e._e_fala(-44.0)  # 6 dB acima do piso, com o limiar de 7
     monkeypatch.setattr(ativacao, 'ACIMA_DO_PISO', 5.0)
     assert e._e_fala(-44.0)
+
+
+def test_escuta_rapida_desligada_nao_segura_o_whisper(monkeypatch):
+    """17/11/2026: com a escuta rápida desligada (Configurações → Voz), o Whisper
+    não fica preso na placa (1,2 GB) — sai depois de 10 min parado, como antes."""
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
+    aquecidos = []
+    monkeypatch.setattr(voz, 'aquecer', lambda: aquecidos.append(1))
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta?segurar=0') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        assert voz._segurando == 0
+    assert voz._segurando == 0 and aquecidos == [1]  # aquece igual: a primeira chamada já acha ele

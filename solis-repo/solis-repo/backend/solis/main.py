@@ -1935,9 +1935,13 @@ async def escuta(ws: WebSocket):
         await ws.send_json({'tipo': 'erro', 'motivo': str(e)[:300]})
         await ws.close()
         return
-    # Com a escuta aberta, o Whisper fica carregado (voz.segurar) e já sobe
-    # agora: frio, o primeiro "Solis" esperava ~7 s pela decisão (16/11/2026).
-    voz.segurar()
+    # O Whisper já sobe agora: frio, o primeiro "Solis" esperava ~7 s pela
+    # decisão (16/11/2026). E, com a escuta rápida ligada (?segurar=1, o padrão;
+    # Configurações → Voz), fica carregado enquanto a escuta estiver aberta —
+    # 1,2 GB da placa (17/11/2026: escolha do Matheus, a opção é dele).
+    segurando = ws.query_params.get('segurar', '1') != '0'
+    if segurando:
+        voz.segurar()
     _aquecer_whisper()
     pausada = False
     try:
@@ -1995,7 +1999,8 @@ async def escuta(ws: WebSocket):
         pass
     finally:
         escutando.fechar()
-        voz.soltar()
+        if segurando:
+            voz.soltar()
 
 
 # — Aprovações do agente (agente.py) ——————————————————————————————————————————————
