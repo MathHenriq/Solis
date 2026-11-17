@@ -80,7 +80,9 @@ export function useChamada(escuta: EstadoEscuta, respondendo: boolean, comTexto:
   useEffect(() => {
     const f = faseAtual.current;
     if (teste || (f !== 'pensando' && f !== 'respondendo')) return;
-    if (falando || (respondendo && comTexto)) definirFase('respondendo');
+    // Falando SEM texto da resposta é a narração ("Vou passar pro Claude, um
+    // instante."): o Claude ainda está trabalhando — continua pensando.
+    if (comTexto && (falando || respondendo)) definirFase('respondendo');
     else if (!respondendo && !falando) definirFase('saindo');
   }, [respondendo, comTexto, falando]);
 
