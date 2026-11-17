@@ -1,6 +1,8 @@
 import { useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
 import { Chamada } from './components/Chamada';
+import { EsferaVoz } from './components/EsferaVoz';
+import { useJanelaEmFrente } from './janelaEmFrente';
 import { Horizonte } from './components/Horizonte';
 import { GavetaConversas, type PropsLista } from './components/ListaConversas';
 import { Sidebar } from './components/Sidebar';
@@ -47,8 +49,11 @@ export default function App() {
   const ultimo = conversa.turnos[conversa.turnos.length - 1];
   const chamada = useChamada(escuta.estado, conversa.respondendo, !!(ultimo?.de === 'solis' && ultimo.texto));
   const resposta = chamada.resposta ?? (ultimo?.de === 'solis' ? ultimo.texto : undefined);
-  // No app Tauri a ilha é uma janela própria, por cima de tudo (tauri.ts).
-  useIlhaNoApp({ fase: chamada.fase, legenda: chamada.legenda, resposta });
+  // Com a janela do Solis na frente, a voz aparece na esfera, dentro do app;
+  // atrás ou minimizada, na ilha — no app Tauri, uma janela própria por cima
+  // de tudo (tauri.ts). Decisão do Matheus, 16/11/2026.
+  const emFrente = useJanelaEmFrente();
+  useIlhaNoApp({ fase: emFrente ? null : chamada.fase, legenda: chamada.legenda, resposta });
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
@@ -123,7 +128,10 @@ export default function App() {
       {!comSidebar && <GavetaConversas {...lista} visivel={gaveta} aoFechar={() => definirGaveta(false)} />}
       {(TELAS[tela] ?? TELAS.conversa)()}
       {!comSidebar && <BarraIcones ativo={tela} aoTrocar={definirTela} />}
-      {chamada.fase && !noApp && (
+      {chamada.fase && emFrente && (
+        <EsferaVoz fase={chamada.fase} legenda={chamada.legenda} resposta={resposta} comSidebar={comSidebar} />
+      )}
+      {chamada.fase && !emFrente && !noApp && (
         <Chamada fase={chamada.fase} legenda={chamada.legenda} resposta={resposta} comSidebar={comSidebar} />
       )}
     </div>
