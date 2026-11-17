@@ -102,8 +102,10 @@ function PalavraAtivacao() {
 }
 
 /** Escuta rápida (17/11/2026, escolha do Matheus): o Whisper na placa de vídeo o
- *  tempo todo (1,2 GB) ou só enquanto é usado. PROVISÓRIO — a mesma linha e o
- *  mesmo interruptor das outras do cartão (aprovadas); só o texto é novo. */
+ *  tempo todo (1,2 GB) ou só enquanto é usado. Aprovada pelo Matheus pelos prints
+ *  (17/11/2026, design/escuta-rapida-validacao.png): a mesma linha e o mesmo
+ *  interruptor das outras do cartão; só o texto é novo. Vale pro Whisper local —
+ *  a regra dele é online primeiro, o computador só quando não der. */
 function EscutaRapida() {
   const [rapida, definirRapida] = useState(escutaRapida);
   const dica = rapida

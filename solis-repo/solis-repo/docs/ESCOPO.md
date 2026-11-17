@@ -538,8 +538,10 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      no teste). Ligada, o Whisper fica na placa enquanto a escuta estiver ligada; desligada, sai
      depois de 10 min parado, e a primeira chamada depois disso espera ele carregar (3 a 7 s). A
      escolha vai na conexão da escuta (`/escuta?segurar=0|1`) e trocar reconecta. A linha é a mesma
-     das outras do cartão (PROVISÓRIO até os prints: `design/escuta-rapida-validacao.png`, 3 temas
-     × 2 navegações, ligada e desligada; o interruptor no mesmo x e tamanho da linha de cima).
+     das outras do cartão, aprovada pelo Matheus pelos prints (`design/escuta-rapida-validacao.png`,
+     3 temas × 2 navegações, ligada e desligada; o interruptor no mesmo x e tamanho da linha de
+     cima). Ele disse junto: o Whisper local é pro modo offline; online, a transcrição vai pra nuvem
+     — a regra é online primeiro, o computador só quando não der.
    - **"Às vezes demora": a etapa da memória (16/11/2026).** No log, ela ia de 0,05 s a 22 s
      antes de cada resposta. Duas causas, as duas no vetor da pergunta (o embeddinggemma no
      Ollama):
