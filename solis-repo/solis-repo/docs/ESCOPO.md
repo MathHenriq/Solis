@@ -611,6 +611,16 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      acabar em vez de cortá-la, e a escuta pausa durante ela. **Não visto ao vivo:** precisa de um
      pedido por voz que passe pro Claude, que age de verdade no PC — fica pro Matheus testar
      ("Solis, pesquisa o preço do dólar hoje").
+   - **A voz fala enquanto a resposta chega (16/11/2026).** Antes a tela esperava a resposta
+     inteira; agora cada frase completa (ponto, exclamação ou interrogação seguidos de espaço —
+     "3.5" não corta) vai pra voz assim que termina, e o resto no fim (`fala.ts`: `acompanhar`,
+     uma fila que toca em ordem e já carrega o pedaço seguinte). Visto no navegador, num
+     servidor de teste com um cérebro falso que manda três frases a 1,5 s uma da outra: a voz da
+     primeira foi pedida 0,09 s depois dela chegar, a da segunda 0,04 s depois, a última no fim —
+     antes, tudo só depois do fim, **4,45 s mais tarde** nessa resposta. Com a Groq (a resposta
+     curta acaba em ~0,06 s) quase não muda; com o Claude, são os segundos da resposta inteira.
+     Resposta que falha no meio fecha a fila (a escuta não fica pausada); depois de tudo, a tela
+     volta a "parado".
 
 ### Controle do PC e visão da tela
 

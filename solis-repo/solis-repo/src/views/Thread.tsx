@@ -427,16 +427,19 @@ export function Thread({
     campo.current?.focus();
   });
   const fala = useFala(conversa);
-  // Falou, ouve: quando a resposta de uma mensagem ditada termina de chegar,
-  // ela é lida em voz alta.
+  // Falou, ouve: a resposta de uma mensagem ditada é lida em voz alta ENQUANTO
+  // chega (a cascata do IDEIAS.md) — cada frase completa já vai pra voz, e o
+  // resto no fim. Antes esperava a resposta inteira: com o Claude, segundos.
   const ultima = turnos[turnos.length - 1];
   useEffect(() => {
-    if (!ultima || ultima.de !== 'solis' || ultima.digitando || ultima.falha || !ultima.texto) return;
-    if (!respostaFalada.proxima) return;
-    respostaFalada.proxima = false;
-    fala.ouvir(ultima.id, ultima.texto);
+    if (!ultima || ultima.de !== 'solis' || !respostaFalada.proxima) return;
+    const acabou = !ultima.digitando || !!ultima.falha;
+    // Falhou no meio: o aviso não é fala do Solis — só fecha o que já foi pra voz
+    // (senão a fila esperava pra sempre, e a escuta ficava pausada).
+    fala.acompanhar(ultima.id, ultima.falha ? '' : ultima.texto, acabou);
+    if (acabou) respostaFalada.proxima = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ultima?.id, ultima?.digitando]);
+  }, [ultima?.id, ultima?.texto, ultima?.digitando, ultima?.falha]);
   // A narração: pela voz, quando o pedido vai pro Claude ou pro Codex (passou
   // pra quem tem ferramentas, ou os rápidos caíram), uma frase fixa avisa
   // enquanto ele trabalha — sem ela, eram 3,5 a 14 s de silêncio.
