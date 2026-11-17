@@ -48,6 +48,10 @@ const CAMINHOS = {
     'M12 15.2a3.2 3.2 0 0 0 3.2-3.2V6.2a3.2 3.2 0 0 0-6.4 0V12a3.2 3.2 0 0 0 3.2 3.2z M19 11.4V12a7 7 0 0 1-14 0v-.6 M12 19v3',
   'enviar':
     'M21.5 2.5 11 13 M21.5 2.5 14.8 21.5l-3.8-8.5-8.5-3.8z',
+  // Desenho próprio (o modo Conversa, 17/11/2026), com o Claude como base: as
+  // ondas de som do botão de voz dele, no grid 24 e no traço 2 dos outros.
+  'ondas':
+    'M4 10v4 M8 7v10 M12 4v16 M16 7v10 M20 10v4',
   // Adicionados na rodada que fechou as telas restantes. Mesmo grid 24x24 e
   // mesmo traço 2 dos anteriores, desenhados contra a ampliação de cada glifo
   // nas referências 13- a 18-.

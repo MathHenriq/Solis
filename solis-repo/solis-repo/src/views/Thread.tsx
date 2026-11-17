@@ -12,6 +12,7 @@ import {
 } from '../components/EtapasResposta';
 import { PainelArtefato } from '../components/PainelArtefato';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
+import { BotaoConversa } from '../components/BotaoConversa';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
 import { ComandosFundo } from '../components/ComandosFundo';
@@ -703,6 +704,7 @@ export function Thread({
           </button>
           <EscolhaEstilo aoCriar={aoCriarEstilo} />
           <EscolhaClaude />
+          <BotaoConversa tamanho={22} />
           <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
           {/* Respondendo, o enviar vira o parar (como no Claude): o mesmo
               círculo, o quadrado no lugar do avião. */}

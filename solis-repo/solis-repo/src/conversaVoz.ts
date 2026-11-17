@@ -16,6 +16,33 @@ import { urlConversaVoz } from './servidor';
 
 export type FaseConversa = 'conectando' | 'ouvindo' | 'falando';
 
+// Se há conversa agora, pra quem não mora no App (o botão nas caixas de conversa).
+let ativaAgora = false;
+const ouvintesAtiva = new Set<(ativa: boolean) => void>();
+
+function marcarAtiva(ativa: boolean) {
+  if (ativa === ativaAgora) return;
+  ativaAgora = ativa;
+  ouvintesAtiva.forEach((o) => o(ativa));
+}
+
+/** O botão: entra no modo Conversa, ou sai se já estiver nele (App.tsx ouve). */
+export function alternarConversa() {
+  window.dispatchEvent(new Event('solis-conversa'));
+}
+
+export function useConversaAtiva(): boolean {
+  const [ativa, definir] = useState(ativaAgora);
+  useEffect(() => {
+    ouvintesAtiva.add(definir);
+    definir(ativaAgora);
+    return () => {
+      ouvintesAtiva.delete(definir);
+    };
+  }, []);
+  return ativa;
+}
+
 export function useConversaVoz(aoTurno: (conversa: number) => void) {
   const [fase, definirFase] = useState<FaseConversa | null>(null);
   const [ouviu, definirOuviu] = useState('');
@@ -161,6 +188,7 @@ export function useConversaVoz(aoTurno: (conversa: number) => void) {
 
   // Saindo da tela com a conversa aberta: encerra (o microfone não fica aberto à toa).
   useEffect(() => () => encerrarRef.current(), []);
+  useEffect(() => marcarAtiva(fase !== null), [fase]);
 
   return { fase, ouviu, disse, erro, iniciar, encerrar: () => encerrarRef.current() };
 }

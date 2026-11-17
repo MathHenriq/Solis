@@ -728,6 +728,30 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      explícito (o padrão do SDK 3.4.0 dava HTTP 404). Amostras das vozes:
      `design/conversa-amostras/`. Falta: a voz dele ao vivo, interromper no meio, conversa de
      vários turnos, e a decisão de grátis (dados pro Google) ou pago.
+   - **O modo Conversa, construído (17/11/2026).** Decisões do Matheus: Gemini Live na faixa grátis
+     (a paga fica pra avaliar; a Groq não tem voz em tempo real), entrar falando ou por botão, e o
+     que for dito fica salvo na conversa.
+     - **Servidor** (`conversa_voz.py`, `/conversa-voz`): a ponte com o `gemini-3.8-live` — o
+       microfone vai em tempo real (16 kHz), a voz dele volta aos pedaços (24 kHz, a voz Aoede, a
+       mesma escolhida pro Gemini), interromper avisa a tela, 30 s sem ninguém falar encerram, e
+       cada troca vira duas mensagens na conversa (com o aprendizado, como no modo Pedido). No
+       contexto vão só as memórias e mensagens que não são privadas; e ele é avisado de que nesse
+       modo não age (pra ação, "Solis" fora do modo conversa). Visto com o Gemini de verdade: duas
+       trocas certas, primeiro som ~1,4 s depois do fim da fala.
+     - **Tela** (`conversaVoz.ts`): o microfone com o cancelamento de eco ligado (a voz dele sai das
+       caixas), a voz numa fila do Web Audio que para na hora quando ele é interrompido, o visual da
+       voz (ouvindo, com o que ele diz embaixo; falando, com a resposta), a escuta do "Solis"
+       desligada durante a conversa (um microfone só), e Esc encerra. Entra dizendo "Solis, vamos
+       conversar" ("bora bater um papo", "modo conversa"): 9 de 9 frases certas, sem disparar com
+       "me lembra de conversar com o João".
+     - **Botão** (`BotaoConversa.tsx`, ícone `ondas`): ao lado do microfone nas duas caixas, com o
+       Claude como base (o botão de voz dele), no mesmo tamanho (35 e 38 px) e cor do microfone;
+       na conversa, o accent, e clicar sai. PROVISÓRIO até os prints:
+       `design/botao-conversa-validacao.png`.
+     Visto na tela com um Gemini de mentira e o microfone falso do navegador
+     (`design/capturar-conversa.mjs`): ouvindo → falando → ouvindo, a troca salva e mostrada na
+     conversa, Esc fecha. **Falta:** a voz dele ao vivo com o microfone de verdade (o app estava
+     fechado), e conferir se o cancelamento de eco segura a voz dele nas caixas de som do notebook.
 
 ### Controle do PC e visão da tela
 

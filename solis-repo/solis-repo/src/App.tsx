@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
 import { Chamada, type FaseChamada } from './components/Chamada';
 import { pedeConversa, useConversaVoz } from './conversaVoz';
@@ -42,6 +42,12 @@ export default function App() {
   // O modo Conversa (conversaVoz.ts): bate-papo por voz em tempo real. Cada troca
   // fica salva na conversa, que recarrega pra mostrar.
   const voz = useConversaVoz((id) => void conversa.abrir(id));
+  // O botão das caixas de conversa (BotaoConversa): entra, ou sai se já estiver.
+  useEffect(() => {
+    const alternar = () => (voz.fase ? voz.encerrar() : voz.iniciar(conversa.conversa));
+    window.addEventListener('solis-conversa', alternar);
+    return () => window.removeEventListener('solis-conversa', alternar);
+  }, [voz, conversa.conversa]);
   // Só em desenvolvimento: abrir o modo Conversa pela página (pra ver sem microfone de verdade).
   if (import.meta.env.DEV) (window as unknown as { __conversa?: () => void }).__conversa = () => voz.iniciar(conversa.conversa);
   const escuta = useEscuta(

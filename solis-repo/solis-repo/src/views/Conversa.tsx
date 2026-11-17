@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
+import { BotaoConversa } from '../components/BotaoConversa';
 import { Icone, type NomeIcone } from '../components/icons';
 import { falaAutomatica, marcarRespostaFalada } from '../fala';
 import { useVoz, type EstadoVoz } from '../voz';
@@ -30,6 +31,7 @@ function Acoes({
 }: { interativo?: boolean; voz?: EstadoVoz; aoFalar?: () => void } = {}) {
   return (
     <>
+      <BotaoConversa tamanho={19} interativo={interativo} />
       <BotaoMicrofone estado={voz} aoClicar={aoFalar} tamanho={19} interativo={interativo} />
       <button
         type={interativo ? 'submit' : 'button'}
