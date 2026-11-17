@@ -431,11 +431,9 @@ diagnóstico do documento. A fala usa uma cadeia: Gemini TTS, depois a Ava do Ed
 local. A Fish Audio está em teste na frente quando há chave (`fala.py`).
 
 **Chaves e privacidade** — as chaves dos cérebros (Groq, Gemini…) ficam no cofre do Windows
-(DPAPI, `cofre.py`), e a memória privada também é criptografada. Duas exceções, abertas:
-- as variáveis (chaves de API) dos servidores MCP que se adicionam pela tela vão em texto puro
-  pros arquivos do Claude Code e do Codex (`~/.claude.json`, `~/.codex/config.toml`), que é como
-  eles guardam;
-- o índice de busca guarda o texto legível da memória privada (anotado em `banco.py`).
+(DPAPI, `cofre.py`), e a memória privada também é criptografada. As variáveis (chaves de API)
+dos servidores MCP também, desde 17/11/2026 (ver o item 5 abaixo). Uma exceção, aberta: o índice
+de busca guarda o texto legível da memória privada (anotado em `banco.py`).
 
 **Memória** — a busca por significado e a memória visível em Conhecimento existem (`busca.py`,
 o grafo). Falta a área por personalidade.
@@ -465,10 +463,12 @@ existem.
    documento, e a equipe do `AGENTES.md` (Manager, Atlas, Nexus, Athena, Sentinel). Elas se
    cruzam: o Pesquisador lembra o Atlas, e o de Segurança lembra o Sentinel. Falta decidir se uma
    substitui a outra ou se as duas se juntam.
-5. **Chaves dos servidores MCP no cofre.** A regra "chaves no cofre, nunca em arquivo aberto" pede
-   mudar o que foi feito em 15/11: guardar as variáveis no cofre do Solis e passá-las aos
-   servidores na hora, em vez de deixar nos arquivos do Claude Code e do Codex. O custo: o
-   servidor só funcionaria pelo Solis, não mais pelo Claude Code do terminal.
+5. **Chaves dos servidores MCP no cofre — decidido e feito (17/11/2026).** O Matheus escolheu o
+   cofre com um lançador, em vez de "só pelo Solis": as variáveis ficam no cofre do Solis, e nos
+   arquivos do Claude Code e do Codex vai só `python -m solis.lancar_mcp <nome> <comando>`, que abre
+   o cofre na hora de ligar o servidor. O custo que a proposta tinha (o servidor deixar de valer no
+   terminal) sumiu: vale no Claude Code e no Codex do terminal, na mesma conta do Windows, com o
+   Solis instalado (não precisa estar aberto).
 6. **Taxa de sucesso por função e "só existe o que funciona".** Pede um registro novo (cada função
    com acertos e falhas) e uma tela pra ele, e um teste de qualidade com meta antes de cada
    função ficar ativa.

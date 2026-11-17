@@ -3,11 +3,14 @@ os dois, escritos pelos próprios CLIs; ler é livre, mudar pede (no Claude, o
 cartão; no GPT, não roda)."""
 import asyncio
 import json
+import os
+import subprocess
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
-from solis import agente, banco, main, servidores_mcp
+from solis import agente, banco, cofre, lancar_mcp, main, servidores_mcp
 
 
 def test_partes_do_comando():
@@ -21,12 +24,69 @@ def test_adicionar_pros_dois_e_ler(mcp_de_mentira):
                               ['claude', 'codex'])
     assert s['para'] == ['claude', 'codex'] and s['comando'] == 'npx -y @notion/mcp'
     assert s['variaveis'] == ['NOTION_TOKEN', 'OUTRA'] and s['editavel'] and s['origem'] == 'seu'
+    assert s['no_cofre']
+    # As chaves no cofre; nos CLIs, o lançador do Solis com o comando de verdade.
     config = json.loads((servidores_mcp._casa() / '.claude.json').read_text())['mcpServers']['notion']
-    assert config == {'type': 'stdio', 'command': 'npx', 'args': ['-y', '@notion/mcp'],
-                      'env': {'NOTION_TOKEN': 'abc', 'OUTRA': '1'}}
-    assert ('codex', 'mcp', 'add', 'notion', '--env', 'NOTION_TOKEN=abc', '--env', 'OUTRA=1', '--', 'npx', '-y',
-            '@notion/mcp') in mcp_de_mentira['chamadas']
+    assert config['command'] == servidores_mcp._python()
+    assert config['args'] == ['-m', 'solis.lancar_mcp', 'notion', 'npx', '-y', '@notion/mcp']
+    assert set(config['env']) == {'PYTHONPATH', 'SOLIS_BANCO'} and config['env']['SOLIS_BANCO'] == str(banco.arquivo())
+    add_codex = next(c for c in mcp_de_mentira['chamadas'] if c[:3] == ('codex', 'mcp', 'add'))
+    assert add_codex[-6:] == ('-m', 'solis.lancar_mcp', 'notion', 'npx', '-y', '@notion/mcp')
+    assert 'abc' not in json.dumps([config, mcp_de_mentira['chamadas']])
+    if cofre.DISPONIVEL:
+        assert all(cofre.selado(v) for v in banco.ajuste('mcp_variaveis')['notion'].values())
+        assert 'abc' not in json.dumps(banco.ajuste('mcp_variaveis'))
     assert servidores_mcp.ler('notion')['variaveis'] == 'NOTION_TOKEN=abc\nOUTRA=1'
+    assert servidores_mcp.ler('notion')['comando'] == 'npx -y @notion/mcp'
+    # Visto pelo Codex, o mesmo servidor.
+    assert servidores_mcp._do_codex()['notion']['env'] == {'NOTION_TOKEN': 'abc', 'OUTRA': '1'}
+
+
+def test_sem_chave_vai_direto_e_tirar_a_chave_limpa_o_cofre(mcp_de_mentira):
+    servidores_mcp.salvar('srv', 'comando', 'npx srv', '', 'TOKEN=1', ['claude'])
+    assert 'srv' in banco.ajuste('mcp_variaveis')
+    s = servidores_mcp.salvar('srv', 'comando', 'npx srv', '', '', ['claude'], antigo='srv')
+    config = json.loads((servidores_mcp._casa() / '.claude.json').read_text())['mcpServers']['srv']
+    assert config == {'type': 'stdio', 'command': 'npx', 'args': ['srv'], 'env': {}} and not s['no_cofre']
+    assert 'srv' not in banco.ajuste('mcp_variaveis')
+    servidores_mcp.salvar('srv', 'comando', 'npx srv', '', 'TOKEN=2', ['claude'], antigo='srv')
+    assert servidores_mcp.remover('srv') and 'srv' not in banco.ajuste('mcp_variaveis')
+
+
+def test_os_de_antes_em_texto_aberto_continuam_lidos(mcp_de_mentira):
+    (servidores_mcp._casa() / '.claude.json').write_text(json.dumps({'mcpServers': {
+        'velho': {'type': 'stdio', 'command': 'npx', 'args': ['srv'], 'env': {'TOKEN': 'x'}}}}))
+    s = servidores_mcp.listar()[0]
+    assert (s['comando'], s['variaveis'], s['no_cofre']) == ('npx srv', ['TOKEN'], False)
+    # Salvo de novo pela tela, a chave sai do arquivo e vai pro cofre.
+    servidores_mcp.salvar('velho', 'comando', 'npx srv', '', 'TOKEN=x', ['claude'], antigo='velho')
+    assert '"x"' not in (servidores_mcp._casa() / '.claude.json').read_text()
+
+
+def test_o_lancador_liga_o_servidor_com_as_chaves(mcp_de_mentira):
+    servidores_mcp.salvar('eco', 'comando', 'x', '', 'TOKEN=segredo', ['claude'])
+    config = json.loads((servidores_mcp._casa() / '.claude.json').read_text())['mcpServers']['eco']
+    # O "servidor": lê uma linha da entrada e responde com ela e a chave (a entrada e a saída passam direto).
+    filho = ('import os,sys; l=sys.stdin.readline().strip(); '
+             'print(l, os.environ["TOKEN"], "SOLIS_BANCO" in os.environ, "PYTHONPATH" in os.environ)')
+    args = config['args'][:3] + [sys.executable, '-c', filho]
+    r = subprocess.run([config['command'], *args], input='oi\n', capture_output=True, text=True, timeout=30,
+                       env={**os.environ, **config['env']})
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.split() == ['oi', 'segredo', 'False', 'False']
+    # Sem as chaves no cofre: não liga, e diz por quê.
+    servidores_mcp._guardar_variaveis('eco', {})
+    r = subprocess.run([config['command'], *args], input='', capture_output=True, text=True, timeout=30,
+                       env={**os.environ, **config['env']})
+    assert r.returncode == 1 and 'não tem as variáveis' in r.stderr
+
+
+def test_chave_que_nao_abre(mcp_de_mentira, monkeypatch):
+    servidores_mcp.salvar('srv', 'comando', 'npx srv', '', 'TOKEN=1', ['claude'])
+    monkeypatch.setattr(lancar_mcp, 'variaveis', lambda nome: {'TOKEN': cofre.ILEGIVEL})
+    assert 'não abrem' in lancar_mcp.ambiente('srv', {})
+    monkeypatch.setattr(servidores_mcp, '_do_cofre', lambda nome: {'TOKEN': cofre.ILEGIVEL})
+    assert 'não abrem' in asyncio.run(servidores_mcp.conferir('srv'))['erro']
 
 
 def test_mudar_pra_so_um_e_renomear(mcp_de_mentira):

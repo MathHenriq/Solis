@@ -411,7 +411,12 @@ _caminho: Path | None = None
 
 def pasta() -> Path:
     """A pasta do banco em uso (nos testes, a temporária)."""
-    return (_caminho or caminho_padrao()).parent
+    return arquivo().parent
+
+
+def arquivo() -> Path:
+    """O arquivo do banco em uso (nos testes, o temporário)."""
+    return _caminho or caminho_padrao()
 
 
 def usar(caminho: Path) -> None:

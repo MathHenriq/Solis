@@ -113,7 +113,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /estilos` | `{"nome", "instrucoes"}` → cria um estilo seu. `400` com `estilo_invalido` e o `motivo` |
 | `PUT /estilos/{id}` | o mesmo corpo → muda um seu |
 | `DELETE /estilos/{id}` | apaga um seu (se era o escolhido, volta pro Normal) |
-| `GET /mcp` | os servidores MCP: `nome`, `tipo` (`comando` ou `endereco`), `comando` ou `url`, `variaveis` (só os nomes), `para` (`claude`, `codex`), `origem` (`seu`, `solis`, `codex`), `editavel` e as `ferramentas` da última conferida (`total`, `so_leem`, `erro`) |
+| `GET /mcp` | os servidores MCP: `nome`, `tipo` (`comando` ou `endereco`), `comando` ou `url`, `variaveis` (só os nomes), `no_cofre`, `para` (`claude`, `codex`), `origem` (`seu`, `solis`, `codex`), `editavel` e as `ferramentas` da última conferida (`total`, `so_leem`, `erro`) |
 | `GET /mcp/{nome}` | um dos seus inteiro, pra editar (com os valores das variáveis) |
 | `POST /mcp` | `{"nome", "tipo", "comando"?, "url"?, "variaveis"?, "para"}` → adiciona pelos CLIs (`claude mcp add-json --scope user`, `codex mcp add`). `400` com `servidor_invalido` e o `motivo` |
 | `PUT /mcp/{nome}` | o mesmo corpo → muda (tira de onde estava e põe onde `para` diz) |
@@ -566,6 +566,19 @@ Code. Cada um diz pra quem vale: pro Claude, na configuração de usuário do Cl
 user`, `codex mcp add/remove`); o Solis só lê o `~/.claude.json` e o `codex mcp list --json`. Valem
 também no Claude Code e no Codex do terminal. A memória do Solis (`solis`) e os servidores que o
 app do Codex instala pra ele (computer use) aparecem, mas não se mexem pela tela.
+
+As chaves ficam no cofre (decisão do Matheus, 17/11/2026). Um servidor por comando com variáveis
+não vai com elas pros arquivos dos CLIs: elas são seladas pela DPAPI em `ajustes.mcp_variaveis`, e
+o que se grava lá é o lançador, `python -m solis.lancar_mcp <nome> <comando do servidor>` (o Python
+do `.venv`), com só `PYTHONPATH` e `SOLIS_BANCO` de variável. Quem liga o servidor (o Claude do
+Solis, o Claude Code ou o Codex do terminal) roda o lançador; ele abre as chaves, tira as duas dele
+e liga o servidor de verdade com elas, com a entrada e a saída passando direto. No Windows ele entra
+num job que mata o servidor (e o `node` do `npx`) quando ele acaba. Sem chave no cofre, ou em outra
+conta do Windows, ele não liga e diz por quê (no erro, que o "Conferir" mostra). Servidor sem
+variáveis vai direto, sem lançador. Os de antes, em texto aberto, continuam lidos; salvos de novo
+pela tela, a chave sai do arquivo e vai pro cofre. `GET /mcp` diz `no_cofre`. Provado com os CLIs
+de verdade numa casa de teste (17/11/2026): a chave não aparece no `.claude.json`, no `config.toml`
+nem no banco; o `claude mcp list` diz "Connected"; e a ferramenta do servidor viu a chave.
 
 "Conferir" conecta no servidor (stdio ou HTTP, pela biblioteca `mcp`) e lista as ferramentas, com
 as que só leem (a marca `readOnlyHint` do servidor); fica guardado (`ajustes.mcp_ferramentas`). No

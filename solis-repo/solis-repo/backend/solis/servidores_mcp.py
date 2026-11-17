@@ -13,7 +13,12 @@ com o que só lê (a marca readOnlyHint do próprio servidor). No Claude, ler é
 livre e o resto pede cartão (agente._decidir). No GPT, que roda sem ninguém pra
 aprovar (codex exec), só as que leem são liberadas (`-c mcp_servers.X.tools.Y.
 approval_mode="approve"`, testado no Codex 0.166 em 15/11/2026); as outras
-falham e ele diz que não pôde."""
+falham e ele diz que não pôde.
+
+As chaves (as variáveis de um servidor por comando) ficam no cofre do Solis,
+não em texto aberto nos arquivos dos CLIs (o Matheus, 17/11/2026): lá vai o
+lançador (lancar_mcp.py), que abre o cofre na hora de ligar o servidor.
+Continua valendo no terminal, na mesma conta do Windows."""
 from __future__ import annotations
 
 import asyncio
@@ -23,10 +28,12 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
-from . import banco
+from . import banco, cofre
+from .lancar_mcp import COFRE, NOSSAS
 
 log = logging.getLogger('solis.servidores_mcp')
 
@@ -36,6 +43,7 @@ TESTE_MAX_S = 40.0
 CACHE_S = 600
 _NOME = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 _CHAVE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+LANCADOR = 'solis.lancar_mcp'
 
 
 class ServidorInvalido(Exception):
@@ -62,6 +70,40 @@ def _rodar(cli: str, *args: str, timeout: float = 60) -> str:
     return r.stdout
 
 
+# — o cofre das variáveis ————————————————————————————————————————————————————
+def _cofre() -> dict[str, dict[str, str]]:
+    return dict(banco.ajuste(COFRE) or {})
+
+
+def _guardar_variaveis(nome: str, env: dict[str, str]) -> None:
+    c = _cofre()
+    if env:
+        c[nome] = {k: cofre.selar(v) for k, v in env.items()}
+    elif c.pop(nome, None) is None:
+        return
+    banco.guardar_ajuste(COFRE, c)
+
+
+def _do_cofre(nome: str) -> dict[str, str]:
+    return {k: cofre.abrir(v) for k, v in (_cofre().get(nome) or {}).items()}
+
+
+def _python() -> str:
+    """O Python do Solis (o do .venv), o de console: o lançador conversa pela entrada e saída."""
+    exe = Path(sys.executable)
+    console = exe.with_name('python.exe')
+    return str(console if exe.name.lower() == 'pythonw.exe' and console.exists() else exe)
+
+
+def _lancado(nome: str, c: dict) -> dict:
+    """Se a configuração é o lançador, o servidor de verdade: o comando dele e
+    as variáveis do cofre (no lugar das do lançador)."""
+    partes = c['comando']
+    if len(partes) >= 5 and partes[1:3] == ['-m', LANCADOR] and partes[3] == nome:
+        c = {**c, 'comando': partes[4:], 'env': _do_cofre(nome), 'cofre': True}
+    return c
+
+
 # — o que está configurado ————————————————————————————————————————————————————
 def _do_claude() -> dict[str, dict]:
     """Os de usuário do Claude Code (~/.claude.json → mcpServers)."""
@@ -74,8 +116,9 @@ def _do_claude() -> dict[str, dict]:
         if c.get('url'):
             saida[nome] = {'tipo': 'endereco', 'url': c['url'], 'comando': [], 'env': {}}
         else:
-            saida[nome] = {'tipo': 'comando', 'url': '', 'comando': [c.get('command', ''), *(c.get('args') or [])],
-                           'env': dict(c.get('env') or {})}
+            saida[nome] = _lancado(nome, {'tipo': 'comando', 'url': '',
+                                          'comando': [c.get('command', ''), *(c.get('args') or [])],
+                                          'env': dict(c.get('env') or {})})
     return saida
 
 
@@ -94,9 +137,9 @@ def _do_codex() -> dict[str, dict]:
     for s in lista:
         t = s.get('transport') or {}
         if t.get('type') == 'stdio':
-            saida[s['name']] = {'tipo': 'comando', 'url': '', 'comando': [t.get('command', ''), *(t.get('args') or [])],
-                                'env': dict(t.get('env') or {}), 'interno': _interno_do_codex(t),
-                                'ligado': s.get('enabled', True)}
+            saida[s['name']] = _lancado(s['name'], {
+                'tipo': 'comando', 'url': '', 'comando': [t.get('command', ''), *(t.get('args') or [])],
+                'env': dict(t.get('env') or {}), 'interno': _interno_do_codex(t), 'ligado': s.get('enabled', True)})
         else:
             saida[s['name']] = {'tipo': 'endereco', 'url': t.get('url', ''), 'comando': [], 'env': {},
                                 'interno': False, 'ligado': s.get('enabled', True)}
@@ -109,8 +152,9 @@ def _comando_legivel(partes: list[str]) -> str:
 
 def listar() -> list[dict]:
     """`nome`, `tipo` (comando ou endereco), `comando` (a linha) ou `url`,
-    `variaveis` (só os nomes), `para`, `origem` (seu, solis, codex),
-    `editavel` e as `ferramentas` da última conferida."""
+    `variaveis` (só os nomes), `no_cofre` (as variáveis estão no cofre do
+    Solis), `para`, `origem` (seu, solis, codex), `editavel` e as
+    `ferramentas` da última conferida."""
     claude, codex = _do_claude(), _do_codex()
     cache = _cache()
     saida = []
@@ -120,7 +164,7 @@ def listar() -> list[dict]:
         origem = 'solis' if nome in NOSSOS else 'codex' if interno else 'seu'
         saida.append({
             'nome': nome, 'tipo': c['tipo'], 'comando': _comando_legivel(c['comando']), 'url': c['url'],
-            'variaveis': sorted(c['env']), 'para': [p for p, l in (('claude', claude), ('codex', codex)) if nome in l],
+            'variaveis': sorted(c['env']), 'no_cofre': bool(c.get('cofre')), 'para': [p for p, l in (('claude', claude), ('codex', codex)) if nome in l],
             'origem': origem, 'editavel': origem == 'seu',
             'desligado_no_codex': nome in codex and not codex[nome].get('ligado', True),
             'ferramentas': cache.get(nome),
@@ -200,6 +244,12 @@ def salvar(nome: str, tipo: str, comando: str, url: str, variaveis: str, para: l
         raise ServidorInvalido('já existe um servidor com esse nome')
     if antigo:
         remover(antigo)
+    # Com chave: as variáveis vão pro cofre, e nos CLIs fica o lançador (com só
+    # o que ele precisa pra achar o Solis e o banco). Sem chave: o comando direto.
+    if env:
+        _guardar_variaveis(nome, env)
+        partes = [_python(), '-m', LANCADOR, nome, *partes]
+        env = dict(zip(NOSSAS, (str(Path(__file__).resolve().parents[1]), str(banco.arquivo()))))
     if 'claude' in para:
         config = {'type': 'http', 'url': url} if tipo == 'endereco' else \
             {'type': 'stdio', 'command': partes[0], 'args': partes[1:], 'env': env}
@@ -224,6 +274,7 @@ def remover(nome: str) -> bool:
         _rodar('claude', 'mcp', 'remove', '--scope', 'user', nome)
     if 'codex' in s['para']:
         _rodar('codex', 'mcp', 'remove', nome)
+    _guardar_variaveis(nome, {})
     _esquecer(nome)
     return True
 
@@ -263,6 +314,8 @@ async def conferir(nome: str) -> dict:
     if c is None:
         raise ServidorInvalido('esse servidor não existe')
     try:
+        if cofre.ILEGIVEL in c['env'].values():
+            raise ServidorInvalido('as chaves dele não abrem nesta conta do Windows')
         lista = await asyncio.wait_for(_listar_ferramentas(c), TESTE_MAX_S)
         r = {'total': len(lista), 'so_leem': sum(t['so_le'] for t in lista), 'lista': lista, 'erro': None}
     except Exception as e:  # noqa: BLE001 — o servidor não subiu: a tela diz
