@@ -172,7 +172,7 @@ export function TesteEscuta() {
               ? 'Gravando. Fale o que aparecer, no seu tom de sempre. A escuta fica pausada até acabar.'
               : fase === 'enviando' || fase === 'medindo'
                 ? 'Medindo a escuta na sua gravação… leva uns minutos (cada fala passa pelo Whisper).'
-                : `Uns ${roteiro ? Math.round(roteiro.duracao / 60) : 4} minutos: a tela mostra o que falar e quando, e o Solis mede quantas vezes acordou e entendeu, em quanto tempo, e os alarmes falsos. A gravação fica só neste computador.`}
+                : `Uns ${roteiro ? Math.round(roteiro.duracao / 60) : 4} minutos: a tela mostra o que falar e quando, e o Solis mede quantas vezes acordou e entendeu, em quanto tempo, e os alarmes falsos. A gravação fica guardada só neste computador; com internet, os pedidos dela vão pra Groq, como na escuta.`}
           </div>
         </div>
         {fase === 'gravando' ? (

@@ -190,13 +190,14 @@ class WhisperFalhou(Exception):
     pass
 
 
-async def _transcrever(audio: bytes) -> tuple[str, float]:
-    """Áudio ruim (vazio) é "não ouviu", como ao vivo; o Whisper sem modelo ou
+async def _transcrever(tipo: str, audio: bytes) -> tuple[str, float]:
+    """O mesmo caminho da escuta de verdade (transcricao.py: online primeiro).
+    Áudio ruim (vazio) é "não ouviu", como ao vivo; o Whisper sem modelo ou
     caindo não: a medida inteira não vale, e diz por quê."""
-    from . import voz
+    from . import transcricao, voz
     t0 = time.perf_counter()
     try:
-        texto = (await voz.transcrever(audio, vad=False))['texto']
+        texto = await transcricao.escuta(tipo, audio)
     except voz.AudioRuim:
         texto = ''
     except Exception as e:
@@ -220,7 +221,7 @@ async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str
         t = (k + passo) / 2 / TAXA
         for tipo, audio in escuta.alimentar(dados[k:k + passo]):
             if tipo in ('previa', 'frase'):
-                texto, gasto = await transcrever(audio)
+                texto, gasto = await transcrever(tipo, audio)
                 livre = max(livre, t) + gasto
                 achou, resto = ativacao.palavra_no_inicio(texto)
                 if not achou:
@@ -233,7 +234,7 @@ async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str
                 if pronto:
                     eventos.append({'tipo': 'texto', 't': round(t, 2), 'pronto': round(livre, 2), 'texto': pronto})
             elif tipo == 'rascunho':
-                texto, gasto = await transcrever(audio)
+                texto, gasto = await transcrever(tipo, audio)
                 livre = max(livre, t) + gasto
                 escuta.guardar_rascunho(ativacao.palavra_no_inicio(texto)[1])
             elif tipo == 'comando':
@@ -242,7 +243,7 @@ async def rodar_escuta(amostras: array.array, transcrever=_transcrever, vad: str
                     continue
                 resto = escuta.pronto
                 if resto is None:
-                    texto, gasto = await transcrever(audio)
+                    texto, gasto = await transcrever(tipo, audio)
                     livre = max(livre, t) + gasto
                     _, resto = ativacao.palavra_no_inicio(texto)
                 eventos.append({'tipo': 'texto' if resto else 'nada', 't': round(t, 2), 'pronto': round(max(livre, t), 2),

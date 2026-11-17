@@ -23,11 +23,12 @@ export function escutaLigada(): boolean {
   }
 }
 
-/** Escuta rápida (Configurações → Voz): o Whisper fica na placa de vídeo enquanto
- *  a escuta estiver ligada — 1,2 GB, medido em 17/11/2026 —, e a primeira chamada
- *  responde na hora. Desligada, ele sai depois de 10 min parado e a primeira
- *  chamada depois disso espera ele carregar (3 a 7 s). Escolha do Matheus: a
- *  opção é dele. Ligada por padrão: foi assim que a escuta passou no teste. */
+/** Escuta rápida (Configurações → Voz): o Whisper que confere o "Solis" fica na
+ *  placa de vídeo enquanto a escuta estiver ligada — 453 MB com internet (o
+ *  pequeno; o pedido vai pra Groq, backend/solis/transcricao.py), 1,2 GB sem (o
+ *  turbo) —, e a primeira chamada responde na hora. Desligada, ele sai depois de
+ *  10 min parado e a primeira chamada depois disso espera ele carregar. Escolha
+ *  do Matheus: a opção é dele. Ligada por padrão. */
 export function escutaRapida(): boolean {
   try {
     return localStorage.getItem(CHAVE_RAPIDA) !== '0';

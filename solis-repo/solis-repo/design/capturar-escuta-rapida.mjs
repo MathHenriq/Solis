@@ -1,15 +1,16 @@
 // Configurações → Voz → Escuta rápida: a linha nova, ligada e desligada, nos 3 temas × 2 navegações,
 // e as medidas dela contra a linha de cima (a "Palavra de ativação", aprovada).
 import { chromium } from 'playwright-core';
-const [, , saida] = process.argv;
+const [, , saida, escuta = 'desligada'] = process.argv;  // 'ligada': a escuta da palavra ligada (a dica dela muda)
 const b = await chromium.launch({ channel: 'msedge' });
 const p = await b.newPage({ viewport: { width: 1440, height: 930 }, deviceScaleFactor: 1 });
 async function abrir(tema, nav, rapida) {
   await p.goto('http://localhost:1421/');
-  await p.evaluate(([t, n, r]) => {
+  await p.evaluate(([t, n, r, e]) => {
     localStorage.setItem('solis.appearance.theme', t); localStorage.setItem('solis.appearance.nav', n);
     localStorage.setItem('solis.escuta.rapida', r ? '1' : '0');
-  }, [tema, nav, rapida]);
+    localStorage.setItem('solis.escuta', e ? '1' : '0');
+  }, [tema, nav, rapida, escuta === 'ligada']);
   await p.goto('http://localhost:1421/', { waitUntil: 'networkidle' });
   await p.addStyleTag({ content: '.animate-solis-horizon,.solis-ouvindo{animation:none!important}' });
   await p.getByRole('button', { name: 'Configurações' }).or(p.getByRole('link', { name: 'Configurações' })).first().click();
@@ -27,7 +28,7 @@ const medida = () => p.evaluate(() => {
 });
 for (const nav of ['sidebar', 'icones']) for (const tema of ['espacial', 'claro', 'dark']) for (const rapida of [true, false]) {
   await abrir(tema, nav, rapida);
-  await p.screenshot({ path: `${saida}/er-${nav}-${tema}-${rapida ? 'ligada' : 'desligada'}.png` });
+  await p.screenshot({ path: `${saida}/er-${escuta === 'ligada' ? 'escuta-' : ''}${nav}-${tema}-${rapida ? 'ligada' : 'desligada'}.png` });
   if (tema === 'dark' && rapida) console.log('MEDIDAS', nav, JSON.stringify(await medida()));
 }
 await b.close();

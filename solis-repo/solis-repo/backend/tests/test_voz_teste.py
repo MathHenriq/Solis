@@ -75,7 +75,7 @@ def test_a_escuta_roda_na_gravacao_como_ao_vivo(monkeypatch):
     amostras = _gravacao([(4.0, 5.2), (10.0, 11.0)], 15.0)
     ouvidos = iter(['Solis, que horas são?', 'O sol está forte', 'O sol está forte'])
 
-    async def falso(audio):
+    async def falso(tipo, audio):
         return next(ouvidos), 0.5
     eventos = asyncio.run(voz_teste.rodar_escuta(amostras, falso))
     tipos = [(e['tipo'], e.get('texto')) for e in eventos]

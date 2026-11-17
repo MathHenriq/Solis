@@ -25,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, ocr, ollama, pc, rapidas, resumo, roteador, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, ocr, ollama, pc, rapidas, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -1814,10 +1814,12 @@ def _aquecer() -> None:
         tarefa.add_done_callback(_tarefas.discard)
 
 
-def _aquecer_whisper() -> None:
+def _aquecer_whisper(pequeno: bool = False) -> None:
+    """Sobe (em segundo plano) quem vai conferir a palavra: o Whisper pequeno
+    com a Groq transcrevendo o pedido (transcricao.py), ou o turbo daqui (offline)."""
     async def aquecer():
         try:
-            await asyncio.to_thread(voz.aquecer)
+            await asyncio.to_thread(transcricao.aquecer_pequeno if pequeno else voz.aquecer)
         except voz.SemModelo:
             pass
         except Exception:
@@ -1827,9 +1829,11 @@ def _aquecer_whisper() -> None:
     tarefa.add_done_callback(_tarefas.discard)
 
 
-async def _transcrever_escuta(audio: bytes) -> str:
+async def _transcrever_escuta(tipo: str, audio: bytes) -> str:
+    """Online primeiro (transcricao.py): o "Solis" conferido aqui pelo Whisper
+    pequeno, o pedido no Whisper da Groq; sem a Groq, o turbo daqui."""
     try:
-        texto = (await voz.transcrever(audio, vad=False))['texto']
+        texto = await transcricao.escuta(tipo, audio)
     except (voz.SemModelo, voz.AudioRuim):
         texto = ''
     if ESCUTA_LOG:
@@ -1935,14 +1939,16 @@ async def escuta(ws: WebSocket):
         await ws.send_json({'tipo': 'erro', 'motivo': str(e)[:300]})
         await ws.close()
         return
-    # O Whisper já sobe agora: frio, o primeiro "Solis" esperava ~7 s pela
-    # decisão (16/11/2026). E, com a escuta rápida ligada (?segurar=1, o padrão;
-    # Configurações → Voz), fica carregado enquanto a escuta estiver aberta —
-    # 1,2 GB da placa (17/11/2026: escolha do Matheus, a opção é dele).
-    segurando = ws.query_params.get('segurar', '1') != '0'
-    if segurando:
-        voz.segurar()
-    _aquecer_whisper()
+    # Quem confere a palavra já sobe agora: frio, o primeiro "Solis" esperava
+    # ~7 s pela decisão (16/11/2026). Online (a Groq transcreve o pedido), é o
+    # Whisper pequeno (453 MB da placa); offline, o turbo (1,2 GB). Com a escuta
+    # rápida ligada (?segurar=1, o padrão; Configurações → Voz), ele fica
+    # carregado enquanto a escuta estiver aberta (17/11/2026: a opção é do Matheus).
+    pequeno = transcricao.online() and transcricao.pequeno_disponivel()
+    segurado = (transcricao if pequeno else voz) if ws.query_params.get('segurar', '1') != '0' else None
+    if segurado:
+        segurado.segurar()
+    _aquecer_whisper(pequeno)
     pausada = False
     try:
         # A tela só abre o microfone depois disto: escuta que não funciona (falta o
@@ -1968,7 +1974,7 @@ async def escuta(ws: WebSocket):
                 elif tipo in ('previa', 'frase'):
                     # Whisper: o começo de um trecho de fala tem "Solis"?
                     t0 = time.monotonic()
-                    achou, resto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                    achou, resto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
                     demora = time.monotonic() - t0
                     if demora > 1.5:
                         # Sem o que foi dito: só quanto demorou (pra achar chamada perdida).
@@ -1984,7 +1990,7 @@ async def escuta(ws: WebSocket):
                         await ws.send_json({'tipo': 'texto', 'texto': pronto})
                 elif tipo == 'rascunho':
                     # A cascata: calado há pouco, o texto adianta; vale se ele não voltar a falar.
-                    _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                    _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
                     escutando.guardar_rascunho(texto)
                 elif audio is None:
                     await ws.send_json({'tipo': 'nada'})
@@ -1993,14 +1999,14 @@ async def escuta(ws: WebSocket):
                     # O comando pode trazer a própria palavra no começo (veio do trecho).
                     texto = escutando.pronto
                     if texto is None:
-                        _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(audio))
+                        _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
                     await ws.send_json({'tipo': 'texto', 'texto': texto} if texto else {'tipo': 'nada'})
     except WebSocketDisconnect:
         pass
     finally:
         escutando.fechar()
-        if segurando:
-            voz.soltar()
+        if segurado:
+            segurado.soltar()
 
 
 # — Aprovações do agente (agente.py) ——————————————————————————————————————————————

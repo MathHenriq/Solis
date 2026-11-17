@@ -560,7 +560,25 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      2.000/dia, 2 h de áudio por hora, 8 h por dia. Por padrão a Groq não guarda o áudio (só até
      30 dias pra investigar erro ou abuso; a "Zero Data Retention" desliga até isso); a página não
      diz se usa pra treinar. No "tudo online", toda fala do cômodo (de qualquer pessoa) vai pra Groq;
-     no misto, só o que vem depois de "Solis". Decisão pendente com o Matheus.
+     no misto, só o que vem depois de "Solis".
+   - **Decisão do Matheus: só o pedido online (17/11/2026).** A diferença de custo pesou (~US$ 0,50
+     contra ~US$ 11 por mês, se passar pro pago). Feito em `transcricao.py`:
+     - o "Solis" é conferido aqui pelo Whisper **small** (453 MB da placa): fala sem "Solis" não sai
+       do computador;
+     - se o small ouve "Solis" fora do lugar de chamada ("É isso aí, Solis" no lugar de "Ei
+       Solis"), quem decide é a nuvem — vão só as falas que citam o nome;
+     - o pedido vai pro **whisper-large-v3 da Groq**, só com o vocabulário fixo (nada das memórias);
+     - o que o small ouve como privado ("isso é privado…") fica no turbo daqui;
+     - sem a Groq (sem chave, sem internet, limite, erro), o turbo daqui; uma falha deixa a Groq de
+       lado por 60 s (ou o que ela mandar esperar).
+     A escuta rápida segura o small (453 MB) com internet, o turbo (1,2 GB) sem. O teste da escuta
+     mede o mesmo caminho. Três frases da tela ficaram falsas e foram corrigidas: "nada sai dele"
+     (palavra de ativação), "1,2 GB" (escuta rápida) e "a gravação fica só neste computador" (teste
+     da escuta) — `design/voz-textos-online-validacao.png`.
+     Medido no ambiente de verdade, o teste da escuta na gravação dele (3 vezes): **acordou 11,
+     entendeu 11, 0 falsos, mediana 0,76 s — passou**. A chamada mais lenta (3,2–3,8 s) é a Groq no
+     limite por minuto: o teste roda os 3,5 min em ~18 s (~19 pedidos de uma vez); a reserva (o
+     turbo, carregando) respondeu certo. No uso, ~5 pedidos por minuto, o limite é 20.
    - **"Às vezes demora": a etapa da memória (16/11/2026).** No log, ela ia de 0,05 s a 22 s
      antes de cada resposta. Duas causas, as duas no vetor da pergunta (o embeddinggemma no
      Ollama):

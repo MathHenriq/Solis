@@ -330,6 +330,8 @@ def descarregar_se_ocioso() -> bool:
 
 
 async def vigiar() -> None:
+    from . import transcricao  # o Whisper pequeno da palavra (transcricao.py) sai junto
     while True:
         await asyncio.sleep(60)
         descarregar_se_ocioso()
+        transcricao.descarregar_se_ocioso()

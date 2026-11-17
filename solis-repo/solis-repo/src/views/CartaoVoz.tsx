@@ -80,7 +80,7 @@ function PalavraAtivacao() {
         : !pronta
           ? 'Falta o modelo do Whisper, o mesmo do microfone.'
           : ligada
-            ? 'Ligada: diga "Solis" e o pedido, sem clicar. Cada fala que o microfone pega passa pelo Whisper, aqui no computador; nada sai dele.'
+            ? 'Ligada: diga "Solis" e o pedido, sem clicar. O "Solis" é conferido aqui no computador; com internet, só o pedido (o que vem depois dele) vai pra Groq transcrever. O que for privado fica aqui.'
             : 'Diga "Solis" e o pedido, sem clicar. O microfone fica aberto enquanto estiver ligada.';
 
   return (
@@ -109,8 +109,8 @@ function PalavraAtivacao() {
 function EscutaRapida() {
   const [rapida, definirRapida] = useState(escutaRapida);
   const dica = rapida
-    ? 'Ligada: o Whisper fica na placa de vídeo enquanto a escuta estiver ligada (usa 1,2 GB) e a primeira chamada responde na hora.'
-    : 'Desligada: o Whisper sai da placa de vídeo depois de 10 minutos parado (libera 1,2 GB), e a primeira chamada depois disso demora de 3 a 7 segundos.';
+    ? 'Ligada: o Whisper que confere o "Solis" fica na placa de vídeo enquanto a escuta estiver ligada (453 MB com internet; 1,2 GB sem) e a primeira chamada responde na hora.'
+    : 'Desligada: o Whisper sai da placa de vídeo depois de 10 minutos parado (libera até 1,2 GB), e a primeira chamada depois disso demora de 1 a 7 segundos.';
   return (
     <Linha rotulo="Escuta rápida" dica={dica}>
       <Interruptor
