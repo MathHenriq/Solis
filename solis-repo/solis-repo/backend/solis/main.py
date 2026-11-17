@@ -2009,6 +2009,66 @@ async def escuta(ws: WebSocket):
             segurado.soltar()
 
 
+# — O modo Conversa (conversa_voz.py) ——————————————————————————————————————————————
+
+@app.websocket('/conversa-voz')
+async def conversa_por_voz(ws: WebSocket):
+    """O bate-papo por voz em tempo real (Gemini Live). A tela manda o microfone
+    (PCM 16 bits, 16 kHz) em pedaços binários e {"fim": true} pra sair; recebe
+    {"tipo": "pronta", "conversa"}, a voz dele (PCM 16 bits, 24 kHz, binário),
+    {"tipo": "ouviu"|"disse", "texto"}, {"tipo": "interrompido"}, {"tipo":
+    "turno"} (uma troca salva na conversa) e {"tipo": "fim", "motivo"}."""
+    from . import conversa_voz
+    await ws.accept()
+    q = ws.query_params.get('conversa', '')
+    conversa = int(q) if q.isdigit() else banco.nova_conversa()
+    try:
+        sessao_cm = conversa_voz.abrir(conversa, fala.voz_gemini())
+    except conversa_voz.SemChave as e:
+        await ws.send_json({'tipo': 'erro', 'motivo': str(e)})
+        await ws.close()
+        return
+
+    async def receber() -> dict:
+        msg = await ws.receive()
+        if msg.get('type') == 'websocket.disconnect':
+            return {'saiu': True}
+        if msg.get('bytes'):
+            return {'audio': msg['bytes']}
+        if msg.get('text'):
+            try:
+                return {'fim': True} if json.loads(msg['text']).get('fim') else {}
+            except ValueError:
+                return {}
+        return {}
+
+    async def ao_turno(fala_dele: str, resposta: str) -> None:
+        id_pessoa, _ = conversa_voz.salvar_turno(conversa, fala_dele, resposta)
+        if fala_dele and id_pessoa:
+            # O aprendizado, como no modo Pedido: o que ele disse pode virar memória.
+            async def aprender():
+                modelo = await _modelo_de_fundo(MODELO_FUNDO)
+                await memoria.aprender(modelo, conversa, fala_dele, [], id_pessoa)
+            tarefa = asyncio.create_task(aprender())
+            _tarefas.add(tarefa)
+            tarefa.add_done_callback(_tarefas.discard)
+
+    motivo = 'erro'
+    try:
+        async with sessao_cm as sessao:
+            await ws.send_json({'tipo': 'pronta', 'conversa': conversa})
+            motivo = await conversa_voz.conduzir(sessao, receber, ws.send_bytes, ws.send_json, ao_turno)
+    except WebSocketDisconnect:
+        motivo = 'saiu'
+    except Exception as e:  # noqa: BLE001 — a conexão com o Gemini caiu ou recusou
+        log.warning('o modo conversa não abriu ou caiu: %s', e)
+        with contextlib.suppress(Exception):
+            await ws.send_json({'tipo': 'erro', 'motivo': f'{type(e).__name__}: {e}'[:200]})
+    with contextlib.suppress(Exception):
+        await ws.send_json({'tipo': 'fim', 'motivo': motivo})
+        await ws.close()
+
+
 # — Aprovações do agente (agente.py) ——————————————————————————————————————————————
 
 class Aprovacao(BaseModel):
