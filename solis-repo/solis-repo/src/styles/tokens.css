@@ -181,13 +181,8 @@
   --ch-conteudo: 220ms;
   --ch-conteudo-atraso: 140ms;
   /* Esfera: o visual da voz dentro do app - desenho proprio, PROVISORIO. Ver layout.esfera. */
-  --es-fundo-centro: rgba(7, 16, 25, 0.94); --es-fundo-meio: rgba(7, 16, 25, 0.88); --es-fundo-borda: rgba(7, 16, 25, 0.62);
-  --es-disco: 112px;
-  --es-halo: 260px;
-  --es-anel: 140px;
-  --es-centro: #FFF0D6;
-  --es-meio: #FFA733;
-  --es-borda: #E85F0A;
+  --es-fundo-centro: rgba(7, 16, 25, 0.97); --es-fundo-meio: rgba(7, 16, 25, 0.9); --es-fundo-borda: rgba(7, 16, 25, 0.62);
+  --es-simbolo: 190px;
   --es-texto: #F5F1EA;
   --es-legenda: #E6DFD5;
   --es-gap-texto: 40px;
@@ -196,7 +191,6 @@
   --es-subida: 6vh;
   --es-entra: 280ms;
   --es-sai: 220ms;
-  --es-pensa: 2.4s; --es-fala: 1.1s;
   /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */
   --ag-recuo: 24px;
   --ag-linha-x: 80px;

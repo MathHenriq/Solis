@@ -25,7 +25,7 @@ for (const nav of ['sidebar', 'icones']) for (const tema of ['espacial', 'claro'
   await abrir(tema, nav, 'chamada=ouvindo');
   await p.screenshot({ path: `${saida}/es-${nav}-${tema}-ouvindo-silencio.png` });
   // A voz no pico: o que o nivel.ts escreve no halo com a voz alta (opacity 1, scale 1,022).
-  await p.evaluate(() => { const h = document.querySelector('.solis-esfera-halo'); h.style.opacity = '1'; h.style.transform = 'scale(1.022)'; });
+  await p.evaluate(() => { const h = document.querySelector('.solis-esfera .solis-brilho'); h.style.opacity = '1'; h.style.transform = 'scale(1.022)'; });
   await p.waitForTimeout(150);
   await p.screenshot({ path: `${saida}/es-${nav}-${tema}-ouvindo-pico.png` });
   await abrir(tema, nav, `chamada=pensando&legenda=${LEG}`);

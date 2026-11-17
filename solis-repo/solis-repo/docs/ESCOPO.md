@@ -633,21 +633,23 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      microfone (o `IDEIAS.md` já diz: o do notebook piora; testar com headset). Ficou do estudo
      só uma correção: o limiar era o valor padrão do argumento, congelado quando o módulo
      carregava, e mudar ACIMA_DO_PISO no teste não mudava nada.
-   - **A esfera: o visual da voz no app (16/11/2026, PROVISÓRIO, esperando os prints).** Pedido
-     no `IDEIAS.md` (a tela escurece e uma esfera mostra o estado real). Já existia a ilha
+   - **O visual da voz no app (16/11/2026, PROVISÓRIO, esperando os prints).** Pedido no
+     `IDEIAS.md` (a tela escurece e uma esfera mostra o estado real). Já existia a ilha
      (`Chamada.tsx`, pedida em 10/11), que segue os estados de verdade. Decisão do Matheus: com a
-     janela do Solis na frente, a esfera dentro do app; atrás ou minimizada, a ilha por cima das
-     outras janelas (`janelaEmFrente.ts`). A esfera (`EsferaVoz.tsx`, `layout.esfera`) é o sol do
-     símbolo nas cores do brilho aprovado: ouvindo, o halo segue o nível do microfone (o mesmo
-     `nivel.ts` do logo, pulsando em intensidade); pensando, o arco gira e embaixo vai o que ele
-     ouviu; falando, o sol pulsa no ritmo de `states.motion.responding` e embaixo vai o começo da
-     resposta. O fundo é um gradiente da janela inteira centrado no sol (94% no centro, 62% nos
-     cantos): nos primeiros prints, 66% uniforme deixava a legenda em cima do "Fale com o Solis…",
-     e uma clareira oval virou mancha. Medido nos 24 prints (3 temas × 2 navegações × 4 estados):
-     sol de 112 px no centro da área de conteúdo, texto a 45–46 px dele, o halo some antes do
-     texto, e o pior contraste é 13,65:1 no estado e 10,83:1 na legenda. Custo em 6 s: pensando
-     +6 ms e falando +13 ms de main thread sobre a mesma tela sem a esfera, zero layouts (só
-     opacity e transform em laço). Folha: `design/esfera-validacao.png`; prints por
+     janela do Solis na frente, o visual dentro do app; atrás ou minimizada, a ilha por cima das
+     outras janelas (`janelaEmFrente.ts`). A primeira versão, um sol redondo, foi recusada ("ficou
+     com cara de emoji, quero o Solis"): agora é o **símbolo do Solis com os estados já aprovados**
+     (`SolisEstado`, `states.glow`), a 190 px — a largura em que o halo foi medido contra as
+     referências da marca, então aparece como a folha de estados aprovada. Ouvindo = `listening`
+     com o brilho seguindo o microfone (o mesmo do logo); pensando = `thinking`, e embaixo o que
+     ele ouviu; falando = `responding`, e embaixo o começo da resposta (`EsferaVoz.tsx`,
+     `layout.esfera`). O fundo é um gradiente da janela inteira centrado no símbolo (97% no
+     centro, 62% nos cantos): 66% uniforme deixava a legenda em cima do "Fale com o Solis…", uma
+     clareira oval virou mancha, e com 94% a saudação aparecia pelo arco vazado. Medido nos 24
+     prints (3 temas × 2 navegações × 4 estados): o símbolo no centro da área de conteúdo, o
+     texto a 51–53 px dele, o halo a até 18 px da arte, e o pior contraste é 14,98:1 no estado e
+     11,83:1 na legenda. Custo em 6 s: pensando +8 ms e falando +15 ms de main thread sobre a mesma
+     tela sem o visual, zero layouts. Folha: `design/esfera-validacao.png`; prints por
      `design/capturar-esfera.mjs`. De quebra: a ilha ficava em "respondendo" (sem texto) enquanto a
      narração tocava — agora fica em "pensando" até a resposta ter texto.
 

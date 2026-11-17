@@ -380,9 +380,8 @@ main {
 
 /* A esfera (src/components/EsferaVoz.tsx): o visual da voz dentro do app, com a
    janela do Solis na frente. PROVISÓRIO — desenho próprio, números e porquês em
-   layout.esfera. O que anima em laço é só opacity e transform; o fundo, a
-   máscara do anel e os gradientes são estáticos. As faixas de opacidade de cada
-   estado são as de states.motion (thinking 0,28–0,7; responding 0,6–1). */
+   layout.esfera. No meio, o símbolo com os estados aprovados (SolisEstado); o
+   fundo é estático. */
 .solis-esfera-fundo {
   /* O centro do gradiente é o do sol: o meio da área de conteúdo, subido. */
   --es-x: 50%; --es-y: calc(50% - var(--es-subida) - 40px);
@@ -401,41 +400,11 @@ main {
 }
 .solis-esfera-area[data-sidebar] { left: var(--sidebar-width); }
 .solis-esfera {
-  position: relative; width: var(--es-disco); height: var(--es-disco); flex: none;
+  position: relative; flex: none;
   transform: scale(1); transition: transform var(--es-entra) ease-out;
 }
 .solis-esfera-fundo[data-entrando] .solis-esfera { transform: scale(.92); transition: none; }
 .solis-esfera-fundo[data-fase="saindo"] .solis-esfera { transform: scale(.92); transition: transform var(--es-sai) ease-in; }
-.solis-esfera > div { position: absolute; border-radius: 50%; }
-.solis-esfera-disco {
-  inset: 0;
-  background: radial-gradient(circle at 50% 42%, var(--es-centro) 0%, var(--es-meio) 55%, var(--es-borda) 100%);
-}
-.solis-esfera-halo {
-  inset: calc((var(--es-disco) - var(--es-halo)) / 2);
-  /* Transparente a partir de 60% do raio: a luz acaba antes do texto. */
-  background: radial-gradient(circle, rgba(255, 167, 51, .7) 0%, rgba(255, 167, 51, .3) 30%,
-    rgba(232, 95, 10, .08) 45%, transparent 60%);
-  opacity: .5; will-change: opacity, transform;
-}
-.solis-esfera-anel {
-  inset: calc((var(--es-disco) - var(--es-anel)) / 2);
-  /* O arco do símbolo: um traço de 1,5px que só existe na máscara (estática). */
-  background: conic-gradient(from 0deg, transparent 0 62%, var(--es-meio) 100%);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
-  opacity: 0; transition: opacity 200ms ease-out;
-}
-/* Ouvindo: o nível do microfone escreve opacity e transform no halo (nivel.ts). */
-.solis-esfera-halo[data-reativo] { opacity: .35; transition: opacity 80ms linear, transform 80ms linear; }
-.solis-esfera[data-fase="pensando"] .solis-esfera-halo { animation: solis-esfera-pensa var(--es-pensa) ease-in-out infinite; }
-.solis-esfera[data-fase="pensando"] .solis-esfera-anel { opacity: 1; animation: solis-esfera-gira var(--es-pensa) linear infinite; }
-.solis-esfera[data-fase="respondendo"] .solis-esfera-halo { animation: solis-esfera-fala var(--es-fala) ease-in-out infinite; }
-.solis-esfera[data-fase="respondendo"] .solis-esfera-disco { animation: solis-esfera-disco-fala var(--es-fala) ease-in-out infinite; }
-@keyframes solis-esfera-pensa { 0%, 100% { opacity: .28; } 50% { opacity: .7; } }
-@keyframes solis-esfera-gira { to { transform: rotate(1turn); } }
-@keyframes solis-esfera-fala { 0%, 100% { opacity: .6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }
-@keyframes solis-esfera-disco-fala { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 .solis-esfera-estado {
   margin: var(--es-gap-texto) 0 0; font-size: 20px; font-weight: 500; line-height: 1.3; color: var(--es-texto);
 }
@@ -445,10 +414,7 @@ main {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 @media (prefers-reduced-motion: reduce) {
-  /* Sem laço: o estado fica dito pela intensidade e pelo anel parado. */
-  .solis-esfera-halo, .solis-esfera-anel, .solis-esfera-disco { animation: none !important; }
-  .solis-esfera[data-fase="pensando"] .solis-esfera-halo { opacity: .5; }
-  .solis-esfera[data-fase="respondendo"] .solis-esfera-halo { opacity: .85; }
+  /* O símbolo já trata o movimento reduzido (SolisEstado); aqui, só a entrada. */
   .solis-esfera, .solis-esfera-fundo { transition: opacity 120ms linear !important; }
 }
 

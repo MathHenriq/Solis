@@ -237,15 +237,12 @@ w('  /* Esfera: o visual da voz dentro do app - desenho proprio, PROVISORIO. Ver
 es = T['layout']['esfera']
 w('  --es-fundo-centro: rgba(7, 16, 25, %s); --es-fundo-meio: rgba(7, 16, 25, %s); --es-fundo-borda: rgba(7, 16, 25, %s);'
   % tuple(es['overlay']))
-for chave, var in [('diameter', '--es-disco'), ('halo', '--es-halo'), ('ring', '--es-anel'),
-                   ('core', '--es-centro'), ('mid', '--es-meio'), ('edge', '--es-borda'), ('text', '--es-texto'),
+for chave, var in [('symbolWidth', '--es-simbolo'), ('text', '--es-texto'),
                    ('caption', '--es-legenda'), ('gapText', '--es-gap-texto'), ('gapCaption', '--es-gap-legenda'),
                    ('captionMax', '--es-legenda-max'), ('lift', '--es-subida')]:
     w('  %s: %s;' % (var, es[chave]))
 for chave, var in [('enterMs', '--es-entra'), ('exitMs', '--es-sai')]:
     w('  %s: %sms;' % (var, es[chave]))
-mo = T['states']['motion']
-w('  --es-pensa: %s; --es-fala: %s;' % (mo['thinking']['duration'], mo['responding']['duration']))
 w('  /* Agenda - medida na referencia 16; o que e novo, PROVISORIO. Ver layout.agenda. */')
 ag = T['layout']['agenda']
 for chave, var in [('listIndent', '--ag-recuo'), ('lineX', '--ag-linha-x'), ('titleX', '--ag-titulo-x'),
