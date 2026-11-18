@@ -258,6 +258,18 @@ Cérebros.
   mensagem continua nela, com o que ele já leu e fez, e vai só com a memória de agora, o que outro
   modelo respondeu no meio e a mensagem nova (`roteador.sessao_claude`); se a sessão não
   continuar, começa outra com o histórico inteiro. `SOLIS_CLAUDE_AGENTE=0` volta ao CLI só de conversa (`--tools ""`).
+- **O corpo do Solis** (`solis/corpo.py`, 18/11/2026): as ferramentas do Solis num lugar só, pra
+  todo cérebro (decisão do Matheus: o Solis é o corpo, o cérebro é que se troca). O Claude recebe
+  as do Solis pelo MCP dele (feitas a partir do corpo); os de API, pelo laço do `chat/completions`
+  (`apis.responder(..., corpo=)`): o modelo pede, o Solis roda, o resultado volta como mensagem
+  `tool`, em até 12 rodadas. Junto vai o navegador, se ligado: o Solis é o cliente do servidor
+  (`navegador.ferramentas`/`navegador.chamar`, pelo dono), com 12 ferramentas essenciais e os
+  parâmetros do dia a dia. Os cartões são os do Claude (`agente._decidir`). As ferramentas só vão
+  quando o pedido precisa: o pedido vai leve e, se o cérebro responde a marca `[FERRAMENTA]`, ele
+  mesmo tenta de novo com o corpo; o que o corpo ainda não tem (arquivos, terminal, a tela) passa
+  pro Claude. No meio de uma tarefa, o limite por minuto (`429`) se espera, até 30 s e 3 vezes;
+  depois de ter agido (clicado, anotado), uma falha para ali em vez de cair pro próximo cérebro
+  (que faria de novo). `SOLIS_CORPO=0` volta ao "só texto".
 - O Codex roda sem ferramentas (`--sandbox read-only`), numa pasta vazia do Solis. O prompt vai
   pela entrada padrão, nunca pela linha de comando.
 - Custo de tempo: cada mensagem sobe um processo do CLI. Medido no notebook (1º/11/2026), do

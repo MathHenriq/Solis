@@ -789,6 +789,32 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      completo ("não é negociável"). Hoje o servidor do navegador e o controle da tela já são do
      Solis (rodam nele), mas só o Claude os chama: falta o laço de ferramentas do Solis pros outros
      cérebros. Não é o foco agora; entra depois das frentes atuais.
+   - **O corpo do Solis, primeiro passo (18/11/2026, à noite).** O Matheus escolheu seguir por aqui.
+     `corpo.py` guarda as ferramentas do Solis (hora, lembrete, agenda, tarefas, memória, agendar)
+     num lugar só: o Claude recebe as mesmas pelo servidor MCP dele, e os cérebros de API (Groq,
+     Gemini, Mistral, OpenRouter) pelo laço de ferramentas do `chat/completions` (`apis.responder`),
+     junto com o navegador (o mesmo `@playwright/mcp`, com o Solis de cliente). Os cartões são os
+     mesmos do Claude (`agente._decidir`): abrir e ler livres, clicar e escrever pedem, "Sempre
+     neste site". Medido com a Groq de verdade, num banco copiado e num navegador sem janela de
+     teste:
+     - **Pergunta comum** ("capital da Austrália"): vai leve, sem ferramenta, 0,7 s, 3 KB — como
+       antes. As ferramentas só vão quando ela responde a marca de que precisa (a mesma Groq tenta
+       de novo com o corpo): com elas, cada pedido pesava 12,6 KB (~3 mil tokens).
+     - **Abrir um site**: "Abre example.com e me diz o título" — abriu e disse "Example Domain",
+       8,6 s, 3 pedidos.
+     - **Ler página grande**: a Wikipédia estourou. O grátis da Groq dá **8 mil tokens por minuto
+       em todos os modelos de conversa** da conta (medido pelos cabeçalhos, 11 modelos); com a
+       página no pedido (26 KB), nem esperando o minuto cabe. Enxugar as descrições das
+       ferramentas (de ~10 mil pra ~5 mil caracteres no navegador) e esperar o limite no meio
+       da tarefa (até 30 s, 3 vezes) ajudaram, mas não bastam.
+     - **O Gemini** (grátis, limite bem maior) não deu pra medir: 503, "alta demanda", nas duas
+       tentativas.
+     **Decisão do Matheus pendente:** a Groq paga (Developer) sobe o limite pra ~250 mil tokens
+     por minuto, a US$ 0,15 por milhão de tokens de entrada e US$ 0,60 de saída no gpt-oss-120b
+     (pelos agregadores de preço; conferir em groq.com/pricing). A tarefa da Wikipédia (~13
+     pedidos, ~45 mil tokens) sairia por ~US$ 0,007; 20 tarefas assim por dia, ~US$ 4 por mês.
+     **Falta no corpo:** arquivos, terminal e a tela pros cérebros de API (hoje passam pro
+     Claude), o modelo local usar o corpo, e as aprovações saírem do `agente.py` pro corpo.
 
 ### Controle do PC e visão da tela
 
