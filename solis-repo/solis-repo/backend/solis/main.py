@@ -797,6 +797,31 @@ async def abrir_arquivo(corpo: Abrir):
     return {'ok': True}
 
 
+class Link(BaseModel):
+    url: str
+
+
+def link_valido(url: str) -> bool:
+    """Só página da web (http ou https, com endereço), sem espaço nem
+    caractere de controle: nunca arquivo, programa ou outro protocolo."""
+    from urllib.parse import urlparse
+    if len(url) > 4000 or any(c.isspace() or ord(c) < 32 for c in url):
+        return False
+    u = urlparse(url)
+    return u.scheme in ('http', 'https') and bool(u.hostname)
+
+
+@app.post('/link/abrir')
+async def abrir_link(corpo: Link):
+    """Abre um link no navegador padrão do Windows. A janela do app (Tauri)
+    não abre link em nova janela: a tela manda os links por aqui."""
+    import webbrowser
+    if not link_valido(corpo.url):
+        return JSONResponse({'erro': 'link_invalido'}, status_code=400)
+    ok = await asyncio.to_thread(webbrowser.open, corpo.url, 2)
+    return {'ok': bool(ok)}
+
+
 # — Conectores da conta do claude.ai ——————————————————————————————————————————
 @app.get('/conectores')
 async def ler_conectores(atualizar: bool = False):

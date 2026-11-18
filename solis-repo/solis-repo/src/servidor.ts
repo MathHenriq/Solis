@@ -1729,6 +1729,20 @@ export type Navegador = {
   extensao_url: string;
 };
 
+/** Abre um link de página no navegador padrão do Windows (o app não abre nova janela). */
+export async function abrirLink(url: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/link/abrir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** A chave da extensão do Playwright (vazia apaga). */
 export async function guardarChaveNavegador(chave: string): Promise<Navegador | null> {
   try {

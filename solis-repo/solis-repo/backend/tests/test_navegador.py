@@ -270,3 +270,20 @@ def test_no_de_sempre_abrir_site_novo_pede_e_no_mesmo_site_nao(pc_com):
     assert asyncio.run(agente._decidir(N + 'browser_tabs', {'action': 'select', 'index': 1}, por,
                                        conversa=3)).behavior == 'allow'
     agente._sempre.clear()
+
+
+def test_link_abre_no_navegador_padrao_so_pagina_da_web(monkeypatch):
+    """O app (Tauri) não abre link em nova janela: a tela manda pro servidor."""
+    import webbrowser
+    abertos = []
+    monkeypatch.setattr(webbrowser, 'open', lambda url, new=0: abertos.append((url, new)) or True)
+    cli = TestClient(main.app)
+    r = cli.post('/link/abrir', json={'url': navegador.EXTENSAO_URL})
+    assert r.status_code == 200 and r.json()['ok'] and abertos == [(navegador.EXTENSAO_URL, 2)]
+    for ruim in ['file:///C:/Windows/System32/calc.exe', 'C:\Windows\notepad.exe', 'javascript:alert(1)',
+                 'ms-settings:privacy', 'https://', 'https://x.com/a b', 'https://x.com/\nabc']:
+        assert cli.post('/link/abrir', json={'url': ruim}).status_code == 400, ruim
+    # Corpo que não é JSON (um site tentando pelo formulário) não passa.
+    assert cli.post('/link/abrir', content='url=https://x.com',
+                    headers={'Content-Type': 'text/plain'}).status_code == 422
+    assert len(abertos) == 1
