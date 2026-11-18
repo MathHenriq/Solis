@@ -216,6 +216,8 @@ export type Etapa = {
   pessoa?: number;
   /** Etapa `fim`: o Matheus parou a resposta no meio. */
   parada?: boolean;
+  /** Etapa `fim`: o id da resposta no banco (pro voto). */
+  mensagem?: number;
   /** Etapa `aprovacao` de uma edição: o que muda, em diff unificado. */
   diff?: string;
   /** Etapa `modo`: o modo da conversa mudou (o plano aprovado volta pra "pedir"). */
@@ -262,7 +264,24 @@ export type Mensagem = {
   criada: string;
   cerebro: string | null;
   etapas: Etapa[] | null;
+  /** O voto do Matheus na resposta (1, -1), ou null. */
+  voto?: Voto;
 };
+export type Voto = 1 | -1 | null;
+
+/** O 👍/👎 numa resposta (null tira). false se não deu. */
+export async function votarResposta(mensagem: number, voto: Voto): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/mensagens/${mensagem}/voto`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voto }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
 export type Falha =
   | { tipo: 'sem-servidor' | 'sem-ollama' | 'sem-modelo' }
   /** Um cérebro escolhido com /claude, /groq... não respondeu. */

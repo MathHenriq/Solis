@@ -52,6 +52,12 @@ const CAMINHOS = {
   // ondas de som do botão de voz dele, no grid 24 e no traço 2 dos outros.
   'ondas':
     'M4 10v4 M8 7v10 M12 4v16 M16 7v10 M20 10v4',
+  // O voto na resposta (17/11/2026), com o Claude como base: o polegar dele,
+  // no traço 2 e no grid 24 (o desenho do Lucide, ISC).
+  'polegar':
+    'M7 10v12 M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z',
+  'polegar-baixo':
+    'M17 14V2 M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z',
   // Adicionados na rodada que fechou as telas restantes. Mesmo grid 24x24 e
   // mesmo traço 2 dos anteriores, desenhados contra a ampliação de cada glifo
   // nas referências 13- a 18-.

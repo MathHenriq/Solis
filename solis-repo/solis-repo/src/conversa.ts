@@ -10,6 +10,7 @@ import {
   type Anexo,
   type Falha,
   type Mensagem,
+  type Voto,
 } from './servidor';
 
 /** Estado da conversa aberta. Mora no shell (App), não na tela, pra sobreviver
@@ -39,6 +40,9 @@ export type Turno = {
   mensagem?: number;
   /** Os arquivos que foram junto com a fala. */
   anexos?: Anexo[];
+  /** Resposta do Solis: o id dela no banco (chega no `fim`) e o voto do Matheus. */
+  resposta?: number;
+  voto?: Voto;
 };
 
 /** ERROR_STATES.md §2: no lugar da resposta, dizendo quem falhou e o que fazer. */
@@ -78,6 +82,8 @@ const turnosDe = (mensagens: Mensagem[]): Turno[] =>
     cerebro: m.cerebro,
     etapas: m.etapas ?? undefined,
     mensagem: m.papel === 'pessoa' ? m.id : undefined,
+    resposta: m.papel === 'solis' ? m.id : undefined,
+    voto: m.voto ?? null,
     anexos: m.anexos?.length ? m.anexos : undefined,
   }));
 
@@ -170,6 +176,7 @@ export function useConversa() {
             etapas: [...(t.etapas ?? []), { ...etapa, recebida: Date.now() }],
             cerebro: etapa.etapa === 'primeira_palavra' ? etapa.cerebro : t.cerebro,
             digitando: etapa.etapa === 'fim' ? false : t.digitando,
+            resposta: etapa.etapa === 'fim' && etapa.mensagem ? etapa.mensagem : t.resposta,
             // Parou antes da primeira palavra: no lugar da resposta, o aviso
             // (texto secundário, como um erro — não é fala do Solis).
             ...(etapa.etapa === 'fim' && etapa.parada && !t.texto

@@ -24,7 +24,7 @@ import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
-import { NOMES_CEREBRO, enviarAnexo, lerVolta, type Anexo } from '../servidor';
+import { NOMES_CEREBRO, enviarAnexo, lerVolta, votarResposta, type Anexo, type Voto } from '../servidor';
 import { falaAutomatica, marcarRespostaFalada, respostaFalada, useFala } from '../fala';
 import { useFundo } from '../fundo';
 import { useVoz } from '../voz';
@@ -107,11 +107,14 @@ function BotaoAcao({
   rotulo,
   aoClicar,
   feito = false,
+  marcado,
 }: {
-  icone: 'copiar' | 'refazer' | 'lapis' | 'feito' | 'desfazer';
+  icone: 'copiar' | 'refazer' | 'lapis' | 'feito' | 'desfazer' | 'polegar' | 'polegar-baixo';
   rotulo: string;
   aoClicar: () => void;
   feito?: boolean;
+  /** Um botão que liga e desliga (o voto): ligado, fica à vista fora do hover. */
+  marcado?: boolean;
 }) {
   return (
     <button
@@ -119,8 +122,9 @@ function BotaoAcao({
       onClick={aoClicar}
       title={rotulo}
       aria-label={rotulo}
+      aria-pressed={marcado}
       className={`inline-flex items-center justify-center align-middle transition-opacity
-                  ${feito ? 'text-accent opacity-100' : 'text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
+                  ${feito ? 'text-accent opacity-100' : marcado ? 'text-text-primary opacity-100' : 'text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
       style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)', marginLeft: 4, marginTop: -4, marginBottom: -4 }}
     >
       <Icone nome={feito ? 'feito' : icone} tamanho="var(--mac-icone)" />
@@ -145,6 +149,27 @@ function BotaoCopiar({ texto }: { texto: string }) {
         }
       }}
     />
+  );
+}
+
+/** O voto na resposta (IDEIAS.md, princípio 4: a taxa de acerto). É ele que
+ *  diz se a resposta ACERTOU — o Solis sozinho só sabe se ela rodou. Opcional:
+ *  resposta sem voto não conta. Clicar no mesmo de novo tira.
+ *  PROVISÓRIO — desenho próprio (17/11/2026), com o Claude como base: os
+ *  polegares discretos ao lado do copiar, no mesmo botão das outras ações. */
+function BotoesVoto({ resposta, inicial }: { resposta: number; inicial: Voto }) {
+  const [voto, definirVoto] = useState<Voto>(inicial);
+  const votar = async (v: 1 | -1) => {
+    const novo = voto === v ? null : v;
+    const antes = voto;
+    definirVoto(novo);
+    if (!(await votarResposta(resposta, novo))) definirVoto(antes);
+  };
+  return (
+    <>
+      <BotaoAcao icone="polegar" rotulo={voto === 1 ? 'Tirar o voto' : 'Resposta boa'} marcado={voto === 1} aoClicar={() => void votar(1)} />
+      <BotaoAcao icone="polegar-baixo" rotulo={voto === -1 ? 'Tirar o voto' : 'Resposta ruim'} marcado={voto === -1} aoClicar={() => void votar(-1)} />
+    </>
   );
 }
 
@@ -343,6 +368,9 @@ function RespostaSolis({
             {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
             {ouvir && !vivo && !t.falha && t.texto && <BotaoOuvir {...ouvir} />}
             {!vivo && !t.falha && t.texto && <BotaoCopiar texto={t.texto} />}
+            {!vivo && !t.falha && t.resposta !== undefined && (
+              <BotoesVoto key={t.resposta} resposta={t.resposta} inicial={t.voto ?? null} />
+            )}
             {!vivo && aoRefazer && <BotaoAcao icone="refazer" rotulo="Refazer a resposta" aoClicar={aoRefazer} />}
           </div>
           {pensando ? (

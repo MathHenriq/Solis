@@ -413,8 +413,10 @@ Groq, Gemini, Mistral, OpenRouter). Falta o "e avisa" ficar claro na tela, e a d
 (o gerente).
 
 **Registro de uso** — `banco.registrar_acao` guarda o que o Solis fez no computador (90 dias), e
-as etapas de cada resposta ficam no banco (qual cérebro, tempos). Falta o que o princípio 4 pede:
-a taxa de sucesso por função, na tela.
+as etapas de cada resposta ficam no banco (qual cérebro, tempos). Desde 17/11/2026 há também o
+registro de uso (`banco.usos`, `qualidade.py`): cada vez que um cérebro responde ou falha (inclusive
+quando ninguém responde) e cada ferramenta usada, com o voto do Matheus (👍/👎) na resposta. Fica
+mesmo com a conversa apagada. Falta a tela que mostra a taxa por função.
 
 **Painel de consumo** — começou: Configurações → Uso mostra a cota do Claude (sessão de 5 h, a
 semana, o Fable) pelo `/usage` do CLI. Falta o resto:
@@ -469,6 +471,10 @@ existem.
    o cofre na hora de ligar o servidor. O custo que a proposta tinha (o servidor deixar de valer no
    terminal) sumiu: vale no Claude Code e no Codex do terminal, na mesma conta do Windows, com o
    Solis instalado (não precisa estar aberto).
-6. **Taxa de sucesso por função e "só existe o que funciona".** Pede um registro novo (cada função
-   com acertos e falhas) e uma tela pra ele, e um teste de qualidade com meta antes de cada
-   função ficar ativa.
+6. **Taxa de sucesso por função e "só existe o que funciona" — decidido (17/11/2026), em
+   construção.** O Matheus escolheu medir as duas coisas: se a função **rodou** (o que o Solis
+   sabe sozinho: o cérebro respondeu ou falhou, a ferramenta deu certo ou erro) e se ela
+   **acertou** (o voto dele, 👍/👎, opcional, embaixo da resposta). E o "só existe o que funciona"
+   mostra, não desliga: cada função aparece como passou, não passou ou sem teste, e os testes com
+   meta entram um por um. Feito: o registro e o voto no servidor, e o voto na tela. Falta: a tela
+   da taxa (Configurações).
