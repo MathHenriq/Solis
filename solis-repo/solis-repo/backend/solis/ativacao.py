@@ -375,6 +375,22 @@ class Escuta:
         self.trecho = None
         return None
 
+    def seguir(self) -> bool:
+        """O Solis acabou de falar perguntando algo ("qual música?"): o pedido
+        começa já, sem a palavra, e vale como um "Solis" ouvido agora — até
+        INICIO_MAX pra pessoa começar a responder, senão ('comando', None).
+        Com um pedido já aberto, nada muda (False). Pedido do Matheus,
+        17/11/2026: a resposta dele à pergunta se perdia."""
+        if self.comando is not None:
+            return False
+        self.ativacoes += 1
+        self.trecho = None
+        self.antes.clear()
+        self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
+        self.espera_extra = 0.0
+        self.rascunho, self.rascunho_pedido, self.pronto = None, False, None
+        return True
+
     def descartar(self):
         """Sem a palavra: o resto do trecho é ignorado até ele acabar. Conferido
         cedo, não: no fim do silêncio o trecho inteiro é conferido de novo

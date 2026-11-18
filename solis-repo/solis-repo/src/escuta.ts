@@ -103,12 +103,14 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
     let pausada = false;
     let analisador: AnalyserNode | null = null;
     let tetoDaPausa: number | undefined;
-    const pausar = (falando: boolean) => {
+    // `seguir`: a fala acabou numa pergunta — o servidor já abre o pedido,
+    // sem esperar o "Solis" (backend/solis/ativacao.py, Escuta.seguir).
+    const pausar = (falando: boolean, seguir = false) => {
       pausada = falando;
-      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ pausa: falando }));
+      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(seguir ? { pausa: false, seguir: true } : { pausa: falando }));
     };
-    const pararDeOuvirFala = aoMudarFala((falando) => {
-      pausar(falando);
+    const pararDeOuvirFala = aoMudarFala((falando, pergunta) => {
+      pausar(falando, pergunta);
       // Trava de segurança (16/11/2026: a escuta ficou pausada pra sempre
       // depois de uma resposta falada): nenhuma fala do Solis dura isso, então
       // uma pausa maior é um "parei" que se perdeu — a escuta volta sozinha.

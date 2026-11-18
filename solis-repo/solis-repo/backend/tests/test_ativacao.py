@@ -481,3 +481,36 @@ def test_escuta_rapida_desligada_nao_segura_o_whisper(monkeypatch):
         assert ws.receive_json() == {'tipo': 'pronta'}
         assert voz._segurando == 0
     assert voz._segurando == 0 and aquecidos == [1]  # aquece igual: a primeira chamada já acha ele
+
+
+def test_depois_de_uma_pergunta_o_pedido_abre_sem_a_palavra():
+    """17/11/2026: o Solis perguntou "qual música?", o Matheus respondeu, e a
+    escuta esperava o "Solis" de novo. Agora a resposta dele já é o pedido."""
+    e = ativacao.Escuta(whisper=True)
+    assert e.seguir() and e.ativacoes == 1
+    assert not e.seguir()  # pedido já aberto: nada muda
+    eventos = [ev for ev in e.alimentar((quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)).tobytes())
+               if ev[0] != 'rascunho']
+    assert [t for t, _ in eventos] == ['comando'] and (len(eventos[0][1]) - 44) / 2 / TAXA >= 1.0
+    # Calado depois da pergunta: desiste no prazo de sempre, e volta a esperar o "Solis".
+    e.seguir()
+    eventos = list(e.alimentar(quadros(ativacao.INICIO_MAX + 0.5, tom=False).tobytes()))
+    assert eventos == [('comando', None)] and e.comando is None
+
+
+def test_websocket_seguir_abre_o_pedido_e_pausado_nao(monkeypatch):
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
+    respostas = iter(['Toca Legião Urbana.'])
+
+    async def transcrever(audio, **_):
+        return {'texto': next(respostas)}
+    monkeypatch.setattr(voz, 'transcrever', transcrever)
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        ws.send_text('{"pausa": true, "seguir": true}')  # ainda falando: não abre
+        ws.send_text('{"pausa": false, "seguir": true}')
+        assert ws.receive_json() == {'tipo': 'ativou'}
+        ws.send_bytes((quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)).tobytes())
+        assert ws.receive_json() == {'tipo': 'texto', 'texto': 'Toca Legião Urbana.'}

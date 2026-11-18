@@ -2013,7 +2013,9 @@ async def escuta(ws: WebSocket):
     a tela só abre o microfone depois. Volta {"tipo": "ativou"} ao ouvir a palavra e, quando a
     pessoa para de falar, {"tipo": "texto", "texto"} (ou {"tipo": "nada"}).
     Texto {"pausa": true} do navegador suspende a escuta — enquanto o Solis
-    fala, a voz dele não pode acordar ele mesmo."""
+    fala, a voz dele não pode acordar ele mesmo. {"pausa": false, "seguir": true}
+    quando a fala dele acabou numa pergunta: o pedido abre sem o "Solis" (volta
+    {"tipo": "ativou"}, e o resto como depois da palavra)."""
     await ws.accept()
     try:
         escutando = await asyncio.to_thread(ativacao.Escuta)
@@ -2042,9 +2044,14 @@ async def escuta(ws: WebSocket):
                 break
             if msg.get('text'):
                 try:
-                    pausada = bool(json.loads(msg['text']).get('pausa'))
+                    pedido = json.loads(msg['text'])
                 except ValueError:
-                    pass
+                    continue
+                pausada = bool(pedido.get('pausa'))
+                # A fala dele acabou numa pergunta: ouve a resposta sem o "Solis".
+                if pedido.get('seguir') and not pausada and escutando.seguir():
+                    await ws.send_json({'tipo': 'ativou'})
+                    _aquecer()
                 continue
             if pausada or not msg.get('bytes'):
                 continue

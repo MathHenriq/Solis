@@ -94,7 +94,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /ativacao/chave` | (Porcupine, sem uso hoje) `{"chave"}` → a AccessKey do Picovoice, conferida (com o modelo, se já houver) e guardada selada. Nunca volta. `400` com `chave_recusada` ou `modelo_recusado` |
 | `PUT /ativacao/palavra` | (Porcupine) o `.ppn` do console do Picovoice, cru no corpo → guarda depois de conferir com a chave. `400` com `chave_recusada` ou `modelo_recusado` |
 | `DELETE /ativacao` | apaga a chave e o modelo da palavra |
-| `WS /escuta` | o navegador manda quadros de 512 amostras PCM 16 bits a 16 kHz; volta `{"tipo": "ativou"}` ao ouvir a palavra e, quando a pessoa para de falar, `{"tipo": "texto", "texto"}` ou `{"tipo": "nada"}`. `{"pausa": true}` suspende (o Solis está falando). `{"tipo": "erro"}` se falta configuração |
+| `WS /escuta` | o navegador manda quadros de 512 amostras PCM 16 bits a 16 kHz; volta `{"tipo": "ativou"}` ao ouvir a palavra e, quando a pessoa para de falar, `{"tipo": "texto", "texto"}` ou `{"tipo": "nada"}`. `{"pausa": true}` suspende (o Solis está falando); `{"pausa": false, "seguir": true}` volta já ouvindo o pedido, sem a palavra (a fala dele acabou numa pergunta). `{"tipo": "erro"}` se falta configuração |
 | `GET /cerebros` | os cérebros na ordem em que são tentados: `nome`, `rotulo`, `tipo` (`local`, `cli` ou `api`), `ligado`, `instalado` (o CLI existe; na API, há chave), `modelo`, `nota` e `site` (só API) e `pausa` (`{"ate", "motivo"}` enquanto está de lado depois de falhar, senão `null`) |
 | `PUT /cerebros` | `{"ordem": [{"nome", "ligado"}, ...]}` → guarda a ordem e o liga/desliga (Configurações → Cérebros). Nome repetido ou desconhecido dá `400`; quem ficar de fora vai pro fim. O local fica sempre ligado |
 | `PUT /cerebros/{nome}/chave` | `{"chave"}` → pros cérebros por API: confere a chave no próprio serviço (`GET /models`), escolhe o modelo, guarda a chave selada e liga o cérebro. `400` com `chave_recusada` ou `chave_vazia`, `502` com `provedor_fora`, `404` se não for um cérebro por API. A chave nunca volta em nenhuma resposta |
@@ -489,6 +489,8 @@ vive no pedido.
 - **Fim da fala** (PROVISÓRIO): pelo menos 0,4 s de fala, 0,9 s de silêncio encerra, no máximo 15 s;
   sem falar nada em 5 s depois da palavra, desiste. O silêncio é medido contra o ruído do ambiente (12
   dB acima do piso, que se ajusta sozinho).
+- Quando a resposta falada acaba numa pergunta ("qual música você quer ouvir?"), a escuta volta já
+  ouvindo a resposta, sem precisar do "Solis": até 8 s pra começar a falar, com o bipe de sempre.
 - Enquanto o Solis fala, a escuta pausa — senão ele se ouviria. O WebSocket usa o `wsproto` (Python
   puro).
 - **Porcupine** (Picovoice): o código continua (com AccessKey e `solis.ppn` em

@@ -52,16 +52,29 @@ export function definirFalaAutomatica(ligada: boolean) {
 
 /** Quem precisa saber que o Solis está falando: a escuta da palavra pausa
  *  enquanto ele fala, senão a própria voz dele (dizendo "Solis") o acordaria. */
-const ouvintesDaFala = new Set<(falando: boolean) => void>();
+const ouvintesDaFala = new Set<(falando: boolean, pergunta: boolean) => void>();
 // Quem está falando agora (cada useFala é um). Global, e não o estado de um
 // componente: em 16/11/2026 o Matheus saiu da conversa enquanto (ou logo
 // depois que) o Solis falava, o componente sumiu sem avisar "parei", e a
 // escuta da palavra ficou pausada pra sempre — dez "Solis" sem resposta.
 const falandoAgora = new Set<symbol>();
 
+// A resposta falada que acabou de terminar (inteira, sem ser cortada) acabou
+// numa pergunta: a escuta ouve a resposta sem precisar de "Solis". Pedido do
+// Matheus (17/11/2026): "qual música você quer ouvir?", ele respondeu, e a
+// escuta esperava o "Solis" de novo — a resposta se perdeu.
+let fimComPergunta = false;
+
+/** O texto falado acaba numa pergunta (o "?" no fim, com aspas ou parêntese depois). */
+export function acabaEmPergunta(texto: string): boolean {
+  return /\?["'”»)\]]*\s*$/.test(texto);
+}
+
 function avisarFala() {
   const falando = falandoAgora.size > 0;
-  ouvintesDaFala.forEach((o) => o(falando));
+  const pergunta = !falando && fimComPergunta;
+  fimComPergunta = false;
+  ouvintesDaFala.forEach((o) => o(falando, pergunta));
 }
 
 function marcarFala(quem: symbol, falando: boolean) {
@@ -71,10 +84,11 @@ function marcarFala(quem: symbol, falando: boolean) {
   if (antes !== falandoAgora.size > 0) avisarFala();
 }
 
-export function aoMudarFala(ouvinte: (falando: boolean) => void): () => void {
+/** `pergunta`: o Solis acabou de falar uma resposta inteira que termina numa pergunta. */
+export function aoMudarFala(ouvinte: (falando: boolean, pergunta: boolean) => void): () => void {
   ouvintesDaFala.add(ouvinte);
   // Quem chega no meio de uma fala já sabe que é pra pausar.
-  if (falandoAgora.size) ouvinte(true);
+  if (falandoAgora.size) ouvinte(true, false);
   return () => ouvintesDaFala.delete(ouvinte);
 }
 
@@ -82,6 +96,8 @@ export function aoMudarFala(ouvinte: (falando: boolean) => void): () => void {
 class FilaDeFala {
   private partes: string[] = [];
   private fechada = false;
+  /** A resposta ditada acaba numa pergunta (só a que foi falada sozinha, por voz). */
+  pergunta = false;
   private avisar: (() => void) | null = null;
 
   por(partes: string[]) {
@@ -185,7 +201,11 @@ export function useFala(conversa: number | null) {
         if (el && el !== 'falhou') el.cancelar();
         return;
       }
-      if (el === null) break; // a fila fechou: acabou
+      if (el === null) {
+        // A fila fechou: acabou, inteira. Acabou perguntando: a escuta ouve a resposta.
+        if (fila.pergunta) fimComPergunta = true;
+        break;
+      }
       // Já carrega o seguinte enquanto este toca (ou espera ele chegar).
       proximo = fila.proxima().then(carregar);
       seguinte.current = proximo.then((p) => (p === 'falhou' ? null : p));
@@ -262,6 +282,7 @@ export function useFala(conversa: number | null) {
     }
     if (acabou) {
       atual.fechada = true;
+      atual.fila.pergunta = acabaEmPergunta(texto);
       atual.pedidos = atual.pedidos.then(() => atual.fila.fechar());
     }
   }
