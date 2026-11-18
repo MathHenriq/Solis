@@ -752,6 +752,21 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      (`design/capturar-conversa.mjs`): ouvindo → falando → ouvindo, a troca salva e mostrada na
      conversa, Esc fecha. **Falta:** a voz dele ao vivo com o microfone de verdade (o app estava
      fechado), e conferir se o cancelamento de eco segura a voz dele nas caixas de som do notebook.
+   - **A reserva do modo Conversa (18/11/2026).** Pergunta do Matheus no teste de 17/11: e quando
+     a faixa grátis do Gemini acabar? Sem o Gemini (sem a chave, não abriu, caiu no meio), a
+     conversa segue pela Groq, sem a tela mudar (`conversa_voz.conduzir_reserva`): o ouvido da
+     escuta acha o fim da fala (os primeiros 0,6 s do microfone ensinam o ruído da sala), o
+     Whisper da Groq transcreve (o pequeno daqui confere o privado antes, e o privado fica no PC),
+     o modelo da Groq responde, e a voz de sempre fala aos pedaços (o mp3 da Fish vira PCM
+     enquanto chega). O privado é respondido pelo modelo daqui. Caiu uma vez, o Gemini fica 10 min
+     de lado (a conversa seguinte já vai direto pela reserva). Diferenças do Gemini: não dá pra
+     interromper no meio (enquanto ele fala, o microfone não conta, senão a voz dele nas caixas
+     viraria a próxima fala), e a tela não mostra que é a reserva (ela recebe `{"tipo":
+     "reserva"}` e ainda não usa). Medido com a Groq e a Fish de verdade, num pedido da gravação
+     do teste da escuta ("Ei Solis, quanto é quinze vezes três?" → "45."): primeiro som 1,75 s
+     depois do fim da fala com o Whisper pequeno carregado (transcrição 0,66 · resposta 0,40 ·
+     primeiro pedaço da voz 0,69); o Gemini deu ~1,4 s. Custo: o da Groq grátis e o da Fish por
+     frase, como no modo Pedido. **Falta:** a voz dele ao vivo.
 
 ### Controle do PC e visão da tela
 

@@ -330,6 +330,7 @@ class Escuta:
         self.conferido = False  # o trecho já foi conferido (sem a palavra): não confere no fim
         self.cedo_feito = False  # a conferência cedo desta pausa já saiu
         self._ultimo = ''  # o último evento de trecho: 'previa', 'cedo' ou 'frase'
+        self._ruido: list[float] = []  # aprender_piso: a energia dos quadros só de ruído
 
     def fechar(self):
         try:
@@ -374,6 +375,26 @@ class Escuta:
             self.comando, self.fala, self.silencio = array.array('h'), 0.0, 0.0
         self.trecho = None
         return None
+
+    def aprender_piso(self, pcm: bytes) -> float:
+        """Só o ruído de fundo, sem evento nenhum: uma escuta nova (a reserva do
+        modo Conversa, que já começa no pedido) não sabe ainda o que é silêncio
+        na sala — com o piso padrão, o ruído da gravação do teste contou como
+        fala e o pedido não acabava (18/11/2026). O piso fica na mediana dos
+        quadros ouvidos (quem falar no meio não o puxa tanto pra cima). Medido em
+        4 pedidos da gravação: o 30º percentil deixou um sem fim; a mediana
+        acabou todos. PROVISÓRIO: medir no modo Conversa (o microfone dele tem
+        a supressão de ruído ligada). Devolve os segundos já ouvidos."""
+        self.sobra.frombytes(pcm[: len(pcm) - len(pcm) % 2])
+        while len(self.sobra) >= self.n:
+            quadro = self.sobra[: self.n]
+            del self.sobra[: self.n]
+            if self.silero:
+                self.silero.fala(quadro)
+            self._ruido.append(_energia(quadro))
+        if self._ruido:
+            self.piso = sorted(self._ruido)[len(self._ruido) // 2]
+        return len(self._ruido) * self.n / TAXA
 
     def seguir(self) -> bool:
         """O Solis acabou de falar perguntando algo ("qual música?"): o pedido

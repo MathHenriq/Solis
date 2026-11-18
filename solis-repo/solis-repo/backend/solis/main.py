@@ -2106,17 +2106,36 @@ async def conversa_por_voz(ws: WebSocket):
     (PCM 16 bits, 16 kHz) em pedaços binários e {"fim": true} pra sair; recebe
     {"tipo": "pronta", "conversa"}, a voz dele (PCM 16 bits, 24 kHz, binário),
     {"tipo": "ouviu"|"disse", "texto"}, {"tipo": "interrompido"}, {"tipo":
-    "turno"} (uma troca salva na conversa) e {"tipo": "fim", "motivo"}."""
+    "turno"} (uma troca salva na conversa) e {"tipo": "fim", "motivo"}.
+
+    Sem o Gemini (sem chave, a faixa grátis acabou, caiu no meio), segue pela
+    reserva da Groq (conversa_voz.conduzir_reserva), com {"tipo": "reserva"}
+    avisando a tela; o resto da conversa é igual."""
     from . import conversa_voz
     await ws.accept()
     q = ws.query_params.get('conversa', '')
     conversa = int(q) if q.isdigit() else banco.nova_conversa()
-    try:
-        sessao_cm = conversa_voz.abrir(conversa, fala.voz_gemini())
-    except conversa_voz.SemChave as e:
-        await ws.send_json({'tipo': 'erro', 'motivo': str(e)})
+    reserva = conversa_voz.reserva_disponivel()
+    sessao_cm = None
+    if not conversa_voz.gemini_descansando():
+        try:
+            sessao_cm = conversa_voz.abrir(conversa, fala.voz_gemini())
+        except conversa_voz.SemChave as e:
+            if not reserva:
+                await ws.send_json({'tipo': 'erro', 'motivo': str(e)})
+                await ws.close()
+                return
+    elif not reserva:
+        await ws.send_json({'tipo': 'erro', 'motivo': 'o Gemini falhou há pouco e a Groq não está disponível'})
         await ws.close()
         return
+    pronta = False
+
+    async def avisar_pronta() -> None:
+        nonlocal pronta
+        if not pronta:
+            pronta = True
+            await ws.send_json({'tipo': 'pronta', 'conversa': conversa})
 
     async def receber() -> dict:
         msg = await ws.receive()
@@ -2131,8 +2150,8 @@ async def conversa_por_voz(ws: WebSocket):
                 return {}
         return {}
 
-    async def ao_turno(fala_dele: str, resposta: str) -> None:
-        id_pessoa, _ = conversa_voz.salvar_turno(conversa, fala_dele, resposta)
+    async def ao_turno(fala_dele: str, resposta: str, cerebro: str = 'gemini-live') -> None:
+        id_pessoa, _ = conversa_voz.salvar_turno(conversa, fala_dele, resposta, cerebro)
         if fala_dele and id_pessoa:
             # O aprendizado, como no modo Pedido: o que ele disse pode virar memória.
             async def aprender():
@@ -2142,17 +2161,47 @@ async def conversa_por_voz(ws: WebSocket):
             _tarefas.add(tarefa)
             tarefa.add_done_callback(_tarefas.discard)
 
-    motivo = 'erro'
-    try:
-        async with sessao_cm as sessao:
-            await ws.send_json({'tipo': 'pronta', 'conversa': conversa})
-            motivo = await conversa_voz.conduzir(sessao, receber, ws.send_bytes, ws.send_json, ao_turno)
-    except WebSocketDisconnect:
-        motivo = 'saiu'
-    except Exception as e:  # noqa: BLE001 — a conexão com o Gemini caiu ou recusou
-        log.warning('o modo conversa não abriu ou caiu: %s', e)
-        with contextlib.suppress(Exception):
-            await ws.send_json({'tipo': 'erro', 'motivo': f'{type(e).__name__}: {e}'[:200]})
+    async def local(instrucao: str, texto: str) -> str:
+        # O privado, pela reserva: o modelo daqui, nunca a nuvem.
+        return await ollama.responder_texto(await _modelo_de_fundo(MODELO_FUNDO), instrucao, texto, pensar=False)
+
+    motivo = 'erro' if sessao_cm is None else ''
+    if sessao_cm is not None:
+        try:
+            async with sessao_cm as sessao:
+                await avisar_pronta()
+                motivo = await conversa_voz.conduzir(sessao, receber, ws.send_bytes, ws.send_json, ao_turno)
+        except WebSocketDisconnect:
+            motivo = 'saiu'
+        except Exception as e:  # noqa: BLE001 — a conexão com o Gemini caiu ou recusou
+            log.warning('o modo conversa não abriu ou caiu: %s', e)
+            motivo = 'erro'
+            if not reserva:
+                with contextlib.suppress(Exception):
+                    await ws.send_json({'tipo': 'erro', 'motivo': f'{type(e).__name__}: {e}'[:200]})
+        if motivo == 'erro':
+            conversa_voz.deixar_gemini('não abriu ou caiu')
+    if motivo == 'erro' and reserva:
+        # Quem transcreve na reserva (o pequeno confere o privado antes da Groq)
+        # fica carregado enquanto ela durar: frio, o primeiro pedido esperava ele subir.
+        pequeno = transcricao.online() and transcricao.pequeno_disponivel()
+        segurado = transcricao if pequeno else voz
+        segurado.segurar()
+        _aquecer_whisper(pequeno)
+        try:
+            await avisar_pronta()
+            await ws.send_json({'tipo': 'reserva'})
+            motivo = await conversa_voz.conduzir_reserva(conversa, receber, ws.send_bytes, ws.send_json, ao_turno,
+                                                         local=local)
+        except WebSocketDisconnect:
+            motivo = 'saiu'
+        except Exception as e:  # noqa: BLE001 — a reserva também caiu: avisa e fecha
+            log.warning('o modo conversa caiu na reserva: %r', e)
+            motivo = 'erro'
+            with contextlib.suppress(Exception):
+                await ws.send_json({'tipo': 'erro', 'motivo': f'{type(e).__name__}: {e}'[:200]})
+        finally:
+            segurado.soltar()
     with contextlib.suppress(Exception):
         await ws.send_json({'tipo': 'fim', 'motivo': motivo})
         await ws.close()
