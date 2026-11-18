@@ -1720,7 +1720,28 @@ export type Navegador = {
   instalados: { canal: 'chrome' | 'msedge'; nome: string }[];
   pronto: boolean;
   aberto: boolean;
+  /** O navegador de sempre dele (pela extensão do Playwright), não a janela do Solis. */
+  sempre: boolean;
+  /** A extensão está instalada no navegador escolhido. */
+  extensao: boolean;
+  /** A chave da extensão está guardada (liga sem pedir). Ela mesma nunca volta. */
+  chave: boolean;
+  extensao_url: string;
 };
+
+/** A chave da extensão do Playwright (vazia apaga). */
+export async function guardarChaveNavegador(chave: string): Promise<Navegador | null> {
+  try {
+    const r = await fetch(`${BASE}/navegador/chave`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chave }),
+    });
+    return r.ok ? ((await r.json()) as Navegador) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function lerNavegador(): Promise<Navegador | null> {
   try {
@@ -1750,7 +1771,14 @@ export async function abrirNavegador(): Promise<Navegador | { erro: string }> {
     const r = await fetch(`${BASE}/navegador/abrir`, { method: 'POST' });
     if (r.ok) return (await r.json()) as Navegador;
     const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
-    return { erro: corpo.motivo === 'navegador desligado' ? 'O navegador está desligado.' : 'O navegador não abriu.' };
+    return {
+      erro:
+        corpo.motivo === 'navegador desligado'
+          ? 'O navegador está desligado.'
+          : corpo.motivo === 'sem a extensão'
+            ? 'Falta a extensão do Playwright no seu navegador.'
+            : 'O navegador não abriu.',
+    };
   } catch {
     return { erro: 'O servidor do Solis não respondeu.' };
   }

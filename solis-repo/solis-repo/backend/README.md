@@ -135,9 +135,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /voz/teste` | os testes guardados, com o resumo de cada medida (`acordou`, `entendeu`, `falsos`, `latencia_mediana`, `passou`…) e os que estão `medindo` |
 | `POST /voz/teste/{id}/medir` | mede de novo (`?motor=`) |
 | `GET /voz/teste/{id}/medida/{motor}` | a medida inteira: cada passo do roteiro e cada evento da escuta |
-| `GET /navegador` | o navegador do Claude: `escolhido` (`chrome`, `msedge` ou nulo), `desligado`, `instalados` (`canal`, `nome`), `pronto` (o `@playwright/mcp` está no `node_modules`) e `aberto` (o servidor dele de pé) |
-| `PUT /navegador` | `{"navegador": "chrome" \| "msedge" \| "desligado"}` → troca (a janela do outro fecha). `400` com `navegador_invalido` se não está no PC |
-| `POST /navegador/abrir` | abre a janela do navegador do Solis (pra entrar nas contas). `503` com `nao_abriu` e o `motivo` |
+| `GET /navegador` | o navegador do Claude: `escolhido` (`chrome`, `msedge` ou nulo), `desligado`, `instalados` (`canal`, `nome`), `pronto` (o `@playwright/mcp` está no `node_modules`), `aberto` (o servidor dele de pé), `sempre` (o navegador de sempre, pela extensão), `extensao` (ela está no navegador escolhido), `chave` (a chave dela está guardada) e `extensao_url` (a loja) |
+| `PUT /navegador` | `{"navegador": "chrome" \| "msedge" \| "chrome:sempre" \| "msedge:sempre" \| "desligado"}` → troca (a janela do outro fecha). `400` com `navegador_invalido` se não está no PC |
+| `POST /navegador/abrir` | abre a janela do navegador do Solis (pra entrar nas contas); no de sempre, liga e abre uma aba no grupo dele. `503` com `nao_abriu` e o `motivo` (`sem a extensão`, `navegador desligado`) |
+| `PUT /navegador/chave` | `{"chave": "..."}` → a chave da extensão do Playwright, pro navegador de sempre ligar sem pedir (vazia apaga). Vai pro cofre; a API só diz se tem (`chave` em `GET /navegador`) |
 
 O modelo da Conversa é o marcado "Em uso" em Modelos locais. Clicar numa linha troca; sem
 escolha, vale o primeiro modelo que conversa (embeddings nunca entra).
@@ -637,6 +638,18 @@ o script inteiros. "Sempre neste site" libera as ações naquele site na convers
 `browser_run_code_unsafe` (código no processo do servidor) fica fora (`disallowed_tools`). O Claude
 é avisado de que o texto das páginas é dado, não ordem, e de nunca digitar senha, cartão ou
 documento, nem finalizar compra.
+
+**O navegador de sempre** (`chrome:sempre`, `msedge:sempre`): o mesmo servidor com `--extension`,
+sem perfil do Solis e sem mudar o tamanho da janela. Ele se liga ao Chrome (ou Edge) do Matheus
+pela extensão oficial do Playwright, da loja do Chrome (`EXTENSAO_ID`); o Solis só vê se ela está
+instalada (a pasta dela ou o id nas `Preferences` de algum perfil, como o próprio Playwright
+procura) e, sem ela, o Claude segue sem navegador. Na primeira ação, o navegador dele abre a
+página da extensão, onde ele aprova e escolhe as abas que entrega; com a chave dela no cofre
+(`PUT /navegador/chave`, passada ao servidor pelo ambiente `PLAYWRIGHT_MCP_EXTENSION_TOKEN`), liga
+sem perguntar, numa aba nova. O Claude só alcança as abas que ganhou ou abriu (o grupo dele), e a
+extensão recusa mudar cookies e permissões. Como lá estão as contas dele, abrir um site diferente
+do aberto também pede cartão (`navegador.pede`; o cartão mostra o site de destino), e "Sempre
+neste site" vale pra abrir e agir nele; andar dentro do mesmo site não pede.
 
 ## Busca por significado
 

@@ -11,7 +11,17 @@ sempre: os logins feitos nela ficam guardados ali.
 O que pede o Matheus: clicar, escrever, preencher, apertar tecla, enviar
 arquivo, rodar script na página (o cartão diz o quê e em qual site). Abrir e
 ler página é livre, como o WebFetch. "Sempre neste site" libera as ações num
-site enquanto o servidor está de pé."""
+site enquanto o servidor está de pé.
+
+O navegador de sempre (18/11/2026): em vez da janela do Solis, o Chrome (ou o
+Edge) do próprio Matheus, com as abas e os logins dele, pela extensão oficial
+do Playwright (--extension). Na primeira ação, o navegador dele abre uma
+página da extensão onde ele aprova e escolhe as abas que entrega; com a chave
+da extensão guardada no cofre (PLAYWRIGHT_MCP_EXTENSION_TOKEN), liga sem
+perguntar e começa numa aba nova. O Claude só alcança as abas que ganhou ou
+abriu (o grupo de abas dele), e a extensão recusa mudar cookies e permissões.
+Como lá estão as contas dele, abrir um site novo também pede cartão (por
+site, como o Claude in Chrome); andar dentro do mesmo site não."""
 from __future__ import annotations
 
 import asyncio
@@ -40,6 +50,13 @@ NAVEGADORES = {
     'msedge': ('Microsoft Edge', [r'Microsoft\Edge\Application\msedge.exe']),
 }
 DESLIGADO = 'desligado'
+# O navegador de sempre: o canal com este sufixo ("chrome:sempre").
+SEMPRE = ':sempre'
+CHAVE = 'navegador:chave'
+EXTENSAO_ID = 'mmlmfjhmonkocbjadbfplnigmagldckm'
+EXTENSAO_URL = f'https://chromewebstore.google.com/detail/playwright-extension/{EXTENSAO_ID}'
+# Onde o Windows guarda os perfis de cada um (o mesmo que o Playwright procura).
+PERFIS = {'chrome': r'Google\Chrome\User Data', 'msedge': r'Microsoft\Edge\User Data'}
 
 # Ler e ir pra uma página: livres. O resto age na página e pede cartão.
 LIVRES = {'browser_snapshot', 'browser_find', 'browser_take_screenshot', 'browser_console_messages',
@@ -69,22 +86,76 @@ def escolhido() -> str | None:
     if valor == DESLIGADO:
         return None
     tem = instalados()
-    if valor in tem:
-        return valor
+    canal = (valor or '').removesuffix(SEMPRE)
+    if canal in tem:
+        return canal
     return tem[0] if tem else None
+
+
+def de_sempre() -> bool:
+    """O Claude usa o navegador de sempre do Matheus (pela extensão), não a janela do Solis."""
+    valor = banco.ajuste('navegador') or ''
+    return valor.endswith(SEMPRE) and escolhido() == valor.removesuffix(SEMPRE)
+
+
+def _perfis() -> Path | None:
+    base = os.environ.get('LOCALAPPDATA')
+    return Path(base) if base else None
+
+
+def extensao_instalada(canal: str) -> bool:
+    """A extensão do Playwright está em algum perfil do navegador de sempre (o
+    mesmo jeito que o Playwright procura: a pasta dela ou o id nas Preferences)."""
+    base = _perfis()
+    if base is None or canal not in PERFIS:
+        return False
+    try:
+        perfis = [p for p in (base / PERFIS[canal]).iterdir() if p.name == 'Default' or p.name.startswith('Profile ')]
+    except OSError:
+        return False
+    for p in perfis:
+        if (p / 'Extensions' / EXTENSAO_ID).is_dir():
+            return True
+        with contextlib.suppress(OSError):
+            if f'"{EXTENSAO_ID}"' in (p / 'Preferences').read_text(encoding='utf-8', errors='ignore'):
+                return True
+    return False
+
+
+def _chave() -> str | None:
+    from . import cofre
+    selada = banco.ajuste(CHAVE)
+    return cofre.abrir(selada) if selada else None
+
+
+def guardar_chave(chave: str | None) -> dict:
+    """A chave da extensão (o Matheus copia da página dela e cola): com ela, o
+    navegador de sempre liga sem pedir. Vazia apaga. Fica no cofre."""
+    from . import cofre
+    chave = (chave or '').strip()
+    if chave:
+        banco.guardar_ajuste(CHAVE, cofre.selar(chave))
+    else:
+        banco.apagar_ajuste(CHAVE)
+    parar()
+    return estado()
 
 
 def estado() -> dict:
     tem = instalados()
-    return {'escolhido': escolhido(), 'desligado': banco.ajuste('navegador') == DESLIGADO,
+    canal = escolhido()
+    return {'escolhido': canal, 'desligado': banco.ajuste('navegador') == DESLIGADO,
             'instalados': [{'canal': c, 'nome': NAVEGADORES[c][0]} for c in tem],
-            'pronto': _cli().is_file(), 'aberto': _vivo()}
+            'pronto': _cli().is_file(), 'aberto': _vivo(),
+            'sempre': de_sempre(), 'extensao': bool(canal) and extensao_instalada(canal),
+            'chave': bool(banco.ajuste(CHAVE)), 'extensao_url': EXTENSAO_URL}
 
 
 def escolher(valor: str) -> dict:
-    """Muda o navegador (ou desliga). O servidor aberto com o outro fecha: a
+    """Muda o navegador (ou desliga): o canal ("chrome", a janela do Solis) ou
+    o de sempre ("chrome:sempre"). O servidor aberto com o outro fecha: a
     próxima resposta abre o novo."""
-    if valor != DESLIGADO and valor not in instalados():
+    if valor != DESLIGADO and valor.removesuffix(SEMPRE) not in instalados():
         raise ValueError('navegador')
     if valor != banco.ajuste('navegador'):
         banco.guardar_ajuste('navegador', valor)
@@ -135,11 +206,24 @@ def _aceita(porta: int) -> bool:
         return s.connect_ex(('127.0.0.1', porta)) == 0
 
 
-def comando(canal: str, porta: int) -> list[str]:
-    return ['node', str(_cli()), '--port', str(porta), '--host', '127.0.0.1', '--browser', canal,
-            '--user-data-dir', str(perfil(canal)), '--output-dir', str(pasta_saida()),
-            # Todas as conversas no mesmo navegador (um perfil só abre uma vez).
-            '--shared-browser-context', '--viewport-size', '1280x800']
+def comando(canal: str, porta: int, sempre: bool = False) -> list[str]:
+    base = ['node', str(_cli()), '--port', str(porta), '--host', '127.0.0.1', '--browser', canal,
+            '--output-dir', str(pasta_saida()),
+            # Todas as conversas no mesmo navegador (um perfil só abre uma vez;
+            # na extensão, uma ligação só, aprovada uma vez).
+            '--shared-browser-context']
+    if sempre:
+        # O navegador dele, como está: sem perfil do Solis e sem mudar o tamanho da janela.
+        return base + ['--extension']
+    return base + ['--user-data-dir', str(perfil(canal)), '--viewport-size', '1280x800']
+
+
+def _ambiente(sempre: bool) -> dict | None:
+    """A chave da extensão vai pro servidor pelo ambiente (nunca na linha de comando)."""
+    chave = _chave() if sempre else None
+    if not chave:
+        return None
+    return {**os.environ, 'PLAYWRIGHT_MCP_EXTENSION_TOKEN': chave}
 
 
 def servidor() -> dict | None:
@@ -149,21 +233,27 @@ def servidor() -> dict | None:
     canal = escolhido()
     if canal is None or not _cli().is_file():
         return None
+    sempre = de_sempre()
+    if sempre and not extensao_instalada(canal):
+        # Sem a extensão o servidor falharia em toda ação: o Claude segue sem navegador.
+        return None
+    qual = canal + SEMPRE if sempre else canal
     with _trava:
-        if not (_vivo() and _canal == canal):
+        if not (_vivo() and _canal == qual):
             _parar()
             porta = _porta_livre()
             pasta_saida().mkdir(parents=True, exist_ok=True)
-            perfil(canal).mkdir(parents=True, exist_ok=True)
+            if not sempre:
+                perfil(canal).mkdir(parents=True, exist_ok=True)
             try:
                 _processo = subprocess.Popen(
-                    comando(canal, porta), cwd=str(pasta_saida()), stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    comando(canal, porta, sempre), cwd=str(pasta_saida()), stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=_ambiente(sempre),
                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             except OSError:
                 log.exception('o navegador não subiu')
                 return None
-            _canal, _porta = canal, porta
+            _canal, _porta = qual, porta
             fim = time.monotonic() + SUBIR_MAX_S
             while not _aceita(porta):
                 if _processo.poll() is not None or time.monotonic() > fim:
@@ -171,7 +261,7 @@ def servidor() -> dict | None:
                     _parar()
                     return None
                 time.sleep(0.1)
-            log.info('navegador: %s na porta %s', canal, porta)
+            log.info('navegador: %s na porta %s', qual, porta)
         return {'type': 'http', 'url': f'http://127.0.0.1:{_porta}/mcp'}
 
 
@@ -262,6 +352,9 @@ def abrir(url: str = 'https://www.google.com') -> None:
     dele, por exemplo). Se ele tinha fechado a janela, abre de novo."""
     global _dono
     if servidor() is None:
+        canal = escolhido()
+        if canal and de_sempre() and not extensao_instalada(canal):
+            raise NavegadorFalhou('sem a extensão')
         raise NavegadorFalhou('navegador desligado')
     for tentativa in range(2):
         with _trava:
@@ -322,6 +415,30 @@ def pagina_do_resultado(texto: str) -> str | None:
     return None
 
 
+def destino(nome: str, entrada: dict) -> str | None:
+    """A página que a ação abre (ir pra um endereço, abrir aba com endereço), ou None."""
+    a = acao(nome)
+    if a == 'browser_navigate' or (a == 'browser_tabs' and entrada.get('action') == 'new'):
+        return str(entrada.get('url') or '') or None
+    return None
+
+
+def pede(nome: str, entrada: dict, pagina: str | None) -> bool:
+    """Se a ação do navegador pede o Matheus. Agir na página sempre pede; no
+    navegador de sempre (as contas dele), abrir um site diferente do aberto
+    também — andar dentro do mesmo site não."""
+    if acao(nome) in PEDEM:
+        return True
+    url = destino(nome, entrada)
+    return bool(url) and de_sempre() and site(url) != site(pagina)
+
+
+def site_da_acao(nome: str, entrada: dict, pagina: str | None) -> str:
+    """O site que o cartão mostra e que o "Sempre neste site" libera: pra onde
+    vai, quando a ação abre uma página; senão, o da página aberta."""
+    return site(destino(nome, entrada) or pagina)
+
+
 def _elemento(entrada: dict, chave: str = 'element') -> str:
     return str(entrada.get(chave) or 'um elemento da página').strip()
 
@@ -350,6 +467,8 @@ def resumo(nome: str, entrada: dict) -> str:
         return 'Rodar um script na página'
     if a == 'browser_handle_dialog':
         return 'Aceitar o aviso da página' if entrada.get('accept') else 'Recusar o aviso da página'
+    if destino(nome, entrada):
+        return f'Abrir {destino(nome, entrada)}'
     return f'Usar o navegador: {a}'
 
 

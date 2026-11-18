@@ -1112,6 +1112,20 @@ async def escolher_navegador(corpo: EscolhaNavegador):
     return r
 
 
+class ChaveNavegador(BaseModel):
+    chave: str = ''
+
+
+@app.put('/navegador/chave')
+async def guardar_chave_navegador(corpo: ChaveNavegador):
+    """A chave da extensão do Playwright (o Matheus cola): com ela, o navegador
+    de sempre liga sem pedir. Vazia apaga. Vai pro cofre; nunca volta pela API."""
+    from . import navegador
+    r = await asyncio.to_thread(navegador.guardar_chave, corpo.chave)
+    banco.registrar_acao(None, 'chave_navegador', {}, 'guardada' if corpo.chave.strip() else 'apagada', True)
+    return r
+
+
 @app.post('/navegador/abrir')
 async def abrir_navegador():
     """Abre a janela do navegador do Solis — pra entrar nas contas que o Claude

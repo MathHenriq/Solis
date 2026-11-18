@@ -2,6 +2,7 @@
 janela com o perfil do Solis. Ler e abrir página é livre; clicar, escrever e
 preencher pedem cartão, que diz o quê e em qual site."""
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -151,3 +152,121 @@ def test_rotas(pc_com, monkeypatch):
     monkeypatch.setattr(navegador, 'abrir', falha)
     r = cli.post('/navegador/abrir')
     assert r.status_code == 503 and r.json()['motivo'] == 'navegador desligado'
+
+
+# — o navegador de sempre (pela extensão do Playwright) ——————————————————————————
+@pytest.fixture
+def perfis(monkeypatch, tmp_path):
+    """Os perfis do Chrome e do Edge de mentira (o LOCALAPPDATA do PC)."""
+    base = tmp_path / 'Local'
+    monkeypatch.setattr(navegador, '_perfis', lambda: base)
+
+    def com_extensao(canal, perfil='Default', jeito='preferences'):
+        p = base / navegador.PERFIS[canal] / perfil
+        p.mkdir(parents=True, exist_ok=True)
+        if jeito == 'pasta':
+            (p / 'Extensions' / navegador.EXTENSAO_ID).mkdir(parents=True)
+        else:
+            (p / 'Preferences').write_text('{"extensions": {"settings": {"%s": {}}}}' % navegador.EXTENSAO_ID)
+    return com_extensao
+
+
+def test_de_sempre_e_a_escolha_com_o_sufixo(pc_com):
+    pc_com('chrome', 'msedge')
+    navegador.escolher('msedge:sempre')
+    assert navegador.escolhido() == 'msedge' and navegador.de_sempre()
+    navegador.escolher('chrome')
+    assert navegador.escolhido() == 'chrome' and not navegador.de_sempre()
+    with pytest.raises(ValueError):
+        navegador.escolher('firefox:sempre')
+
+
+def test_acha_a_extensao_como_o_playwright(pc_com, perfis):
+    pc_com('chrome', 'msedge')
+    assert not navegador.extensao_instalada('chrome')
+    (navegador._perfis() / navegador.PERFIS['chrome'] / 'Profile 2').mkdir(parents=True)
+    assert not navegador.extensao_instalada('chrome')  # um perfil sem ela
+    perfis('chrome', 'Profile 3')
+    assert navegador.extensao_instalada('chrome') and not navegador.extensao_instalada('msedge')
+    perfis('msedge', jeito='pasta')
+    assert navegador.extensao_instalada('msedge')
+    navegador.escolher('chrome:sempre')
+    e = navegador.estado()
+    assert e['sempre'] and e['extensao'] and not e['chave'] and navegador.EXTENSAO_ID in e['extensao_url']
+
+
+def test_comando_do_de_sempre_sem_perfil_nem_tamanho():
+    c = navegador.comando('chrome', 9000, sempre=True)
+    assert '--extension' in c and '--shared-browser-context' in c
+    assert '--user-data-dir' not in c and '--viewport-size' not in c
+
+
+def test_sem_a_extensao_o_claude_fica_sem_navegador(pc_com, perfis, monkeypatch):
+    pc_com('chrome')
+    monkeypatch.setattr(navegador, '_cli', lambda: Path(__file__))  # o servidor "instalado"
+    subiu = []
+    monkeypatch.setattr(navegador.subprocess, 'Popen', lambda *a, **k: subiu.append(a) or 1 / 0)
+    navegador.escolher('chrome:sempre')
+    assert navegador.servidor() is None and subiu == []
+    with pytest.raises(navegador.NavegadorFalhou, match='sem a extensão'):
+        navegador.abrir()
+
+
+def test_a_chave_vai_pro_cofre_e_pro_ambiente(pc_com, monkeypatch):
+    pc_com('chrome')
+    from solis import cofre
+    navegador.escolher('chrome:sempre')
+    assert navegador._ambiente(True) is None
+    assert navegador.guardar_chave('  abc123  ')['chave']
+    guardada = banco.ajuste(navegador.CHAVE)
+    assert 'abc123' not in guardada or not cofre.selado(guardada)  # selada (fora do Windows, fica como está)
+    assert navegador._ambiente(True)['PLAYWRIGHT_MCP_EXTENSION_TOKEN'] == 'abc123'
+    assert navegador._ambiente(False) is None  # a janela do Solis não leva a chave
+    assert not navegador.guardar_chave('')['chave'] and banco.ajuste(navegador.CHAVE) is None
+
+
+def test_rota_da_chave_nao_devolve_a_chave(pc_com):
+    pc_com('chrome')
+    cli = TestClient(main.app)
+    r = cli.put('/navegador/chave', json={'chave': 'segredo-1'})
+    assert r.status_code == 200 and r.json()['chave'] is True and 'segredo-1' not in r.text
+    assert 'segredo-1' not in cli.get('/navegador').text
+    assert cli.put('/navegador/chave', json={'chave': ''}).json()['chave'] is False
+
+
+def test_no_de_sempre_abrir_site_novo_pede_e_no_mesmo_site_nao(pc_com):
+    pytest.importorskip('claude_agent_sdk')
+    pc_com('chrome')
+    agente._sempre.clear()
+    ir = lambda url: {'url': url}  # noqa: E731
+    # Na janela do Solis, abrir é livre como antes.
+    por, mandados = _por([])
+    assert asyncio.run(agente._decidir(N + 'browser_navigate', ir('https://banco.com.br'), por)).behavior == 'allow'
+    navegador.escolher('chrome:sempre')
+    # No de sempre: andar no mesmo site é livre; um site novo pede, com o site de destino.
+    assert asyncio.run(agente._decidir(N + 'browser_navigate', ir('https://loja.com.br/b'), por, conversa=3,
+                                       pagina='https://www.loja.com.br/a')).behavior == 'allow'
+    assert asyncio.run(agente._decidir(N + 'browser_snapshot', {}, por, conversa=3,
+                                       pagina='https://loja.com.br/a')).behavior == 'allow'
+    assert mandados == []
+    por, mandados = _por([(True, True)])
+    r = asyncio.run(agente._decidir(N + 'browser_navigate', ir('https://www.banco.com.br/extrato'), por, conversa=3,
+                                    pagina='https://loja.com.br/a'))
+    cartao = mandados[0][1][1]
+    assert r.behavior == 'allow' and cartao['site'] == 'banco.com.br'
+    assert cartao['alvo'] == 'Abrir https://www.banco.com.br/extrato'
+    # "Sempre neste site": abrir de novo e agir nele não pedem mais; outro site pede.
+    mandados.clear()
+    assert asyncio.run(agente._decidir(N + 'browser_navigate', ir('https://banco.com.br/pix'), por, conversa=3,
+                                       pagina='https://outro.com')).behavior == 'allow'
+    assert asyncio.run(agente._decidir(N + 'browser_click', {'element': 'Ver'}, por, conversa=3,
+                                       pagina='https://banco.com.br/pix')).behavior == 'allow'
+    assert mandados == []
+    por, mandados = _por([(False,)])
+    r = asyncio.run(agente._decidir(N + 'browser_tabs', {'action': 'new', 'url': 'https://mail.com'}, por,
+                                    conversa=3, pagina='https://banco.com.br/pix'))
+    assert r.behavior == 'deny' and mandados[0][1][1]['site'] == 'mail.com'
+    # Trocar de aba (sem endereço) continua livre.
+    assert asyncio.run(agente._decidir(N + 'browser_tabs', {'action': 'select', 'index': 1}, por,
+                                       conversa=3)).behavior == 'allow'
+    agente._sempre.clear()

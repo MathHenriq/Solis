@@ -767,6 +767,18 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      depois do fim da fala com o Whisper pequeno carregado (transcrição 0,66 · resposta 0,40 ·
      primeiro pedaço da voz 0,69); o Gemini deu ~1,4 s. Custo: o da Groq grátis e o da Fish por
      frase, como no modo Pedido. **Falta:** a voz dele ao vivo.
+   - **O navegador de sempre (18/11/2026).** Configurações → Navegador → "Qual janela": a do
+     Solis, ou o Chrome (ou Edge) de sempre do Matheus, com as abas e os logins dele, pela extensão
+     oficial do Playwright (`--extension` no mesmo `@playwright/mcp`). Sem a extensão, a tela
+     manda pra loja e o Claude fica sem navegador; com ela, na primeira ação o navegador dele
+     mostra a página da extensão pra aprovar e escolher as abas, ou liga sozinho com a chave dela
+     (colada na tela, guardada no cofre). Nesse modo, abrir um site novo pede cartão (por site),
+     além de clicar, escrever e preencher. Provado: os testes (a extensão achada como o Playwright
+     acha, o comando, a chave no cofre e fora da API, o cartão do site novo) e o servidor da
+     Microsoft subindo no modo extensão com o comando do Solis (25 ferramentas; a única fora das
+     listas é a proibida). Prints da tela na dupla de teste. **Falta:** o Matheus instalar a
+     extensão no Chrome dele e o teste ao vivo (ligar, aprovar, o Claude abrir um site com cartão),
+     e a aprovação dos prints.
 
 ### Controle do PC e visão da tela
 

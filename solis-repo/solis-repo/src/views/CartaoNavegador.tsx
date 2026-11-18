@@ -1,6 +1,12 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Botao } from '../components/Controles';
-import { abrirNavegador, escolherNavegador, lerNavegador, type Navegador } from '../servidor';
+import {
+  abrirNavegador,
+  escolherNavegador,
+  guardarChaveNavegador,
+  lerNavegador,
+  type Navegador,
+} from '../servidor';
 
 /** Configurações → Navegador: em qual navegador o Claude abre, lê e preenche
  *  páginas, como o Claude in Chrome (backend/solis/navegador.py). Uma janela
@@ -10,7 +16,12 @@ import { abrirNavegador, escolherNavegador, lerNavegador, type Navegador } from 
  *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), o
  *  seletor e o botão dos campos das Tarefas agendadas (--mac-*). Medida nova em
- *  layout.configuracoes.navegador. */
+ *  layout.configuracoes.navegador.
+ *
+ *  PROVISÓRIO (18/11/2026, falta a aprovação do Matheus): "Qual janela" (a do
+ *  Solis ou o navegador de sempre dele, pela extensão do Playwright), a linha
+ *  da extensão e a da chave. Nenhuma medida nova: as linhas, o seletor e o
+ *  campo de colar a chave são os mesmos deste cartão e do de Cérebros. */
 
 const CAMPO =
   'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
@@ -55,6 +66,15 @@ export function CartaoNavegador() {
   };
   const nome = nav?.instalados.find((i) => i.canal === nav.escolhido)?.nome;
   const valor = nav ? (nav.desligado || !nav.escolhido ? 'desligado' : nav.escolhido) : 'desligado';
+  const sempre = !!nav?.sempre && valor !== 'desligado';
+
+  const guardarChave = async (chave: string) => {
+    definirErro('');
+    const r = await guardarChaveNavegador(chave);
+    if (r) definirNav(r);
+    else definirErro('Não consegui guardar agora: o servidor do Solis não respondeu.');
+    return !!r;
+  };
 
   return (
     <section
@@ -68,8 +88,8 @@ export function CartaoNavegador() {
     >
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Navegador</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
-        O Claude abre, lê e preenche páginas numa janela do navegador que você vê, com um perfil só do Solis,
-        separado do seu de sempre. Abrir e ler é livre; clicar, escrever e preencher pedem você antes.
+        O Claude abre, lê e preenche páginas numa janela do navegador que você vê: uma só do Solis, ou o seu
+        navegador de sempre. Abrir e ler é livre; clicar, escrever e preencher pedem você antes.
       </p>
 
       {nav === undefined && <p className="text-text-secondary" style={{ ...dica, ...linha }}>Vendo…</p>}
@@ -100,14 +120,23 @@ export function CartaoNavegador() {
               <div className="text-text-secondary" style={dica}>
                 {valor === 'desligado'
                   ? 'Desligado: o Claude só lê páginas, sem abrir janela.'
-                  : nav.aberto
-                    ? `${nome}. A janela está aberta agora.`
-                    : `${nome}. A janela abre quando o Claude precisar.`}
+                  : sempre
+                    ? !nav.extensao
+                      ? `${nome}. Falta a extensão: o Claude está sem navegador.`
+                      : nav.aberto
+                        ? `${nome}. Ligado ao seu agora.`
+                        : `${nome}. Liga ao seu quando o Claude precisar.`
+                    : nav.aberto
+                      ? `${nome}. A janela está aberta agora.`
+                      : `${nome}. A janela abre quando o Claude precisar.`}
               </div>
             </div>
             <select
               value={valor}
-              onChange={(e) => void escolher(e.target.value)}
+              // Trocar de Chrome pra Edge mantém a janela escolhida (a do Solis ou a de sempre).
+              onChange={(e) =>
+                void escolher(e.target.value !== 'desligado' && sempre ? `${e.target.value}:sempre` : e.target.value)
+              }
               aria-label="Qual navegador"
               className={`solis-data text-text-secondary bg-canvas shrink-0 ${CAMPO}`}
               style={caixa}
@@ -120,6 +149,75 @@ export function CartaoNavegador() {
           </div>
 
           {valor !== 'desligado' && (
+            <div
+              className="flex items-center justify-between border-t border-divider"
+              style={{ ...linha, gap: 'var(--cer-controles-gap)' }}
+            >
+              <div className="min-w-0">
+                <div className="text-text-primary" style={{ fontSize: 'var(--cfg-rotulo)' }}>Qual janela</div>
+                <div className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
+                  {sempre
+                    ? 'O seu de sempre, com as suas abas e contas, pela extensão do Playwright. O Claude só mexe nas abas que você der a ele ou que ele abrir, e abrir um site novo pede você.'
+                    : 'Uma janela só do Solis, com os logins separados dos seus.'}
+                </div>
+              </div>
+              <select
+                value={sempre ? 'sempre' : 'solis'}
+                onChange={(e) => void escolher(e.target.value === 'sempre' ? `${valor}:sempre` : valor)}
+                aria-label="Qual janela"
+                className={`solis-data text-text-secondary bg-canvas shrink-0 ${CAMPO}`}
+                style={caixa}
+              >
+                <option value="solis">Janela do Solis</option>
+                <option value="sempre">O seu de sempre</option>
+              </select>
+            </div>
+          )}
+
+          {sempre && !nav.extensao && (
+            <div
+              className="flex items-center justify-between border-t border-divider"
+              style={{ ...linha, gap: 'var(--cer-controles-gap)' }}
+            >
+              <div className="min-w-0">
+                <div className="text-text-primary" style={{ fontSize: 'var(--cfg-rotulo)' }}>A extensão</div>
+                <div className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
+                  Falta a extensão do Playwright (da Microsoft) no seu {nome}. Instale pela loja, no perfil que você
+                  usa; enquanto isso, o Claude fica sem navegador.
+                </div>
+              </div>
+              <a
+                href={nav.extensao_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent hover:underline shrink-0"
+                style={{ fontSize: 'var(--mac-botao-texto)' }}
+              >
+                Abrir a loja
+              </a>
+            </div>
+          )}
+
+          {sempre && nav.extensao && <LinhaChave nav={nav} guardar={guardarChave} />}
+
+          {sempre && nav.extensao && (
+            <div
+              className="flex items-center justify-between border-t border-divider"
+              style={{ ...linha, gap: 'var(--cer-controles-gap)' }}
+            >
+              <div className="min-w-0">
+                <div className="text-text-primary" style={{ fontSize: 'var(--cfg-rotulo)' }}>Ligar agora</div>
+                <div className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
+                  Liga o Solis ao seu {nome} e abre uma aba no grupo dele, pra conferir.
+                </div>
+              </div>
+              <Botao onClick={() => void abrir()} disabled={abrindo}>
+                {abrindo ? 'Ligando…' : 'Ligar'}
+              </Botao>
+            </div>
+          )}
+
+          {valor !== 'desligado' && !sempre && (
             <div
               className="flex items-center justify-between border-t border-divider"
               style={{ ...linha, gap: 'var(--cer-controles-gap)' }}
@@ -145,5 +243,82 @@ export function CartaoNavegador() {
         </div>
       )}
     </section>
+  );
+}
+
+/** "Ligar sem perguntar": a chave da extensão (está na página dela, ao clicar
+ *  no ícone). O campo de colar abre na própria linha, como o de Cérebros. */
+function LinhaChave({ nav, guardar }: { nav: Navegador; guardar: (chave: string) => Promise<boolean> }) {
+  const [colando, definirColando] = useState(false);
+  const [chave, definirChave] = useState('');
+  const [salvando, definirSalvando] = useState(false);
+  const campo = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (colando) campo.current?.focus();
+  }, [colando]);
+
+  const salvar = async (valor: string) => {
+    definirSalvando(true);
+    const ok = await guardar(valor);
+    definirSalvando(false);
+    if (ok) {
+      definirColando(false);
+      definirChave('');
+    }
+  };
+
+  const dica = { fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)' } as const;
+  return (
+    <div className="border-t border-divider" style={{ marginTop: 'var(--cer-linha-pad)', paddingTop: 'var(--cer-linha-pad)' }}>
+      <div className="flex items-center justify-between" style={{ gap: 'var(--cer-controles-gap)' }}>
+        <div className="min-w-0">
+          <div className="text-text-primary" style={{ fontSize: 'var(--cfg-rotulo)' }}>Ligar sem perguntar</div>
+          <div className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
+            {nav.chave
+              ? 'A chave da extensão está guardada: o Solis liga sozinho, numa aba nova.'
+              : 'Sem a chave, cada vez que o Solis liga, o seu navegador mostra a página da extensão pra você aprovar e escolher as abas. A chave fica na página da extensão (clique no ícone dela).'}
+          </div>
+        </div>
+        {!colando &&
+          (nav.chave ? (
+            <Botao onClick={() => void salvar('')} disabled={salvando}>
+              Apagar a chave
+            </Botao>
+          ) : (
+            <Botao onClick={() => definirColando(true)}>Colar a chave</Botao>
+          ))}
+      </div>
+      {colando && (
+        <div style={{ marginTop: 'var(--mac-botao-top)', maxWidth: 'var(--cer-texto-max)' }}>
+          <input
+            ref={campo}
+            type="password"
+            value={chave}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => definirChave(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && chave.trim()) void salvar(chave);
+              else if (e.key === 'Escape') definirColando(false);
+            }}
+            placeholder="Cole a chave da extensão"
+            aria-label="Chave da extensão"
+            className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+            style={{
+              fontSize: 'var(--cfg-dica)',
+              borderRadius: 'var(--mac-campo-raio)',
+              padding: 'var(--mac-campo-py) var(--mac-campo-px)',
+            }}
+          />
+          <div className="flex items-center flex-wrap" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
+            <Botao tipo="destaque" onClick={() => void salvar(chave)} disabled={salvando || !chave.trim()}>
+              {salvando ? 'Guardando…' : 'Salvar'}
+            </Botao>
+            <Botao onClick={() => definirColando(false)}>Cancelar</Botao>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
