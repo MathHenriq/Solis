@@ -416,7 +416,7 @@ Groq, Gemini, Mistral, OpenRouter). Falta o "e avisa" ficar claro na tela, e a d
 as etapas de cada resposta ficam no banco (qual cérebro, tempos). Desde 17/11/2026 há também o
 registro de uso (`banco.usos`, `qualidade.py`): cada vez que um cérebro responde ou falha (inclusive
 quando ninguém responde) e cada ferramenta usada, com o voto do Matheus (👍/👎) na resposta. Fica
-mesmo com a conversa apagada. Falta a tela que mostra a taxa por função.
+mesmo com a conversa apagada. A taxa por função aparece em Configurações → Taxa de acerto.
 
 **Painel de consumo** — começou: Configurações → Uso mostra a cota do Claude (sessão de 5 h, a
 semana, o Fable) pelo `/usage` do CLI. Falta o resto:
@@ -477,5 +477,6 @@ existem.
    **acertou** (o voto dele, 👍/👎, opcional, embaixo da resposta). E o "só existe o que funciona"
    mostra, não desliga: cada função aparece como passou, não passou ou sem teste, e os testes com
    meta entram um por um. Feito: o registro e o voto no servidor, e o voto na tela (aprovado pelos prints,
-   `design/voto-validacao.png`). Falta: a tela
-   da taxa (Configurações).
+   `design/voto-validacao.png`). A tela da taxa, em Configurações → Taxa de acerto: PROVISÓRIO até
+   os prints (`design/qualidade-validacao.png`). Uma ferramenta recusada no cartão não conta
+   como falha dela (visto no histórico real: as duas falhas de "Write" eram recusas).

@@ -10,6 +10,7 @@ import { CartaoServidoresMcp } from './CartaoServidoresMcp';
 import { CartaoSkills } from './CartaoSkills';
 import { CartaoTela } from './CartaoTela';
 import { CartaoUso } from './CartaoUso';
+import { CartaoQualidade } from './CartaoQualidade';
 import { CartaoDocumentos } from './CartaoDocumentos';
 import { CartaoVoz } from './CartaoVoz';
 
@@ -196,6 +197,7 @@ export function Configuracoes({
 
         <CartaoCerebros />
         <CartaoUso />
+        <CartaoQualidade />
         <CartaoConectores />
         <CartaoServidoresMcp />
         <CartaoNavegador />

@@ -1405,6 +1405,38 @@ export async function lerUso(atualizar = false): Promise<Uso | null> {
   }
 }
 
+/** A taxa de acerto (backend/solis/qualidade.py): por função, quantas vezes
+ *  rodou (`usos`) e deu certo (`certos`), os votos e as últimas falhas; e os
+ *  testes de qualidade com meta. */
+export type FuncaoQualidade = {
+  tipo: 'cerebro' | 'ferramenta' | 'mcp';
+  nome: string;
+  usos: number;
+  certos: number;
+  bons: number;
+  ruins: number;
+  falhas: { quando: string; detalhe: string | null }[];
+  ultimo: string | null;
+};
+export type TesteQualidade = {
+  id: string;
+  certos: number;
+  total: number;
+  falsos: number | null;
+  passou: boolean;
+  quando: string | null;
+};
+export type Qualidade = { dias: number; meta: number; funcoes: FuncaoQualidade[]; testes: TesteQualidade[] };
+
+export async function lerQualidade(dias = 30): Promise<Qualidade | null> {
+  try {
+    const r = await fetch(`${BASE}/qualidade?dias=${dias}`);
+    return r.ok ? ((await r.json()) as Qualidade) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Os estilos de resposta (backend/solis/estilos.py): `atual` é o escolhido. */
 export type Estilo = { id: string; nome: string; instrucoes: string; seu: boolean };
 export type Estilos = { atual: string; estilos: Estilo[] };
