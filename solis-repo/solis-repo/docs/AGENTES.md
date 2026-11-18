@@ -12,11 +12,49 @@ Anotado em 13/11/2026, a pedido do Matheus, de uma conversa dele com o GPT (docu
 - **Tecnologias:** as que aparecem aqui (PixiJS, LangGraph etc.) são propostas discutidas, não
   decisões. Antes de adotar qualquer uma, ver o que o Solis já tem e o benefício real, e
   perguntar ao Matheus.
-- **Nomes:** os dos agentes são provisórios.
+- **Nomes:** os dos agentes são provisórios. Desde 17/11/2026 cada um tem também o cargo, e os
+  dois aparecem juntos (ver "Decisão de 17/11/2026").
+- **Decisão de 17/11/2026:** esta equipe e os agentes do `IDEIAS.md` viraram uma lista só, atrás
+  das personalidades. Está logo abaixo, antes do texto original.
 - **O que já existe:** onde o Solis de hoje já cumpre algo, isso está anotado em "Onde o Solis
   já está", no fim.
 
 O texto abaixo é o do Matheus, organizado. Nada foi tirado.
+
+---
+
+## Decisão de 17/11/2026 — duas camadas, uma lista de agentes
+
+O Matheus decidiu como esta equipe convive com as personalidades e os agentes do `IDEIAS.md`:
+
+- **Duas camadas.** As personalidades (Jarvis, Eva, Ed, Assessor, do `IDEIAS.md`) são **com quem
+  ele fala**: um rosto e uma voz por área da vida, cada uma com a sua área na memória. Os agentes
+  são **quem trabalha atrás delas**. Ele pede ao Jarvis, e o Jarvis chama os agentes (pelo
+  Gerente, numa missão grande).
+- **Uma lista de agentes.** A equipe daqui e os agentes do `IDEIAS.md` se juntam.
+- **Os dois nomes.** Cada agente tem o nome próprio e o cargo, e os dois aparecem juntos, como nos
+  modelos 3D do escritório visual ("Atlas · Pesquisador").
+
+A lista unida (os nomes continuam provisórios):
+
+| Agente | Cargo | O que faz | De onde veio |
+|---|---|---|---|
+| Manager | Gerente | Interpreta a missão, divide, escolhe os agentes, acompanha, consolida, pede aprovação | Equipe daqui |
+| Atlas | Pesquisador | Pesquisa; antes de construir, traz 3 opções de ferramenta; valida ideias ("já existe? tem versão grátis?"); procura novidades de IA e propõe | Atlas + Pesquisador, Implementação e Validador de ideias do IDEIAS |
+| Nexus | Desenvolvedor | Arquitetura, código, protótipos, testes | Equipe daqui |
+| Athena | Documentadora | Analisa e organiza documentos, produz documentação | Equipe daqui |
+| Sentinel | Revisor | Confere a entrega dos outros; checa todo projeto antes de publicar (chaves expostas, tabelas sem RLS, portas abertas) | Sentinel + Segurança do IDEIAS |
+| *a definir* | Vigia | A cada 1–2 h confere sites no ar, cotas, erros e segurança dos projetos | Vigia de projetos do IDEIAS |
+
+A **Caixa de ideias** do `IDEIAS.md` não é um agente: é uma porta de entrada (o áudio no WhatsApp
+vira tarefa, e quem pega é o agente certo).
+
+**Proposta técnica, a confirmar quando a frente começar.** Pelo princípio 2 do `IDEIAS.md` ("o
+Claude Code já faz? integra, não refaz"): os agentes podem nascer como subagentes do Claude Code,
+que já têm identidade, instruções, ferramentas e modelo próprios (os campos da seção 3.2), e que
+o Solis já mostra trabalhando (os ajudantes na barra do projeto). O que falta em cima disso é o
+que é do Solis: o nome e o cargo na tela, o histórico de execuções de cada um, o Gerente e o
+escritório.
 
 ---
 

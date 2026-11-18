@@ -144,6 +144,9 @@ toca a área delas, decidido por regra ou modelo baratíssimo.
 
 ## Agentes
 
+*Decisão de 17/11/2026: estes agentes e a equipe do `AGENTES.md` viraram uma lista só, atrás das
+personalidades (ver "O que este documento muda", item 4, e o `AGENTES.md`).*
+
 Um agente, uma função bem definida. Agentes parados custam zero; só gastam quando agem.
 
 | Agente | O que faz | Onde entra IA |
@@ -463,10 +466,13 @@ existem.
    configuração de usuário do Claude Code (`setting_sources` "user"): os hooks que o Matheus
    puser lá já valem. Pelo princípio "o Claude Code já faz? integra, não refaz", a tela de hooks
    no Solis sairia do plano até aparecer um problema real.
-4. **Personalidades e agentes.** Duas listas convivem: as personalidades e os agentes deste
-   documento, e a equipe do `AGENTES.md` (Manager, Atlas, Nexus, Athena, Sentinel). Elas se
-   cruzam: o Pesquisador lembra o Atlas, e o de Segurança lembra o Sentinel. Falta decidir se uma
-   substitui a outra ou se as duas se juntam.
+4. **Personalidades e agentes — decidido (17/11/2026): duas camadas.** As personalidades (Jarvis,
+   Eva, Ed, Assessor) são com quem o Matheus fala; os agentes são quem trabalha atrás delas, e as
+   duas listas de agentes (a deste documento e a equipe do `AGENTES.md`) viram uma só. Ele pede ao
+   Jarvis, e o Jarvis chama os agentes. Os agentes têm os dois nomes, o próprio e o cargo ("Atlas ·
+   Pesquisador"), que aparecem juntos nos modelos 3D do escritório. A lista unida está no
+   `AGENTES.md`, seção "Decisão de 17/11/2026". Nada foi construído: é a direção pra quando a
+   frente começar.
 5. **Chaves dos servidores MCP no cofre — decidido e feito (17/11/2026).** O Matheus escolheu o
    cofre com um lançador, em vez de "só pelo Solis": as variáveis ficam no cofre do Solis, e nos
    arquivos do Claude Code e do Codex vai só `python -m solis.lancar_mcp <nome> <comando>`, que abre
