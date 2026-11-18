@@ -14,6 +14,9 @@ import { urlEscuta } from './servidor';
 const CHAVE = 'solis.escuta';
 const CHAVE_RAPIDA = 'solis.escuta.rapida';
 const PAUSA_MAX_MS = 90_000;
+/** Depois de um aparelho de som entrar ou sair, quanto a escuta espera, com o
+ *  microfone solto, antes de abrir de novo no aparelho padrão. */
+const TROCA_DE_APARELHO_MS = 2_000;
 
 export function escutaLigada(): boolean {
   try {
@@ -128,8 +131,14 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
     // Antes abria primeiro e não fechava no erro — com o modelo do Whisper
     // faltando, o microfone ficava aberto o app inteiro, à toa, e o som do PC
     // ficava estranho (relato do Matheus, 13/11/2026).
-    async function abrirMicrofone() {
-      if (fluxo || fim) return;
+    /** `tentativa` > 0: reabrindo depois de uma troca de aparelho. No meio da
+     *  troca o Windows pode ainda não ter microfone padrão — tenta de novo
+     *  algumas vezes antes de dar erro. */
+    let abrindo = false;
+    let reabrir = false;
+    async function abrirMicrofone(tentativa = 0) {
+      if (fluxo || fim || abrindo) return;
+      abrindo = true;
       try {
         // Sem o processamento de chamada (eco, ruído, ganho): com ele, o
         // navegador mexe no microfone do Windows. O eco não faz falta: a
@@ -142,6 +151,8 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
           return;
         }
         fluxo = f;
+        // O aparelho sumiu (o fone USB saiu): o microfone parou de mandar som.
+        f.getAudioTracks().forEach((t) => t.addEventListener('ended', () => fluxo === f && trocouAparelho()));
         contexto = new AudioContext({ sampleRate: 16000 });
         await contexto.audioWorklet.addModule('/escuta-processador.js');
         const no = new AudioWorkletNode(contexto, 'escuta-processador');
@@ -154,8 +165,22 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
         definirEstado('esperando');
       } catch {
         fecharMicrofone();
+        if (tentativa > 0 && tentativa < 4 && !fim) {
+          trocaDeAparelho = window.setTimeout(() => {
+            trocaDeAparelho = undefined;
+            void abrirMicrofone(tentativa + 1);
+          }, TROCA_DE_APARELHO_MS);
+          return;
+        }
         definirErro('Sem acesso ao microfone. Libere no navegador.');
         definirEstado('erro');
+      } finally {
+        abrindo = false;
+        // O aparelho trocou enquanto abria: o que abriu pode ser o de antes.
+        if (reabrir) {
+          reabrir = false;
+          trocouAparelho();
+        }
       }
     }
 
@@ -167,6 +192,31 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
       contexto = null;
       analisador = null;
     }
+
+    // Um aparelho de som entrou, saiu ou virou o padrão (o fone USB ligado ou
+    // tirado). Antes a escuta não seguia a troca: ficava no microfone de quando
+    // abriu (medido em 18/11/2026: com o fone USB já ligado e padrão, a única
+    // sessão de microfone do Solis no Windows era a do notebook), e, se ele
+    // sumisse, ficava calada sem avisar. No mesmo dia, com o Solis aberto, o áudio do
+    // Discord não saía enquanto o Matheus ligava e tirava o fone, e voltou
+    // quando ele fechou o Solis (relato dele; a causa exata não deu pra
+    // reproduzir). Agora a escuta solta o microfone e o som na hora, espera a
+    // troca assentar e abre de novo no aparelho padrão.
+    let trocaDeAparelho: number | undefined;
+    function trocouAparelho() {
+      if (abrindo) {
+        reabrir = true;
+        return;
+      }
+      if (!fluxo && trocaDeAparelho === undefined) return; // fechado: abre no padrão quando for abrir
+      fecharMicrofone();
+      window.clearTimeout(trocaDeAparelho);
+      trocaDeAparelho = window.setTimeout(() => {
+        trocaDeAparelho = undefined;
+        void abrirMicrofone(1);
+      }, TROCA_DE_APARELHO_MS);
+    }
+    navigator.mediaDevices.addEventListener('devicechange', trocouAparelho);
 
     function conectar(tentativa = 0) {
       if (fim) return;
@@ -213,6 +263,8 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
     return () => {
       fim = true;
       window.clearTimeout(tetoDaPausa);
+      window.clearTimeout(trocaDeAparelho);
+      navigator.mediaDevices.removeEventListener('devicechange', trocouAparelho);
       pararDeOuvirFala();
       window.clearTimeout(espera);
       ws?.close();
