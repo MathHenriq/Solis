@@ -58,13 +58,30 @@ export function useIlhaNoApp(estado: EstadoIlha) {
 }
 
 /** No alto e no centro do monitor onde está a janela principal. */
-async function posicionar(ilha: { outerSize(): Promise<{ width: number }>; setPosition(p: unknown): Promise<void> }) {
+/** No alto e no centro do monitor da janela principal. A largura é a que a
+ *  ilha VAI ter lá: com monitores de escalas diferentes (o do Matheus: um a
+ *  100% e o do notebook a 125%), o Windows muda o tamanho da janela quando ela
+ *  troca de tela — 520 viram 650 —, e o centro calculado com a largura de
+ *  antes deixava a ilha ~65 px pro lado (relato dele, 18/11/2026). Depois de
+ *  mover, confere a largura de novo e acerta, se mudou. */
+function xCentrado(monitor: { x: number; largura: number }, larguraLogica: number, escala: number): number {
+  return monitor.x + Math.round((monitor.largura - Math.round(larguraLogica * escala)) / 2);
+}
+
+async function posicionar(ilha: {
+  outerSize(): Promise<{ width: number }>;
+  scaleFactor(): Promise<number>;
+  setPosition(p: unknown): Promise<void>;
+}) {
   const { currentMonitor, primaryMonitor, PhysicalPosition } = await import('@tauri-apps/api/window');
   const monitor = (await currentMonitor()) ?? (await primaryMonitor());
   if (!monitor) return;
+  const tela = { x: monitor.position.x, largura: monitor.size.width };
+  const logica = (await ilha.outerSize()).width / (await ilha.scaleFactor());
+  await ilha.setPosition(new PhysicalPosition(xCentrado(tela, logica, monitor.scaleFactor), monitor.position.y));
   const { width } = await ilha.outerSize();
-  const x = monitor.position.x + Math.round((monitor.size.width - width) / 2);
-  await ilha.setPosition(new PhysicalPosition(x, monitor.position.y));
+  const x = tela.x + Math.round((tela.largura - width) / 2);
+  if (x !== xCentrado(tela, logica, monitor.scaleFactor)) await ilha.setPosition(new PhysicalPosition(x, monitor.position.y));
 }
 
 /** Janela da ilha: o estado que a principal manda. */

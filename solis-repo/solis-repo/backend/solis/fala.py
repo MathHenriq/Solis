@@ -423,6 +423,18 @@ async def falar(texto: str, conversa: int | None = None, voz: str | None = None)
 _transporte_fish: httpx.AsyncBaseTransport | None = None
 
 
+DEMORA_ANOTAR_S = 1.5
+
+
+def _anotar_demora(t0: float, quem: str, texto: str) -> None:
+    """Quanto o primeiro som de um pedaço demorou, quando passa de 1,5 s — sem
+    o que foi dito: quem falou e o tamanho. O Matheus: "algumas vezes demora pra
+    sair o áudio" (18/11/2026); o log diz se foi a voz e qual."""
+    demora = time.monotonic() - t0
+    if demora > DEMORA_ANOTAR_S:
+        log.info('fala: primeiro som em %.1f s por %s (%d caracteres)', demora, quem, len(texto))
+
+
 async def falar_aos_pedacos(texto: str, conversa: int | None = None):
     """(áudio em pedaços, tipo, quem falou): como falar(), mas a Fish manda o
     áudio enquanto gera — medido com a chave do Matheus (11/11/2026): o
@@ -435,9 +447,12 @@ async def falar_aos_pedacos(texto: str, conversa: int | None = None):
     lingua_ = lingua(limpo)
     chave_cache = (limpo, voz_gemini(), voz_fish(), tuple(n for n, _, _ in NUVEM + LOCAL))
     nuvem = not privado(limpo, conversa)
+    t0 = time.monotonic()
     if nuvem and chave_cache not in _cache and chave_fish() and _fora_ate.get('fish', 0) <= time.time():
         try:
-            return await _fish_aos_pedacos(limpo, lingua_, chave_cache), 'audio/mpeg', 'fish'
+            pedacos = await _fish_aos_pedacos(limpo, lingua_, chave_cache)
+            _anotar_demora(t0, 'fish', limpo)
+            return pedacos, 'audio/mpeg', 'fish'
         except SemVoz as e:
             log.info('fish aos pedaços falhou (%s): segue a cadeia', e)
             if re.search(r'\b(401|403|429)\b', str(e)):
@@ -445,6 +460,7 @@ async def falar_aos_pedacos(texto: str, conversa: int | None = None):
         except httpx.HTTPError as e:
             log.info('fish aos pedaços caiu (%s): segue a cadeia', type(e).__name__)
     audio, tipo, quem = await falar(texto, conversa)
+    _anotar_demora(t0, quem, limpo)
 
     async def inteiro():
         yield audio
