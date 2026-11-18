@@ -1560,6 +1560,65 @@ export async function salvarServidorMcp(dados: ServidorMcpInteiro, antigo?: stri
   }
 }
 
+/** Os hooks do Claude (backend/solis/hooks.py): regras automáticas no
+ *  ~/.claude/settings.json, que valem no Solis e no Claude Code do terminal. */
+export type Hook = {
+  id: string;
+  evento: string;
+  rotulo: string;
+  ferramenta: string;
+  comando: string;
+  tempo: number | null;
+  tipo: string;
+  editavel: boolean;
+};
+export type EventoHook = { id: string; rotulo: string; ferramenta: boolean };
+export type Hooks = { hooks: Hook[]; eventos: EventoHook[] } | { erro: string };
+
+export async function listarHooks(): Promise<Hooks | null> {
+  try {
+    const r = await fetch(`${BASE}/hooks`);
+    if (r.ok) return (await r.json()) as Hooks;
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    return { erro: corpo.motivo ? corpo.motivo.charAt(0).toUpperCase() + corpo.motivo.slice(1) + '.' : 'Não deu pra ler os hooks.' };
+  } catch {
+    return null;
+  }
+}
+
+const MOTIVO_HOOK: Record<string, string> = {
+  evento: 'Escolha quando o hook roda.',
+  comando: 'Escreva o comando numa linha só.',
+  tempo: 'O tempo máximo vai de 1 a 600 segundos.',
+};
+
+export async function salvarHook(
+  dados: { evento: string; ferramenta: string; comando: string; tempo: number | null },
+  antigo?: string,
+): Promise<Hook | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/hooks${antigo ? `/${encodeURIComponent(antigo)}` : ''}`, {
+      method: antigo ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    if (r.ok) return (await r.json()) as Hook;
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    const motivo = corpo.motivo ?? '';
+    return { erro: MOTIVO_HOOK[motivo] ?? (motivo ? motivo.charAt(0).toUpperCase() + motivo.slice(1) + '.' : 'Não deu pra salvar.') };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
+
+export async function removerHook(id: string): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/hooks/${encodeURIComponent(id)}`, { method: 'DELETE' })).ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function removerServidorMcp(nome: string): Promise<boolean> {
   try {
     return (await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}`, { method: 'DELETE' })).ok;

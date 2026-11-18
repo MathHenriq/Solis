@@ -410,6 +410,9 @@
       },
       "qualidade": {
         "_status": "APROVADO pelo Matheus pelos prints (17/11/2026). Desenho proprio com o Claude como base: Configuracoes -> Taxa de acerto (src/views/CartaoQualidade.tsx). Nenhum valor novo: o cartao e as linhas do de Uso (cfg-card-pad 34, cfg-card-raio 14, cer-linha-pad 20, rotulo 16, dica 15), o Ver de novo dele, e os subtitulos (Cerebros, Ferramentas, Testes de qualidade) em cfg-dica secundario com cfg-linha-pad (30) em cima. Numero abaixo da meta (9 em 10) em --erro, como a cota cheia do Uso. Os polegares dos votos no tamanho da dica - 1px. Medido nos prints: design/qualidade-validacao.png."
+      },
+      "hooks": {
+        "_status": "PROVISORIO, desenho proprio (17/11/2026) com o Claude como base: Configuracoes -> Hooks (src/views/CartaoHooks.tsx). Nenhum valor novo: o cartao, as linhas, as acoes em texto e o formulario do de Servidores MCP (cfg-card-pad 34, cer-linha-pad 20, nome em cfg-rotulo, comando em mono --cod-texto, Editar/Remover em cfg-dica, campos --mac-*). No formulario, a linha do evento e da ferramenta vai ate --cer-texto-max (600), a mesma largura do comando embaixo: o seletor do evento no tamanho da opcao mais longa (281 medido) e a ferramenta no que sobra (311). Medido nos prints: design/hooks-validacao.png."
       }
     },
     "conhecimento": {

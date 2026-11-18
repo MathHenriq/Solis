@@ -457,7 +457,9 @@ existem.
    do `PARIDADE.md` (navegador, agendadas, skills, MCP, estilos, uso, tela). Pelo documento, o
    próximo passo deixa de ser os hooks e passa a ser a voz: as três peças da escuta, medidas com
    uma meta (ex.: 9 em 10) e a resposta perto de 1 s.
-3. **Os hooks, pelo princípio 2.** O Claude Code já faz hooks, e o Claude do Solis já carrega a
+3. **Os hooks — decidido e feito (17/11/2026): o Matheus escolheu fazer a tela** (Configurações →
+   Hooks, gravando na configuração do Claude Code). O que estava proposto, pra registro: o
+   princípio 2. O Claude Code já faz hooks, e o Claude do Solis já carrega a
    configuração de usuário do Claude Code (`setting_sources` "user"): os hooks que o Matheus
    puser lá já valem. Pelo princípio "o Claude Code já faz? integra, não refaz", a tela de hooks
    no Solis sairia do plano até aparecer um problema real.

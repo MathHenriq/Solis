@@ -7,6 +7,7 @@ import { CartaoConectores } from './CartaoConectores';
 import { CartaoEstilos } from './CartaoEstilos';
 import { CartaoNavegador } from './CartaoNavegador';
 import { CartaoServidoresMcp } from './CartaoServidoresMcp';
+import { CartaoHooks } from './CartaoHooks';
 import { CartaoSkills } from './CartaoSkills';
 import { CartaoTela } from './CartaoTela';
 import { CartaoUso } from './CartaoUso';
@@ -200,6 +201,7 @@ export function Configuracoes({
         <CartaoQualidade />
         <CartaoConectores />
         <CartaoServidoresMcp />
+        <CartaoHooks />
         <CartaoNavegador />
         <CartaoTela />
         <CartaoDocumentos />
