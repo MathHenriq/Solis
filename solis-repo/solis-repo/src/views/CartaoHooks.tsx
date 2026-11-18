@@ -9,7 +9,8 @@ import { listarHooks, removerHook, salvarHook, type EventoHook, type Hook } from
  *  pro Claude. A tela oferece só os eventos vistos disparando no Solis.
  *  Decisão do Matheus (17/11/2026): fazer a tela.
  *
- *  PROVISÓRIO — desenho próprio (17/11/2026), com o Claude como base: o cartão,
+ *  Aprovado pelo Matheus pelos prints (17/11/2026, design/hooks-validacao.png).
+ *  Desenho próprio, com o Claude como base: o cartão,
  *  as linhas, as ações em texto e o formulário do de Servidores MCP
  *  (layout.configuracoes.mcp). Nenhum valor novo (layout.configuracoes.hooks). */
 
