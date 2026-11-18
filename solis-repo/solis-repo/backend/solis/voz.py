@@ -207,8 +207,18 @@ def _carregar():
 
 
 def _transcrever(som, vocab: str | None, vad: bool = True):
+    # Na escuta (vad=False: um trecho curto, o privado e o offline), uma passada
+    # só e o texto com limite, como o pequeno (transcricao.TOKENS_POR_S): medido
+    # em 18/11/2026 em 42 trechos da gravação do teste da escuta, o pior caiu de
+    # 2,77 s para 0,29 s, com os mesmos acertos. O ditado (vad=True, minutos de
+    # fala) fica como era: não foi medido.
+    extra = {}
+    if not vad:
+        from .transcricao import _limite_de_tokens
+        extra = dict(temperature=0.0, condition_on_previous_text=False, without_timestamps=True,
+                     max_new_tokens=_limite_de_tokens(som))
     segmentos, info = _modelo.transcribe(
-        som, language=LINGUA or None, beam_size=5, vad_filter=vad, initial_prompt=vocab or None,
+        som, language=LINGUA or None, beam_size=5, vad_filter=vad, initial_prompt=vocab or None, **extra,
     )
     # Os segmentos são preguiçosos: é aqui, lendo, que a GPU trabalha (e falha).
     return ' '.join(s.text.strip() for s in segmentos).strip(), info

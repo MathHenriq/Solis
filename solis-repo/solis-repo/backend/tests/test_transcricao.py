@@ -149,3 +149,19 @@ def test_o_pequeno_passa_uma_vez_so_e_o_texto_tem_limite_pelo_tamanho(monkeypatc
     assert pedidos[0]['temperature'] == 0.0 and not pedidos[0]['condition_on_previous_text']
     # 2 s: o mínimo; 10 s: 12 por segundo (o pedido longo não é cortado antes do "privado").
     assert [p['max_new_tokens'] for p in pedidos] == [transcricao.TOKENS_MIN, 10 * transcricao.TOKENS_POR_S]
+
+
+def test_o_turbo_na_escuta_passa_uma_vez_e_o_ditado_fica_como_era(monkeypatch):
+    import numpy as np
+    pedidos = []
+
+    class Modelo:
+        def transcribe(self, som, **kw):
+            pedidos.append(kw)
+            return iter([]), None
+    monkeypatch.setattr(voz, '_modelo', Modelo())
+    som = np.zeros(16000 * 3, dtype=np.float32)
+    voz._transcrever(som, None, vad=False)
+    voz._transcrever(som, None, vad=True)
+    assert pedidos[0]['temperature'] == 0.0 and pedidos[0]['max_new_tokens'] == transcricao.TOKENS_MIN
+    assert 'temperature' not in pedidos[1] and 'max_new_tokens' not in pedidos[1]
