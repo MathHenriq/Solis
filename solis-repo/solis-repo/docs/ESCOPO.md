@@ -777,8 +777,8 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      acha, o comando, a chave no cofre e fora da API, o cartão do site novo) e o servidor da
      Microsoft subindo no modo extensão com o comando do Solis (25 ferramentas; a única fora das
      listas é a proibida). Prints da tela na dupla de teste. **Falta:** o Matheus instalar a
-     extensão no Chrome dele e o teste ao vivo (ligar, aprovar, o Claude abrir um site com cartão),
-     e a aprovação dos prints.
+     extensão no Chrome dele e o teste ao vivo (ligar, aprovar, o Claude abrir um site com cartão).
+     Prints aprovados pelo Matheus em 18/11/2026.
 
 ### Controle do PC e visão da tela
 

@@ -18,7 +18,7 @@ import {
  *  seletor e o botão dos campos das Tarefas agendadas (--mac-*). Medida nova em
  *  layout.configuracoes.navegador.
  *
- *  PROVISÓRIO (18/11/2026, falta a aprovação do Matheus): "Qual janela" (a do
+ *  Aprovado pelo Matheus em 18/11/2026 nos 3 temas e 2 navs: "Qual janela" (a do
  *  Solis ou o navegador de sempre dele, pela extensão do Playwright), a linha
  *  da extensão e a da chave. Nenhuma medida nova: as linhas, o seletor e o
  *  campo de colar a chave são os mesmos deste cartão e do de Cérebros. */
