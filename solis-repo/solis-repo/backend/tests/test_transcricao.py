@@ -163,5 +163,5 @@ def test_o_turbo_na_escuta_passa_uma_vez_e_o_ditado_fica_como_era(monkeypatch):
     som = np.zeros(16000 * 3, dtype=np.float32)
     voz._transcrever(som, None, vad=False)
     voz._transcrever(som, None, vad=True)
-    assert pedidos[0]['temperature'] == 0.0 and pedidos[0]['max_new_tokens'] == transcricao.TOKENS_MIN
+    assert pedidos[0]['temperature'] == 0.0 and pedidos[0]['max_new_tokens'] == 3 * transcricao.TOKENS_POR_S
     assert 'temperature' not in pedidos[1] and 'max_new_tokens' not in pedidos[1]
