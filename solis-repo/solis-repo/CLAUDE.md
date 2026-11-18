@@ -68,6 +68,11 @@ pedido dele em 18/11/2026.
   custo do online. Grátis por enquanto está ok; quando aparecer custo, avaliar pelo tamanho (US$ 10
   é diferente de US$ 100). Exceção que segue valendo: o que é privado não vai pra nuvem (perguntar
   quando os dois conflitarem).
+- **As funções são do Solis, não do Claude** (18/11/2026). Navegador, controle da tela, arquivos,
+  terminal, agentes: tudo precisa funcionar com qualquer cérebro (quando os tokens do Claude
+  acabarem, outro assume), e o Solis tem que controlar o computador por completo; isso não é
+  negociável. Ao construir uma função, deixar ela no Solis (as ferramentas dele, com os cartões
+  dele) e não presa a um cérebro; onde hoje só o Claude usa, está anotado como pendência.
 - **"Grok" é Groq.** O Matheus dita pela transcrição do Claude, que escreve "Grok". Ele fala da
   **Groq** (a da transcrição e dos modelos rápidos que o Solis usa), não do Grok da xAI, que o
   Solis não usa.

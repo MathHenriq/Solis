@@ -776,9 +776,19 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      além de clicar, escrever e preencher. Provado: os testes (a extensão achada como o Playwright
      acha, o comando, a chave no cofre e fora da API, o cartão do site novo) e o servidor da
      Microsoft subindo no modo extensão com o comando do Solis (25 ferramentas; a única fora das
-     listas é a proibida). Prints da tela na dupla de teste. **Falta:** o Matheus instalar a
-     extensão no Chrome dele e o teste ao vivo (ligar, aprovar, o Claude abrir um site com cartão).
-     Prints aprovados pelo Matheus em 18/11/2026.
+     listas é a proibida). Prints aprovados pelo Matheus em 18/11/2026. **Provado ao vivo
+     (18/11/2026):** o Matheus instalou a extensão, ligou e aprovou na página dela; o Claude abriu
+     sites no Chrome dele com cartão, seguiu pedidos em sequência e pôs o primeiro episódio de um
+     anime na Crunchyroll ("funcionou perfeito"). Junto, o conserto dos links no app: a janela do
+     Tauri não abria link em nova janela ("Abrir a loja" não fazia nada); agora vão pelo servidor
+     (`POST /link/abrir`) pro navegador padrão.
+   - **Decisão do Matheus (18/11/2026): as funções são do Solis, não do Claude.** Depois do teste do
+     navegador: "quando acabar os tokens do Claude, outra IA pode assumir isso". Navegador, tela,
+     arquivos, terminal, agentes: tudo tem que funcionar com qualquer cérebro (Groq, Gemini, o
+     local), com os mesmos cartões de aprovação, e o Solis tem que controlar o computador por
+     completo ("não é negociável"). Hoje o servidor do navegador e o controle da tela já são do
+     Solis (rodam nele), mas só o Claude os chama: falta o laço de ferramentas do Solis pros outros
+     cérebros. Não é o foco agora; entra depois das frentes atuais.
 
 ### Controle do PC e visão da tela
 
