@@ -1035,6 +1035,58 @@ async def conferir_servidor_mcp(nome: str):
         return JSONResponse({'erro': 'servidor_inexistente'}, status_code=404)
 
 
+# — Hooks do Claude (hooks.py) —————————————————————————————————————————————————
+class HookCorpo(BaseModel):
+    evento: str
+    ferramenta: str = ''
+    comando: str
+    tempo: float | None = None
+
+
+@app.get('/hooks')
+async def listar_hooks():
+    """Os hooks do Claude (~/.claude/settings.json) e os eventos que a tela oferece."""
+    from . import hooks
+    try:
+        lista = await asyncio.to_thread(hooks.listar)
+    except hooks.HookInvalido as e:
+        return JSONResponse({'erro': 'hook_invalido', 'motivo': str(e)}, status_code=409)
+    return {'hooks': lista, 'eventos': [{'id': k, 'rotulo': v, 'ferramenta': k in hooks.COM_FERRAMENTA}
+                                        for k, v in hooks.EVENTOS.items()]}
+
+
+async def _salvar_hook(corpo: HookCorpo, antigo: str | None):
+    from . import hooks
+    try:
+        h = await asyncio.to_thread(hooks.salvar, corpo.evento, corpo.ferramenta, corpo.comando, corpo.tempo, antigo)
+    except hooks.HookInvalido as e:
+        return JSONResponse({'erro': 'hook_invalido', 'motivo': str(e)}, status_code=400)
+    banco.registrar_acao(None, 'salvar_hook', {'evento': h['evento'], 'ferramenta': h['ferramenta'], 'antigo': antigo},
+                         h['comando'], True)
+    return h
+
+
+@app.post('/hooks')
+async def criar_hook(corpo: HookCorpo):
+    return await _salvar_hook(corpo, None)
+
+
+@app.put('/hooks/{id_}')
+async def editar_hook(id_: str, corpo: HookCorpo):
+    return await _salvar_hook(corpo, id_)
+
+
+@app.delete('/hooks/{id_}')
+async def remover_hook(id_: str):
+    from . import hooks
+    try:
+        h = await asyncio.to_thread(hooks.remover, id_)
+    except hooks.HookInvalido as e:
+        return JSONResponse({'erro': 'hook_invalido', 'motivo': str(e)}, status_code=404)
+    banco.registrar_acao(None, 'remover_hook', {'evento': h['evento'], 'ferramenta': h['ferramenta']}, h['comando'], True)
+    return {'ok': True}
+
+
 # — Navegador do Claude ————————————————————————————————————————————————————————
 class EscolhaNavegador(BaseModel):
     navegador: str

@@ -119,6 +119,10 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `PUT /mcp/{nome}` | o mesmo corpo → muda (tira de onde estava e põe onde `para` diz) |
 | `DELETE /mcp/{nome}` | remove do Claude e do Codex |
 | `POST /mcp/{nome}/conferir` | conecta no servidor e lista as ferramentas → `{"total", "so_leem", "lista", "erro"}` |
+| `GET /hooks` | os hooks do Claude (`~/.claude/settings.json`): `id`, `evento`, `rotulo`, `ferramenta` (o matcher), `comando`, `tempo`, `tipo`, `editavel`; e os `eventos` que a tela oferece. `409` se o arquivo não é JSON válido |
+| `POST /hooks` | `{"evento", "ferramenta"?, "comando", "tempo"?}` → grava na chave `hooks` (o resto do arquivo fica). `400` com `hook_invalido` e o `motivo` (`evento`, `comando`, `tempo`) |
+| `PUT /hooks/{id}` | o mesmo corpo → muda a linha |
+| `DELETE /hooks/{id}` | tira a linha (o grupo e o evento vazios saem junto) |
 | `GET /skills` | as skills: as suas (`origem` `solis`, com `para`: `claude`, `codex` ou os dois) e as da conta do claude.ai (`conta` ou `anthropic`), com `descricao`, `editavel` e `ligada` (desligar é só do Claude) |
 | `GET /skills/{nome}` | uma das suas inteira, pra editar: `nome`, `descricao`, `instrucoes`, `para` |
 | `POST /skills` | `{"nome", "descricao", "instrucoes", "para"}` → escreve o SKILL.md em `~/.claude/skills` e/ou `~/.codex/skills`. `400` com `skill_invalida` e o `motivo` (`nome`, `descrição`, `instruções`, `pra quem`, ou já existe) |
