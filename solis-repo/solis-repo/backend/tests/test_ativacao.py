@@ -172,6 +172,13 @@ def test_websocket_sem_configuracao_avisa_e_fecha(monkeypatch):
     ('Olha, Solis, abre a agenda.', (True, 'Abre a agenda.')),
     ('Eu falei com o Solis ontem.', (False, 'Eu falei com o Solis ontem.')),
     ('Solidão, Solistas, Sólido.', (False, 'Solidão, Solistas, Sólido.')),
+    # 18/11/2026: o resto de uma frase falando DO Solis não é chamada.
+    ('Do Solis.', (False, 'Do Solis.')),
+    ('E o Solis faz isso.', (False, 'E o Solis faz isso.')),
+    ('Que o Solis abra.', (False, 'Que o Solis abra.')),
+    ('No Solis ainda não.', (False, 'No Solis ainda não.')),
+    ('O Solis.', (False, 'O Solis.')),
+    ('Oi Solis, abre a agenda.', (True, 'Abre a agenda.')),
 ])
 def test_palavra_no_inicio(texto, esperado):
     assert ativacao.palavra_no_inicio(texto) == esperado

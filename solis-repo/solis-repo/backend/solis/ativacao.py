@@ -249,11 +249,21 @@ def _sem_acento(texto: str) -> str:
 _PALAVRA = re.compile(r"^[\s\W]*(?:[a-z]{1,5}[\s,!.?-]+){0,2}?s?ol+[eiy]s+e?\b[\s,!.:;?-]*")
 
 
+# Quem chama não põe artigo nem preposição antes do nome: "do Solis", "que o
+# Solis", "no Solis" é falar DO Solis, não chamar. Relato do Matheus (18/11/2026):
+# falando com ele, uma pausa no meio da frase e o resto ("...uma função do
+# Solis") chamava de novo — a escuta aceita até duas palavras curtas antes.
+_NAO_CHAMA = {'o', 'a', 'os', 'as', 'um', 'uma', 'do', 'da', 'dos', 'das', 'no', 'na', 'nos', 'nas', 'ao',
+              'aos', 'pro', 'pra', 'pelo', 'pela', 'de', 'em', 'com', 'por', 'que', 'meu', 'seu', 'teu',
+              'nosso', 'esse', 'este', 'sem', 'sobre', 'como'}
+
+
 def palavra_no_inicio(texto: str) -> tuple[bool, str]:
     """(achou, o resto): "Solis, me lembra de pagar a luz." → (True, "Me lembra
     de pagar a luz.")."""
     m = _PALAVRA.match(_sem_acento(texto))
-    if not m:
+    antes = re.findall(r'[a-z]+', _sem_acento(texto)[:m.end()])[:-1] if m else []
+    if not m or (antes and antes[-1] in _NAO_CHAMA):
         return False, texto.strip()
     resto = texto[m.end():].strip()
     return True, resto[:1].upper() + resto[1:]
