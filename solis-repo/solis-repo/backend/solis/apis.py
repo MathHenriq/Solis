@@ -81,6 +81,21 @@ PRIMEIRO_VOZ = 5.0
 RACIOCINIO_NA_VOZ = 'low'
 
 
+class Limite(CerebroFalhou):
+    """O limite grátis do serviço (429), com até quando ele pediu pra esperar."""
+    def __init__(self, motivo: str, ate: float | None):
+        super().__init__(motivo)
+        self.ate = ate
+
+
+# No meio de uma tarefa com ferramentas, o limite por minuto (medido na Groq
+# grátis, 18/11/2026: 8.000 tokens por minuto no gpt-oss-120b, ~3.000 por pedido
+# com as ferramentas) espera o que o serviço disse e segue, em vez de largar a
+# tarefa no meio. Até este tanto por espera, e estas vezes.
+ESPERA_NO_MEIO_MAX = 30.0
+ESPERAS_NO_MEIO = 3
+
+
 class ChaveRecusada(Exception):
     """O serviço não aceitou a chave (401/403)."""
 
@@ -250,20 +265,21 @@ async def responder_json(
 
 async def responder(
     nome: str, sistema: str, prompt: str, etapas=MUDA, transporte: httpx.AsyncBaseTransport | None = None,
-    rapido: bool = False,
+    rapido: bool = False, corpo=None,
 ) -> AsyncIterator[str]:
     """A resposta em pedaços, pelo streaming (SSE) do chat/completions.
-    `rapido` (a voz): o gpt-oss pensa pouco antes de responder."""
+    `rapido` (a voz): o gpt-oss pensa pouco antes de responder.
+
+    `corpo` (corpo.Corpo): as ferramentas do Solis. O modelo pode pedir uma,
+    ela roda aqui (com o cartão, se pede), o resultado volta como mensagem
+    `tool`, e ele segue — em rodadas, até responder sem pedir nada."""
+    from . import corpo as _corpo
     chave, escolhido = _chave_de(nome), modelo(nome)
     if not chave or not escolhido:
         raise CerebroFalhou('sem chave')
-    corpo = {
-        'model': escolhido,
-        'stream': True,
-        'messages': [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}],
-    }
-    if rapido and RACIOCINIO_NA_VOZ and 'gpt-oss' in escolhido:
-        corpo['reasoning_effort'] = RACIOCINIO_NA_VOZ
+    mensagens = [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}]
+    ferramentas = await corpo.especificacoes() if corpo is not None else []
+    rodadas = _corpo.RODADAS_MAX if ferramentas else 0
     # A conexão guardada (conexoes.py); com um transporte de teste, uma só desta vez.
     async with contextlib.AsyncExitStack() as pilha:
         if transporte is None:
@@ -273,55 +289,125 @@ async def responder(
         prazo = PRIMEIRO_VOZ if rapido else None
         try:
             async with asyncio.timeout(prazo) as ate_a_primeira:
-                async with c.stream(
-                    'POST',
-                    f"{PROVEDORES[nome]['base']}/chat/completions",
-                    headers={'Authorization': f'Bearer {chave}'},
-                    json=corpo,
-                    timeout=TIMEOUT_RESPOSTA,
-                ) as r:
-                    etapas.marcar('pedido', cerebro=nome)
-                    if r.status_code == 429:
-                        pausar(nome, _espera(r), 'o limite grátis acabou')
-                        raise CerebroFalhou('o limite grátis acabou')
-                    if r.status_code in (401, 403):
-                        pausar(nome, time.time() + 24 * 3600, 'a chave foi recusada')
-                        raise CerebroFalhou('a chave foi recusada')
-                    if r.status_code >= 400:
-                        await r.aread()
-                        raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:160]}')
-                    pensou = False
-                    linhas = r.aiter_lines()
-                    primeira = True
-                    while True:
-                        try:
-                            if primeira:
-                                linha = await asyncio.wait_for(anext(linhas), PRIMEIRO_MAX)
-                                primeira = False
-                            else:
-                                linha = await anext(linhas)
-                        except StopAsyncIteration:
+                fechando = False
+                for rodada in range(rodadas + 1):
+                    pedido = {'model': escolhido, 'stream': True, 'messages': mensagens}
+                    if ferramentas and not fechando:
+                        pedido['tools'] = ferramentas
+                    if rapido and RACIOCINIO_NA_VOZ and 'gpt-oss' in escolhido:
+                        pedido['reasoning_effort'] = RACIOCINIO_NA_VOZ
+                    chamadas: dict[int, dict] = {}
+                    dito = ''
+                    try:
+                        for espera in range(ESPERAS_NO_MEIO + 1):
+                            try:
+                                async for tipo, valor in _uma_rodada(c, nome, chave, pedido, etapas, rodada == 0):
+                                    # Pedir ferramenta também é sinal de vida: o prazo da
+                                    # voz vale até a primeira palavra ou a primeira ação.
+                                    ate_a_primeira.reschedule(None)
+                                    if tipo == 'texto':
+                                        dito += valor
+                                        yield valor
+                                        continue
+                                    d = chamadas.setdefault(valor.get('index', 0), {'id': '', 'nome': '', 'args': ''})
+                                    f = valor.get('function') or {}
+                                    d['id'] = valor.get('id') or d['id']
+                                    d['nome'] += f.get('name') or ''
+                                    d['args'] += f.get('arguments') or ''
+                                break
+                            except Limite as e:
+                                # No meio da tarefa (já rodou ferramenta), o limite
+                                # por minuto se espera; no começo, cai pro próximo.
+                                quanto = (e.ate - time.time()) if e.ate else 10.0
+                                if rodada == 0 or espera == ESPERAS_NO_MEIO or quanto > ESPERA_NO_MEIO_MAX:
+                                    raise
+                                etapas.marcar('esperando', cerebro=nome, segundos=round(max(quanto, 1.0), 1))
+                                await asyncio.sleep(max(quanto, 1.0))
+                    except CerebroFalhou as e:
+                        # Já agiu (clicou, anotou): cair pro próximo cérebro
+                        # faria de novo. Para aqui, dizendo por quê.
+                        if corpo is not None and corpo.agiu:
+                            yield f'\n\nParei no meio: {e}.'
                             return
-                        except asyncio.TimeoutError as e:
-                            raise CerebroFalhou(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
-                        if not linha.startswith('data:'):
+                        raise
+                    if not chamadas and not dito and rodada > 0:
+                        # Rodou as ferramentas e terminou calado (visto na Groq,
+                        # 18/11/2026, depois de 5 ações na Wikipédia): mais um
+                        # pedido, sem ferramentas, pra ele dizer o que viu.
+                        if not fechando and rodada < rodadas:
+                            fechando = True
+                            mensagens.append({'role': 'user', 'content': 'Responda ao Matheus agora, com o que você já viu.'})
                             continue
-                        dado = linha[5:].strip()
-                        if dado == '[DONE]':
-                            return
-                        try:
-                            delta = json.loads(dado)['choices'][0].get('delta', {})
-                        except (json.JSONDecodeError, KeyError, IndexError):
-                            continue
-                        # Modelos que raciocinam mandam o raciocínio à parte; não vai
-                        # pra tela, só o fato de que está pensando.
-                        if not pensou and (delta.get('reasoning') or delta.get('reasoning_content')):
-                            etapas.marcar('pensando', cerebro=nome)
-                            pensou = True
-                        if delta.get('content'):
-                            ate_a_primeira.reschedule(None)
-                            yield delta['content']
+                        yield 'Fiz o caminho, mas não consegui escrever a resposta. Pode pedir de novo?'
+                        return
+                    if not chamadas:
+                        return
+                    if rodada == rodadas:
+                        yield '\n\nParei: foram muitas ações seguidas sem chegar numa resposta.'
+                        return
+                    pedidas = [{'id': d['id'] or f'chamada_{rodada}_{i}', 'type': 'function',
+                                'function': {'name': d['nome'], 'arguments': d['args'] or '{}'}}
+                               for i, d in sorted(chamadas.items())]
+                    mensagens.append({'role': 'assistant', 'content': dito or None, 'tool_calls': pedidas})
+                    for p in pedidas:
+                        saida = await corpo.rodar(p['function']['name'], _corpo.argumentos(p['function']['arguments']))
+                        mensagens.append({'role': 'tool', 'tool_call_id': p['id'], 'content': saida})
         except TimeoutError as e:
             raise CerebroFalhou(f'não começou a responder em {prazo:.0f} s') from e
         except httpx.HTTPError as e:
             raise CerebroFalhou(f'{type(e).__name__}: {e}'[:200]) from e
+
+
+async def _uma_rodada(c: httpx.AsyncClient, nome: str, chave: str, pedido: dict, etapas, primeira_rodada: bool):
+    """Um pedido ao chat/completions: ('texto', pedaço) e ('chamada', parte de
+    um tool_call) conforme chegam."""
+    async with c.stream(
+        'POST',
+        f"{PROVEDORES[nome]['base']}/chat/completions",
+        headers={'Authorization': f'Bearer {chave}'},
+        json=pedido,
+        timeout=TIMEOUT_RESPOSTA,
+    ) as r:
+        if primeira_rodada:
+            etapas.marcar('pedido', cerebro=nome)
+        if r.status_code == 429:
+            pausar(nome, _espera(r), 'o limite grátis acabou')
+            raise Limite('o limite grátis acabou', _espera(r))
+        if r.status_code in (401, 403):
+            pausar(nome, time.time() + 24 * 3600, 'a chave foi recusada')
+            raise CerebroFalhou('a chave foi recusada')
+        if r.status_code >= 400:
+            await r.aread()
+            raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:160]}')
+        pensou = False
+        linhas = r.aiter_lines()
+        primeira = True
+        while True:
+            try:
+                if primeira:
+                    linha = await asyncio.wait_for(anext(linhas), PRIMEIRO_MAX)
+                    primeira = False
+                else:
+                    linha = await anext(linhas)
+            except StopAsyncIteration:
+                return
+            except asyncio.TimeoutError as e:
+                raise CerebroFalhou(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
+            if not linha.startswith('data:'):
+                continue
+            dado = linha[5:].strip()
+            if dado == '[DONE]':
+                return
+            try:
+                delta = json.loads(dado)['choices'][0].get('delta', {})
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+            # Modelos que raciocinam mandam o raciocínio à parte; não vai
+            # pra tela, só o fato de que está pensando.
+            if not pensou and (delta.get('reasoning') or delta.get('reasoning_content')):
+                etapas.marcar('pensando', cerebro=nome)
+                pensou = True
+            for chamada in delta.get('tool_calls') or []:
+                yield 'chamada', chamada
+            if delta.get('content'):
+                yield 'texto', delta['content']

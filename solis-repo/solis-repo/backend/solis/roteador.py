@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 from collections.abc import AsyncIterator
 
-from . import banco, cerebros, memoria, ollama, pc
+from . import banco, cerebros, corpo, memoria, navegador, ollama, pc
 from .etapas import MUDA
 
 # Preferência do Matheus: os modelos mais fortes primeiro; o local quando a cota
@@ -125,8 +125,32 @@ SISTEMA_CLAUDE = SISTEMA_NUVEM.replace(
 )
 
 
-def sistema_para(nome: str) -> str:
-    return SISTEMA_CLAUDE if nome == 'claude' else SISTEMA_NUVEM
+# Os cérebros de API (Groq, Gemini...) com o corpo do Solis (corpo.py): as
+# ferramentas do Solis e o navegador, as mesmas do Claude, com os mesmos
+# cartões. SOLIS_CORPO=0 volta ao "só texto". Decisão do Matheus (18/11/2026):
+# as funções são do Solis, não do Claude.
+CORPO = os.environ.get('SOLIS_CORPO', '1') != '0'
+
+
+def com_corpo(nome: str) -> bool:
+    from . import apis
+    return CORPO and nome in apis.PROVEDORES
+
+
+SISTEMA_CORPO = SISTEMA_NUVEM.replace(
+    'Você não roda comandos nem acessa a internet nesta resposta. ',
+    'Você tem as ferramentas do Solis (mcp__solis__: hora, criar_lembrete, marcar_compromisso, ver_agenda, '
+    'ver_tarefas, buscar_memoria, agendar_tarefa): prefira elas pra lembretes e agenda. O que pede a aprovação do '
+    'Matheus aparece pra ele num cartão na tela: peça sem medo, e se ele recusar, respeite. ',
+)
+
+
+def sistema_para(nome: str, navegar: bool = False, com_o_corpo: bool = False) -> str:
+    if nome == 'claude':
+        return SISTEMA_CLAUDE
+    if com_o_corpo:
+        return SISTEMA_CORPO + (navegador.instrucoes() if navegar else '')
+    return SISTEMA_NUVEM
 
 
 # Quem age de verdade: o Claude pelo Agent SDK (comandos, web, as ferramentas
@@ -153,6 +177,19 @@ NOTA_PASSAR = (
     '(fatos, história, ciência, livros, geografia, contas), conversa, e lembrete, tarefa ou '
     'compromisso pra anotar não precisam disso: responda normalmente, com o que você sabe.'
 )
+# Com o corpo: o que ainda falta a eles (arquivos, terminal, a tela, a busca na web).
+_SEM_O_RESTO = (
+    'Nesta resposta você não roda comandos, não lê nem escreve arquivos do computador, não controla outros '
+    'programas{fora} e não sabe o que mudou hoje (notícias, clima, cotações, resultados de jogos){busca}. Nunca '
+    'diga que fez, abriu, pesquisou ou mandou algo que não fez.'
+)
+
+
+def _sem_o_resto(navegar: bool) -> str:
+    return _SEM_O_RESTO.format(fora=' (o navegador, sim)' if navegar else '',
+                               busca=' sem abrir o navegador' if navegar else '')
+
+
 NOTA_NAO_CONSEGUE = (
     f'\n\n{_SEM_FERRAMENTAS} Quando o pedido precisar de uma dessas coisas, diga em uma frase que '
     'isso você não consegue fazer agora. O que você já sabe (fatos, história, ciência, livros, '
@@ -173,13 +210,22 @@ NOTA_SEM_APRENDIZADO_CLAUDE = (
 )
 
 
-def notas_do_cerebro(nome: str, depois: list[str]) -> str:
+def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_corpo: bool = False) -> str:
     """O que vai no fim do sistema de cada cérebro: sem ferramentas, a marca pra
-    passar o pedido (se alguém com ferramentas vem depois na fila) ou dizer que
-    não consegue; e, com o aprendizado fora, que nada vai ser guardado."""
+    passar o pedido (se alguém com ferramentas vem depois na fila, ou ele mesmo
+    com o corpo) ou dizer que não consegue; e, com o aprendizado fora, que nada
+    vai ser guardado."""
     notas = ''
-    if nome not in COM_FERRAMENTAS and nome != 'local':
-        notas += NOTA_PASSAR if any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
+    if com_o_corpo:
+        tem = any(c in COM_FERRAMENTAS for c in depois)
+        notas += ('\n\n' + _sem_o_resto(navegar) + (
+            f' Quando o pedido precisar de uma dessas coisas, responda exatamente {PASSA} e mais nada: o Solis passa '
+            'o pedido pra quem tem as ferramentas. O que você já sabe, conversa, e o que as suas ferramentas fazem '
+            'não precisam disso: responda ou faça.' if tem else
+            ' Quando o pedido precisar de uma dessas coisas, diga em uma frase que isso você não consegue fazer agora.'
+            + (' Uma informação de hoje, procure no navegador.' if navegar else '')))
+    elif nome not in COM_FERRAMENTAS and nome != 'local':
+        notas += NOTA_PASSAR if com_corpo(nome) or any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
     # Com o Ollama fora e a Groq aprendendo no lugar (memoria.na_nuvem), o que
     # não é privado continua sendo guardado: o aviso só vale sem os dois.
     if not memoria.aprende_agora():
@@ -393,9 +439,19 @@ async def responder(
     começar a responder."""
     erros: dict[str, Exception] = {}
     fila = list(ordem)
+    # As ferramentas vão só quando o pedido precisa (medido em 18/11/2026: com
+    # elas, cada pedido à Groq pesa ~3.000 tokens, e o grátis dela aguenta 8.000
+    # por minuto — mandar sempre gastaria o minuto em duas perguntas). Primeiro
+    # o pedido vai leve; se o cérebro de API responde a marca, ele mesmo tenta
+    # de novo com o corpo (e os de API depois dele também o recebem).
+    com_o_corpo: set[str] = set()
+    de_novo = None
     while fila:
         nome = fila.pop(0)
-        etapas.marcar('cerebro', cerebro=nome)
+        # A segunda vez do mesmo cérebro, agora com o corpo, é a mesma tentativa na tela.
+        if nome != de_novo:
+            etapas.marcar('cerebro', cerebro=nome)
+        de_novo = None
         try:
             if nome == 'local':
                 if not modelo_local:
@@ -409,10 +465,13 @@ async def responder(
                     etapas,
                 )
             else:
+                # Groq, Gemini...: o corpo do Solis (as ferramentas e o navegador).
+                proprio = corpo.Corpo(conversa, etapas) if nome in com_o_corpo else None
+                navegar = bool(proprio and proprio.navegar)
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome) + nota_projeto(conversa, le_arquivos=nome == 'claude')
-                    + notas_do_cerebro(nome, fila),
+                    sistema_para(nome, navegar, proprio is not None) + nota_projeto(conversa, le_arquivos=nome == 'claude')
+                    + notas_do_cerebro(nome, fila, navegar, proprio is not None),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],
@@ -425,13 +484,20 @@ async def responder(
                     sessao=sessao_claude(conversa, historico, memorias, trechos, mensagem, voz)
                     if nome == 'claude' else None,
                     **({'rapido': True} if voz else {}),
+                    **({'corpo': proprio} if proprio is not None else {}),
                 )
                 if nome not in COM_FERRAMENTAS:
                     fluxo = await _sem_a_marca(fluxo)
             return fluxo, nome
         except _PediuFerramenta as e:
-            # Só quem tem ferramentas, dali pra frente: outro de API diria o mesmo.
             erros[nome] = e
+            if com_corpo(nome) and nome not in com_o_corpo:
+                # Ele mesmo, agora com o corpo; depois, só quem tem ferramentas.
+                com_o_corpo |= {nome} | {c for c in fila if com_corpo(c)}
+                fila = [nome] + [c for c in fila if c in COM_FERRAMENTAS or com_corpo(c)]
+                de_novo = nome
+                continue
+            # Só quem tem mais ferramentas, dali pra frente: outro de API diria o mesmo.
             etapas.marcar('queda', cerebro=nome, motivo='precisa de ferramenta')
             fila = [c for c in fila if c in COM_FERRAMENTAS]
         except (ollama.OllamaIndisponivel, ollama.ModeloInexistente, cerebros.CerebroFalhou) as e:

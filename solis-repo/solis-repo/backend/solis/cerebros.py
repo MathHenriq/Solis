@@ -327,6 +327,7 @@ EXECUTORES = {'claude': claude, 'codex': codex}
 
 async def abrir(
     nome: str, sistema: str, prompt: str, etapas=MUDA, sessao: dict | None = None, rapido: bool = False,
+    corpo=None,
 ) -> AsyncIterator[str]:
     """Começa a resposta e só devolve depois da primeira palavra.
 
@@ -339,7 +340,9 @@ async def abrir(
         fluxo = EXECUTORES[nome](sistema, prompt, etapas, **extra)
     else:
         from . import apis
-        fluxo = apis.responder(nome, sistema, prompt, etapas, **({'rapido': True} if rapido else {}))
+        # `corpo`: as ferramentas do Solis (corpo.py), as mesmas pra todo cérebro.
+        fluxo = apis.responder(nome, sistema, prompt, etapas, **({'rapido': True} if rapido else {}),
+                               **({'corpo': corpo} if corpo is not None else {}))
     try:
         # Sem prazo aqui: quem decide que o CLI travou é o _linhas, pela
         # primeira linha e pelo silêncio — uma resposta longa que está saindo

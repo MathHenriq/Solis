@@ -51,6 +51,8 @@ def test_resposta_normal_sai_inteira(monkeypatch, pedacos):
 
 
 def test_sem_quem_tenha_ferramenta_o_de_api_diz_que_nao_consegue(monkeypatch):
+    # Sem o corpo (SOLIS_CORPO=0): o de API não tem ferramenta nenhuma.
+    monkeypatch.setattr(roteador, 'CORPO', False)
     sistemas = {}
     falsos(monkeypatch, {'groq': ['Não consigo desligar a música agora.']}, sistemas)
     responder(['groq'])
@@ -60,7 +62,7 @@ def test_sem_quem_tenha_ferramenta_o_de_api_diz_que_nao_consegue(monkeypatch):
 
 def test_a_marca_sem_ninguem_depois_e_queda(monkeypatch):
     falsos(monkeypatch, {'groq': ['[FERRAMENTA]'], 'claude': ['x']}, {})
-    monkeypatch.setattr(roteador, 'notas_do_cerebro', lambda nome, depois: '')
+    monkeypatch.setattr(roteador, 'notas_do_cerebro', lambda *_, **__: '')
     with pytest.raises(roteador.NinguemRespondeu):
         responder(['groq', 'gemini'])
 
