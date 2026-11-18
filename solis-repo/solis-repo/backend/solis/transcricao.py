@@ -121,23 +121,37 @@ def _carregar_pequeno():
     return _pequeno
 
 
-def _palavra_agora(audio: bytes, vocab: str) -> str:
+def _palavra_agora(audio: bytes, vocab: str, entrou: float | None = None) -> str:
+    """`entrou`: quando o pedido foi feito (antes da fila das threads), pro log
+    dizer onde o tempo foi: no teste ao vivo de 17/11/2026 o pequeno levou de
+    1,8 a 6,7 s no servidor, e 0,18 s sozinho num processo à parte."""
     global _ultimo_uso
+    t0 = time.monotonic()
     som = voz.decodificar(audio)
     if not len(som):
         return ''
+    t1 = time.monotonic()
     with _trava:
+        t2 = time.monotonic()
         modelo = _carregar_pequeno()
         segmentos, _ = modelo.transcribe(som, language=voz.LINGUA or None, beam_size=5, vad_filter=False,
                                          initial_prompt=vocab or None)
         texto = ' '.join(s.text.strip() for s in segmentos).strip()
         _ultimo_uso = time.monotonic()
+    t3 = time.monotonic()
+    if t3 - (entrou or t0) > LENTO_S:
+        log.info('pequeno: fila %.2f s · decodificar %.2f s · trava %.2f s · transcrever %.2f s (%s)',
+                 t0 - (entrou or t0), t1 - t0, t2 - t1, t3 - t2, getattr(modelo.model, 'device', '?'))
     return '' if voz.eco_do_vocabulario(texto, vocab) else texto
 
 
 async def palavra(audio: bytes) -> str:
     """O texto pelo Whisper pequeno daqui — pra saber se tem "Solis" e se é privado."""
-    return await asyncio.to_thread(_palavra_agora, audio, voz.vocabulario(voz._modelos_do_ollama()))
+    t = time.monotonic()
+    vocab = voz.vocabulario(voz._modelos_do_ollama())
+    if time.monotonic() - t > 0.3:
+        log.info('pequeno: o vocabulário levou %.2f s', time.monotonic() - t)
+    return await asyncio.to_thread(_palavra_agora, audio, vocab, time.monotonic())
 
 
 def aquecer_pequeno() -> None:
@@ -186,26 +200,55 @@ async def _local(audio: bytes) -> str:
         return ''
 
 
+# Acima disto, o log conta quanto cada etapa de um trecho levou (só os tempos,
+# nunca o que foi dito): no teste ao vivo de 17/11/2026 a decisão levou de 2 a
+# 9 s, contra 0,76 s de mediana na medida, sem dizer onde.
+LENTO_S = 1.5
+
+
 async def escuta(tipo: str, audio: bytes) -> str:
     """O texto de um trecho da escuta (ativacao.Escuta): `tipo` 'previa' ou
     'frase' (tem "Solis"?), 'rascunho' ou 'comando' (o pedido)."""
-    if not online() or not pequeno_disponivel():
-        return await _local(audio)
-    texto = await palavra(audio)
-    chamada = tipo in ('previa', 'frase')
-    achou = ativacao.palavra_no_inicio(texto)[0]
-    if chamada and not achou and not _cita_solis(texto):
-        return texto  # nem cita "Solis": nada sai do computador
-    if memoria.eh_privado(texto):
-        return await _local(audio)  # o privado não vai pra nuvem
+    tempos: list[str] = []
+    t0 = time.monotonic()
+
+    def marca(etapa: str, desde: float) -> float:
+        agora = time.monotonic()
+        tempos.append(f'{etapa} {agora - desde:.2f} s')
+        return agora
+
     try:
-        texto_nuvem = await nuvem(audio)
-    except NuvemFalhou:
-        return await _local(audio)
-    if chamada and not ativacao.palavra_no_inicio(texto_nuvem)[0]:
-        # A nuvem não ouviu a chamada: vale o que o pequeno ouviu (se ele achou, a palavra é dele).
-        return texto
-    return texto_nuvem
+        if not online() or not pequeno_disponivel():
+            texto = await _local(audio)
+            marca('local (offline)', t0)
+            return texto
+        texto = await palavra(audio)
+        t = marca('pequeno', t0)
+        chamada = tipo in ('previa', 'frase')
+        achou = ativacao.palavra_no_inicio(texto)[0]
+        if chamada and not achou and not _cita_solis(texto):
+            return texto  # nem cita "Solis": nada sai do computador
+        if memoria.eh_privado(texto):
+            texto = await _local(audio)  # o privado não vai pra nuvem
+            marca('local (privado)', t)
+            return texto
+        try:
+            texto_nuvem = await nuvem(audio)
+            marca('nuvem', t)
+        except NuvemFalhou as e:
+            t = marca(f'nuvem falhou ({e})', t)
+            texto = await _local(audio)
+            marca('local', t)
+            return texto
+        if chamada and not ativacao.palavra_no_inicio(texto_nuvem)[0]:
+            # A nuvem não ouviu a chamada: vale o que o pequeno ouviu (se ele achou, a palavra é dele).
+            return texto
+        return texto_nuvem
+    finally:
+        total = time.monotonic() - t0
+        if total > LENTO_S:
+            log.info('escuta %s: %.1f s (%s; %.1f s de áudio)', tipo, total, ' · '.join(tempos),
+                     max(0, len(audio) - 44) / 32000)
 
 
 # O pequeno às vezes ouve a chamada torta: "Ei Solis, quanto é..." virou "É isso aí,
