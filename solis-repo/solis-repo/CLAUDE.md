@@ -73,6 +73,20 @@ pedido dele em 18/11/2026.
   acabarem, outro assume), e o Solis tem que controlar o computador por completo; isso não é
   negociável. Ao construir uma função, deixar ela no Solis (as ferramentas dele, com os cartões
   dele) e não presa a um cérebro; onde hoje só o Claude usa, está anotado como pendência.
+  - **O Solis é um corpo; o cérebro é que se troca.** Nas palavras dele: o que o corpo faz, todos
+    os cérebros conseguem fazer, porque estão no mesmo corpo; um cérebro se diferencia do outro
+    só pela capacidade de pensar (o Claude escreve código melhor que um modelo da Groq), nunca
+    pelas funções que consegue usar. Vale pra qualquer cérebro: Claude, GPT, Groq, OpenRouter,
+    Gemini, os modelos locais.
+  - **Nunca "não tem como" e nunca "só tem pro Claude".** Não se desenvolve função pro Claude: se
+    desenvolve função pro Solis. Uma resposta que diga que algo só funciona com um cérebro é uma
+    pendência a resolver, não um limite aceito.
+  - **Quem faz o quê.** O Claude fica pra código, desenvolvimento e o pensamento muito complexo.
+    Responder perguntas e fazer as funções do dia a dia (abrir isto, rodar aquilo) é dos modelos
+    básicos ou da nuvem. Se o Claude acabar no meio de um sistema, o GPT continua de onde parou:
+    o Solis não pode depender de um cérebro pra uma tarefa, senão bastaria usar o Claude Code.
+  - **O Solis vai ter uma quantidade enorme de funções** (agenda, tarefas, finanças,
+    personalidades e tudo o mais), e todas têm que funcionar em qualquer cérebro.
 - **"Grok" é Groq.** O Matheus dita pela transcrição do Claude, que escreve "Grok". Ele fala da
   **Groq** (a da transcrição e dos modelos rápidos que o Solis usa), não do Grok da xAI, que o
   Solis não usa.
