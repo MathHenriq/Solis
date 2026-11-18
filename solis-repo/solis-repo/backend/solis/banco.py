@@ -478,11 +478,22 @@ _QUEDA_DE_PROPOSITO = 'precisa de ferramenta'
 
 
 def usos_de(etapas: list[dict]) -> list[tuple[str, bool, str | None]]:
-    """O que as etapas de uma resposta dizem de cada função: (função, deu certo, detalhe)."""
+    """O que as etapas de uma resposta dizem de cada função: (função, deu certo, detalhe).
+    A ferramenta que o Matheus recusou no cartão volta como erro, mas não é
+    falha dela: não conta (visto no histórico real, 17/11/2026)."""
     usos = []
+    pedidas: dict[str, str] = {}      # id da aprovação → ferramenta
+    recusadas: dict[str, int] = {}    # ferramenta → quantas recusas esperando o erro
     for e in etapas:
         etapa = e.get('etapa')
-        if etapa == 'queda' and e.get('cerebro') and e.get('motivo') != _QUEDA_DE_PROPOSITO:
+        if etapa == 'aprovacao' and e.get('id'):
+            pedidas[e['id']] = e.get('ferramenta') or ''
+        elif etapa == 'aprovacao_resposta' and e.get('aprovado') is False and e.get('id') in pedidas:
+            nome = pedidas[e['id']]
+            recusadas[nome] = recusadas.get(nome, 0) + 1
+        elif etapa == 'ferramenta' and not e.get('ok') and recusadas.get(e.get('ferramenta') or '', 0):
+            recusadas[e['ferramenta']] -= 1
+        elif etapa == 'queda' and e.get('cerebro') and e.get('motivo') != _QUEDA_DE_PROPOSITO:
             usos.append((f'cerebro:{e["cerebro"]}', False, str(e.get('motivo') or '')[:200] or None))
         elif etapa == 'fim' and e.get('cerebro') and not e.get('parada'):
             usos.append((f'cerebro:{e["cerebro"]}', not e.get('cortada'), 'cortada no meio' if e.get('cortada') else None))

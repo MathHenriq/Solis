@@ -25,6 +25,15 @@ def test_o_que_as_etapas_dizem_de_cada_funcao():
     ])
     assert usos == [('cerebro:claude', False, 'limite de 5 horas'), ('ferramenta:Write', True, None),
                     ('ferramenta:mcp__notion__search', False, None), ('cerebro:codex', False, 'cortada no meio')]
+    # Recusada no cartão não é falha da ferramenta; aprovada e com erro, é.
+    assert banco.usos_de([
+        {'etapa': 'aprovacao', 'id': 'a1', 'ferramenta': 'Write'},
+        {'etapa': 'aprovacao_resposta', 'id': 'a1', 'aprovado': False},
+        {'etapa': 'ferramenta', 'ferramenta': 'Write', 'ok': False},
+        {'etapa': 'aprovacao', 'id': 'a2', 'ferramenta': 'Write'},
+        {'etapa': 'aprovacao_resposta', 'id': 'a2', 'aprovado': True},
+        {'etapa': 'ferramenta', 'ferramenta': 'Write', 'ok': False},
+    ]) == [('ferramenta:Write', False, None)]
     # Parado pelo Matheus não conta pra ninguém.
     assert banco.usos_de([{'etapa': 'fim', 'parada': True}, {'etapa': 'fim', 'cerebro': 'claude', 'parada': True}]) == []
 
@@ -96,13 +105,13 @@ def test_grupos_e_testes(monkeypatch):
     qualidade.guardar_teste_aprendizado({'certos': 14, 'casos': 14, 'onde': 'groq', 'modelo': 'openai/gpt-oss-20b'})
     from solis import voz_teste
     monkeypatch.setattr(voz_teste, 'listar', lambda: [
-        {'id': 'b', 'medidas': {'silero': {'chamadas': 12, 'entendeu': 12, 'falsos': 0, 'passou': True}}},
-        {'id': 'a', 'medidas': {'atual': {'chamadas': 12, 'entendeu': 11, 'falsos': 0, 'passou': True}}},
+        {'id': '20261117-090000', 'medidas': {'silero': {'chamadas': 12, 'entendeu': 12, 'falsos': 0, 'passou': True}}},
+        {'id': '20261116-143000', 'medidas': {'atual': {'chamadas': 12, 'entendeu': 11, 'falsos': 0, 'passou': True}}},
     ])
     r = qualidade.relatorio()
     notion = next(f for f in r['funcoes'] if f['tipo'] == 'mcp')
     assert (notion['nome'], notion['usos'], notion['certos']) == ('notion', 2, 1)
     testes = {t['id']: t for t in r['testes']}
-    assert (testes['escuta']['certos'], testes['escuta']['total'], testes['escuta']['quando']) == (11, 12, 'a')
+    assert (testes['escuta']['certos'], testes['escuta']['total'], testes['escuta']['quando']) == (11, 12, '2026-11-16T14:30:00')
     assert testes['aprendizado']['passou'] and r['meta'] == 0.9
     assert json.dumps(r)  # vai pra tela como está

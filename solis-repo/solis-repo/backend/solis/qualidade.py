@@ -59,8 +59,16 @@ def _teste_escuta() -> dict | None:
         m = t['medidas'].get('atual')
         if m and m.get('chamadas'):
             return {'id': 'escuta', 'certos': m['entendeu'], 'total': m['chamadas'], 'falsos': m['falsos'],
-                    'passou': bool(m['passou']), 'quando': t['id']}
+                    'passou': bool(m['passou']), 'gravacao': t['id'], 'quando': _quando_da_gravacao(t['id'])}
     return None
+
+
+def _quando_da_gravacao(id_: str) -> str | None:
+    """A pasta da gravação tem a hora local de quando foi gravada (20261116-143000)."""
+    try:
+        return datetime.strptime(id_, '%Y%m%d-%H%M%S').isoformat()
+    except ValueError:
+        return None
 
 
 def guardar_teste_aprendizado(resumo: dict) -> None:
