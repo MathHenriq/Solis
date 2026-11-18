@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { BarraIcones } from './components/BarraIcones';
 import { Chamada, type FaseChamada } from './components/Chamada';
 import { pedeConversa, useConversaVoz } from './conversaVoz';
@@ -50,6 +50,11 @@ export default function App() {
   }, [voz, conversa.conversa]);
   // Só em desenvolvimento: abrir o modo Conversa pela página (pra ver sem microfone de verdade).
   if (import.meta.env.DEV) (window as unknown as { __conversa?: () => void }).__conversa = () => voz.iniciar(conversa.conversa);
+  // Chamado de novo com uma resposta ainda chegando (o Claude trabalhando, por
+  // exemplo): a resposta de antes para e o pedido novo vai assim que ela parar.
+  // Antes o pedido novo era ignorado calado (o campo estava ocupado), e a ilha
+  // mostrava a frase nova com a resposta da anterior (relato do Matheus, 18/11/2026).
+  const pedidoNaFila = useRef<string | null>(null);
   const escuta = useEscuta(
     (texto) => {
       definirTela('conversa');
@@ -57,9 +62,14 @@ export default function App() {
         voz.iniciar(conversa.conversa);
         return;
       }
+      chamada.enviado(texto);
+      if (conversa.respondendo) {
+        pedidoNaFila.current = texto;
+        conversa.parar();
+        return;
+      }
       marcarRespostaFalada(falaAutomatica());
       conversa.enviar(texto);
-      chamada.enviado(texto);
     },
     // Na conversa, o microfone é dela: a escuta do "Solis" desliga.
     voz.fase !== null,
@@ -68,6 +78,18 @@ export default function App() {
   // O Solis aparecendo quando é chamado (components/Chamada.tsx).
   const ultimo = conversa.turnos[conversa.turnos.length - 1];
   const chamada = useChamada(escuta.estado, conversa.respondendo, !!(ultimo?.de === 'solis' && ultimo.texto));
+  // O pedido na fila sai quando a resposta parada acaba. Depois da chamada (os
+  // efeitos rodam em ordem): o dela manda a ilha embora com a resposta parada,
+  // e este a põe de volta pensando no pedido novo.
+  useEffect(() => {
+    const texto = pedidoNaFila.current;
+    if (conversa.respondendo || texto === null) return;
+    pedidoNaFila.current = null;
+    marcarRespostaFalada(falaAutomatica());
+    void conversa.enviar(texto);
+    chamada.enviado(texto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversa.respondendo]);
   const resposta = chamada.resposta ?? (ultimo?.de === 'solis' ? ultimo.texto : undefined);
   // Com a janela do Solis na frente, a voz aparece na esfera, dentro do app;
   // atrás ou minimizada, na ilha — no app Tauri, uma janela própria por cima
