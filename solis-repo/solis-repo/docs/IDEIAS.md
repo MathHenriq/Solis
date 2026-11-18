@@ -476,5 +476,6 @@ existem.
    sabe sozinho: o cérebro respondeu ou falhou, a ferramenta deu certo ou erro) e se ela
    **acertou** (o voto dele, 👍/👎, opcional, embaixo da resposta). E o "só existe o que funciona"
    mostra, não desliga: cada função aparece como passou, não passou ou sem teste, e os testes com
-   meta entram um por um. Feito: o registro e o voto no servidor, e o voto na tela. Falta: a tela
+   meta entram um por um. Feito: o registro e o voto no servidor, e o voto na tela (aprovado pelos prints,
+   `design/voto-validacao.png`). Falta: a tela
    da taxa (Configurações).

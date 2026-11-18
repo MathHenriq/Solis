@@ -155,8 +155,9 @@ function BotaoCopiar({ texto }: { texto: string }) {
 /** O voto na resposta (IDEIAS.md, princípio 4: a taxa de acerto). É ele que
  *  diz se a resposta ACERTOU — o Solis sozinho só sabe se ela rodou. Opcional:
  *  resposta sem voto não conta. Clicar no mesmo de novo tira.
- *  PROVISÓRIO — desenho próprio (17/11/2026), com o Claude como base: os
- *  polegares discretos ao lado do copiar, no mesmo botão das outras ações. */
+ *  Desenho próprio (17/11/2026), com o Claude como base: os polegares
+ *  discretos ao lado do copiar, no mesmo botão das outras ações. Aprovado pelo
+ *  Matheus pelos prints (17/11/2026, design/voto-validacao.png). */
 function BotoesVoto({ resposta, inicial }: { resposta: number; inicial: Voto }) {
   const [voto, definirVoto] = useState<Voto>(inicial);
   const votar = async (v: 1 | -1) => {

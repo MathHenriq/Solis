@@ -271,7 +271,7 @@
       "_actionHeight": "Botao de contorno do cabecalho (Adicionar fonte) e da lista (Baixar). Medido: referencia 17, borda de y=85 a y=140 = 55px / 1,375 = 40px; na 13 o Baixar da 58px = 42px. Antes o componente usava por engano a LARGURA do interruptor (79px) como altura.",
       "acoes": {
         "_status": "Desenho proprio, sem referencia (08/11/2026): o Matheus liberou o front, porque as referencias geradas nao estavam saindo boas. Padrao discreto do Claude: as acoes (corrigir, esquecer) so aparecem no hover ou no foco do teclado; corrigir e esquecer acontecem no proprio item, sem janela no meio da tela; esquecer da um aviso com Desfazer. Medidas na grade da lista ja medida (texto de 16, origem de 14).",
-        "_voto": "PROVISORIO, desenho proprio (17/11/2026) com o Claude como base: o voto (polegar pra cima e pra baixo) embaixo da resposta, entre o Copiar e o Refazer, no mesmo botao das outras acoes (iconSize 16, iconHit 28, raio buttonRadius) - nenhum valor novo. Votado, o polegar fica a vista fora do hover em text-primary (o mesmo tom do hover), sem cor de acento: o voto e do Matheus, nao um estado do Solis.",
+        "_voto": "Aprovado pelo Matheus pelos prints (17/11/2026, design/voto-validacao.png). Desenho proprio com o Claude como base: o voto (polegar pra cima e pra baixo) embaixo da resposta, entre o Copiar e o Refazer, no mesmo botao das outras acoes (iconSize 16, iconHit 28, raio buttonRadius) - nenhum valor novo. Votado, o polegar fica a vista fora do hover em text-primary (o mesmo tom do hover), sem cor de acento: o voto e do Matheus, nao um estado do Solis.",
         "iconSize": "16px",
         "iconHit": "28px",
         "dateGap": "8px",
