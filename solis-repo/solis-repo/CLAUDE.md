@@ -52,6 +52,26 @@ Onde a fidelidade exigir recurso melhor (asset maior, biblioteca específica), u
 - Não acumular muitas mudanças num commit gigante — dificulta reverter se algo divergir da referência.
 - Branch por frente de trabalho quando fizer sentido (ex: `feat/tela-conversa`).
 
+## Regras do Matheus (valem em toda sessão, local ou na web)
+
+Vieram da memória do Claude Code no notebook, que a sessão na web não enxerga. Passadas pra cá a
+pedido dele em 18/11/2026.
+
+- **Decisões em português.** Toda pergunta de decisão (as perguntas com opções, a pergunta e os
+  botões da caixa de próximo passo, o resumo dela) vai em português do Brasil, nunca em inglês.
+  Ele está treinando inglês, mas nas decisões importantes não quer correr o risco de entender
+  errado. Nomes técnicos (modelo, arquivo) ficam como são; a frase em volta é em português.
+- **Online primeiro.** O primeiro caminho é sempre online; o computador do cliente (GPU, modelos
+  locais) só entra quando não dá pra ser online (sem internet, ou o online falhou). Ex.: a
+  transcrição da voz vai pela nuvem, e o Whisper turbo local é o modo offline. Ao desenhar ou
+  mexer numa função, propor o online como principal e o local como reserva, e medir e mostrar o
+  custo do online. Grátis por enquanto está ok; quando aparecer custo, avaliar pelo tamanho (US$ 10
+  é diferente de US$ 100). Exceção que segue valendo: o que é privado não vai pra nuvem (perguntar
+  quando os dois conflitarem).
+- **"Grok" é Groq.** O Matheus dita pela transcrição do Claude, que escreve "Grok". Ele fala da
+  **Groq** (a da transcrição e dos modelos rápidos que o Solis usa), não do Grok da xAI, que o
+  Solis não usa.
+
 ## Lembrete de fluxo para o Matheus (o Claude Code deve reforçar isto)
 
 Se o Matheus pedir para construir várias telas de uma vez, o Claude Code deve lembrá-lo do fluxo (uma tela por vez, validada antes da próxima) antes de executar — não apenas obedecer. Pedido sem referência visual não bloqueia mais: desenha-se com o Claude como base (Regra 1) e os prints vão pra aprovação dele.
