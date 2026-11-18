@@ -16,6 +16,7 @@ import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Literal
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
@@ -1278,7 +1279,7 @@ async def _responder(
             etapas.marcar('rapida', tipo=rapida['tipo'])
             etapas.texto(rapida['texto'])
             resposta_id = banco.adicionar(conversa, 'solis', rapida['texto'], privada=rapida['privada'], cerebro='solis')
-            fim(cerebro='solis')
+            fim(cerebro='solis', mensagem=resposta_id)
             if t:
                 # A mesma etapa do aprendizado: a tela mostra "Tarefa anotada".
                 etapas.marcar('aprendizado', novas=0, textos=[], tarefas=[t], compromissos=[])
@@ -1336,8 +1337,8 @@ async def _responder(
             # finally: nem o servidor desligando no meio perde o que já chegou.
             if resposta:
                 resposta_id = banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro)
-        fim(cerebro=cerebro, **({'cortada': True} if cortada else {}),
-                      **({'parada': True} if parada else {}))
+        fim(cerebro=cerebro, **({'mensagem': resposta_id} if resposta_id else {}),
+            **({'cortada': True} if cortada else {}), **({'parada': True} if parada else {}))
 
         try:
             await _depois(etapas, modelo, conversa, texto, historico, mensagem_id)
@@ -1353,6 +1354,11 @@ async def _responder(
         # conta todas, inclusive "memória guardada".
         if resposta_id is not None:
             banco.guardar_etapas(resposta_id, etapas.lista)
+        # O registro de uso conta até a tentativa sem resposta (as quedas).
+        try:
+            banco.registrar_usos(resposta_id, etapas.lista)
+        except Exception:
+            log.exception('conversa %s: o registro de uso falhou', conversa)
         etapas.encerrar()
 
 
@@ -1854,7 +1860,31 @@ async def testar_aprendizado(onde: str = 'groq', modelo: str = '', pausa: float 
     if onde not in ('local', 'groq'):
         return JSONResponse({'erro': 'onde_invalido'}, status_code=400)
     modelo = modelo or (MODELO_FUNDO if onde == 'local' else memoria.MODELO_NUVEM)
-    return await aprendizado_teste.medir(onde, modelo, pausa)
+    r = await aprendizado_teste.medir(onde, modelo, pausa)
+    from . import qualidade
+    qualidade.guardar_teste_aprendizado(r['resumo'])
+    return r
+
+
+# — Qualidade (qualidade.py): a taxa de acerto por função ———————————————————————
+class Voto(BaseModel):
+    voto: Literal[1, -1] | None = None
+
+
+@app.get('/qualidade')
+async def ver_qualidade(dias: int = 30):
+    """Por função: quantas vezes rodou e deu certo, os votos, as últimas falhas;
+    e os testes de qualidade com meta."""
+    from . import qualidade
+    return await asyncio.to_thread(qualidade.relatorio, max(1, min(dias, 3650)))
+
+
+@app.put('/mensagens/{mensagem}/voto')
+async def votar(mensagem: int, corpo: Voto):
+    """O 👍/👎 numa resposta (null tira). 404 se não é resposta de um cérebro."""
+    if not banco.votar(mensagem, corpo.voto):
+        return JSONResponse({'erro': 'resposta_inexistente'}, status_code=404)
+    return {'ok': True, 'voto': corpo.voto}
 
 
 @app.get('/voz/teste/roteiro')

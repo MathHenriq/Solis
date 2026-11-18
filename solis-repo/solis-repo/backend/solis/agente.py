@@ -710,6 +710,7 @@ class _Coletor:
         self.marcar('fim', cerebro='claude', **({'cortada': True} if cortada else {}))
         id_ = banco.adicionar(self.conversa, 'solis', texto, cerebro='claude')
         banco.guardar_etapas(id_, [e for e in self.etapas if e['etapa'] != 'saida'])
+        banco.registrar_usos(id_, self.etapas)
         return id_
 
 

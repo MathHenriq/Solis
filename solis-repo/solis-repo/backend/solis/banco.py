@@ -394,6 +394,24 @@ MIGRACOES = [
         criada          TEXT NOT NULL
     );
     """,
+    # 21 — o registro de uso (IDEIAS.md, princípio 4: a taxa de sucesso por
+    # função). Uma linha por vez que uma função rodou: o cérebro que respondeu
+    # ou falhou, cada ferramenta. Fica mesmo quando a conversa é apagada (a
+    # `mensagem` vira nula): é a história da função, não da conversa. O voto
+    # do Matheus (1 ou -1) fica na linha do cérebro que respondeu.
+    """
+    CREATE TABLE usos (
+        id       INTEGER PRIMARY KEY,
+        quando   TEXT NOT NULL,
+        funcao   TEXT NOT NULL,
+        ok       INTEGER NOT NULL,
+        mensagem INTEGER REFERENCES mensagens(id) ON DELETE SET NULL,
+        detalhe  TEXT,
+        voto     INTEGER
+    );
+    CREATE INDEX usos_quando ON usos (quando);
+    CREATE INDEX usos_mensagem ON usos (mensagem);
+    """,
 ]
 
 
@@ -449,6 +467,63 @@ def _migrar(c: sqlite3.Connection) -> None:
         # executescript faz COMMIT antes de rodar, então a migração e a versão
         # vão juntas num script só: ou as duas ficam, ou nenhuma.
         c.executescript(f'BEGIN; {sql} PRAGMA user_version = {numero}; COMMIT;')
+        if numero == 21:
+            _importar_usos(c)
+
+
+# — o registro de uso ————————————————————————————————————————————————————————
+# A queda que não é falha: o cérebro sem ferramenta passa a vez de propósito
+# (roteador.py), não quebrou.
+_QUEDA_DE_PROPOSITO = 'precisa de ferramenta'
+
+
+def usos_de(etapas: list[dict]) -> list[tuple[str, bool, str | None]]:
+    """O que as etapas de uma resposta dizem de cada função: (função, deu certo, detalhe)."""
+    usos = []
+    for e in etapas:
+        etapa = e.get('etapa')
+        if etapa == 'queda' and e.get('cerebro') and e.get('motivo') != _QUEDA_DE_PROPOSITO:
+            usos.append((f'cerebro:{e["cerebro"]}', False, str(e.get('motivo') or '')[:200] or None))
+        elif etapa == 'fim' and e.get('cerebro') and not e.get('parada'):
+            usos.append((f'cerebro:{e["cerebro"]}', not e.get('cortada'), 'cortada no meio' if e.get('cortada') else None))
+        elif etapa == 'ferramenta' and e.get('ferramenta') and 'ok' in e:
+            usos.append((f'ferramenta:{e["ferramenta"]}', bool(e['ok']), None))
+    return usos
+
+
+def _inserir_usos(c: sqlite3.Connection, quando: str, mensagem: int | None, etapas: list[dict]) -> None:
+    c.executemany('INSERT INTO usos (quando, funcao, ok, mensagem, detalhe) VALUES (?, ?, ?, ?, ?)',
+                  [(quando, f, int(ok), mensagem, d) for f, ok, d in usos_de(etapas)])
+
+
+def _importar_usos(c: sqlite3.Connection) -> None:
+    """Uma vez, quando o registro nasce: o que as respostas guardadas já contam."""
+    with c:
+        for l in c.execute("SELECT id, criada, etapas FROM mensagens WHERE papel = 'solis' AND etapas IS NOT NULL "
+                           'ORDER BY id').fetchall():
+            etapas = _etapas(cofre.abrir(l[2]))
+            if etapas:
+                _inserir_usos(c, l[1], l[0], etapas)
+
+
+def registrar_usos(mensagem: int | None, etapas: list[dict]) -> None:
+    """No fim de cada resposta (ou de cada tentativa sem resposta: as quedas contam)."""
+    with _con() as c:
+        _inserir_usos(c, _agora(), mensagem, etapas)
+
+
+def votar(mensagem: int, voto: int | None) -> bool:
+    """O voto do Matheus numa resposta (1, -1 ou None pra tirar). False se não é
+    uma resposta que um cérebro deu."""
+    with _con() as c:
+        r = c.execute("UPDATE usos SET voto = ? WHERE mensagem = ? AND funcao LIKE 'cerebro:%' AND ok = 1",
+                      (voto, mensagem))
+    return r.rowcount > 0
+
+
+def usos(desde: str) -> list[dict]:
+    return [dict(l) for l in _con().execute(
+        'SELECT quando, funcao, ok, detalhe, voto FROM usos WHERE quando >= ? ORDER BY id', (desde,))]
 
 
 def _selar_o_que_falta(c: sqlite3.Connection) -> None:
@@ -623,7 +698,9 @@ def existe(conversa: int) -> bool:
 
 def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
     linhas = _con().execute(
-        'SELECT id, papel, texto, criada, privada, cerebro, etapas FROM mensagens '
+        'SELECT id, papel, texto, criada, privada, cerebro, etapas, '
+        "(SELECT voto FROM usos u WHERE u.mensagem = mensagens.id AND u.funcao LIKE 'cerebro:%' AND u.ok = 1 "
+        'ORDER BY u.id DESC LIMIT 1) AS voto FROM mensagens '
         'WHERE conversa = ? AND id > ? ORDER BY id',
         (conversa, depois_de),
     ).fetchall()
