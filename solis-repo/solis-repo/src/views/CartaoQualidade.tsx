@@ -10,7 +10,8 @@ import { quando } from './CartaoAgendadas';
  *  cada um passou, não passou, ou a função ainda não tem teste. Mostra, não
  *  desliga. Todo número aqui é real (princípio 5): sem gráfico decorativo.
  *
- *  PROVISÓRIO — desenho próprio (17/11/2026), com o Claude como base: o cartão
+ *  Aprovado pelo Matheus pelos prints (17/11/2026, design/qualidade-validacao.png).
+ *  Desenho próprio, com o Claude como base: o cartão
  *  e as linhas do de Uso (layout.configuracoes.cerebros e .uso), com o "Ver de
  *  novo" dele. Nenhum valor novo (layout.configuracoes.qualidade). */
 

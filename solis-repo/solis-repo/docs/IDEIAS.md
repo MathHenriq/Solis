@@ -471,12 +471,12 @@ existem.
    o cofre na hora de ligar o servidor. O custo que a proposta tinha (o servidor deixar de valer no
    terminal) sumiu: vale no Claude Code e no Codex do terminal, na mesma conta do Windows, com o
    Solis instalado (não precisa estar aberto).
-6. **Taxa de sucesso por função e "só existe o que funciona" — decidido (17/11/2026), em
-   construção.** O Matheus escolheu medir as duas coisas: se a função **rodou** (o que o Solis
+6. **Taxa de sucesso por função e "só existe o que funciona" — decidido e feito (17/11/2026).** O Matheus escolheu medir as duas coisas: se a função **rodou** (o que o Solis
    sabe sozinho: o cérebro respondeu ou falhou, a ferramenta deu certo ou erro) e se ela
    **acertou** (o voto dele, 👍/👎, opcional, embaixo da resposta). E o "só existe o que funciona"
    mostra, não desliga: cada função aparece como passou, não passou ou sem teste, e os testes com
    meta entram um por um. Feito: o registro e o voto no servidor, e o voto na tela (aprovado pelos prints,
-   `design/voto-validacao.png`). A tela da taxa, em Configurações → Taxa de acerto: PROVISÓRIO até
-   os prints (`design/qualidade-validacao.png`). Uma ferramenta recusada no cartão não conta
+   `design/voto-validacao.png`). A tela da taxa, em Configurações → Taxa de acerto: aprovada pelos
+   prints (`design/qualidade-validacao.png`). Próximo passo da regra: um teste com meta pra cada
+   função que ainda não tem. Uma ferramenta recusada no cartão não conta
    como falha dela (visto no histórico real: as duas falhas de "Write" eram recusas).

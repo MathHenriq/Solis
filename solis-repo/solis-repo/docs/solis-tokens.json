@@ -409,7 +409,7 @@
         "_typeWidth": "O seletor do tipo: cabe a opcao mais longa, 'Endereco na internet' (128px na fonte do select, medido no app em 15/11/2026), mais o padding de 10 de cada lado e a seta nativa (~20px) = 168. Conferido nos prints que nada corta."
       },
       "qualidade": {
-        "_status": "PROVISORIO, desenho proprio (17/11/2026) com o Claude como base: Configuracoes -> Taxa de acerto (src/views/CartaoQualidade.tsx). Nenhum valor novo: o cartao e as linhas do de Uso (cfg-card-pad 34, cfg-card-raio 14, cer-linha-pad 20, rotulo 16, dica 15), o Ver de novo dele, e os subtitulos (Cerebros, Ferramentas, Testes de qualidade) em cfg-dica secundario com cfg-linha-pad (30) em cima. Numero abaixo da meta (9 em 10) em --erro, como a cota cheia do Uso. Os polegares dos votos no tamanho da dica - 1px. Medido nos prints: design/qualidade-validacao.png."
+        "_status": "APROVADO pelo Matheus pelos prints (17/11/2026). Desenho proprio com o Claude como base: Configuracoes -> Taxa de acerto (src/views/CartaoQualidade.tsx). Nenhum valor novo: o cartao e as linhas do de Uso (cfg-card-pad 34, cfg-card-raio 14, cer-linha-pad 20, rotulo 16, dica 15), o Ver de novo dele, e os subtitulos (Cerebros, Ferramentas, Testes de qualidade) em cfg-dica secundario com cfg-linha-pad (30) em cima. Numero abaixo da meta (9 em 10) em --erro, como a cota cheia do Uso. Os polegares dos votos no tamanho da dica - 1px. Medido nos prints: design/qualidade-validacao.png."
       }
     },
     "conhecimento": {
