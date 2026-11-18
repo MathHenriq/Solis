@@ -121,6 +121,22 @@ def _carregar_pequeno():
     return _pequeno
 
 
+# Uma passada só, e no máximo isto de texto por segundo de áudio. Era o padrão
+# do faster-whisper: com o texto "ruim" (ruído, a TV, fala longe), ele refaz a
+# transcrição com outras temperaturas, até 6 vezes, e alucina texto comprido.
+# Medido em 18/11/2026: no servidor, 1,9 a 4,7 s por trecho de ~2 s (na placa,
+# sem fila nem trava); em 42 trechos da gravação do teste da escuta, o pior
+# caiu de 3,85 s para 0,16 s, e o "Solis" foi achado nas mesmas chamadas. O
+# limite cresce com o áudio (12 por segundo, mais do que alguém fala; nunca
+# menos de 32): o texto inteiro ainda confere o privado, só a alucinação some.
+TOKENS_POR_S = 12
+TOKENS_MIN = 32
+
+
+def _limite_de_tokens(som) -> int:
+    return max(TOKENS_MIN, round(len(som) / 16000 * TOKENS_POR_S))
+
+
 def _palavra_agora(audio: bytes, vocab: str, entrou: float | None = None) -> str:
     """`entrou`: quando o pedido foi feito (antes da fila das threads), pro log
     dizer onde o tempo foi: no teste ao vivo de 17/11/2026 o pequeno levou de
@@ -135,7 +151,9 @@ def _palavra_agora(audio: bytes, vocab: str, entrou: float | None = None) -> str
         t2 = time.monotonic()
         modelo = _carregar_pequeno()
         segmentos, _ = modelo.transcribe(som, language=voz.LINGUA or None, beam_size=5, vad_filter=False,
-                                         initial_prompt=vocab or None)
+                                         initial_prompt=vocab or None, temperature=0.0,
+                                         condition_on_previous_text=False, without_timestamps=True,
+                                         max_new_tokens=_limite_de_tokens(som))
         texto = ' '.join(s.text.strip() for s in segmentos).strip()
         _ultimo_uso = time.monotonic()
     t3 = time.monotonic()

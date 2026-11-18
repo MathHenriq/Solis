@@ -127,3 +127,25 @@ def test_chamada_torta_no_pequeno_a_nuvem_decide(monkeypatch, caminho_limpo):
     nuvem_falsa(monkeypatch, caminho_limpo, ok('Me passa o Solis aí.'))
     caminho_limpo['ouve_pequeno'] = 'Me passa o Solis aí.'
     assert escuta('frase') == 'Me passa o Solis aí.'
+
+
+def test_o_pequeno_passa_uma_vez_so_e_o_texto_tem_limite_pelo_tamanho(monkeypatch):
+    """18/11/2026: com ruído o faster-whisper refazia a transcrição (até 6
+    temperaturas) e alucinava texto comprido — 1,9 a 4,7 s por trecho no
+    servidor. Uma passada só, com o limite crescendo com o áudio."""
+    import numpy as np
+    pedidos = []
+
+    class Modelo:
+        model = type('M', (), {'device': 'cuda'})()
+
+        def transcribe(self, som, **kw):
+            pedidos.append(kw)
+            return iter([type('S', (), {'text': ' Solis, que horas são?'})()]), None
+    monkeypatch.setattr(transcricao, '_carregar_pequeno', lambda: Modelo())
+    monkeypatch.setattr(transcricao.voz, 'decodificar', lambda audio: np.zeros(int(audio), dtype=np.float32))
+    assert transcricao._palavra_agora(16000 * 2, '') == 'Solis, que horas são?'
+    transcricao._palavra_agora(16000 * 10, '')
+    assert pedidos[0]['temperature'] == 0.0 and not pedidos[0]['condition_on_previous_text']
+    # 2 s: o mínimo; 10 s: 12 por segundo (o pedido longo não é cortado antes do "privado").
+    assert [p['max_new_tokens'] for p in pedidos] == [transcricao.TOKENS_MIN, 10 * transcricao.TOKENS_POR_S]
