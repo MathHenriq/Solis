@@ -143,7 +143,7 @@ function Formulario({
             style={{ ...codigo, marginTop: 'var(--agd-campo-gap)', lineHeight: 1.5 }}
           />
           <div className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)' }}>
-            Uma chave de API fica na configuração do Claude Code e do Codex deste PC, como quando você põe por lá.
+            Uma chave de API fica no cofre do Solis, criptografada; o Claude Code e o Codex a recebem só na hora de ligar o servidor.
           </div>
         </>
       )}
