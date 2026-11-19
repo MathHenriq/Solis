@@ -194,21 +194,48 @@ _TERMINAL = {
 }
 
 
-def _rodar_comando(comando: str, pasta: str) -> tuple[str, bool]:
+# De quanto em quanto tempo a saída de um comando rodando vai pra tela (a do
+# Claude é a mesma: agente._seguir_saida).
+AO_VIVO_S = 0.3
+
+
+async def _rodar_comando(comando: str, pasta: str, ao_vivo: Callable[[str], None] | None = None) -> tuple[str, bool]:
     """(saída pro modelo, se saiu com 0). A saída em UTF-8 (o padrão do
-    PowerShell é a página de código antiga, e o acento chegava quebrado)."""
+    PowerShell é a página de código antiga, e o acento chegava quebrado).
+    `ao_vivo(texto)`: o que saiu até agora, enquanto roda, como no Claude (a
+    tela mostra embaixo da resposta). Erro e saída juntos, na ordem."""
+    import threading
+    import time
     try:
-        r = subprocess.run(
+        proc = subprocess.Popen(
             ['powershell', '-NoProfile', '-NonInteractive', '-Command',
              '[Console]::OutputEncoding = [Text.Encoding]::UTF8; ' + comando],
-            cwd=pasta, capture_output=True, text=True, encoding='utf-8', errors='replace',
-            timeout=TERMINAL_MAX_S, stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    except subprocess.TimeoutExpired:
-        return f'Passou de {TERMINAL_MAX_S} s: o comando foi parado.', False
+            cwd=pasta, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     except OSError as e:
         return f'O PowerShell não abriu: {e}', False
-    saida = (r.stdout or '') + (('\n' + r.stderr) if r.stderr.strip() else '')
-    return f'(código de saída {r.returncode})\n{saida.strip()}', r.returncode == 0
+    partes: list[bytes] = []
+
+    def ler():
+        for linha in iter(proc.stdout.readline, b''):
+            partes.append(linha)
+    leitor = threading.Thread(target=ler, daemon=True, name='solis-terminal')
+    leitor.start()
+    inicio, ultimo = time.monotonic(), None
+    while proc.poll() is None:
+        if time.monotonic() - inicio > TERMINAL_MAX_S:
+            proc.kill()
+            await asyncio.to_thread(leitor.join, 2)
+            return f'Passou de {TERMINAL_MAX_S} s: o comando foi parado.', False
+        if ao_vivo is not None:
+            texto = b''.join(partes)[-16_000:].decode('utf-8', 'replace')
+            if texto.strip() and texto != ultimo:
+                ultimo = texto
+                ao_vivo(texto)
+        await asyncio.sleep(AO_VIVO_S)
+    await asyncio.to_thread(leitor.join, 5)
+    saida = b''.join(partes).decode('utf-8', 'replace')
+    return f'(código de saída {proc.returncode})\n{saida.strip()}', proc.returncode == 0
 
 
 # A tela, pra quem não vê imagem (a Groq e os outros de API só leem texto):
@@ -470,7 +497,10 @@ class Corpo:
             if not comando:
                 self._marcar(id_, nome, entrada, pagina, ok=False)
                 return 'Faltou o comando.'
-            saida, ok = await asyncio.to_thread(_rodar_comando, comando, self.pasta())
+            ao_vivo = getattr(self.etapas, 'ao_vivo', None)
+            saida, ok = await _rodar_comando(
+                comando, self.pasta(),
+                (lambda t: ao_vivo('saida', id=id_, comando=comando, saida=agente._limpar_saida(t))) if ao_vivo else None)
             self.agiu = True
             self._marcar(id_, nome, entrada, pagina, ok, saida=agente._limpar_saida(saida))
             return _cortar(saida)

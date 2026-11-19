@@ -550,3 +550,31 @@ def test_o_claude_traduz_a_decisao_pro_sdk(monkeypatch):
     monkeypatch.setattr(aprovacoes, 'decidir', plano)
     r = asyncio.run(agente._decidir('ExitPlanMode', {}, lambda *a: None))
     assert isinstance(r, PermissionResultAllow) and r.updated_permissions[0].mode == 'default'
+
+
+def test_a_saida_do_comando_vai_pra_tela_enquanto_ele_roda():
+    """Como no Claude: a etapa `saida`, ao vivo, com o id do passo que fecha no fim."""
+    class ComAoVivo(Gravador):
+        def __init__(self):
+            super().__init__()
+            self.vivo = []
+
+        def ao_vivo(self, etapa, **dados):
+            self.vivo.append((etapa, dados))
+
+    g = ComAoVivo()
+    c = corpo.Corpo(43, g, navegar=False)
+    comando = '1..4 | ForEach-Object { Write-Output "linha $_"; Start-Sleep -Milliseconds 400 }'
+
+    async def tudo():
+        tarefa = asyncio.ensure_future(c.rodar('PowerShell', {'command': comando, 'description': 'conta'}))
+        await _ate_o_cartao(g, True)
+        return await tarefa
+
+    saida = asyncio.run(tudo())
+    assert 'linha 4' in saida
+    parciais = [d['saida'] for e, d in g.vivo if e == 'saida']
+    # Chegou um pedaço antes do fim (sem todas as linhas ainda).
+    assert parciais and 'linha 1' in parciais[0] and 'linha 4' not in parciais[0]
+    passo = next(d for e, d in g.lista if e == 'ferramenta')
+    assert {d['id'] for e, d in g.vivo} == {passo['id']} and g.vivo[0][1]['comando'] == comando
