@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Awaitable, Callable
 
-from . import banco, navegador
+from . import banco, navegador, pc
 from .etapas import MUDA
 
 log = logging.getLogger('solis.corpo')
@@ -281,10 +281,16 @@ class Corpo:
         self._nav: list[dict] | None = None
         # O terminal (PowerShell), com o cartão. SOLIS_CORPO_TERMINAL=0 tira.
         self.terminal = os.name == 'nt' and os.environ.get('SOLIS_CORPO_TERMINAL', '1') != '0'
+        # Ler os arquivos das pastas autorizadas (pc.py), livre, como o Claude lê.
+        # Decisão do Matheus (18/11/2026): "podem, como o Claude".
+        self.arquivos = pc.disponivel()
         self.agiu = False  # rodou alguma ferramenta que muda algo (a queda pro próximo cérebro refaria)
 
     async def especificacoes(self) -> list[dict]:
         specs = [_funcao(f.completo, f.descricao, f.parametros) for f in DO_SOLIS]
+        if self.arquivos:
+            specs += [_funcao(SOLIS + f['function']['name'], f['function']['description'], f['function']['parameters'])
+                      for f in pc.FERRAMENTAS]
         if self.terminal:
             specs.append(copy.deepcopy(_TERMINAL))
         if self.navegar:
@@ -304,8 +310,11 @@ class Corpo:
         return self._nav
 
     def tem(self, nome: str) -> bool:
-        return (nome in _POR_NOME or (self.terminal and nome == TERMINAL)
+        return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS))
+
+    def _de_arquivo(self, nome: str) -> bool:
+        return self.arquivos and nome.startswith(SOLIS) and nome.removeprefix(SOLIS) in pc.FUNCOES
 
     def pasta(self) -> str:
         """Onde o comando roda: a pasta do projeto da conversa, ou a de trabalho do Solis."""
@@ -348,6 +357,11 @@ class Corpo:
                                  'hora': (entrada.get('hora') or '').strip() or None})
             self._marcar(id_, nome, entrada, pagina, ok)
             return saida
+        if self._de_arquivo(nome):
+            # Só dentro das pastas autorizadas: o próprio pc.py recusa o resto.
+            saida, ok = await asyncio.to_thread(pc.rodar, nome.removeprefix(SOLIS), entrada, self.conversa)
+            self.etapas.marcar('ferramenta', ferramenta=nome, alvo=pc.alvo(entrada), ok=ok, id=id_)
+            return _cortar(saida)
         if nome == TERMINAL:
             comando = str(entrada.get('command') or '').strip()
             if not comando:

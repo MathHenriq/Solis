@@ -126,9 +126,20 @@ CONVERSA = [
 
 
 @pytest.mark.parametrize('texto', ARQUIVOS)
-def test_pergunta_de_arquivo_vai_pro_local(pastas, texto):
-    from solis import roteador
+def test_pergunta_de_arquivo_vai_pro_local_quando_ninguem_da_nuvem_le_arquivo(pastas, texto, monkeypatch):
+    from solis import cerebros, roteador
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: nome == 'codex')  # o Codex não lê arquivo
     assert roteador.escolher(texto)[1] == ['local']
+
+
+@pytest.mark.parametrize('texto', ARQUIVOS[:4])
+def test_pergunta_de_arquivo_segue_o_online_primeiro(pastas, texto, monkeypatch):
+    """Decisão do Matheus (18/11/2026): os de API "podem, como o Claude" ler as
+    pastas autorizadas. O local fica de reserva, no lugar dele na ordem."""
+    from solis import banco, cerebros, roteador
+    banco.guardar_ajuste('cerebros', [{'nome': 'groq', 'ligado': True}, {'nome': 'local', 'ligado': True}])
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: True)
+    assert roteador.escolher(texto)[1] == ['groq', 'local']
 
 
 @pytest.mark.parametrize('texto', CONVERSA)
@@ -139,10 +150,41 @@ def test_conversa_comum_segue_a_ordem(pastas, texto):
 
 def test_sem_pastas_nada_muda(pastas, monkeypatch):
     from solis import cerebros, roteador
-    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: True)
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: nome == 'codex')
     assert roteador.escolher('O que tem na minha pasta Documentos?')[1] == ['local']
     pc.guardar_pastas([])  # sem pasta autorizada, o local não tem o que ler: segue a ordem
     assert roteador.escolher('O que tem na minha pasta Documentos?')[1][0] != 'local'
+
+
+def test_a_groq_le_o_arquivo_pelo_corpo_sem_cartao_e_so_nas_pastas(pastas):
+    import asyncio
+    from solis import corpo
+    docs, fora = pastas
+
+    class G:
+        def __init__(self):
+            self.lista = []
+
+        def marcar(self, etapa, **dados):
+            self.lista.append((etapa, dados))
+    g = G()
+    c = corpo.Corpo(1, g, navegar=False)
+    nomes = [x['function']['name'] for x in asyncio.run(c.especificacoes())]
+    assert {'mcp__solis__listar_pasta', 'mcp__solis__buscar_arquivos', 'mcp__solis__ler_arquivo'} <= set(nomes)
+    lido = asyncio.run(c.rodar('mcp__solis__ler_arquivo', {'caminho': str(docs / 'contratos' / 'contrato-aluguel.txt')}))
+    assert 'multa de 3 aluguéis' in lido
+    assert not any(e == 'aprovacao' for e, _ in g.lista)  # ler nas pastas é livre, como no Claude
+    negado = asyncio.run(c.rodar('mcp__solis__ler_arquivo', {'caminho': str(fora / 'senhas.txt')}))
+    assert 'Fora das pastas' in negado and 'não pode ler' not in negado
+    assert [d['ok'] for e, d in g.lista if e == 'ferramenta'] == [True, False]
+
+
+def test_sem_pastas_o_corpo_nao_oferece_arquivo(pastas):
+    import asyncio
+    from solis import corpo
+    pc.guardar_pastas([])
+    nomes = [x['function']['name'] for x in asyncio.run(corpo.Corpo(1, navegar=False).especificacoes())]
+    assert 'mcp__solis__ler_arquivo' not in nomes
 
 
 # — Rotas ————————————————————————————————————————————————————————————————————————
