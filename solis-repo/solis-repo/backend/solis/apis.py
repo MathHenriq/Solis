@@ -96,6 +96,26 @@ ESPERA_NO_MEIO_MAX = 30.0
 ESPERAS_NO_MEIO = 3
 
 
+class Lotado(CerebroFalhou):
+    """O modelo escolhido não atende agora (503 "alta demanda", ou nem começa
+    a responder): outro modelo do mesmo serviço pode atender. `por`: quanto
+    tempo ele fica de lado."""
+    def __init__(self, motivo: str, por: float | None = None):
+        super().__init__(motivo)
+        self.por = por if por is not None else LOTADO_S
+
+
+# Medido em 19/11/2026 na conta do Matheus: o gemini-3.8-flash (o escolhido)
+# deu 503 "alta demanda" três dias seguidos, e dos 15 Flash da conta só o
+# gemini-3-flash-preview e o gemini-3.1-flash-lite responderam. O lotado fica
+# de lado este tanto, e a resposta vai no próximo da lista do serviço; o
+# cérebro só cai quando nenhum atende.
+LOTADO_S = 10 * 60
+SUMIU_S = 24 * 3600
+TROCAS_MAX = 6
+_lotados: dict[tuple[str, str], float] = {}
+
+
 class ChaveRecusada(Exception):
     """O serviço não aceitou a chave (401/403)."""
 
@@ -144,6 +164,36 @@ def _escolher(nome: str, ids: list[str]) -> str | None:
         if preferido in ids:
             return preferido
     return ids[0] if ids else None
+
+
+def _reservas_de(nome: str, ids: list[str]) -> list[str]:
+    """Os modelos do serviço na ordem de usar, do escolhido pro último (o
+    Gemini tem vários Flash, e o grátis é por modelo). Só o Gemini tem reserva."""
+    if nome != 'gemini':
+        return []
+    fora = ('tts', 'image', 'live', 'audio', 'embedding', 'exp', 'thinking')
+    flash = [i for i in ids if 'flash' in i and not any(f in i for f in fora)]
+    # Os de conversa primeiro, como no _escolher; os lite por último.
+    # Pela versão, com ou sem preview: medido em 19/11/2026, o 3-flash-preview
+    # atendia e os estáveis 3.5 a 3.8 não, e ele ficava depois de todos.
+    flash.sort(key=lambda i: ('lite' not in i, _versao(i), 'preview' not in i), reverse=True)
+    return flash
+
+
+async def _modelo_livre(nome: str, chave: str, preferido: str, cliente=None) -> str | None:
+    """O preferido, se não está lotado; senão o próximo da lista do serviço
+    (guardada ao salvar a chave; numa chave antiga, pedida ao serviço uma vez)."""
+    agora = time.time()
+    if _lotados.get((nome, preferido), 0) <= agora:
+        return preferido
+    reservas = banco.ajuste(f'modelos:{nome}')
+    if reservas is None:
+        try:
+            reservas = _reservas_de(nome, await listar(nome, chave))
+        except (ChaveRecusada, ProvedorFora, httpx.HTTPError):
+            reservas = []
+        banco.guardar_ajuste(f'modelos:{nome}', reservas)
+    return next((m for m in reservas if _lotados.get((nome, m), 0) <= agora), None)
 
 
 async def listar(nome: str, chave: str, transporte: httpx.AsyncBaseTransport | None = None) -> list[str]:
@@ -195,6 +245,7 @@ async def guardar_chave(nome: str, chave: str, transporte: httpx.AsyncBaseTransp
         raise ProvedorFora('nenhum modelo grátis de conversa disponível')
     banco.guardar_ajuste(f'chave:{nome}', cofre.selar(chave))
     banco.guardar_ajuste(f'modelo:{nome}', escolhido)
+    banco.guardar_ajuste(f'modelos:{nome}', _reservas_de(nome, ids))
     return escolhido
 
 
@@ -277,6 +328,7 @@ async def responder(
     chave, escolhido = _chave_de(nome), modelo(nome)
     if not chave or not escolhido:
         raise CerebroFalhou('sem chave')
+    escolhido = await _modelo_livre(nome, chave, escolhido) or escolhido
     mensagens = [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}]
     ferramentas = await corpo.especificacoes() if corpo is not None else []
     rodadas = _corpo.RODADAS_MAX if ferramentas else 0
@@ -298,8 +350,9 @@ async def responder(
                         pedido['reasoning_effort'] = RACIOCINIO_NA_VOZ
                     chamadas: dict[int, dict] = {}
                     dito = ''
+                    esperas = trocas = 0
                     try:
-                        for espera in range(ESPERAS_NO_MEIO + 1):
+                        while True:
                             try:
                                 async for tipo, valor in _uma_rodada(c, nome, chave, pedido, etapas, rodada == 0):
                                     # Pedir ferramenta também é sinal de vida: o prazo da
@@ -314,13 +367,35 @@ async def responder(
                                     d['id'] = valor.get('id') or d['id']
                                     d['nome'] += f.get('name') or ''
                                     d['args'] += f.get('arguments') or ''
+                                    # O Gemini 3 manda a assinatura do raciocínio junto da
+                                    # chamada e recusa (400) a rodada seguinte sem ela.
+                                    if valor.get('extra_content'):
+                                        d['extra'] = valor['extra_content']
                                 break
-                            except Limite as e:
+                            except (Lotado, Limite) as e:
+                                # No começo (nada dito, nada feito), outro modelo do
+                                # mesmo serviço pode atender: o lotado fica de lado.
+                                # No Gemini o limite grátis é por modelo, então o 429
+                                # também troca.
+                                trocar_modelo = (rodada == 0 and not dito and not chamadas and trocas < TROCAS_MAX
+                                                 and (isinstance(e, Lotado) or nome == 'gemini'))
+                                if trocar_modelo:
+                                    _lotados[(nome, escolhido)] = time.time() + getattr(e, 'por', LOTADO_S)
+                                    proximo = await _modelo_livre(nome, chave, escolhido)
+                                    if proximo and proximo != escolhido:
+                                        etapas.marcar('modelo', cerebro=nome, modelo=proximo, antes=escolhido, motivo=str(e))
+                                        escolhido = pedido['model'] = proximo
+                                        trocas += 1
+                                        continue
+                                if isinstance(e, Lotado):
+                                    raise
                                 # No meio da tarefa (já rodou ferramenta), o limite
                                 # por minuto se espera; no começo, cai pro próximo.
                                 quanto = (e.ate - time.time()) if e.ate else 10.0
-                                if rodada == 0 or espera == ESPERAS_NO_MEIO or quanto > ESPERA_NO_MEIO_MAX:
+                                if rodada == 0 or esperas == ESPERAS_NO_MEIO or quanto > ESPERA_NO_MEIO_MAX:
+                                    pausar(nome, e.ate, 'o limite grátis acabou')
                                     raise
+                                esperas += 1
                                 etapas.marcar('esperando', cerebro=nome, segundos=round(max(quanto, 1.0), 1))
                                 await asyncio.sleep(max(quanto, 1.0))
                     except CerebroFalhou as e:
@@ -346,7 +421,8 @@ async def responder(
                         yield '\n\nParei: foram muitas ações seguidas sem chegar numa resposta.'
                         return
                     pedidas = [{'id': d['id'] or f'chamada_{rodada}_{i}', 'type': 'function',
-                                'function': {'name': d['nome'], 'arguments': d['args'] or '{}'}}
+                                'function': {'name': d['nome'], 'arguments': d['args'] or '{}'},
+                                **_assinatura(nome, d)}
                                for i, d in sorted(chamadas.items())]
                     mensagens.append({'role': 'assistant', 'content': dito or None, 'tool_calls': pedidas})
                     for p in pedidas:
@@ -358,21 +434,52 @@ async def responder(
             raise CerebroFalhou(f'{type(e).__name__}: {e}'[:200]) from e
 
 
+def _assinatura(nome: str, chamada: dict) -> dict:
+    """O que volta junto de cada chamada de ferramenta na rodada seguinte: a
+    assinatura do raciocínio do Gemini 3 (`extra_content.google.thought_signature`),
+    sem a qual ele recusa com 400 ("Function call is missing a thought_signature",
+    visto em 19/11/2026). Sem ela na chamada, o valor que o próprio Google aceita
+    pra histórico sem assinatura."""
+    if chamada.get('extra'):
+        return {'extra_content': chamada['extra']}
+    if nome == 'gemini':
+        return {'extra_content': {'google': {'thought_signature': 'skip_thought_signature_validator'}}}
+    return {}
+
+
+@contextlib.asynccontextmanager
+async def _fechar(r: httpx.Response):
+    try:
+        yield r
+    finally:
+        await r.aclose()
+
+
 async def _uma_rodada(c: httpx.AsyncClient, nome: str, chave: str, pedido: dict, etapas, primeira_rodada: bool):
     """Um pedido ao chat/completions: ('texto', pedaço) e ('chamada', parte de
     um tool_call) conforme chegam."""
-    async with c.stream(
-        'POST',
-        f"{PROVEDORES[nome]['base']}/chat/completions",
-        headers={'Authorization': f'Bearer {chave}'},
-        json=pedido,
-        timeout=TIMEOUT_RESPOSTA,
-    ) as r:
+    pedir = c.build_request('POST', f"{PROVEDORES[nome]['base']}/chat/completions",
+                            headers={'Authorization': f'Bearer {chave}'}, json=pedido, timeout=TIMEOUT_RESPOSTA)
+    try:
+        # O começo da resposta tem prazo na primeira rodada: medido no Gemini
+        # (19/11/2026), modelo lotado ficava 60 s calado até o ReadTimeout.
+        async with asyncio.timeout(PRIMEIRO_MAX if primeira_rodada else None):
+            r = await c.send(pedir, stream=True)
+    except (TimeoutError, httpx.TimeoutException) as e:
+        raise Lotado(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
+    async with _fechar(r):
         if primeira_rodada:
             etapas.marcar('pedido', cerebro=nome)
         if r.status_code == 429:
-            pausar(nome, _espera(r), 'o limite grátis acabou')
             raise Limite('o limite grátis acabou', _espera(r))
+        if r.status_code == 503:
+            await r.aread()
+            raise Lotado('o modelo está lotado (503)')
+        if r.status_code == 404:
+            # "Não está mais disponível pra novos usuários" (o gemini-2.5-flash,
+            # 19/11/2026): fica de lado um dia.
+            await r.aread()
+            raise Lotado('o modelo não existe mais pra esta conta (404)', SUMIU_S)
         if r.status_code in (401, 403):
             pausar(nome, time.time() + 24 * 3600, 'a chave foi recusada')
             raise CerebroFalhou('a chave foi recusada')

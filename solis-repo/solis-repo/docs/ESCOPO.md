@@ -889,8 +889,24 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      do Claude: a decisão é uma `Decisao` (pode, por que não, se o plano foi aprovado); o Claude só
      traduz pros tipos do SDK, e o corpo usa direto. Os 730 testes de antes passaram sem mudar
      nenhum (só o que ajustava o tempo de espera do cartão, que mudou de lugar).
-     **Falta no corpo:** a saída do comando ao vivo, o navegador e a tela no local (medir), e a
-     nota escondida em e-mail.
+     **A saída do comando ao vivo (19/11/2026).** O terminal do corpo manda a saída enquanto o
+     comando roda (a etapa `saida`, a mesma do Claude, a cada 0,3 s), e a tela mostra no quadro de
+     sempre embaixo da resposta. Provado na tela de teste com uma Groq de mentira: cartão "O Groq
+     quer rodar um comando no terminal", aprovado, e as linhas "Baixando parte 1 de 8..." chegando
+     uma a uma; no fim, o passo fecha.
+     **O Gemini no corpo (19/11/2026).** Três dias de 503 ("alta demanda") no gemini-3.8-flash, o
+     escolhido; dos 15 Flash da conta, só o 3-flash-preview e o 3.1-flash-lite respondiam. Agora,
+     antes de dizer qualquer coisa, o modelo lotado (503, ou sem começar a responder em 15 s) fica
+     10 min de lado e a resposta vai no próximo Flash da lista do serviço (por versão, com ou sem
+     preview, os lite por último; no Gemini o 429 também troca, porque o grátis é por modelo; o
+     404 "não existe mais pra esta conta" fica um dia de lado). O cérebro só cai quando nenhum
+     atende. E o Gemini 3 exige a assinatura do raciocínio de volta em cada chamada de ferramenta
+     (`extra_content.google.thought_signature`; sem ela, 400): agora volta. Medido com o Gemini de
+     verdade: o contrato de teste (trocou 4 vezes até o 3-flash-preview; leu e respondeu "dia 12,
+     multa de 2 aluguéis", 47 s) e o example.com ("Example Domain", 21 s) funcionaram; a Wikipédia
+     não (o modelo lotou no meio da tarefa, e no meio não se troca: a assinatura de um modelo não
+     vale no outro).
+     **Falta no corpo:** o navegador e a tela no local (medir), e a nota escondida em e-mail.
 
 ### Controle do PC e visão da tela
 

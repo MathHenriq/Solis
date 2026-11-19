@@ -258,3 +258,130 @@ def test_na_voz_o_prazo_acaba_na_primeira_palavra(monkeypatch):
 
     t = servico(lambda req: httpx.Response(200, stream=Devagar(), headers={'content-type': 'text/event-stream'}))
     assert ''.join(coletar(apis.responder('groq', 's', 'p', transporte=t, rapido=True))) == 'Um dois.'
+
+
+# --- modelo lotado: outro do mesmo serviço atende ---------------------------
+
+def _gemini_com(reservas):
+    com_chave('gemini', reservas[0])
+    banco.guardar_ajuste('modelos:gemini', reservas)
+
+
+@pytest.fixture(autouse=True)
+def _sem_lotados():
+    apis._lotados.clear()
+    yield
+    apis._lotados.clear()
+
+
+def test_gemini_lotado_troca_de_modelo_e_responde():
+    """Medido em 19/11/2026: o gemini-3.8-flash deu 503 três dias; o 3-flash-preview atendia."""
+    _gemini_com(['gemini-3.8-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite'])
+    vistos = []
+
+    def rota(req):
+        modelo = json.loads(req.content)['model']
+        vistos.append(modelo)
+        if modelo == 'gemini-3.8-flash':
+            return httpx.Response(503, text='This model is currently experiencing high demand.')
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'Oi!'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+
+    g = Gravador()
+    assert ''.join(coletar(apis.responder('gemini', 'sis', 'oi', g, servico(rota)))) == 'Oi!'
+    assert vistos == ['gemini-3.8-flash', 'gemini-3-flash-preview']
+    assert ('modelo', {'cerebro': 'gemini', 'modelo': 'gemini-3-flash-preview', 'antes': 'gemini-3.8-flash',
+                       'motivo': 'o modelo está lotado (503)'}) in g.lista
+    # A próxima vai direto no que atende: o lotado fica de lado por um tempo.
+    vistos.clear()
+    coletar(apis.responder('gemini', 'sis', 'oi de novo', Gravador(), servico(rota)))
+    assert vistos == ['gemini-3-flash-preview']
+    assert cerebros.pausa('gemini') is None
+
+
+def test_gemini_no_limite_de_um_modelo_tenta_outro():
+    """No grátis do Gemini o limite é por modelo."""
+    _gemini_com(['gemini-3.8-flash', 'gemini-3.1-flash-lite'])
+
+    def rota(req):
+        if json.loads(req.content)['model'] == 'gemini-3.8-flash':
+            return httpx.Response(429, text='quota', headers={'retry-after': '60'})
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'ok'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+
+    assert ''.join(coletar(apis.responder('gemini', 'sis', 'oi', Gravador(), servico(rota)))) == 'ok'
+
+
+def test_todos_lotados_o_cerebro_cai():
+    _gemini_com(['gemini-3.8-flash', 'gemini-3-flash-preview'])
+    rota = lambda req: httpx.Response(503, text='lotado')  # noqa: E731
+    with pytest.raises(cerebros.CerebroFalhou):
+        coletar(apis.responder('gemini', 'sis', 'oi', Gravador(), servico(rota)))
+
+
+def test_quem_nem_comeca_a_responder_conta_como_lotado(monkeypatch):
+    _gemini_com(['gemini-3.8-flash', 'gemini-3-flash-preview'])
+    monkeypatch.setattr(apis, 'PRIMEIRO_MAX', 0.2)
+
+    async def rota(req):
+        if json.loads(req.content)['model'] == 'gemini-3.8-flash':
+            await asyncio.sleep(2)
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'cheguei'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+
+    assert ''.join(coletar(apis.responder('gemini', 'sis', 'oi', Gravador(), servico(rota)))) == 'cheguei'
+
+
+def test_a_groq_sem_reserva_lotada_cai():
+    com_chave()
+    with pytest.raises(cerebros.CerebroFalhou):
+        coletar(apis.responder('groq', 'sis', 'oi', Gravador(), servico(lambda req: httpx.Response(503, text='x'))))
+
+
+def test_guardar_a_chave_guarda_a_lista_de_reserva():
+    def rota(req):
+        return httpx.Response(200, json={'data': [{'id': i} for i in (
+            'gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3-flash-preview', 'gemini-3.8-flash-tts')]})
+    assert asyncio.run(apis.guardar_chave('gemini', 'AIza_boa', servico(rota))) == 'gemini-3.8-flash'
+    assert banco.ajuste('modelos:gemini') == ['gemini-3.8-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite']
+
+
+def test_a_ordem_e_pela_versao_com_ou_sem_preview_e_o_404_fica_de_lado_um_dia():
+    ids = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.1-flash-lite']
+    assert apis._reservas_de('gemini', ids) == ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview',
+                                                'gemini-2.5-flash', 'gemini-3.1-flash-lite']
+    _gemini_com(['gemini-2.5-flash', 'gemini-3-flash-preview'])
+
+    def rota(req):
+        if json.loads(req.content)['model'] == 'gemini-2.5-flash':
+            return httpx.Response(404, text='no longer available to new users')
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'ok'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+    assert ''.join(coletar(apis.responder('gemini', 'sis', 'oi', Gravador(), servico(rota)))) == 'ok'
+    assert apis._lotados[('gemini', 'gemini-2.5-flash')] - time.time() > 23 * 3600
+
+
+def test_a_assinatura_do_gemini_volta_na_rodada_seguinte():
+    """Gemini 3: sem a thought_signature de volta, a rodada seguinte dá 400."""
+    from solis import corpo
+    _gemini_com(['gemini-3-flash-preview'])
+    pedidos = []
+
+    def rota(req):
+        pedidos.append(json.loads(req.content))
+        if len(pedidos) == 1:
+            return httpx.Response(200, text=sse({'choices': [{'delta': {'tool_calls': [{
+                'index': 0, 'id': 'c1', 'type': 'function', 'function': {'name': 'mcp__solis__hora', 'arguments': '{}'},
+                'extra_content': {'google': {'thought_signature': 'ASSINATURA'}}}]}}]}),
+                headers={'content-type': 'text/event-stream'})
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'São 10h.'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+
+    g = Gravador()
+    saida = ''.join(coletar(apis.responder('gemini', 'sis', 'que horas', g, servico(rota),
+                                           corpo=corpo.Corpo(1, g, navegar=False))))
+    assert saida == 'São 10h.'
+    chamada = pedidos[1]['messages'][-2]['tool_calls'][0]
+    assert chamada['extra_content'] == {'google': {'thought_signature': 'ASSINATURA'}}
+    # A Groq não recebe nada a mais.
+    assert apis._assinatura('groq', {'id': 'x'}) == {}
