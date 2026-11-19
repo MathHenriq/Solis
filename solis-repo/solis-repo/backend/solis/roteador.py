@@ -181,6 +181,16 @@ NOTA_ARQUIVOS = (
 )
 
 
+# Ler, criar e editar arquivos (editar.py): as mesmas do Claude, com o mesmo cartão.
+NOTA_EDITAR = (
+    '\n\nVocê também lê, cria e edita arquivos (Read, Write, Edit), como o Claude: Read é livre na pasta do projeto, '
+    'na de trabalho do Solis e nas autorizadas; Write e Edit mostram ao Matheus um cartão com o que muda e só '
+    'acontecem se ele aprovar. Pra mudar um pedaço de um arquivo, leia antes com Read e use Edit com o trecho '
+    'exato; Write é pra arquivo novo ou pra reescrever um inteiro. Caminho relativo vale a partir da pasta do '
+    'projeto da conversa. Nunca diga que mudou um arquivo sem a ferramenta ter dito que mudou.'
+)
+
+
 NOTA_TELA = (
     '\n\nVocê pode ver e controlar a tela do PC do Matheus pelo texto dela: tela_ler devolve cada linha de texto '
     'com o centro [x,y], e as ações (tela_clicar, tela_digitar, tela_tecla, tela_rolar, tela_mover) usam essas '
@@ -192,12 +202,13 @@ NOTA_TELA = (
 
 
 def sistema_para(nome: str, navegar: bool = False, com_o_corpo: bool = False, terminal: bool = False,
-                 arquivos: bool = False, tela: bool = False) -> str:
+                 arquivos: bool = False, tela: bool = False, editar: bool = False) -> str:
     if nome == 'claude':
         return SISTEMA_CLAUDE
     if com_o_corpo:
-        return (SISTEMA_CORPO + (NOTA_ARQUIVOS if arquivos else '') + (NOTA_TERMINAL if terminal else '')
-                + (navegador.instrucoes() if navegar else '') + (NOTA_TELA if tela else ''))
+        return (SISTEMA_CORPO + (NOTA_ARQUIVOS if arquivos else '') + (NOTA_EDITAR if editar else '')
+                + (NOTA_TERMINAL if terminal else '') + (navegador.instrucoes() if navegar else '')
+                + (NOTA_TELA if tela else ''))
     return SISTEMA_NUVEM
 
 
@@ -230,11 +241,11 @@ NOTA_PASSAR = (
 # Com o corpo: o que ainda falta a eles (a tela, a busca na web; sem o
 # terminal, também os comandos e os arquivos).
 def _sem_o_resto(navegar: bool, terminal: bool = False, arquivos: bool = False, tela: bool = False,
-                 hoje: bool = True) -> str:
+                 hoje: bool = True, editar: bool = False) -> str:
     """`hoje`: dizer que ele não sabe o que mudou hoje (falso quando ele mesmo
     procura no navegador)."""
-    falta = [] if terminal else ['não roda comandos',
-                                 'não escreve arquivos' if arquivos else 'não lê nem escreve arquivos do computador']
+    falta = [] if terminal else ['não roda comandos'] + (
+        [] if editar else ['não escreve arquivos' if arquivos else 'não lê nem escreve arquivos do computador'])
     if not tela:
         falta.append('não controla a tela nem outros programas' + (' (o navegador, sim)' if navegar else ''))
     if hoje:
@@ -276,7 +287,7 @@ NOTA_SEM_APRENDIZADO_CLAUDE = (
 
 
 def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_corpo: bool = False,
-                     terminal: bool = False, arquivos: bool = False, tela: bool = False) -> str:
+                     terminal: bool = False, arquivos: bool = False, tela: bool = False, editar: bool = False) -> str:
     """O que vai no fim do sistema de cada cérebro: sem ferramentas, a marca pra
     passar o pedido (se alguém com ferramentas vem depois na fila, ou ele mesmo
     com o corpo) ou dizer que não consegue; e, com o aprendizado fora, que nada
@@ -287,12 +298,13 @@ def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_
         # Com o Claude na fila, a informação de hoje vai pra ele (busca na web,
         # sem abrir janela); sem ele, o navegador.
         pelo_navegador = navegar and not tem
-        notas += ('\n\n' + _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not pelo_navegador) + (
+        falta = _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not pelo_navegador, editar=editar)
+        notas += ('\n\n' + falta + (
             f' Quando o pedido precisar de uma dessas coisas, responda exatamente {PASSA} e mais nada: o Solis passa '
             'o pedido pra quem tem as ferramentas. O que você já sabe, conversa, e o que as suas ferramentas fazem '
             'não precisam disso: responda ou faça.' if tem else
             ' Quando o pedido precisar de uma dessas coisas, diga em uma frase que isso você não consegue fazer agora.'
-            if _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not pelo_navegador).startswith('Nesta') else '')
+            if falta.startswith('Nesta') else '')
             + (NOTA_HOJE_NO_NAVEGADOR if pelo_navegador else ''))
     elif nome not in COM_FERRAMENTAS and nome != 'local':
         notas += NOTA_PASSAR if com_corpo(nome) or any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
@@ -569,6 +581,8 @@ async def responder(
                     # a tela, sem piorar o terminal, a agenda e a conversa.
                     o_corpo = corpo.Corpo(conversa, etapas, cerebro='local')
                     o_corpo.arquivos = o_corpo.mcp = False
+                    # Ler/criar/editar (editar.py): ainda não medido no local.
+                    o_corpo.editar = False
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
@@ -586,11 +600,12 @@ async def responder(
                 terminal = bool(proprio and proprio.terminal)
                 arquivos = bool(proprio and proprio.arquivos)
                 na_tela = bool(proprio and proprio.tela)
+                edita = bool(proprio and proprio.editar)
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela)
+                    sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita)
                     + nota_projeto(conversa, le_arquivos=nome == 'claude')
-                    + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela),
+                    + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela, edita),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],

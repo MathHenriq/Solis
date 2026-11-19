@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Awaitable, Callable
 
-from . import aprovacoes, banco, injecao, navegador, pc, tela
+from . import aprovacoes, banco, editar, injecao, navegador, pc, tela
 from .etapas import MUDA
 
 log = logging.getLogger('solis.corpo')
@@ -403,6 +403,9 @@ class Corpo:
         self._mcp: dict[str, tuple[dict, dict]] | None = None  # nome completo → (servidor, ferramenta)
         self.mcp = os.environ.get('SOLIS_CORPO_MCP', '1') != '0'
         self.agiu = False  # rodou alguma ferramenta que muda algo (a queda pro próximo cérebro refaria)
+        # Ler, criar e editar arquivos (editar.py): Read, Write e Edit, as do
+        # Claude, com o mesmo cartão e o diff. SOLIS_CORPO_EDITAR=0 tira.
+        self.editar = os.environ.get('SOLIS_CORPO_EDITAR', '1') != '0'
         # As ordens escondidas tiradas do texto de fora (injecao.py): o Solis
         # avisa o Matheus no fim da resposta (roteador._com_o_aviso).
         self.tiradas: list[tuple[str, str]] = []
@@ -412,6 +415,8 @@ class Corpo:
         if self.arquivos:
             specs += [_funcao(SOLIS + f['function']['name'], f['function']['description'], f['function']['parameters'])
                       for f in pc.FERRAMENTAS]
+        if self.editar:
+            specs += [_funcao(n, d, p) for n, d, p in editar.ESPECIFICACOES]
         if self.terminal:
             specs.append(copy.deepcopy(_TERMINAL))
         if self.tela:
@@ -451,6 +456,7 @@ class Corpo:
 
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
+                or (self.editar and nome in editar.NOMES)
                 or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
                 or nome in self._do_mcp())
@@ -484,13 +490,35 @@ class Corpo:
                     dados = {**dados, 'cerebro': self.cerebro}
                 self.etapas.marcar(etapa, **dados)
 
+        # A pasta e o modo da conversa: o caminho relativo, o "aceitar edições"
+        # e o planejar valem como no Claude.
+        info = (banco.projeto_da_conversa(self.conversa) if self.conversa is not None
+                else {'pasta': None, 'modo': 'pedir'})
+        if nome in editar.NOMES:
+            recusa = await asyncio.to_thread(self._antes_de_editar, nome, entrada, info)
+            if recusa:
+                self._marcar(id_, nome, entrada, pagina, ok=False)
+                return recusa
         # A aprovação do Solis (aprovacoes.py): a mesma do Claude, sem o SDK dele.
         do_mcp = self._do_mcp().get(nome)
         decisao = await aprovacoes.decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina,
-                                           so_le=bool(do_mcp and do_mcp[1].get('so_le')))
+                                           so_le=bool(do_mcp and do_mcp[1].get('so_le')),
+                                           projeto=info['pasta'], modo=info['modo'])
         if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
             return decisao.mensagem or 'O Matheus recusou.'
+        if nome in editar.NOMES:
+            faz = {'Read': editar.ler, 'Write': editar.escrever, 'Edit': editar.editar}[nome]
+            try:
+                saida, ok = await asyncio.to_thread(faz, entrada, info['pasta']), True
+            except editar.NaoDeu as e:
+                saida, ok = str(e), False
+            except (OSError, ValueError, TypeError) as e:
+                saida, ok = f'Não consegui: {e}.', False
+            if ok and nome != 'Read':
+                self.agiu = True
+            self._marcar(id_, nome, entrada, pagina, ok)
+            return _cortar(saida)
         if nome in _POR_NOME:
             try:
                 saida, ok = await _POR_NOME[nome].rodar(entrada), True
@@ -565,6 +593,24 @@ class Corpo:
                 self.agiu = True
         self._marcar(id_, nome, entrada, _paginas.get(self.conversa), ok)
         return cercar(_cortar(saida), 'da página', self.tiradas) if ok else saida
+
+    @staticmethod
+    def _antes_de_editar(nome: str, entrada: dict, info: dict) -> str | None:
+        """O que barra antes do cartão (o texto pro modelo), ou None: o modo
+        planejar não escreve, e o pedido que vai falhar nem chega ao Matheus."""
+        try:
+            if nome != 'Read' and info.get('modo') == 'planejar':
+                return ('A conversa está no modo planejar: nada é escrito. Mostre o plano na resposta; o Matheus '
+                        'troca o modo pra você executar.')
+            if nome == 'Edit':
+                editar.conferir_edicao(entrada, info.get('pasta'))
+            elif nome == 'Read' and not editar.caminho(entrada, info.get('pasta')).is_file():
+                return f'Não existe: {editar.caminho(entrada, info.get("pasta"))}.'
+        except editar.NaoDeu as e:
+            return str(e)
+        except (OSError, ValueError, TypeError) as e:
+            return f'Não consegui: {e}.'
+        return None
 
     def _marcar(self, id_: str, nome: str, entrada: dict, pagina: str | None, ok: bool, **extra) -> None:
         from . import agente

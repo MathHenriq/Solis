@@ -1040,6 +1040,22 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      local). Os arquivos das pastas dele, não: são dele, e uma nota com prompts ("Claude, responda
      em português") é conteúdo; lá a cerca sozinha já deu 0 de 12. O Claude segue lendo as páginas
      pelo servidor dele, sem a cerca do corpo (pendência).
+   - **Fechar a paridade, 1: ler, criar e editar arquivos em todo cérebro (19/11/2026).** O
+     Matheus escolheu fechar a paridade antes da voz. O primeiro item (P1): escrever e editar
+     arquivo era só do Claude. Agora o corpo tem `Read`, `Write` e `Edit` (`solis/editar.py`), com
+     os nomes do Claude, então valem o mesmo cartão (o diff do que muda, "Sempre nesta conversa"),
+     o mesmo título ("A Groq quer editar um arquivo") e os mesmos passos ("Li", "Editei"). Read é
+     livre na pasta do projeto, na de trabalho do Solis e nas autorizadas; fora delas, o cartão.
+     Write e Edit sempre pedem; o modo "aceitar edições" libera dentro do projeto, e o "planejar"
+     não escreve. Uma edição que vai falhar (o trecho não está no arquivo, ou aparece mais de uma
+     vez, ou o arquivo não existe) volta pro modelo antes do cartão: o Matheus não aprova o que não
+     vai acontecer. Arquivo do Windows (`\r\n`) é editado e mantém o fim de linha. Medido com a
+     Groq de verdade (gpt-oss-120b, grátis) numa pasta de teste, as ferramentas rodando e os
+     cartões aprovados pelo script: 6 de 6 (trocar o nome de uma função, criar uma lista em
+     `notas.md`, dizer a porta de um `config.json`, mudar a porta, acrescentar uma função, e "a
+     capital da Austrália" sem ferramenta nenhuma), de 0,9 a 2,9 s, lendo antes de cada edição,
+     um cartão por edição, nenhuma "mentira" (dizer que fez sem o disco mudar). O modelo local
+     fica sem por ora: não foi medido (mede com a GPU livre). `SOLIS_CORPO_EDITAR=0` tira.
 
 ### Controle do PC e visão da tela
 
