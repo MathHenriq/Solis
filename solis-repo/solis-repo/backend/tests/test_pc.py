@@ -261,3 +261,9 @@ def test_sem_ferramentas_o_pedido_nao_leva_tools(pastas):
 
     assert asyncio.run(rodar()) == 'oi'
     assert 'tools' not in corpos[0]
+
+
+def test_argumento_com_nome_errado_vira_texto_pro_modelo(pastas):
+    """Visto com o llama3.2:3b (19/11/2026): ler_arquivo(nome=...) quebrava a resposta."""
+    saida, ok = pc.rodar('ler_arquivo', {'nome': 'contrato'})
+    assert not ok and 'Argumentos errados pra ler_arquivo' in saida and 'caminho' in saida

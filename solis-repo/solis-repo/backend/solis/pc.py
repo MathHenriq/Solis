@@ -288,6 +288,7 @@ FERRAMENTAS = [
 ]
 
 FUNCOES = {'listar_pasta': listar_pasta, 'buscar_arquivos': buscar_arquivos, 'ler_arquivo': ler_arquivo}
+_PARAMETROS = {f['function']['name']: list(f['function']['parameters']['properties']) for f in FERRAMENTAS}
 
 # Junto do sistema quando as ferramentas vão pro modelo.
 INSTRUCAO = (
@@ -333,5 +334,9 @@ def rodar(nome: str, argumentos: dict, conversa: int | None = None) -> tuple[str
             saida, ok = f'Não achei: {e}. Tente buscar_arquivos ou listar_pasta.', False
         except (ValueError, OSError) as e:
             saida, ok = f'Não consegui: {e}.', False
+        except TypeError:
+            # O modelo mandou o argumento com outro nome (visto com o llama3.2:3b,
+            # 19/11/2026: ler_arquivo(nome=...)): antes isso quebrava a resposta.
+            saida, ok = f'Argumentos errados pra {nome}: use {", ".join(_PARAMETROS[nome])}.', False
     banco.registrar_acao(conversa, nome, argumentos, saida.split('\n', 1)[0][:200], ok)
     return saida, ok
