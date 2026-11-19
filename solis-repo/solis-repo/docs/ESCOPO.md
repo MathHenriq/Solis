@@ -779,9 +779,12 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      e o Discord dele numa chamada, a escuta recebeu "ceder: Discord" em 0,8 s, antes de poder
      abrir o microfone; na tela (microfone falso do Edge), abrir no meio da chamada não abre nada,
      o fim da chamada abre, entrar de novo fecha os dois, e trocar o fone no meio não reabre.
-     **Falta:** o Matheus conferir numa chamada de verdade com o Solis aberto. Enquanto isso,
-     chamar "Solis" pela voz numa chamada não funciona (escolha consciente: ele estaria falando
-     com os amigos).
+     **Provado ao vivo com o Matheus (19/11/2026, 14:03):** com o Solis aberto, ele saiu da chamada
+     e a escuta pegou o microfone e o canal de som de volta (14:03:36); ao entrar de novo
+     (14:04:06), o Solis soltou os dois em 2 s, e o som da chamada ficou normal ("o som está
+     normal"). Abrindo o Solis com a chamada já em andamento, ele nem abriu o microfone. Numa
+     chamada, chamar "Solis" pela voz não funciona (escolha consciente: ele estaria falando com os
+     amigos).
    - **O navegador de sempre (18/11/2026).** Configurações → Navegador → "Qual janela": a do
      Solis, ou o Chrome (ou Edge) de sempre do Matheus, com as abas e os logins dele, pela extensão
      oficial do Playwright (`--extension` no mesmo `@playwright/mcp`). Sem a extensão, a tela
