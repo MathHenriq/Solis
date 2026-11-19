@@ -69,10 +69,88 @@ def _dpi() -> None:
     _dpi_pronto = True
 
 
-def tamanho() -> tuple[int, int]:
+# — as telas ——————————————————————————————————————————————————————————————————
+# Mais de um monitor (o do Matheus: dois, o principal e o do notebook à direita,
+# 19/11/2026): o print é de uma tela por vez, a escolhida (tela_ver com `tela`:
+# 1, 2...), e as coordenadas são as do print dela. Sem escolher, a principal.
+_atual = 0
+
+
+class _MONITORINFO(ctypes.Structure):
+    _fields_ = [('cbSize', wintypes.DWORD), ('rcMonitor', wintypes.RECT), ('rcWork', wintypes.RECT),
+                ('dwFlags', wintypes.DWORD)]
+
+
+def monitores() -> list[dict]:
+    """As telas, a principal primeiro e as outras da esquerda pra direita:
+    x, y (no espaço de todas as telas, em pixels de verdade), largura, altura."""
     _dpi()
-    u = _user32()
-    return u.GetSystemMetrics(0), u.GetSystemMetrics(1)
+    lista = []
+    proc = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HMONITOR, wintypes.HDC, ctypes.POINTER(wintypes.RECT),
+                              wintypes.LPARAM)
+
+    def cada(h, _hdc, _r, _l):
+        mi = _MONITORINFO()
+        mi.cbSize = ctypes.sizeof(_MONITORINFO)
+        if _user32().GetMonitorInfoW(h, ctypes.byref(mi)):
+            rc = mi.rcMonitor
+            lista.append({'x': rc.left, 'y': rc.top, 'largura': rc.right - rc.left, 'altura': rc.bottom - rc.top,
+                          'principal': bool(mi.dwFlags & 1)})
+        return 1
+    _user32().EnumDisplayMonitors(None, None, proc(cada), 0)
+    if not lista:
+        u = _user32()
+        return [{'x': 0, 'y': 0, 'largura': u.GetSystemMetrics(0), 'altura': u.GetSystemMetrics(1), 'principal': True}]
+    return sorted(lista, key=lambda m: (not m['principal'], m['x'], m['y']))
+
+
+def _monitor() -> dict:
+    lista = monitores()
+    return lista[_atual] if _atual < len(lista) else lista[0]
+
+
+def escolher_tela(numero) -> None:
+    """A tela que tela_ver mostra e onde as coordenadas valem (1 = a principal)."""
+    global _atual
+    if numero in (None, ''):
+        return
+    try:
+        n = int(numero)
+    except (TypeError, ValueError) as e:
+        raise TelaRecusada(f'a tela "{numero}" não existe') from e
+    if not 1 <= n <= len(monitores()):
+        raise TelaRecusada(f'a tela {n} não existe (são {len(monitores())})')
+    _atual = n - 1
+
+
+def descrever_telas() -> str:
+    """'Telas: 1 (principal, 1920x1080) e 2 (1920x1080, à direita). Vendo a 1.'"""
+    lista = monitores()
+    if len(lista) == 1:
+        return ''
+    principal = lista[0]
+    partes = []
+    for i, m in enumerate(lista, 1):
+        onde = 'principal' if m['principal'] else (
+            'à direita' if m['x'] >= principal['x'] + principal['largura'] else
+            'à esquerda' if m['x'] + m['largura'] <= principal['x'] else
+            'embaixo' if m['y'] >= principal['y'] + principal['altura'] else 'em cima')
+        partes.append(f'{i} ({onde}, {m["largura"]}x{m["altura"]})')
+    atual = _atual + 1 if _atual < len(lista) else 1
+    return f'Telas: {", ".join(partes[:-1])} e {partes[-1]}. Vendo a {atual}; pra outra, tela_ver com tela.'
+
+
+def tamanho() -> tuple[int, int]:
+    m = _monitor()
+    return m['largura'], m['altura']
+
+
+def _origem() -> tuple[int, int]:
+    try:
+        m = _monitor()
+    except (OSError, AttributeError, ValueError):
+        return 0, 0
+    return m['x'], m['y']
 
 
 def escala() -> float:
@@ -81,13 +159,15 @@ def escala() -> float:
 
 
 def _real(x: float, y: float) -> tuple[int, int]:
-    """Do print que o Claude viu pra tela de verdade."""
+    """Do print que o cérebro viu (da tela escolhida) pro ponto de verdade, no
+    espaço de todas as telas."""
     e = escala()
     largura, altura = tamanho()
     rx, ry = round(x / e), round(y / e)
     if not (0 <= rx < largura and 0 <= ry < altura):
         raise TelaRecusada(f'({x}, {y}) fica fora da tela')
-    return rx, ry
+    ox, oy = _origem()
+    return ox + rx, oy + ry
 
 
 def _processo_da_janela(hwnd) -> tuple[str, str]:
@@ -128,9 +208,10 @@ def nome_do_programa(processo: str, titulo: str) -> str:
 
 # — o print ————————————————————————————————————————————————————————————————————
 def _print():
+    """O print da tela escolhida, inteira, em pixels de verdade."""
     from PIL import ImageGrab
-    _dpi()
-    return ImageGrab.grab()
+    m = _monitor()
+    return ImageGrab.grab(bbox=(m['x'], m['y'], m['x'] + m['largura'], m['y'] + m['altura']), all_screens=True)
 
 
 def _png(imagem) -> bytes:
@@ -153,7 +234,9 @@ def ver() -> tuple[bytes, dict]:
 def recorte_marcado(x: float, y: float) -> str:
     """O pedaço da tela em volta de onde vai clicar, com o alvo marcado (o cartão)."""
     from PIL import ImageDraw
+    ox, oy = _origem()
     rx, ry = _real(x, y)
+    rx, ry = rx - ox, ry - oy  # no print da tela, não no espaço de todas
     imagem = _print()
     w, h = RECORTE
     esq = min(max(0, rx - w // 2), max(0, imagem.width - w))
@@ -220,7 +303,7 @@ BOTOES = {'esquerdo': (0x0002, 0x0004), 'direito': (0x0008, 0x0010), 'meio': (0x
 
 def _nao_no_solis(processo: str) -> None:
     if processo in SOLIS:
-        raise TelaRecusada('isso cai numa janela do próprio Solis, e lá o Claude não mexe')
+        raise TelaRecusada('isso cai numa janela do próprio Solis, e lá nenhum cérebro mexe')
 
 
 def clicar(x: float, y: float, botao: str = 'esquerdo', duplo: bool = False) -> None:

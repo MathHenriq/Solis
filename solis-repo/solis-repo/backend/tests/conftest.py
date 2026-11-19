@@ -144,3 +144,12 @@ def sem_vigia_do_microfone_de_verdade(monkeypatch):
     from solis import microfone
     monkeypatch.setattr(microfone.vigia, '_ligar', lambda: None)
     microfone.vigia.outros = []
+
+
+@pytest.fixture(autouse=True)
+def tela_na_principal():
+    """A tela escolhida (tela.escolher_tela) não passa de um teste pro outro."""
+    from solis import tela
+    tela._atual = 0
+    yield
+    tela._atual = 0

@@ -573,7 +573,9 @@ Nada cai numa janela do `solis.exe` (o cartão nem aparece: recusado), pra o Cla
 próprios cartões. Cada ação devolve o print de depois. Pela API do Windows (ctypes: `SendInput`; o
 texto vai como Unicode, então acento sai certo) e o Pillow pro print, em pixels de verdade
 (`SetProcessDpiAwareness`). O print vai reduzido a 1366 de largura; as coordenadas do Claude voltam
-pra tela aqui. Só a tela principal.
+pra tela aqui. Com mais de um monitor, o print e as coordenadas são da tela escolhida
+(`tela_ver` com `tela`: 1, 2...; sem escolher, a principal), e o print diz quantas telas há e onde
+cada uma fica (`tela.monitores`, `tela.escolher_tela`).
 
 Pros cérebros que não veem imagem (os de API, pelo corpo do Solis), a tela vai como texto:
 `mcp__solis__tela_ler` é o print lido pelo OCR do Windows (`ocr.linhas_com_posicao`, o

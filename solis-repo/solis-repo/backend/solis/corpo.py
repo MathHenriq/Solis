@@ -247,9 +247,10 @@ async def _rodar_comando(comando: str, pasta: str, ao_vivo: Callable[[str], None
 TELA_LER = SOLIS + 'tela_ler'
 _XY = {'x': {'type': 'number'}, 'y': {'type': 'number'}}
 _DA_TELA = [
-    ('tela_ler', 'O texto da tela principal do PC do Matheus agora, cada linha com o centro [x,y] em pixels '
-                 '(0,0 no canto de cima à esquerda) e o programa que está na frente. Leia antes de agir.',
-     {'type': 'object', 'properties': {}}),
+    ('tela_ler', 'O texto de uma tela do PC do Matheus agora (a principal, ou a escolhida em tela: 1, 2...), cada '
+                 'linha com o centro [x,y] em pixels (0,0 no canto de cima à esquerda) e o programa que está na '
+                 'frente. Leia antes de agir; as ações valem na última tela lida.',
+     {'type': 'object', 'properties': {'tela': {'type': 'integer'}}}),
     ('tela_clicar', 'Clica num ponto da tela (as coordenadas do tela_ler). botao: esquerdo (padrão), direito ou meio; '
                     'duplo: clique duplo. O Solis mostra o cartão pro Matheus.',
      {'type': 'object', 'required': ['x', 'y'], 'properties': {
@@ -292,8 +293,9 @@ async def texto_da_tela() -> str:
     linhas = await ocr.linhas_com_posicao(await asyncio.to_thread(tela._png, imagem))
     largura, altura = round(imagem.width * e), round(imagem.height * e)
     corpo = '\n'.join(f'[{round((x + w / 2) * e)},{round((y + h / 2) * e)}] {t}' for x, y, w, h, t in linhas)
-    return (f'Tela {largura}x{altura}; na frente: {tela.nome_do_programa(processo, titulo)}.\n'
-            + (corpo or '(nenhum texto na tela)'))
+    telas = tela.descrever_telas()
+    return (f'Tela {largura}x{altura}; na frente: {tela.nome_do_programa(processo, titulo)}.'
+            + (f' {telas}' if telas else '') + '\n' + (corpo or '(nenhum texto na tela)'))
 
 
 # As chaves de JSON Schema que todo provedor aceita (o Gemini recusa "$schema"
@@ -506,7 +508,9 @@ class Corpo:
         if self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA}:
             acao = nome.removeprefix(SOLIS)
             try:
-                if acao != 'tela_ler':
+                if acao == 'tela_ler':
+                    tela.escolher_tela(entrada.get('tela'))
+                else:
                     await asyncio.to_thread(_agir_na_tela, acao, entrada)
                     self.agiu = True
                     await asyncio.sleep(tela.DEPOIS_S)

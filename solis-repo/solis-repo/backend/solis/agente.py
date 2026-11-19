@@ -198,7 +198,7 @@ def _ferramentas_da_tela(tool, texto):
         png, info = tela.ver()
         return {'content': [
             {'type': 'text', 'text': f'{frase} Print da tela agora ({info["largura"]}x{info["altura"]}; '
-                                     f'na frente: {info["ativa"]}).'},
+                                     f'na frente: {info["ativa"]}). {tela.descrever_telas()}'.strip()},
             {'type': 'image', 'data': base64.b64encode(png).decode(), 'mimeType': 'image/png'}]}
 
     async def agir(funcao, frase, *args):
@@ -209,9 +209,15 @@ def _ferramentas_da_tela(tool, texto):
         await asyncio.sleep(tela.DEPOIS_S)
         return com_print(frase)
 
-    @tool('tela_ver', 'Um print da tela principal do PC do Matheus, como ele vê agora. As coordenadas das outras '
-          'ferramentas da tela são em pixels deste print (0,0 no canto de cima à esquerda). Veja antes de agir.', {})
+    @tool('tela_ver', 'Um print de uma tela do PC do Matheus, como ele vê agora: a principal, ou a escolhida em '
+          'tela (1, 2...; com mais de um monitor, o print diz quais há). As coordenadas das outras ferramentas da '
+          'tela são em pixels do último print (0,0 no canto de cima à esquerda). Veja antes de agir.',
+          {'type': 'object', 'properties': {'tela': {'type': 'integer'}}})
     async def tela_ver(args):
+        try:
+            tela.escolher_tela(args.get('tela'))
+        except tela.TelaRecusada as e:
+            return texto(f'Não deu: {e}.')
         return com_print('')
 
     xy = {'x': {'type': 'number'}, 'y': {'type': 'number'}}
