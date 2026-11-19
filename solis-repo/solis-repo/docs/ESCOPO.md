@@ -950,6 +950,12 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Servidores MCP diz que eles valem pro Claude, o GPT e os cérebros por API, e o "pra quem" virou
      "Todos os cérebros", "Todos, menos o GPT" e "Só o GPT (Codex)" (prints nos 3 temas e 2 navs,
      aprovados pelo Matheus em 19/11/2026).
+     **A fase leve não finge (medido em 19/11/2026).** Com a Groq de verdade e o sistema de verdade
+     do roteador (sem ferramentas, com a marca pra pedir): 12 pedidos de ação (abrir site, rodar
+     comando, desligar música, fechar o Chrome, mandar WhatsApp, clicar, ver o disco...) voltaram
+     a marca nos 12 — nenhum "fiz" falso; 6 de conversa (capital, presente, conta, lembrete, haiku,
+     IGP-M) foram respondidos direto, sem pedir ferramenta. O "Anotado!" falso de antes era só o
+     de anotar num servidor MCP (anotar lembrete é do Solis, depois da resposta), já corrigido.
      **As tarefas agendadas sem depender do Claude (19/11/2026).** Elas iam só pro Claude (a do
      Claude Desktop), e com a cota dele acabada a tarefa falhava. Agora o Claude vem primeiro e,
      sem ele, a tarefa segue nos outros cérebros da ordem, que fazem pelo corpo. A pesquisa longa
