@@ -290,21 +290,71 @@ def _esquecer(nome: str) -> None:
         banco.guardar_ajuste('mcp_ferramentas', c)
 
 
-async def _listar_ferramentas(c: dict) -> list[dict]:
-    from mcp import ClientSession
+def _abrir(c: dict):
     if c['tipo'] == 'endereco':
         from mcp.client.streamable_http import streamable_http_client
-        abrir = streamable_http_client(c['url'])
-    else:
-        from mcp.client.stdio import StdioServerParameters, stdio_client
-        abrir = stdio_client(StdioServerParameters(command=c['comando'][0], args=c['comando'][1:],
-                                                   env={**os.environ, **c['env']}))
-    async with abrir as (leitura, escrita, *_):
+        return streamable_http_client(c['url'])
+    from mcp.client.stdio import StdioServerParameters, stdio_client
+    return stdio_client(StdioServerParameters(command=c['comando'][0], args=c['comando'][1:],
+                                              env={**os.environ, **c['env']}))
+
+
+async def _listar_ferramentas(c: dict) -> list[dict]:
+    """As ferramentas do servidor, com a descrição e o esquema: os cérebros
+    que não são o Claude usam as mesmas pelo corpo do Solis (corpo.py)."""
+    from mcp import ClientSession
+    async with _abrir(c) as (leitura, escrita, *_):
         async with ClientSession(leitura, escrita) as sessao:
             await sessao.initialize()
             r = await sessao.list_tools()
     return [{'nome': t.name, 'so_le': bool(t.annotations and t.annotations.read_only_hint
-                                           and not t.annotations.destructive_hint)} for t in r.tools]
+                                           and not t.annotations.destructive_hint),
+             'descricao': (t.description or '')[:600], 'esquema': t.input_schema or {}} for t in r.tools]
+
+
+# — pros outros cérebros (corpo.py) ———————————————————————————————————————————
+CHAMAR_MAX_S = 60.0
+
+
+def do_corpo() -> list[dict]:
+    """Os servidores do Matheus que valem pros cérebros pelo corpo: os seus
+    (não o da memória do Solis, que o corpo já tem), já conferidos (é a
+    conferida que guarda as ferramentas). Da configuração do Claude, que é
+    lida na hora; os só do Codex ficam de fora (ler a dele sobe o CLI)."""
+    cache = _cache()
+    saida = []
+    for nome, c in sorted(_do_claude().items()):
+        r = cache.get(nome) or {}
+        if nome in NOSSOS or not _NOME.match(nome) or r.get('erro') or not r.get('lista'):
+            continue
+        if cofre.ILEGIVEL in c['env'].values():
+            continue
+        saida.append({'nome': nome, 'config': c, 'ferramentas': r['lista']})
+    return saida
+
+
+async def chamar(c: dict, ferramenta: str, argumentos: dict) -> tuple[str, bool]:
+    """Roda uma ferramenta do servidor: (o texto que voltou, se deu certo).
+    Abre e fecha a conexão a cada chamada, na mesma tarefa (o cliente MCP não
+    deixa fechar em outra)."""
+    from mcp import ClientSession
+
+    async def rodar():
+        async with _abrir(c) as (leitura, escrita, *_):
+            async with ClientSession(leitura, escrita) as sessao:
+                await sessao.initialize()
+                return await sessao.call_tool(ferramenta, argumentos)
+    try:
+        r = await asyncio.wait_for(rodar(), CHAMAR_MAX_S)
+    except Exception as e:  # noqa: BLE001 — o servidor caiu ou demorou: o modelo fica sabendo
+        if isinstance(e, (asyncio.TimeoutError, TimeoutError)):
+            motivo = 'demorou demais pra responder'
+        else:
+            motivo = ' '.join(str(getattr(e, 'exceptions', [e])[0] if hasattr(e, 'exceptions') else e).split())[:200]
+        return f'O servidor não respondeu: {motivo or "erro"}', False
+    texto = '\n'.join(getattr(p, 'text', '') for p in r.content if getattr(p, 'text', None))
+    erro = bool(getattr(r, 'is_error', None) or getattr(r, 'isError', None))
+    return texto or ('(sem texto)' if not erro else 'deu erro'), not erro
 
 
 async def conferir(nome: str) -> dict:

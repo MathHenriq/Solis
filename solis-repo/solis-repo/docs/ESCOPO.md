@@ -935,6 +935,19 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Tauri em português), mas em 130 s e com 10 trocas entre as duas tentativas da mensagem (a
      leve e a com ferramentas) — e a cota grátis dos Flash acabou ali: a tarefa seguinte não achou
      modelo livre. O grátis do Gemini, hoje, não sustenta tarefa longa.
+     **Os servidores MCP do Matheus no corpo (19/11/2026).** Os que ele pôs em Configurações →
+     Servidores MCP (os da configuração do Claude, já conferidos; não o da memória do Solis, que o
+     corpo já tem) valem pros cérebros de API pelo mesmo nome que o Claude vê
+     (`mcp__servidor__ferramenta`): o que o servidor marca como só leitura é livre; o resto pede o
+     cartão de conector ("Usar o caderno: anotar", com o que vai ser mandado). A conferida agora
+     guarda a descrição e o esquema de cada ferramenta; o Solis abre e fecha a conexão a cada
+     chamada, e o que volta vai cercado como dado. Pedido que cita um servidor pelo nome já vai com
+     o corpo, e a fase leve sabe os nomes: medido com a Groq de verdade, "anota no caderno" voltou
+     "Anotado!" sem anotar nada antes disso. Provado com a Groq e um servidor de teste
+     (`tests/dados/mcp_teste.py`): o saldo lido sem cartão (2,9 s) e "comprar pão" anotado com o
+     cartão aprovado (3,8 s). Ficam de fora: os servidores só do Codex (ler a configuração dele
+     sobe o CLI) e o modelo local (ferramenta a mais piora ele). A tela de Servidores MCP ainda
+     diz "pra quem vale: Claude, GPT"; o texto espera o Matheus.
      **Falta no corpo:** o navegador e a tela no local (medir; o e-mail com nota escondida entra
      junto nessa medida).
 

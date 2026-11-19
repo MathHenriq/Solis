@@ -28,6 +28,7 @@ import copy
 import json
 import logging
 import os
+import re
 import subprocess
 import uuid
 from dataclasses import dataclass
@@ -388,6 +389,11 @@ class Corpo:
         self.arquivos = pc.disponivel()
         # A tela (Configurações → Controle da tela), lida como texto.
         self.tela = os.name == 'nt' and tela.ligada()
+        # Os servidores MCP do Matheus (Configurações → Servidores MCP), os
+        # mesmos do Claude: o que só lê é livre; o resto pede o cartão de
+        # conector ("Usar o notion: create_page"). SOLIS_CORPO_MCP=0 tira.
+        self._mcp: dict[str, tuple[dict, dict]] | None = None  # nome completo → (servidor, ferramenta)
+        self.mcp = os.environ.get('SOLIS_CORPO_MCP', '1') != '0'
         self.agiu = False  # rodou alguma ferramenta que muda algo (a queda pro próximo cérebro refaria)
 
     async def especificacoes(self) -> list[dict]:
@@ -401,7 +407,24 @@ class Corpo:
             specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA]
         if self.navegar:
             specs += await self._do_navegador()
+        for completo, (_, f) in self._do_mcp().items():
+            specs.append(_funcao(completo, (f.get('descricao') or '').split('\n')[0][:300],
+                                 _curto(f.get('esquema') or {'type': 'object', 'properties': {}})))
         return specs
+
+    def _do_mcp(self) -> dict[str, tuple[dict, dict]]:
+        """As ferramentas dos servidores MCP do Matheus, pelo nome que o Claude
+        também vê (mcp__servidor__ferramenta), das conferidas por último."""
+        if self._mcp is None:
+            from . import servidores_mcp
+            self._mcp = {}
+            if self.mcp:
+                for srv in servidores_mcp.do_corpo():
+                    for f in srv['ferramentas']:
+                        completo = f'mcp__{srv["nome"]}__{f["nome"]}'
+                        if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', completo):
+                            self._mcp[completo] = (srv, f)
+        return self._mcp
 
     async def _do_navegador(self) -> list[dict]:
         if self._nav is None:
@@ -418,7 +441,8 @@ class Corpo:
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
                 or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
-                or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS))
+                or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
+                or nome in self._do_mcp())
 
     def _de_arquivo(self, nome: str) -> bool:
         return self.arquivos and nome.startswith(SOLIS) and nome.removeprefix(SOLIS) in pc.FUNCOES
@@ -450,7 +474,9 @@ class Corpo:
                 self.etapas.marcar(etapa, **dados)
 
         # A aprovação do Solis (aprovacoes.py): a mesma do Claude, sem o SDK dele.
-        decisao = await aprovacoes.decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina)
+        do_mcp = self._do_mcp().get(nome)
+        decisao = await aprovacoes.decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina,
+                                           so_le=bool(do_mcp and do_mcp[1].get('so_le')))
         if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
             return decisao.mensagem or 'O Matheus recusou.'
@@ -469,6 +495,14 @@ class Corpo:
                                  'hora': (entrada.get('hora') or '').strip() or None})
             self._marcar(id_, nome, entrada, pagina, ok)
             return saida
+        if do_mcp is not None:
+            from . import servidores_mcp
+            srv, f = do_mcp
+            saida, ok = await servidores_mcp.chamar(srv['config'], f['nome'], entrada)
+            if ok and not f.get('so_le'):
+                self.agiu = True
+            self.etapas.marcar('ferramenta', ferramenta=nome, alvo=f['nome'], ok=ok, id=id_)
+            return cercar(_cortar(saida), 'da ferramenta') if ok else saida
         if self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA}:
             acao = nome.removeprefix(SOLIS)
             try:

@@ -277,6 +277,9 @@ def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_
             + (' Uma informação de hoje, procure no navegador.' if navegar else '')))
     elif nome not in COM_FERRAMENTAS and nome != 'local':
         notas += NOTA_PASSAR if com_corpo(nome) or any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
+        if com_corpo(nome) and (servidores := _servidores_mcp()):
+            notas += (f' O Matheus também tem ferramentas de fora (servidores MCP): {", ".join(servidores)}. Pedido que '
+                      f'use uma delas precisa das ferramentas: responda {PASSA}.')
     # Com o Ollama fora e a Groq aprendendo no lugar (memoria.na_nuvem), o que
     # não é privado continua sendo guardado: o aviso só vale sem os dois.
     if not memoria.aprende_agora():
@@ -329,6 +332,21 @@ _DO_PC = re.compile(
     r'|\b(reuni[aã]o|gastei|combinei|or[cç]amento|prot[oó]tipo)\b',
     re.IGNORECASE,
 )
+
+
+def _servidores_mcp() -> list[str]:
+    """Os nomes dos servidores MCP do Matheus que o corpo usa (servidores_mcp.do_corpo)."""
+    if not CORPO:
+        return []
+    from . import servidores_mcp
+    try:
+        return [s['nome'] for s in servidores_mcp.do_corpo()]
+    except Exception:  # noqa: BLE001 — a configuração dele quebrada não pode derrubar a resposta
+        return []
+
+
+def _cita_servidor(texto: str) -> bool:
+    return any(re.search(rf'(?<![\w-]){re.escape(n)}(?![\w-])', texto, re.IGNORECASE) for n in _servidores_mcp())
 
 
 def do_pc(texto: str) -> bool:
@@ -506,6 +524,11 @@ async def responder(
     # "não sei" em vez de pedir.
     if pc.disponivel() and do_pc(mensagem):
         com_o_corpo = {c for c in fila if com_corpo(c)}
+    # Pedido que cita um servidor MCP do Matheus pelo nome também (medido com a
+    # Groq, 19/11/2026: "anota no caderno de teste (o servidor caderno)" voltou
+    # "Anotado!" sem as ferramentas, e nada foi anotado).
+    elif _cita_servidor(mensagem):
+        com_o_corpo = {c for c in fila if com_corpo(c)}
     de_novo = None
     while fila:
         nome = fila.pop(0)
@@ -523,7 +546,7 @@ async def responder(
                     # O meio-termo medido: as do Solis e o terminal, sem as de
                     # arquivo, a tela e o navegador.
                     o_corpo = corpo.Corpo(conversa, etapas, navegar=False, cerebro='local')
-                    o_corpo.arquivos = o_corpo.tela = False
+                    o_corpo.arquivos = o_corpo.tela = o_corpo.mcp = False
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
