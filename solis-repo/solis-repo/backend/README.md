@@ -266,8 +266,10 @@ Cérebros.
   (`navegador.ferramentas`/`navegador.chamar`, pelo dono), com 12 ferramentas essenciais e os
   parâmetros do dia a dia. Os cartões são os do Claude (`agente._decidir`). As ferramentas só vão
   quando o pedido precisa: o pedido vai leve e, se o cérebro responde a marca `[FERRAMENTA]`, ele
-  mesmo tenta de novo com o corpo; o que o corpo ainda não tem (arquivos, terminal, a tela) passa
-  pro Claude. No meio de uma tarefa, o limite por minuto (`429`) se espera, até 30 s e 3 vezes;
+  mesmo tenta de novo com o corpo; o que o corpo ainda não tem (ler arquivo direto, a tela) passa
+  pro Claude. O terminal entra no corpo como a ferramenta `PowerShell`, a mesma do Claude (mesmo
+  cartão, mesmo "Sempre este comando"), na pasta de trabalho ou na do projeto, até 120 s;
+  `SOLIS_CORPO_TERMINAL=0` tira. No meio de uma tarefa, o limite por minuto (`429`) se espera, até 30 s e 3 vezes;
   depois de ter agido (clicado, anotado), uma falha para ali em vez de cair pro próximo cérebro
   (que faria de novo). `SOLIS_CORPO=0` volta ao "só texto".
 - O Codex roda sem ferramentas (`--sandbox read-only`), numa pasta vazia do Solis. O prompt vai

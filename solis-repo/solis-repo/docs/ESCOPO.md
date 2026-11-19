@@ -809,12 +809,24 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
        da tarefa (até 30 s, 3 vezes) ajudaram, mas não bastam.
      - **O Gemini** (grátis, limite bem maior) não deu pra medir: 503, "alta demanda", nas duas
        tentativas.
-     **Decisão do Matheus pendente:** a Groq paga (Developer) sobe o limite pra ~250 mil tokens
+     **Decisão do Matheus (18/11/2026): seguir no grátis.** O que não cabe na Groq cai pro próximo
+     cérebro da ordem (o Gemini grátis, o Claude). Pra ele decidir, foi mostrado: a Groq paga (Developer) sobe o limite pra ~250 mil tokens
      por minuto, a US$ 0,15 por milhão de tokens de entrada e US$ 0,60 de saída no gpt-oss-120b
      (pelos agregadores de preço; conferir em groq.com/pricing). A tarefa da Wikipédia (~13
      pedidos, ~45 mil tokens) sairia por ~US$ 0,007; 20 tarefas assim por dia, ~US$ 4 por mês.
-     **Falta no corpo:** arquivos, terminal e a tela pros cérebros de API (hoje passam pro
-     Claude), o modelo local usar o corpo, e as aprovações saírem do `agente.py` pro corpo.
+     **O terminal no corpo (18/11/2026):** a ferramenta `PowerShell`, com o mesmo nome e a mesma
+     entrada da do Claude, pra valerem o mesmo cartão ("Rodar no terminal: ..."), o mesmo "Sempre
+     este comando" (o comando exato) e o mesmo registro. Roda na pasta de trabalho do Solis ou na do
+     projeto da conversa, até 120 s, com a saída em UTF-8 e guardada no passo. Provado com a Groq
+     de verdade: "roda o git --version e me diz a versão" → cartão, aprovado, "2.55.0.windows.5"
+     (confere com o Git do PC), 8,3 s. No primeiro teste ela pediu a aprovação no texto em vez de
+     chamar a ferramenta; o sistema agora diz que o cartão é do próprio Solis.
+     **O Gemini** ainda não foi medido no corpo: na terceira tentativa, 60 s sem responder.
+     **Falta no corpo:** a tela e ler arquivo direto pros cérebros de API (pergunta sobre os
+     arquivos continua indo pro local, pela regra do privado), a saída do comando ao vivo, o modelo
+     local usar o corpo (o Ollama estava desligado; antes de ligar, medir se as ferramentas a mais
+     não pioram as de arquivo, que ele já acerta pouco sem raciocínio), e as aprovações saírem do
+     `agente.py` pro corpo.
 
 ### Controle do PC e visão da tela
 
