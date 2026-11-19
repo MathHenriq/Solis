@@ -128,7 +128,7 @@ DO_SOLIS: list[Ferramenta] = [
     Ferramenta('ver_tarefas', 'As tarefas abertas do Matheus, com prazo e hora.', _objeto({}), _ver_tarefas),
     Ferramenta('buscar_memoria', 'Procura nas memórias que o Solis guarda sobre o Matheus.',
                _objeto({'busca': _TEXTO}), _buscar_memoria),
-    Ferramenta('agendar_tarefa', 'Agenda uma tarefa que o Claude faz sozinho num horário, como as tarefas agendadas '
+    Ferramenta('agendar_tarefa', 'Agenda uma tarefa que o Solis faz sozinho num horário, como as tarefas agendadas '
                'do Claude Desktop: na hora, o Solis abre uma conversa com o nome da tarefa, manda o pedido e avisa no '
                'Windows quando acaba. Use quando o Matheus pedir pra fazer algo todo dia, toda semana, numa data. '
                'frequencia: uma_vez (com data AAAA-MM-DD), diaria, dias_uteis, semanal (com dia_semana 0 = segunda '

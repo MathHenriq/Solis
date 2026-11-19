@@ -950,6 +950,11 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Servidores MCP diz que eles valem pro Claude, o GPT e os cérebros por API, e o "pra quem" virou
      "Todos os cérebros", "Todos, menos o GPT" e "Só o GPT (Codex)" (prints nos 3 temas e 2 navs,
      aprovados pelo Matheus em 19/11/2026).
+     **As tarefas agendadas sem depender do Claude (19/11/2026).** Elas iam só pro Claude (a do
+     Claude Desktop), e com a cota dele acabada a tarefa falhava. Agora o Claude vem primeiro e,
+     sem ele, a tarefa segue nos outros cérebros da ordem, que fazem pelo corpo. A pesquisa longa
+     continua só do Claude (busca e ajudantes). A tela de Tarefas agendadas ainda diz "o Claude
+     faz um pedido sozinho"; o texto espera o Matheus.
      **Falta no corpo:** o navegador e a tela no local (medir; o e-mail com nota escondida entra
      junto nessa medida).
 

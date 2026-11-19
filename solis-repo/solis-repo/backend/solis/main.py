@@ -343,10 +343,15 @@ async def enviar(conversa: int, envio: Envio):
 
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
-    if (envio.pesquisa or envio.agendada) and not forcado:
-        # Pesquisa longa é do Claude: ele busca, lê, usa ajudantes e cita. A
-        # tarefa agendada também: é a do Claude Desktop (agendadas.py).
+    if envio.pesquisa and not forcado:
+        # Pesquisa longa é do Claude: ele busca, lê, usa ajudantes e cita.
         ordem, forcado = ['claude'], True
+    if envio.agendada and not forcado:
+        # A tarefa agendada vai primeiro pro Claude (é a do Claude Desktop,
+        # agendadas.py); sem ele (a cota acabou), segue nos outros, que fazem
+        # pelo corpo do Solis. Antes ia só pro Claude, e sem ele a tarefa
+        # falhava (as funções são do Solis: decisão do Matheus, 18/11/2026).
+        ordem = (['claude'] if cerebros.disponivel('claude') else []) + [c for c in ordem if c != 'claude']
     if anexos and not forcado:
         # Com anexo, o Claude primeiro: ele lê texto, PDF e imagem; o modelo
         # local não enxerga imagem nem tem a pasta de trabalho.

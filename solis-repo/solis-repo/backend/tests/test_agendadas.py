@@ -115,13 +115,15 @@ def capturado(monkeypatch):
     return recebido
 
 
-def test_rodar_abre_conversa_manda_pro_claude_e_avisa(capturado, sem_aviso_de_verdade):
+def test_rodar_abre_conversa_manda_pro_claude_e_avisa(capturado, sem_aviso_de_verdade, monkeypatch):
+    from solis import cerebros
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: True)
     a = _criar(nome='Notícias da manhã')
     conversa = main._conversa_da_agendada(a)
     asyncio.run(main._executar_agendada(a, conversa))
     assert banco.titulo(conversa) == 'Notícias da manhã'
     # Vai pro Claude, com a nota de que ninguém está olhando; guardado fica só o pedido.
-    assert capturado['ordem'] == ['claude'] and 'Notícias da manhã' in capturado['mensagem']
+    assert capturado['ordem'][0] == 'claude' and 'Notícias da manhã' in capturado['mensagem']
     assert 'não está olhando' in capturado['mensagem']
     msgs = banco.mensagens(conversa)
     assert [m['papel'] for m in msgs] == ['pessoa', 'solis'] and msgs[0]['texto'] == 'Resuma as notícias'
@@ -206,3 +208,22 @@ def test_agendar_pede_cartao():
     # E as outras do Solis continuam livres, sem cartão (agendar não está em allowed_tools).
     assert 'mcp__solis__agendar_tarefa' not in agente.SOLIS_LIVRES
     assert asyncio.run(agente._decidir('mcp__solis__ver_tarefas', {}, por)).behavior == 'allow'
+
+
+def test_sem_o_claude_a_agendada_segue_nos_outros(capturado, monkeypatch):
+    """A cota do Claude acabou: a tarefa agendada não pode falhar (as funções são do Solis)."""
+    from solis import cerebros
+    monkeypatch.setattr(roteador, '_ordem', lambda: ['claude', 'groq', 'local'])
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: nome != 'claude')
+    a = _criar(nome='Notícias da manhã')
+    asyncio.run(main._executar_agendada(a, main._conversa_da_agendada(a)))
+    assert capturado['ordem'] == ['groq', 'local']
+
+
+def test_com_o_claude_ele_vem_primeiro_e_os_outros_de_reserva(capturado, monkeypatch):
+    from solis import cerebros
+    monkeypatch.setattr(roteador, '_ordem', lambda: ['groq', 'claude', 'local'])
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: True)
+    a = _criar(nome='Resumo')
+    asyncio.run(main._executar_agendada(a, main._conversa_da_agendada(a)))
+    assert capturado['ordem'] == ['claude', 'groq', 'local']
