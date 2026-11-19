@@ -946,8 +946,9 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      "Anotado!" sem anotar nada antes disso. Provado com a Groq e um servidor de teste
      (`tests/dados/mcp_teste.py`): o saldo lido sem cartão (2,9 s) e "comprar pão" anotado com o
      cartão aprovado (3,8 s). Ficam de fora: os servidores só do Codex (ler a configuração dele
-     sobe o CLI) e o modelo local (ferramenta a mais piora ele). A tela de Servidores MCP ainda
-     diz "pra quem vale: Claude, GPT"; o texto espera o Matheus.
+     sobe o CLI) e o modelo local (ferramenta a mais piora ele). A pedido do Matheus, a tela de
+     Servidores MCP diz que eles valem pro Claude, o GPT e os cérebros por API, e o "pra quem" virou
+     "Todos os cérebros", "Todos, menos o GPT" e "Só o GPT (Codex)" (prints nos 3 temas e 2 navs).
      **Falta no corpo:** o navegador e a tela no local (medir; o e-mail com nota escondida entra
      junto nessa medida).
 

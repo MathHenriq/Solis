@@ -12,10 +12,12 @@ import {
 } from '../servidor';
 
 /** Configurações → Servidores MCP: ferramentas de fora (um servidor do Notion,
- *  do GitHub, um do Matheus) pro Claude e pro GPT, como os servidores MCP do
+ *  do GitHub, um do Matheus) pros cérebros do Solis, como os servidores MCP do
  *  Claude Code (backend/solis/servidores_mcp.py). Cada um diz pra quem vale,
- *  como as skills; no Claude, o que só lê é livre e o resto pede cartão; no
- *  GPT, só o que lê roda.
+ *  como as skills; o que vale pro Claude vale também pros cérebros por API
+ *  (Groq, Gemini..., pelo corpo do Solis: backend/solis/corpo.py). O que só lê
+ *  é livre e o resto pede cartão; no GPT, só o que lê roda. O texto dizia "pro
+ *  Claude e pro GPT"; atualizado a pedido do Matheus (19/11/2026).
  *
  *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), os
@@ -27,8 +29,8 @@ const CAMPO =
 
 type Para = ServidorMcpInteiro['para'];
 const PARA: [string, Para, string][] = [
-  ['os-dois', ['claude', 'codex'], 'Claude e GPT'],
-  ['claude', ['claude'], 'Só o Claude'],
+  ['os-dois', ['claude', 'codex'], 'Todos os cérebros'],
+  ['claude', ['claude'], 'Todos, menos o GPT'],
   ['codex', ['codex'], 'Só o GPT (Codex)'],
 ];
 const chaveDe = (para: Para) => (para.length === 2 ? 'os-dois' : para[0]);
@@ -256,9 +258,9 @@ export function CartaoServidoresMcp() {
     >
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Servidores MCP</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
-        Ferramentas de fora, como um servidor do Notion, do GitHub ou um seu, pro Claude e pro GPT. No Claude, o que
-        só lê é livre e o resto pede você antes; no GPT, só o que lê roda. Valem também no Claude Code e no Codex do
-        terminal.
+        Ferramentas de fora, como um servidor do Notion, do GitHub ou um seu, pro Claude, o GPT e os cérebros por API
+        (Groq, Gemini...). O que só lê é livre e o resto pede você antes; no GPT, só o que lê roda. Valem também no
+        Claude Code e no Codex do terminal.
       </p>
 
       {lista === undefined && <p className="text-text-secondary" style={{ ...dica, ...linha }}>Vendo…</p>}
