@@ -4,6 +4,8 @@ import {
   comandosRodando,
   conectorDe,
   fontesDe,
+  maiuscula,
+  quem,
   type Fonte,
   depois,
   duracao,
@@ -567,8 +569,14 @@ function CartaoAprovacao({ pedido }: { pedido: Etapa }) {
   const doClaude = conector
     ? `O Claude quer usar o ${conector.nome}`
     : (QUER[pedido.ferramenta ?? ''] ?? `O Claude quer usar ${pedido.ferramenta ?? 'uma ferramenta'}`);
-  // Quem pede pode ser um ajudante (subagente): o cartão diz que é ele.
-  const titulo = pedido.ajudante !== undefined ? doClaude.replace(/^O Claude quer/, 'O ajudante quer') : doClaude;
+  // Quem pede pode ser um ajudante (subagente), ou outro cérebro pelo corpo do
+  // Solis (a Groq, o Gemini... backend/solis/corpo.py): o cartão diz quem é.
+  const titulo =
+    pedido.ajudante !== undefined
+      ? doClaude.replace(/^O Claude quer/, 'O ajudante quer')
+      : pedido.cerebro && pedido.cerebro !== 'claude'
+        ? doClaude.replace(/^O Claude quer/, `${maiuscula(quem(pedido.cerebro))} quer`)
+        : doClaude;
   const sempre = rotuloSempre(pedido.ferramenta, pedido.site);
   const agendar = pedido.ferramenta === 'mcp__solis__agendar_tarefa';
   // O navegador e a tela mostram igual: o que vai fazer · onde, e o texto embaixo.

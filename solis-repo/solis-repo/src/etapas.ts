@@ -25,9 +25,20 @@ export function nomeDoArquivo(caminho: string): string {
   return /[\\/]anexos[\\/]/.test(caminho) ? nome.replace(/^[0-9a-f]{8}-/, '') : nome;
 }
 
-const quem = (c?: string) =>
+export const quem = (c?: string) =>
   c === 'local' ? 'o modelo local' : NOMES_CEREBRO[c ?? ''] ? `o ${NOMES_CEREBRO[c ?? '']}` : 'o modelo';
-const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+export const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** A primeira palavra que vale: a depois da última volta com as ferramentas
+ *  (`com_corpo`, backend/solis/roteador.py). A de antes era a marca de que o
+ *  cérebro precisava delas, não a resposta. */
+function primeiraPalavra<T extends { etapa?: string }>(lista: T[]): T | undefined {
+  let inicio = -1;
+  lista.forEach((x, i) => {
+    if (x.etapa === 'com_corpo') inicio = i;
+  });
+  return lista.slice(inicio + 1).find((x) => x.etapa === 'primeira_palavra');
+}
 
 const plural = (n: number, um: string, varios: string, nenhum: string) =>
   n === 0 ? nenhum : `${n} ${n === 1 ? um : varios}`;
@@ -329,7 +340,7 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
     }
 
     const queda = tentativa.find((x) => x.etapa === 'queda');
-    const palavra = tentativa.find((x) => x.etapa === 'primeira_palavra');
+    const palavra = primeiraPalavra(tentativa);
     if (queda) {
       saida.push({ estado: 'falhou', texto: `${maiuscula(nome)} não respondeu: ${queda.motivo ?? 'sem motivo'}` });
     } else if (palavra) {
@@ -351,7 +362,7 @@ export function passos(etapas: EtapaRecebida[], vivo: boolean, agora = Date.now(
   else if (fim) saida.push({ estado: 'feita', texto: fim.cortada ? 'Escrevi a resposta, cortada no meio' : 'Escrevi a resposta' });
   // Esperando o cartão, nada está sendo escrito: o passo atual é a aprovação.
   else if (vivo && aprovacoesPendentes(etapas).length) return saida;
-  else if (vivo && etapas.some((e) => e.etapa === 'primeira_palavra'))
+  else if (vivo && primeiraPalavra(etapas))
     saida.push({ estado: 'atual', texto: 'Escrevendo a resposta…' });
   else if (vivo) saida.push({ estado: 'futura', texto: 'Escrever a resposta' });
   return saida;

@@ -840,8 +840,11 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      (1131, 714), 0,9 s. Provado com a Groq de verdade numa TELA INVENTADA (uma imagem de um Bloco
      de Notas com Salvar e Cancelar, pelo OCR de verdade; clicar só anotava): "clica no botão
      Salvar" → leu a tela, cartão "Clicar em (1238, 732)", aprovado, clique no centro do botão;
-     33 s, quase tudo esperando o limite por minuto do grátis. O aviso em Configurações → Controle
-     da tela ainda diz "o Claude" (tela aprovada: o texto espera o Matheus).
+     33 s, quase tudo esperando o limite por minuto do grátis. A pedido do Matheus (19/11/2026), o
+     aviso em Configurações → Controle da tela diz "o Solis" e que a tela vai pro cérebro que
+     responder (Claude, Groq, Gemini, na nuvem); e o cartão de aprovação diz quem pede ("O Groq
+     quer agendar uma tarefa", não "O Claude quer"), com o tempo dele contado da volta com as
+     ferramentas (a etapa `com_corpo`). Prints nos 3 temas e 2 navs.
      **Falta no corpo:** a saída do comando ao vivo, o modelo
      local usar o corpo (o Ollama estava desligado; antes de ligar, medir se as ferramentas a mais
      não pioram as de arquivo, que ele já acerta pouco sem raciocínio), e as aprovações saírem do

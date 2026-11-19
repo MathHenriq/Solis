@@ -255,7 +255,7 @@ def test_o_claude_recebe_as_mesmas_do_solis(monkeypatch):
 def test_a_groq_com_corpo_sabe_do_navegador_e_ainda_passa_o_resto(monkeypatch):
     """No roteador: a Groq recebe o corpo, o sistema fala das ferramentas e do
     navegador, e o que falta a ela (terminal, arquivos) ainda passa pro Claude."""
-    monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas: (
+    monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas, **_: (
         setattr(self, 'navegar', True), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
         setattr(self, 'agiu', False), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
     vistos = []
@@ -353,7 +353,7 @@ def test_pergunta_comum_vai_leve_sem_ferramenta(monkeypatch):
 
 def test_com_o_corpo_e_ainda_faltando_ferramenta_passa_pro_claude(monkeypatch):
     """Terminal e arquivos a Groq ainda não tem: com o corpo, ela passa de novo, e vai pro Claude."""
-    monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas: (
+    monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas, **_: (
         setattr(self, 'navegar', False), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
         setattr(self, 'agiu', False), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
     vistos = []
@@ -505,3 +505,20 @@ def test_com_terminal_o_sistema_fala_dele_e_nao_diz_que_nao_roda_comandos():
     assert 'PowerShell' in s and 'não roda comandos' not in s and 'não controla a tela' in s
     s = roteador.sistema_para('groq', False, True, False) + roteador.notas_do_cerebro('groq', ['claude'], False, True, False)
     assert 'PowerShell' not in s and 'não roda comandos' in s
+
+
+def test_o_cartao_diz_quem_pede(navegador_falso):
+    """O cartão da Groq diz "O Groq quer...", não "O Claude quer..."."""
+    g = Gravador()
+    c = corpo.Corpo(9, g, navegar=True, cerebro='groq')
+
+    async def tudo():
+        tarefa = asyncio.ensure_future(c.rodar('mcp__navegador__browser_click', {'element': 'Entrar', 'target': 'e1'}))
+        while not any(e == 'aprovacao' for e, _ in g.lista):
+            await asyncio.sleep(0.01)
+        pedido = next(d for e, d in g.lista if e == 'aprovacao')
+        agente.responder_aprovacao(pedido['id'], False)
+        await tarefa
+        return pedido
+
+    assert asyncio.run(tudo())['cerebro'] == 'groq'

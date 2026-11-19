@@ -509,7 +509,7 @@ async def responder(
                 )
             else:
                 # Groq, Gemini...: o corpo do Solis (as ferramentas e o navegador).
-                proprio = corpo.Corpo(conversa, etapas) if nome in com_o_corpo else None
+                proprio = corpo.Corpo(conversa, etapas, cerebro=nome) if nome in com_o_corpo else None
                 navegar = bool(proprio and proprio.navegar)
                 terminal = bool(proprio and proprio.terminal)
                 arquivos = bool(proprio and proprio.arquivos)
@@ -543,6 +543,8 @@ async def responder(
                 com_o_corpo |= {nome} | {c for c in fila if com_corpo(c)}
                 fila = [nome] + [c for c in fila if c in COM_FERRAMENTAS or com_corpo(c)]
                 de_novo = nome
+                # A tela conta o tempo dele daqui: a primeira palavra de antes era a marca.
+                etapas.marcar('com_corpo', cerebro=nome)
                 continue
             # Só quem tem mais ferramentas, dali pra frente: outro de API diria o mesmo.
             etapas.marcar('queda', cerebro=nome, motivo='precisa de ferramenta')

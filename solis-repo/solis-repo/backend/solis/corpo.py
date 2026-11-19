@@ -331,8 +331,10 @@ class Corpo:
     (`especificacoes`, no formato do chat/completions) e rodar o que o modelo
     pedir, com o cartão de aprovação quando a ação pede (`rodar`)."""
 
-    def __init__(self, conversa: int | None, etapas=MUDA, navegar: bool | None = None):
+    def __init__(self, conversa: int | None, etapas=MUDA, navegar: bool | None = None, cerebro: str = ''):
         self.conversa, self.etapas = conversa, etapas
+        # Quem pede (a Groq, o Gemini...): o cartão de aprovação diz o nome.
+        self.cerebro = cerebro
         # Ligado em Configurações → Navegador (e o @playwright/mcp instalado).
         self.navegar = (navegador.escolhido() is not None and navegador._cli().is_file()) if navegar is None else navegar
         self._nav: list[dict] | None = None
@@ -397,6 +399,8 @@ class Corpo:
         def por(tipo, valor=None):
             if tipo == 'etapa':
                 etapa, dados = valor
+                if etapa == 'aprovacao' and self.cerebro:
+                    dados = {**dados, 'cerebro': self.cerebro}
                 self.etapas.marcar(etapa, **dados)
 
         decisao = await agente._decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina)
