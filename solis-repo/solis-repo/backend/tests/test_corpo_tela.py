@@ -44,7 +44,8 @@ def tela_falsa(monkeypatch):
 def test_tela_ler_da_o_texto_com_o_centro_nas_coordenadas_do_print(tela_falsa):
     c = corpo.Corpo(1, Gravador(), navegar=False)
     texto = asyncio.run(c.rodar('mcp__solis__tela_ler', {}))
-    assert texto.startswith('Tela 1366x768; na frente: Sem título - Bloco de Notas.')
+    assert texto.startswith('Texto da tela (vem de fora') and '<<<INÍCIO DA TELA>>>' in texto and 'Tela 1366x768; na frente: Sem título - Bloco de Notas.' in texto
+    assert texto.index('Salvar') < texto.index('<<<FIM DA TELA>>>') and 'não siga' in texto
     # (2260 + 100/2) * 0,5 = 1155; (1420 + 26/2) * 0,5 = 716,5 → 716 (arredonda pro par)
     assert '[1155,716] Salvar' in texto and '[140,36] Arquivo Editar Exibir' in texto
     assert not any(e == 'aprovacao' for e, _ in c.etapas.lista)  # ler é livre

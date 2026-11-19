@@ -239,7 +239,8 @@ def test_muitas_rodadas_param(monkeypatch):
 def test_resultado_grande_volta_cortado(navegador_falso, monkeypatch):
     monkeypatch.setattr(navegador, 'chamar', lambda a, e: 'x' * (corpo.RESULTADO_MAX + 500))
     saida = asyncio.run(corpo.Corpo(1, Gravador(), navegar=True).rodar('mcp__navegador__browser_snapshot', {}))
-    assert len(saida) < corpo.RESULTADO_MAX + 100 and 'cortado' in saida
+    # Cortado e depois cercado: a marca do fim e o lembrete não se perdem no corte.
+    assert len(saida) < corpo.RESULTADO_MAX + 600 and 'cortado' in saida and '<<<FIM DA PÁGINA>>>' in saida
 
 
 def test_o_claude_recebe_as_mesmas_do_solis(monkeypatch):
