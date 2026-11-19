@@ -257,7 +257,7 @@ def test_a_groq_com_corpo_sabe_do_navegador_e_ainda_passa_o_resto(monkeypatch):
     navegador, e o que falta a ela (terminal, arquivos) ainda passa pro Claude."""
     monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas: (
         setattr(self, 'navegar', True), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
-        setattr(self, 'agiu', False), setattr(self, '_nav', None))[0])
+        setattr(self, 'agiu', False), setattr(self, '_nav', None), setattr(self, 'terminal', False))[0])
     vistos = []
 
     async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
@@ -355,7 +355,7 @@ def test_com_o_corpo_e_ainda_faltando_ferramenta_passa_pro_claude(monkeypatch):
     """Terminal e arquivos a Groq ainda não tem: com o corpo, ela passa de novo, e vai pro Claude."""
     monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas: (
         setattr(self, 'navegar', False), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
-        setattr(self, 'agiu', False), setattr(self, '_nav', None))[0])
+        setattr(self, 'agiu', False), setattr(self, '_nav', None), setattr(self, 'terminal', False))[0])
     vistos = []
 
     async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
@@ -403,3 +403,105 @@ def test_o_navegador_vai_enxuto(navegador_falso):
     assert set(clique['properties']) == {'element', 'target'}  # o falso não tem doubleClick
     assert clique['required'] == ['element']
     assert 'ref' not in clique['properties']
+
+
+# --- o terminal ---------------------------------------------------------------
+
+def _ate_o_cartao(g, aprovar, sempre=False):
+    """Espera o cartão do terminal e responde (o Matheus)."""
+    async def esperar():
+        while not any(e == 'aprovacao' for e, _ in g.lista):
+            await asyncio.sleep(0.01)
+        pedido = next(d for e, d in g.lista if e == 'aprovacao')
+        agente.responder_aprovacao(pedido['id'], aprovar, sempre)
+        return pedido
+    return esperar()
+
+
+def test_o_terminal_vai_com_o_mesmo_cartao_do_claude_e_roda_na_pasta_do_projeto(tmp_path):
+    com_chave()
+    conversa = banco.nova_conversa()
+    banco.guardar_projeto(conversa, str(tmp_path), 'pedir')
+    pedidos = []
+
+    def rota(req):
+        pedidos.append(json.loads(req.content))
+        if len(pedidos) == 1:
+            return resposta(chamada('PowerShell', {'command': 'Write-Output "olá"; (Get-Location).Path',
+                                                   'description': 'diz olá e a pasta'}))
+        return resposta(texto('Feito.'))
+
+    g = Gravador()
+
+    async def tudo():
+        tarefa = asyncio.ensure_future(_juntar(apis.responder(
+            'groq', 'sis', 'roda', g, httpx.MockTransport(rota), corpo=corpo.Corpo(conversa, g, navegar=False))))
+        pedido = await _ate_o_cartao(g, True)
+        return pedido, await tarefa
+
+    pedido, saida = asyncio.run(tudo())
+    assert saida == 'Feito.'
+    assert pedido['ferramenta'] == 'PowerShell' and pedido['resumo'].startswith('Rodar no terminal: Write-Output')
+    resultado = pedidos[1]['messages'][-1]['content']
+    assert resultado.startswith('(código de saída 0)') and 'olá' in resultado
+    assert str(tmp_path.resolve()).lower() in resultado.lower()
+    passo = next(d for e, d in g.lista if e == 'ferramenta')
+    assert passo['ok'] is True and 'olá' in passo['saida']
+
+
+def test_terminal_recusado_nao_roda(tmp_path):
+    com_chave()
+    marca = tmp_path / 'nao-devia.txt'
+    n = []
+
+    def rota(req):
+        n.append(1)
+        if len(n) == 1:
+            return resposta(chamada('PowerShell', {'command': f'New-Item "{marca}"', 'description': 'cria'}))
+        return resposta(texto('Não rodei.'))
+
+    g = Gravador()
+
+    async def tudo():
+        tarefa = asyncio.ensure_future(_juntar(apis.responder(
+            'groq', 'sis', 'cria', g, httpx.MockTransport(rota), corpo=corpo.Corpo(1, g, navegar=False))))
+        await _ate_o_cartao(g, False)
+        return await tarefa
+
+    assert asyncio.run(tudo()) == 'Não rodei.'
+    assert not marca.exists()
+
+
+def test_sempre_este_comando_vale_so_pro_mesmo_comando():
+    c = corpo.Corpo(42, Gravador(), navegar=False)
+    g = c.etapas
+
+    async def tudo():
+        primeiro = asyncio.ensure_future(c.rodar('PowerShell', {'command': 'Write-Output 1', 'description': 'x'}))
+        await _ate_o_cartao(g, True, sempre=True)
+        await primeiro
+        antes = sum(1 for e, _ in g.lista if e == 'aprovacao')
+        await c.rodar('PowerShell', {'command': 'Write-Output 1', 'description': 'x'})  # o mesmo: sem cartão
+        assert sum(1 for e, _ in g.lista if e == 'aprovacao') == antes
+        outro = asyncio.ensure_future(c.rodar('PowerShell', {'command': 'Write-Output 2', 'description': 'y'}))
+        while sum(1 for e, _ in g.lista if e == 'aprovacao') == antes:
+            await asyncio.sleep(0.01)
+        agente.responder_aprovacao([d for e, d in g.lista if e == 'aprovacao'][-1]['id'], False)
+        return await outro
+
+    assert asyncio.run(tudo()) == 'O Matheus recusou.'
+
+
+def test_terminal_desligado_nao_vai(monkeypatch):
+    monkeypatch.setenv('SOLIS_CORPO_TERMINAL', '0')
+    c = corpo.Corpo(1, Gravador(), navegar=False)
+    nomes = [s['function']['name'] for s in asyncio.run(c.especificacoes())]
+    assert 'PowerShell' not in nomes
+    assert 'não existe' in asyncio.run(c.rodar('PowerShell', {'command': 'Write-Output 1'}))
+
+
+def test_com_terminal_o_sistema_fala_dele_e_nao_diz_que_nao_roda_comandos():
+    s = roteador.sistema_para('groq', False, True, True) + roteador.notas_do_cerebro('groq', ['claude'], False, True, True)
+    assert 'PowerShell' in s and 'não roda comandos' not in s and 'não controla a tela' in s
+    s = roteador.sistema_para('groq', False, True, False) + roteador.notas_do_cerebro('groq', ['claude'], False, True, False)
+    assert 'PowerShell' not in s and 'não roda comandos' in s

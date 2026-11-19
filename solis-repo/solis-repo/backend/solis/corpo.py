@@ -27,6 +27,8 @@ import asyncio
 import copy
 import json
 import logging
+import os
+import subprocess
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -173,6 +175,42 @@ RESULTADO_MAX = 12_000
 # Quantas rodadas (pedir ferramenta → resultado → seguir) numa resposta.
 RODADAS_MAX = 12
 
+# O terminal: o mesmo nome e a mesma entrada do PowerShell do Claude, pra
+# valerem o mesmo cartão ("Rodar no terminal: ..."), o mesmo "Sempre este
+# comando" (o comando exato) e o mesmo registro (agente._decidir).
+TERMINAL = 'PowerShell'
+TERMINAL_MAX_S = 120
+_TERMINAL = {
+    'type': 'function',
+    'function': {
+        'name': TERMINAL,
+        'description': ('Roda um comando no PowerShell do Windows do Matheus, na pasta de trabalho (a do projeto da '
+                        'conversa, se houver). Cada comando pede a aprovação dele, num cartão. No máximo '
+                        f'{TERMINAL_MAX_S} s; devolve a saída e o código de saída.'),
+        'parameters': {'type': 'object', 'required': ['command', 'description'], 'properties': {
+            'command': {'type': 'string', 'description': 'O comando, como seria digitado no PowerShell.'},
+            'description': {'type': 'string', 'description': 'O que ele faz, em poucas palavras.'}}},
+    },
+}
+
+
+def _rodar_comando(comando: str, pasta: str) -> tuple[str, bool]:
+    """(saída pro modelo, se saiu com 0). A saída em UTF-8 (o padrão do
+    PowerShell é a página de código antiga, e o acento chegava quebrado)."""
+    try:
+        r = subprocess.run(
+            ['powershell', '-NoProfile', '-NonInteractive', '-Command',
+             '[Console]::OutputEncoding = [Text.Encoding]::UTF8; ' + comando],
+            cwd=pasta, capture_output=True, text=True, encoding='utf-8', errors='replace',
+            timeout=TERMINAL_MAX_S, stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except subprocess.TimeoutExpired:
+        return f'Passou de {TERMINAL_MAX_S} s: o comando foi parado.', False
+    except OSError as e:
+        return f'O PowerShell não abriu: {e}', False
+    saida = (r.stdout or '') + (('\n' + r.stderr) if r.stderr.strip() else '')
+    return f'(código de saída {r.returncode})\n{saida.strip()}', r.returncode == 0
+
+
 # As chaves de JSON Schema que todo provedor aceita (o Gemini recusa "$schema"
 # e outras); o resto sai.
 _CHAVES = {'type', 'properties', 'required', 'items', 'enum', 'description', 'default', 'anyOf'}
@@ -241,10 +279,14 @@ class Corpo:
         # Ligado em Configurações → Navegador (e o @playwright/mcp instalado).
         self.navegar = (navegador.escolhido() is not None and navegador._cli().is_file()) if navegar is None else navegar
         self._nav: list[dict] | None = None
+        # O terminal (PowerShell), com o cartão. SOLIS_CORPO_TERMINAL=0 tira.
+        self.terminal = os.name == 'nt' and os.environ.get('SOLIS_CORPO_TERMINAL', '1') != '0'
         self.agiu = False  # rodou alguma ferramenta que muda algo (a queda pro próximo cérebro refaria)
 
     async def especificacoes(self) -> list[dict]:
         specs = [_funcao(f.completo, f.descricao, f.parametros) for f in DO_SOLIS]
+        if self.terminal:
+            specs.append(copy.deepcopy(_TERMINAL))
         if self.navegar:
             specs += await self._do_navegador()
         return specs
@@ -262,7 +304,14 @@ class Corpo:
         return self._nav
 
     def tem(self, nome: str) -> bool:
-        return nome in _POR_NOME or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
+        return (nome in _POR_NOME or (self.terminal and nome == TERMINAL)
+                or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS))
+
+    def pasta(self) -> str:
+        """Onde o comando roda: a pasta do projeto da conversa, ou a de trabalho do Solis."""
+        from . import agente
+        projeto = banco.projeto_da_conversa(self.conversa)['pasta'] if self.conversa is not None else None
+        return str(agente._base(projeto))
 
     async def rodar(self, nome: str, entrada: dict) -> str:
         """Roda o que o modelo pediu e devolve o texto pro modelo. Uma recusa
@@ -299,6 +348,15 @@ class Corpo:
                                  'hora': (entrada.get('hora') or '').strip() or None})
             self._marcar(id_, nome, entrada, pagina, ok)
             return saida
+        if nome == TERMINAL:
+            comando = str(entrada.get('command') or '').strip()
+            if not comando:
+                self._marcar(id_, nome, entrada, pagina, ok=False)
+                return 'Faltou o comando.'
+            saida, ok = await asyncio.to_thread(_rodar_comando, comando, self.pasta())
+            self.agiu = True
+            self._marcar(id_, nome, entrada, pagina, ok, saida=agente._limpar_saida(saida))
+            return _cortar(saida)
         acao = navegador.acao(nome)
         try:
             saida = await asyncio.to_thread(navegador.chamar, acao, entrada)
@@ -313,10 +371,11 @@ class Corpo:
         self._marcar(id_, nome, entrada, _paginas.get(self.conversa), ok)
         return _cortar(saida)
 
-    def _marcar(self, id_: str, nome: str, entrada: dict, pagina: str | None, ok: bool) -> None:
+    def _marcar(self, id_: str, nome: str, entrada: dict, pagina: str | None, ok: bool, **extra) -> None:
         from . import agente
         alvo = navegador.alvo(nome, entrada, pagina) if navegador.acao(nome) else agente._alvo(nome, entrada)
-        self.etapas.marcar('ferramenta', ferramenta=nome, alvo=alvo, ok=ok, id=id_)
+        # `saida`: a do terminal fica no passo, pra abrir depois (como a do Claude).
+        self.etapas.marcar('ferramenta', ferramenta=nome, alvo=alvo, ok=ok, id=id_, **extra)
 
 
 def argumentos(texto: str | None) -> dict:

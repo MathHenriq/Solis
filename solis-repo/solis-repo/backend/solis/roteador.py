@@ -140,16 +140,26 @@ def com_corpo(nome: str) -> bool:
 SISTEMA_CORPO = SISTEMA_NUVEM.replace(
     'Você não roda comandos nem acessa a internet nesta resposta. ',
     'Você tem as ferramentas do Solis (mcp__solis__: hora, criar_lembrete, marcar_compromisso, ver_agenda, '
-    'ver_tarefas, buscar_memoria, agendar_tarefa): prefira elas pra lembretes e agenda. O que pede a aprovação do '
-    'Matheus aparece pra ele num cartão na tela: peça sem medo, e se ele recusar, respeite. ',
+    'ver_tarefas, buscar_memoria, agendar_tarefa): prefira elas pra lembretes e agenda. Chame as ferramentas '
+    'direto, sem perguntar antes no texto: quando uma ação precisa da aprovação do Matheus, o próprio Solis mostra '
+    'um cartão pra ele e só faz se ele aprovar (se ele recusar, a ferramenta te diz, e você respeita). ',
 )
 
 
-def sistema_para(nome: str, navegar: bool = False, com_o_corpo: bool = False) -> str:
+NOTA_TERMINAL = (
+    '\n\nVocê também tem o terminal (a ferramenta PowerShell): roda comandos no PC do Matheus, na pasta de '
+    'trabalho do Solis ou na do projeto da conversa. Chame direto: o Solis mostra o comando inteiro num cartão e '
+    'só roda se ele aprovar. Escreva o comando exato e, em description, o que ele faz. Use pro que só o terminal faz (git, '
+    'programas, o estado do PC) e conte o que viu na saída. Nunca apague, formate ou mude configuração do '
+    'Windows sem ele ter pedido com essas palavras.'
+)
+
+
+def sistema_para(nome: str, navegar: bool = False, com_o_corpo: bool = False, terminal: bool = False) -> str:
     if nome == 'claude':
         return SISTEMA_CLAUDE
     if com_o_corpo:
-        return SISTEMA_CORPO + (navegador.instrucoes() if navegar else '')
+        return SISTEMA_CORPO + (NOTA_TERMINAL if terminal else '') + (navegador.instrucoes() if navegar else '')
     return SISTEMA_NUVEM
 
 
@@ -177,17 +187,15 @@ NOTA_PASSAR = (
     '(fatos, história, ciência, livros, geografia, contas), conversa, e lembrete, tarefa ou '
     'compromisso pra anotar não precisam disso: responda normalmente, com o que você sabe.'
 )
-# Com o corpo: o que ainda falta a eles (arquivos, terminal, a tela, a busca na web).
-_SEM_O_RESTO = (
-    'Nesta resposta você não roda comandos, não lê nem escreve arquivos do computador, não controla outros '
-    'programas{fora} e não sabe o que mudou hoje (notícias, clima, cotações, resultados de jogos){busca}. Nunca '
-    'diga que fez, abriu, pesquisou ou mandou algo que não fez.'
-)
-
-
-def _sem_o_resto(navegar: bool) -> str:
-    return _SEM_O_RESTO.format(fora=' (o navegador, sim)' if navegar else '',
-                               busca=' sem abrir o navegador' if navegar else '')
+# Com o corpo: o que ainda falta a eles (a tela, a busca na web; sem o
+# terminal, também os comandos e os arquivos).
+def _sem_o_resto(navegar: bool, terminal: bool = False) -> str:
+    falta = [] if terminal else ['não roda comandos', 'não lê nem escreve arquivos do computador']
+    falta.append('não controla a tela nem outros programas' + (' (o navegador, sim)' if navegar else ''))
+    falta.append('não sabe o que mudou hoje (notícias, clima, cotações, resultados de jogos)'
+                 + (' sem abrir o navegador' if navegar else ''))
+    return ('Nesta resposta você ' + ', '.join(falta[:-1]) + ' e ' + falta[-1]
+            + '. Nunca diga que fez, abriu, pesquisou ou mandou algo que não fez.')
 
 
 NOTA_NAO_CONSEGUE = (
@@ -210,7 +218,8 @@ NOTA_SEM_APRENDIZADO_CLAUDE = (
 )
 
 
-def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_corpo: bool = False) -> str:
+def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_corpo: bool = False,
+                     terminal: bool = False) -> str:
     """O que vai no fim do sistema de cada cérebro: sem ferramentas, a marca pra
     passar o pedido (se alguém com ferramentas vem depois na fila, ou ele mesmo
     com o corpo) ou dizer que não consegue; e, com o aprendizado fora, que nada
@@ -218,7 +227,7 @@ def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_
     notas = ''
     if com_o_corpo:
         tem = any(c in COM_FERRAMENTAS for c in depois)
-        notas += ('\n\n' + _sem_o_resto(navegar) + (
+        notas += ('\n\n' + _sem_o_resto(navegar, terminal) + (
             f' Quando o pedido precisar de uma dessas coisas, responda exatamente {PASSA} e mais nada: o Solis passa '
             'o pedido pra quem tem as ferramentas. O que você já sabe, conversa, e o que as suas ferramentas fazem '
             'não precisam disso: responda ou faça.' if tem else
@@ -468,10 +477,12 @@ async def responder(
                 # Groq, Gemini...: o corpo do Solis (as ferramentas e o navegador).
                 proprio = corpo.Corpo(conversa, etapas) if nome in com_o_corpo else None
                 navegar = bool(proprio and proprio.navegar)
+                terminal = bool(proprio and proprio.terminal)
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome, navegar, proprio is not None) + nota_projeto(conversa, le_arquivos=nome == 'claude')
-                    + notas_do_cerebro(nome, fila, navegar, proprio is not None),
+                    sistema_para(nome, navegar, proprio is not None, terminal)
+                    + nota_projeto(conversa, le_arquivos=nome == 'claude')
+                    + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],
