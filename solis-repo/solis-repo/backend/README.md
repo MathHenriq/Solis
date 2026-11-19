@@ -566,6 +566,11 @@ texto vai como Unicode, então acento sai certo) e o Pillow pro print, em pixels
 (`SetProcessDpiAwareness`). O print vai reduzido a 1366 de largura; as coordenadas do Claude voltam
 pra tela aqui. Só a tela principal.
 
+Pros cérebros que não veem imagem (os de API, pelo corpo do Solis), a tela vai como texto:
+`mcp__solis__tela_ler` é o print lido pelo OCR do Windows (`ocr.linhas_com_posicao`, o
+`ocr_windows.ps1 -Posicoes`), cada linha com o centro [x,y] nas coordenadas do print; as ações são
+as mesmas, com o mesmo cartão, e cada uma devolve o texto da tela de depois.
+
 ## Uso da cota
 
 `solis/uso.py`: quanto da cota do Claude já foi, como Configurações → Uso no Claude Desktop. O CLI

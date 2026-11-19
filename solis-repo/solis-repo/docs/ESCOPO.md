@@ -831,7 +831,18 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Groq de verdade numa pasta de teste (contrato inventado, nenhum arquivo do Matheus foi): achou
      (buscar_arquivos "aluguel teste"), leu e respondeu "vence todo dia 12, multa de 2 aluguéis",
      12,4 s, com uma espera de 9 s do limite por minuto.
-     **Falta no corpo:** a tela pros cérebros de API, a saída do comando ao vivo, o modelo
+     **A tela no corpo (19/11/2026).** A Groq e os de API não veem imagem: recebem a tela como
+     texto. `tela_ler` é o print lido pelo OCR do Windows, cada linha com o centro [x,y] nas mesmas
+     coordenadas do print do Claude (o script do OCR ganhou `-Posicoes`); as ações (clicar,
+     digitar, tecla, rolar, mover) têm os nomes das do Claude: o mesmo cartão, com o print marcado
+     pro Matheus, o mesmo "Sempre neste programa", e nada na janela do Solis. Depois de cada ação
+     volta o texto da tela de novo. Medido: o botão "Salvar" desenhado em (1130, 710) foi lido em
+     (1131, 714), 0,9 s. Provado com a Groq de verdade numa TELA INVENTADA (uma imagem de um Bloco
+     de Notas com Salvar e Cancelar, pelo OCR de verdade; clicar só anotava): "clica no botão
+     Salvar" → leu a tela, cartão "Clicar em (1238, 732)", aprovado, clique no centro do botão;
+     33 s, quase tudo esperando o limite por minuto do grátis. O aviso em Configurações → Controle
+     da tela ainda diz "o Claude" (tela aprovada: o texto espera o Matheus).
+     **Falta no corpo:** a saída do comando ao vivo, o modelo
      local usar o corpo (o Ollama estava desligado; antes de ligar, medir se as ferramentas a mais
      não pioram as de arquivo, que ele já acerta pouco sem raciocínio), e as aprovações saírem do
      `agente.py` pro corpo.
