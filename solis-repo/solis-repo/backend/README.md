@@ -267,7 +267,7 @@ Cérebros.
   (`apis.responder(..., corpo=)`): o modelo pede, o Solis roda, o resultado volta como mensagem
   `tool`, em até 12 rodadas. Junto vai o navegador, se ligado: o Solis é o cliente do servidor
   (`navegador.ferramentas`/`navegador.chamar`, pelo dono), com 12 ferramentas essenciais e os
-  parâmetros do dia a dia. Os cartões são os do Claude (`agente._decidir`). As ferramentas só vão
+  parâmetros do dia a dia. Os cartões são os do Claude, da aprovação do Solis (`aprovacoes.decidir`, sem o SDK do Claude). As ferramentas só vão
   quando o pedido precisa: o pedido vai leve e, se o cérebro responde a marca `[FERRAMENTA]`, ele
   mesmo tenta de novo com o corpo; o que o corpo ainda não tem (ler arquivo direto, a tela) passa
   pro Claude. O terminal entra no corpo como a ferramenta `PowerShell`, a mesma do Claude (mesmo

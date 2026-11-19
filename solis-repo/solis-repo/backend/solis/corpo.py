@@ -12,7 +12,7 @@ pensar. Então as ferramentas moram aqui, e cada cérebro recebe as mesmas:
 Hoje o corpo tem as do Solis (hora, lembrete, agenda, tarefas, memória,
 agendar) e o navegador (o mesmo servidor @playwright/mcp que o Claude usa). As
 aprovações são as mesmas do Claude: o mesmo cartão, o mesmo "sempre", o mesmo
-registro (agente._decidir). Faltam no corpo, pros cérebros de API: arquivos,
+registro (aprovacoes.decidir). Faltam no corpo, pros cérebros de API: arquivos,
 terminal e a tela — eles ainda passam esses pedidos pra quem tem
 (roteador.PASSA).
 
@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Awaitable, Callable
 
-from . import banco, navegador, pc, tela
+from . import aprovacoes, banco, navegador, pc, tela
 from .etapas import MUDA
 
 log = logging.getLogger('solis.corpo')
@@ -177,7 +177,7 @@ RODADAS_MAX = 12
 
 # O terminal: o mesmo nome e a mesma entrada do PowerShell do Claude, pra
 # valerem o mesmo cartão ("Rodar no terminal: ..."), o mesmo "Sempre este
-# comando" (o comando exato) e o mesmo registro (agente._decidir).
+# comando" (o comando exato) e o mesmo registro (aprovacoes.decidir).
 TERMINAL = 'PowerShell'
 TERMINAL_MAX_S = 120
 _TERMINAL = {
@@ -422,11 +422,11 @@ class Corpo:
                     dados = {**dados, 'cerebro': self.cerebro}
                 self.etapas.marcar(etapa, **dados)
 
-        decisao = await agente._decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina)
-        mensagem = getattr(decisao, 'message', None)
-        if type(decisao).__name__ == 'PermissionResultDeny':
+        # A aprovação do Solis (aprovacoes.py): a mesma do Claude, sem o SDK dele.
+        decisao = await aprovacoes.decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina)
+        if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
-            return mensagem or 'O Matheus recusou.'
+            return decisao.mensagem or 'O Matheus recusou.'
         if nome in _POR_NOME:
             try:
                 saida, ok = await _POR_NOME[nome].rodar(entrada), True
@@ -490,7 +490,7 @@ class Corpo:
 
     def _marcar(self, id_: str, nome: str, entrada: dict, pagina: str | None, ok: bool, **extra) -> None:
         from . import agente
-        alvo = navegador.alvo(nome, entrada, pagina) if navegador.acao(nome) else agente._alvo(nome, entrada)
+        alvo = navegador.alvo(nome, entrada, pagina) if navegador.acao(nome) else aprovacoes._alvo(nome, entrada)
         # `saida`: a do terminal fica no passo, pra abrir depois (como a do Claude).
         self.etapas.marcar('ferramenta', ferramenta=nome, alvo=alvo, ok=ok, id=id_, **extra)
 

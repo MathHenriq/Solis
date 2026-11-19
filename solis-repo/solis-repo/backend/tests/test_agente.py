@@ -97,7 +97,8 @@ def test_comando_recusado():
 
 
 def test_cartao_sem_resposta_vira_recusa(monkeypatch):
-    monkeypatch.setattr(agente, 'APROVACAO_MAX_S', 0.05)
+    from solis import aprovacoes
+    monkeypatch.setattr(aprovacoes, 'APROVACAO_MAX_S', 0.05)
     resultado, mandados = _decidir('Bash', {'command': 'dir'})
     assert isinstance(resultado, PermissionResultDeny)
     assert mandados[-1][1][1]['aprovado'] is False

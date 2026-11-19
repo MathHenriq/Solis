@@ -794,7 +794,7 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      num lugar só: o Claude recebe as mesmas pelo servidor MCP dele, e os cérebros de API (Groq,
      Gemini, Mistral, OpenRouter) pelo laço de ferramentas do `chat/completions` (`apis.responder`),
      junto com o navegador (o mesmo `@playwright/mcp`, com o Solis de cliente). Os cartões são os
-     mesmos do Claude (`agente._decidir`): abrir e ler livres, clicar e escrever pedem, "Sempre
+     mesmos do Claude (`aprovacoes.decidir`): abrir e ler livres, clicar e escrever pedem, "Sempre
      neste site". Medido com a Groq de verdade, num banco copiado e num navegador sem janela de
      teste:
      - **Pergunta comum** ("capital da Austrália"): vai leve, sem ferramenta, 0,7 s, 3 KB — como
@@ -884,8 +884,13 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      de pagamento) e a tela pararam por completo. O e-mail continua escapando às vezes; os cérebros
      da nuvem não foram medidos nisso. O Claude recebe o navegador direto do servidor dele, sem a
      cerca do corpo.
-     **Falta no corpo:** a saída do comando ao vivo, o navegador e a tela no local (medir), as
-     aprovações saírem do `agente.py` pro corpo, e a nota escondida em e-mail.
+     **A aprovação é do Solis (19/11/2026).** O que é livre e o que pede, o cartão, o "sempre" e o
+     registro saíram do `agente.py` (o módulo do Claude) pra `aprovacoes.py`, que não carrega o SDK
+     do Claude: a decisão é uma `Decisao` (pode, por que não, se o plano foi aprovado); o Claude só
+     traduz pros tipos do SDK, e o corpo usa direto. Os 730 testes de antes passaram sem mudar
+     nenhum (só o que ajustava o tempo de espera do cartão, que mudou de lugar).
+     **Falta no corpo:** a saída do comando ao vivo, o navegador e a tela no local (medir), e a
+     nota escondida em e-mail.
 
 ### Controle do PC e visão da tela
 

@@ -523,3 +523,30 @@ def test_o_cartao_diz_quem_pede(navegador_falso):
         return pedido
 
     assert asyncio.run(tudo())['cerebro'] == 'groq'
+
+
+def test_a_aprovacao_e_do_solis_e_nao_carrega_o_sdk_do_claude():
+    """A aprovação saiu do agente.py (19/11/2026): o corpo decide sem o SDK do Claude."""
+    import subprocess
+    import sys
+    codigo = ('import sys, solis.aprovacoes, solis.corpo; '
+              'print(any(m.startswith("claude_agent_sdk") for m in sys.modules))')
+    r = subprocess.run([sys.executable, '-c', codigo], capture_output=True, text=True, cwd=str(__import__('pathlib').Path(__file__).parents[1]))
+    assert r.stdout.strip() == 'False', r.stderr
+
+
+def test_o_claude_traduz_a_decisao_pro_sdk(monkeypatch):
+    from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny
+    from solis import aprovacoes
+
+    async def recusa(*a, **k):
+        return aprovacoes.Decisao(False, 'não pode')
+
+    async def plano(*a, **k):
+        return aprovacoes.Decisao(True, sair_do_plano=True)
+    monkeypatch.setattr(aprovacoes, 'decidir', recusa)
+    r = asyncio.run(agente._decidir('Bash', {'command': 'x'}, lambda *a: None))
+    assert isinstance(r, PermissionResultDeny) and r.message == 'não pode'
+    monkeypatch.setattr(aprovacoes, 'decidir', plano)
+    r = asyncio.run(agente._decidir('ExitPlanMode', {}, lambda *a: None))
+    assert isinstance(r, PermissionResultAllow) and r.updated_permissions[0].mode == 'default'
