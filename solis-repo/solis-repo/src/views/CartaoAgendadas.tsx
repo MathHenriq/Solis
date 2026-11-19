@@ -10,9 +10,11 @@ import {
   type NovaAgendada,
 } from '../servidor';
 
-/** Configurações → Tarefas agendadas: um pedido que o Claude faz sozinho num
+/** Configurações → Tarefas agendadas: um pedido que o Solis faz sozinho num
  *  horário, como as tarefas agendadas do Claude Desktop (backend/solis/agendadas.py).
  *  Na hora, o Solis abre uma conversa com o nome da tarefa e avisa no Windows.
+ *  Vai primeiro pro Claude e, sem ele, pros outros cérebros (19/11/2026); o
+ *  texto dizia "o Claude" e virou "o Solis" a pedido do Matheus.
  *
  *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), as ações
@@ -119,8 +121,8 @@ function Formulario({
       <textarea
         value={pedido}
         onChange={(e) => definirPedido(e.target.value)}
-        placeholder="O que o Claude deve fazer — ex.: resuma as notícias de tecnologia de hoje"
-        aria-label="O que o Claude deve fazer"
+        placeholder="O que o Solis deve fazer — ex.: resuma as notícias de tecnologia de hoje"
+        aria-label="O que o Solis deve fazer"
         rows={3}
         className={`block w-full resize-y placeholder:text-text-placeholder ${CAMPO}`}
         style={{ ...texto, marginTop: 'var(--agd-campo-gap)', lineHeight: 1.5 }}
@@ -216,7 +218,7 @@ export function CartaoAgendadas({ aoAbrirConversa }: { aoAbrirConversa?: (id: nu
   // 'nova', o id em edição, ou null.
   const [editando, definirEditando] = useState<'nova' | number | null>(null);
   const [apagando, definirApagando] = useState<number | null>(null);
-  // As que o Matheus mandou rodar agora: a conversa onde o Claude está respondendo.
+  // As que o Matheus mandou rodar agora: a conversa onde o Solis está respondendo.
   const [rodando, definirRodando] = useState<Record<number, number>>({});
 
   const ler = () => void listarAgendadas().then(definirLista);
@@ -259,7 +261,7 @@ export function CartaoAgendadas({ aoAbrirConversa }: { aoAbrirConversa?: (id: nu
     >
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Tarefas agendadas</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
-        O Claude faz um pedido sozinho no horário marcado: abre uma conversa com o nome da tarefa e avisa no
+        O Solis faz um pedido sozinho no horário marcado: abre uma conversa com o nome da tarefa e avisa no
         Windows quando acaba. Só roda com o Solis aberto; o que precisar da sua aprovação espera você ver.
       </p>
 
