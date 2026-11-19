@@ -136,8 +136,13 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
      *  algumas vezes antes de dar erro. */
     let abrindo = false;
     let reabrir = false;
+    // Outro programa no microfone (o Discord numa chamada): o servidor manda
+    // "ceder" e a escuta solta o microfone e o som dela por completo; "retomar"
+    // quando ele soltar (backend/solis/microfone.py). Relato do Matheus,
+    // 19/11/2026: com o Solis aberto, a chamada do Discord ficava abafada.
+    let cedida = false;
     async function abrirMicrofone(tentativa = 0) {
-      if (fluxo || fim || abrindo) return;
+      if (fluxo || fim || abrindo || cedida) return;
       abrindo = true;
       try {
         // Sem o processamento de chamada (eco, ruído, ganho): com ele, o
@@ -146,7 +151,7 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
         const f = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
-        if (fim || ws?.readyState !== WebSocket.OPEN) {
+        if (fim || cedida || ws?.readyState !== WebSocket.OPEN) {
           f.getTracks().forEach((t) => t.stop());
           return;
         }
@@ -230,6 +235,15 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; motivo?: string };
         if (msg.tipo === 'pronta') {
+          void abrirMicrofone();
+        } else if (msg.tipo === 'ceder') {
+          cedida = true;
+          window.clearTimeout(trocaDeAparelho);
+          trocaDeAparelho = undefined;
+          fecharMicrofone();
+          definirEstado('esperando');
+        } else if (msg.tipo === 'retomar') {
+          cedida = false;
           void abrirMicrofone();
         } else if (msg.tipo === 'ativou') {
           definirEstado('ouvindo');

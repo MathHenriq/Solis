@@ -767,6 +767,21 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      depois do fim da fala com o Whisper pequeno carregado (transcrição 0,66 · resposta 0,40 ·
      primeiro pedaço da voz 0,69); o Gemini deu ~1,4 s. Custo: o da Groq grátis e o da Fish por
      frase, como no modo Pedido. **Falta:** a voz dele ao vivo.
+   - **A chamada do Discord abafada com o Solis aberto (19/11/2026).** Relato do Matheus: entrou
+     numa chamada com o Solis aberto e a voz de todos ficou abafada; fechou o Solis, voltou ao
+     normal (no dia 18, o áudio do Discord não saía, e fechar só a janela principal resolveu). O
+     que se mediu: não há fone Bluetooth (é o H510 USB; a causa clássica do "abafado", o fone
+     passando pro modo de ligação, fica descartada), e a escuta, que mora na janela principal,
+     segura o microfone e um canal de som o tempo todo. Não deu pra achar o mecanismo exato no
+     Windows sem atrapalhar a chamada dele. A correção tira o Solis do caminho: com outro programa
+     no microfone (o Discord numa chamada, Zoom, Meet), a escuta solta o microfone e o som dela
+     por completo, e volta quando ele soltar (`microfone.py`). Provado: com o servidor de verdade
+     e o Discord dele numa chamada, a escuta recebeu "ceder: Discord" em 0,8 s, antes de poder
+     abrir o microfone; na tela (microfone falso do Edge), abrir no meio da chamada não abre nada,
+     o fim da chamada abre, entrar de novo fecha os dois, e trocar o fone no meio não reabre.
+     **Falta:** o Matheus conferir numa chamada de verdade com o Solis aberto. Enquanto isso,
+     chamar "Solis" pela voz numa chamada não funciona (escolha consciente: ele estaria falando
+     com os amigos).
    - **O navegador de sempre (18/11/2026).** Configurações → Navegador → "Qual janela": a do
      Solis, ou o Chrome (ou Edge) de sempre do Matheus, com as abas e os logins dele, pela extensão
      oficial do Playwright (`--extension` no mesmo `@playwright/mcp`). Sem a extensão, a tela

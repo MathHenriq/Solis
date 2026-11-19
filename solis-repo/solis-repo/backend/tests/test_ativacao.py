@@ -521,3 +521,58 @@ def test_websocket_seguir_abre_o_pedido_e_pausado_nao(monkeypatch):
         assert ws.receive_json() == {'tipo': 'ativou'}
         ws.send_bytes((quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)).tobytes())
         assert ws.receive_json() == {'tipo': 'texto', 'texto': 'Toca Legião Urbana.'}
+
+
+def test_outro_programa_no_microfone_a_escuta_solta_e_volta(monkeypatch):
+    """Relato do Matheus (19/11/2026): com o Solis aberto, a chamada do Discord
+    ficava abafada. Com o Discord no microfone, a escuta solta e não ouve; quando
+    ele solta, ela volta."""
+    from solis import microfone
+    motor = MotorFalso()
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        microfone.vigia.mudou(['Discord'])
+        assert ws.receive_json() == {'tipo': 'ceder', 'por': ['Discord']}
+        ws.send_bytes((palavra() + quadros(0.5)).tobytes())  # cedida: a palavra não conta
+        microfone.vigia.mudou([])
+        assert ws.receive_json() == {'tipo': 'retomar'}
+        ws.send_bytes(palavra().tobytes())
+        assert ws.receive_json() == {'tipo': 'ativou'}
+    assert microfone.vigia._filas == set()
+
+
+def test_o_vigia_so_avisa_quando_muda():
+    import asyncio
+    from solis import microfone
+    v = microfone.Vigia()
+
+    async def rodar():
+        fila = v.entrar()
+        primeiro = await fila.get()
+        v.mudou(['Discord'])
+        v.mudou(['Discord'])  # igual: não avisa de novo
+        v.mudou([])
+        await asyncio.sleep(0)
+        recebidos = [fila.get_nowait() for _ in range(fila.qsize())]
+        v.sair(fila)
+        return primeiro, recebidos
+    v._ligar = lambda: None
+    assert asyncio.run(rodar()) == ([], [['Discord'], []])
+
+
+def test_abrir_o_solis_no_meio_da_chamada_ja_comeca_cedida(monkeypatch):
+    """O "ceder" vem antes do "pronta": a tela nem abre o microfone."""
+    from solis import microfone
+    motor = MotorFalso()
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))
+    microfone.vigia.outros = ['Discord']
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'ceder', 'por': ['Discord']}
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        microfone.vigia.mudou([])
+        assert ws.receive_json() == {'tipo': 'retomar'}

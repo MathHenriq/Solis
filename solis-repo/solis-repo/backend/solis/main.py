@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, ocr, ollama, pc, rapidas, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, pc, rapidas, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -2072,8 +2072,29 @@ async def escuta(ws: WebSocket):
     if segurado:
         segurado.segurar()
     _aquecer_whisper(pequeno)
-    pausada = False
+    pausada = cedida = False
+    # Outro programa no microfone (o Discord numa chamada): a tela solta o
+    # microfone e o som da escuta, e volta quando ele soltar (microfone.py).
+    fila = microfone.vigia.entrar()
+    vigiando = None
+
+    async def vigiar():
+        nonlocal cedida
+        while True:
+            outros = await fila.get()
+            if outros and not cedida:
+                cedida = True
+                await ws.send_json({'tipo': 'ceder', 'por': outros})
+            elif not outros and cedida:
+                cedida = False
+                await ws.send_json({'tipo': 'retomar'})
     try:
+        # Quem está no microfone agora, antes da tela abrir o dela.
+        await microfone.vigia.primeira_leitura()
+        if microfone.vigia.outros:
+            cedida = True
+            await ws.send_json({'tipo': 'ceder', 'por': microfone.vigia.outros})
+        vigiando = asyncio.create_task(vigiar())
         # A tela só abre o microfone depois disto: escuta que não funciona (falta o
         # modelo, por exemplo) não pode deixar o microfone do PC aberto à toa.
         await ws.send_json({'tipo': 'pronta'})
@@ -2092,7 +2113,7 @@ async def escuta(ws: WebSocket):
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
                 continue
-            if pausada or not msg.get('bytes'):
+            if pausada or cedida or not msg.get('bytes'):
                 continue
             # Gerador: cada decisão (confirmar/descartar) vale já pro quadro seguinte.
             for tipo, audio in escutando.alimentar(msg['bytes']):
@@ -2132,6 +2153,9 @@ async def escuta(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
+        if vigiando is not None:
+            vigiando.cancel()
+        microfone.vigia.sair(fila)
         escutando.fechar()
         if segurado:
             segurado.soltar()

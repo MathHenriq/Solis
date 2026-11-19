@@ -135,3 +135,12 @@ def ollama_sem_lembranca_de_fora(monkeypatch):
     monkeypatch.setattr(ollama, '_sondado', 0.0)
     monkeypatch.setattr(ollama, '_sonda', None)
     monkeypatch.setattr(ollama, '_porta_abre', lambda: False)
+
+
+@pytest.fixture(autouse=True)
+def sem_vigia_do_microfone_de_verdade(monkeypatch):
+    """Nenhum teste sobe o PowerShell que vigia o microfone (microfone.py):
+    quem precisa simula a mudança com vigia.mudou()."""
+    from solis import microfone
+    monkeypatch.setattr(microfone.vigia, '_ligar', lambda: None)
+    microfone.vigia.outros = []

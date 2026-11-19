@@ -491,6 +491,15 @@ vive no pedido.
 (`public/escuta-processador.js`) entrega o áudio em 16 kHz e o WebSocket `/escuta` o traz pra cá. O
 áudio não vai pro disco nem sai do computador.
 
+**Numa chamada, a escuta sai do caminho** (`solis/microfone.py`, 19/11/2026). Enquanto outro
+programa estiver com o microfone ativo (o Discord numa chamada, o Zoom...), o servidor manda
+`{"tipo": "ceder", "por": [...]}` e a tela solta o microfone e o canal de som da escuta por
+completo; `{"tipo": "retomar"}` quando ele soltar. Quem diz é um PowerShell só
+(`microfone_vigia.ps1`), ligado enquanto houver escuta aberta: a cada segundo, pela API de áudio
+do Windows, os programas com captura ativa (o próprio Solis não conta). Ao abrir, o servidor espera
+a primeira leitura antes do `pronta`: abrir o Solis no meio de uma chamada não abre o microfone nem
+por um instante. Nesse tempo, chamar "Solis" pela voz não funciona.
+
 - **Quem ouve a palavra: o Whisper** (o mesmo do microfone, sem nada a configurar). A energia do som
   separa os trechos de fala; os primeiros 2 s de cada trecho (`PREVIA`), ou o trecho inteiro se for
   mais curto, vão pro Whisper, e se o texto começa com "Solis" (ou "ei, Solis"; aceita Sólis, Solís,
