@@ -14,7 +14,8 @@ import {
  *  horário, como as tarefas agendadas do Claude Desktop (backend/solis/agendadas.py).
  *  Na hora, o Solis abre uma conversa com o nome da tarefa e avisa no Windows.
  *  Vai primeiro pro Claude e, sem ele, pros outros cérebros (19/11/2026); o
- *  texto dizia "o Claude" e virou "o Solis" a pedido do Matheus.
+ *  texto dizia "o Claude" e virou "o Solis" a pedido do Matheus, aprovado
+ *  pelos prints nos 3 temas e 2 navs (19/11/2026).
  *
  *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), as ações

@@ -954,8 +954,8 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Claude Desktop), e com a cota dele acabada a tarefa falhava. Agora o Claude vem primeiro e,
      sem ele, a tarefa segue nos outros cérebros da ordem, que fazem pelo corpo. A pesquisa longa
      continua só do Claude (busca e ajudantes). A pedido do Matheus, a tela de Tarefas agendadas
-     diz "o Solis faz um pedido sozinho" e "O que o Solis deve fazer" (prints nos 3 temas e 2 navs;
-     o texto continua em 3 linhas).
+     diz "o Solis faz um pedido sozinho" e "O que o Solis deve fazer" (prints nos 3 temas e 2 navs,
+     aprovados por ele; o texto continua em 3 linhas).
      **Falta no corpo:** o navegador e a tela no local (medir; o e-mail com nota escondida entra
      junto nessa medida).
 
