@@ -844,7 +844,7 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      aviso em Configurações → Controle da tela diz "o Solis" e que a tela vai pro cérebro que
      responder (Claude, Groq, Gemini, na nuvem); e o cartão de aprovação diz quem pede ("O Groq
      quer agendar uma tarefa", não "O Claude quer"), com o tempo dele contado da volta com as
-     ferramentas (a etapa `com_corpo`). Prints nos 3 temas e 2 navs.
+     ferramentas (a etapa `com_corpo`). Prints nos 3 temas e 2 navs, aprovados pelo Matheus em 19/11/2026.
      **Falta no corpo:** a saída do comando ao vivo, o modelo
      local usar o corpo (o Ollama estava desligado; antes de ligar, medir se as ferramentas a mais
      não pioram as de arquivo, que ele já acerta pouco sem raciocínio), e as aprovações saírem do

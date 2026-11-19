@@ -6,7 +6,8 @@ import { lerTela, ligarTela, type Tela } from '../servidor';
  *  digitar e apertar teclas em qualquer programa, como o computer use do
  *  Claude Desktop (backend/solis/tela.py), com qualquer cérebro (o Claude pelo
  *  print, os de API pelo texto da tela: corpo.py). Desligado até o Matheus ligar.
- *  O texto dizia "o Claude"; trocado pra "o Solis" a pedido dele (19/11/2026).
+ *  O texto dizia "o Claude"; trocado pra "o Solis" a pedido dele e aprovado
+ *  pelos prints nos 3 temas e 2 navs (19/11/2026).
  *
  *  Aprovado pelo Matheus em 16/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e uma linha do de Cérebros (layout.configuracoes.cerebros) com o
