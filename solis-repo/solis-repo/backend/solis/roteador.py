@@ -562,10 +562,13 @@ async def responder(
                 modo = _modo_local(mensagem, voz, modelo_local)
                 o_corpo = None
                 if modo['ferramentas'] and _corpo_local(modelo_local, mensagem):
-                    # O meio-termo medido: as do Solis e o terminal, sem as de
-                    # arquivo, a tela e o navegador.
-                    o_corpo = corpo.Corpo(conversa, etapas, navegar=False, cerebro='local')
-                    o_corpo.arquivos = o_corpo.tela = o_corpo.mcp = False
+                    # O medido: as do Solis, o terminal, o navegador e a tela (se
+                    # ligados em Configurações); sem as de arquivo (a pergunta de
+                    # arquivo vai só com elas) e sem os servidores MCP. Medido em
+                    # 19/11/2026 com o qwen3:8b: 12/13 e 13/13 com o navegador e
+                    # a tela, sem piorar o terminal, a agenda e a conversa.
+                    o_corpo = corpo.Corpo(conversa, etapas, cerebro='local')
+                    o_corpo.arquivos = o_corpo.mcp = False
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,

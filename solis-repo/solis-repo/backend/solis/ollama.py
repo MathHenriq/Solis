@@ -432,7 +432,11 @@ async def conversar(
     # Solis, terminal), as mesmas dos outros cérebros, no lugar das só de arquivo.
     if o_corpo is not None:
         from . import corpo as _corpo
-        instrucao = sistema(memorias or [], trechos, resumo, arquivos=False, voz=voz) + _corpo.instrucoes_local(o_corpo)
+        # Com o corpo, o "não pode acessar a internet nem programas" deixa de ser
+        # verdade: medido em 19/11/2026, com o navegador o qwen3:8b ainda dizia
+        # "não posso acessar a internet" pro preço do dólar.
+        instrucao = sistema(memorias or [], trechos, resumo, arquivos=False, voz=voz).replace(
+            NAO_PODE, 'o que não estiver nas suas ferramentas (descritas abaixo).') + _corpo.instrucoes_local(o_corpo)
     else:
         instrucao = sistema(memorias or [], trechos, resumo, arquivos=ferramentas, voz=voz)
     mensagens_ollama = [{'role': 'system', 'content': instrucao + projeto}] + [
@@ -473,6 +477,7 @@ async def conversar(
     async def pedacos() -> AsyncIterator[str]:
         nonlocal r
         pensou = False
+        falou = False  # algum texto saiu, em qualquer rodada
         try:
             # Com as ferramentas (pc.py), uma resposta pode ter várias rodadas: o
             # modelo pede uma ferramenta, ela roda aqui, o resultado volta como
@@ -496,6 +501,7 @@ async def conversar(
                         pensou = True
                     if texto:
                         dito += texto
+                        falou = True
                         yield texto
                     if parte.get('done'):
                         # Os tempos do Ollama, pra achar a próxima demora: o
@@ -509,6 +515,10 @@ async def conversar(
                         break
                 await r.aclose()
                 if not chamadas:
+                    if not falou:
+                        # Pensou e não escreveu nada (visto com o qwen3:8b e a tela,
+                        # 19/11/2026): a resposta não pode sair em branco.
+                        yield 'Não consegui responder isso agora. Pode pedir de novo, de outro jeito?'
                     return
                 if rodada == RODADAS_MAX:
                     yield '\n\nParei de procurar: foram muitas tentativas seguidas sem chegar numa resposta.'

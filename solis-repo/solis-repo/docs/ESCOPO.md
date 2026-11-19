@@ -975,8 +975,20 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      continua só do Claude (busca e ajudantes). A pedido do Matheus, a tela de Tarefas agendadas
      diz "o Solis faz um pedido sozinho" e "O que o Solis deve fazer" (prints nos 3 temas e 2 navs,
      aprovados por ele; o texto continua em 3 linhas).
-     **Falta no corpo:** o navegador e a tela no local (medir; o e-mail com nota escondida entra
-     junto nessa medida).
+     **O navegador e a tela no modelo local (19/11/2026, medido).** O qwen3:8b com as do Solis, o
+     terminal, o navegador e a tela (26 ferramentas), num corpo que só anota (nada rodou), em 13
+     pedidos (terminal, anotar, agenda, YouTube, Mercado Livre, o dólar, clicar em Salvar, e 6 de
+     conversa). Sem mexer no texto: 11/13 em três rodadas — o dólar recusado sempre ("não tenho
+     internet": o sistema dele dizia que não pode acessar a internet) e o Salvar voltando vazio.
+     Com o "não pode" trocado por "o que não estiver nas suas ferramentas", e as instruções "você
+     TEM internet pelo navegador; pra informação de hoje, abra uma busca" e "pra clicar, PRIMEIRO
+     tela_ler, depois tela_clicar com o [x,y]": 12/13 e 13/13 (o Salvar vazio uma vez). Sem
+     piorar o resto: terminal, anotar e agenda 3/3 e nenhuma ferramenta à toa nas 6 conversas nas
+     cinco rodadas. Ligado pro qwen3:8b (o medido), com o navegador e a tela seguindo
+     Configurações. E a resposta do local nunca mais sai em branco: pensou e não escreveu nada,
+     ele diz que não conseguiu. Atenção: com o navegador no local, a nota escondida em e-mail (que
+     engana o qwen3:8b 2 em 4 vezes mesmo com a cerca) passa a alcançá-lo.
+     **Falta no corpo:** a nota escondida em e-mail no modelo local.
 
 ### Controle do PC e visão da tela
 

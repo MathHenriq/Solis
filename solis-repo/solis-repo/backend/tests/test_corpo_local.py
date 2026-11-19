@@ -28,11 +28,48 @@ def _responder_local(monkeypatch, modelo, mensagem):
     return vistos
 
 
-def test_o_qwen_recebe_o_corpo_sem_arquivo_tela_e_navegador(monkeypatch):
+def test_o_qwen_recebe_o_corpo_com_navegador_e_tela_sem_arquivo_nem_mcp(monkeypatch):
+    """Medido em 19/11/2026: 12/13 e 13/13 com o navegador e a tela, sem piorar o resto."""
+    from solis import navegador, tela
+    monkeypatch.setattr(tela, 'ligada', lambda: True)
+    monkeypatch.setattr(navegador, 'escolhido', lambda: 'msedge')
     v = _responder_local(monkeypatch, 'qwen3:8b', 'Roda o git --version pra mim.')
     c = v['o_corpo']
     assert isinstance(c, corpo.Corpo) and v['ferramentas'] is True
-    assert not c.arquivos and not c.tela and not c.navegar and c.cerebro == 'local'
+    assert not c.arquivos and not c.mcp and c.tela and c.navegar and c.cerebro == 'local'
+    instrucoes = corpo.instrucoes_local(c)
+    assert 'você TEM internet' in instrucoes and 'PRIMEIRO chame mcp__solis__tela_ler' in instrucoes
+
+
+def test_com_as_ferramentas_o_local_nao_diz_que_nao_tem_internet():
+    pedidos = []
+
+    def ollama_falso(request):
+        pedidos.append(json.loads(request.content))
+        return httpx.Response(200, content=json.dumps({'message': {'content': 'ok'}, 'done': True}).encode())
+
+    async def rodar():
+        c = corpo.Corpo(3, Etapas(3), navegar=False, cerebro='local')
+        c.arquivos = c.tela = False
+        fluxo = await ollama.conversar('qwen3:8b', [{'papel': 'pessoa', 'texto': 'oi'}],
+                                       transporte=httpx.MockTransport(ollama_falso), ferramentas=True, o_corpo=c)
+        return ''.join([p async for p in fluxo])
+    asyncio.run(rodar())
+    sistema = pedidos[0]['messages'][0]['content']
+    assert ollama.NAO_PODE not in sistema and 'o que não estiver nas suas ferramentas' in sistema
+
+
+def test_pensou_e_nao_escreveu_nada_nao_sai_em_branco():
+    """Visto com o qwen3:8b e a tela: a resposta voltava vazia."""
+    def ollama_falso(request):
+        linhas = [{'message': {'content': '', 'thinking': 'hmm'}, 'done': False}, {'message': {'content': ''}, 'done': True}]
+        return httpx.Response(200, content='\n'.join(json.dumps(l) for l in linhas).encode())
+
+    async def rodar():
+        fluxo = await ollama.conversar('qwen3:8b', [{'papel': 'pessoa', 'texto': 'clica em salvar'}],
+                                       transporte=httpx.MockTransport(ollama_falso), ferramentas=True)
+        return ''.join([p async for p in fluxo])
+    assert asyncio.run(rodar()).startswith('Não consegui responder isso agora')
 
 
 def test_pergunta_de_arquivo_continua_so_com_as_de_arquivo(monkeypatch, tmp_path):
