@@ -576,3 +576,46 @@ def test_abrir_o_solis_no_meio_da_chamada_ja_comeca_cedida(monkeypatch):
         assert ws.receive_json() == {'tipo': 'pronta'}
         microfone.vigia.mudou([])
         assert ws.receive_json() == {'tipo': 'retomar'}
+
+
+# — 19/11/2026: o Solis ativou sem chamada, e o laço ———————————————————————————————
+# O Matheus falando com os amigos: uma ativação sem chamada, a resposta "pode
+# explicar?", a escuta ouvindo sem o "Solis", o ruído virando "." e mensagem,
+# e cada resposta perguntando de novo. E a conversa dele virando memória.
+
+def test_texto_sem_palavra_nenhuma_nao_e_fala():
+    assert not ativacao.tem_fala('.') and not ativacao.tem_fala(' ... ') and not ativacao.tem_fala('')
+    assert not ativacao.tem_fala(None) and ativacao.tem_fala('Sim.') and ativacao.tem_fala('3')
+
+
+def test_o_log_leva_so_o_pedaco_que_valeu_como_solis():
+    assert ativacao.como_chamou('Olis, seu irmão, tem que puxar esse gado.') == 'Olis,'
+    assert ativacao.como_chamou('Solis, que horas são?') == 'Solis,'
+    assert ativacao.como_chamou('Bom dia a todos') == ''
+
+
+def test_seguir_tem_teto_e_o_solis_ouvido_zera():
+    e = ativacao.Escuta(whisper=True)
+    for _ in range(ativacao.SEGUIR_MAX):
+        assert e.seguir()
+        e.comando = None  # o pedido acabou (respondido)
+    assert not e.seguir()  # mais uma pergunta: agora só com o "Solis"
+    e.confirmar()          # ele chamou de novo
+    e.comando = None
+    assert e.seguir()
+
+
+def test_websocket_o_ponto_do_ruido_nao_vira_mensagem(monkeypatch):
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
+
+    async def transcrever(audio, **_):
+        return {'texto': '.'}
+    monkeypatch.setattr(voz, 'transcrever', transcrever)
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        ws.send_text('{"pausa": false, "seguir": true}')
+        assert ws.receive_json() == {'tipo': 'ativou'}
+        ws.send_bytes((quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)).tobytes())
+        assert ws.receive_json() == {'tipo': 'nada'}

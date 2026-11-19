@@ -52,6 +52,10 @@ COMANDO_MAX = 15.0
 INICIO_MAX = 8.0
 # O máximo que a demora da decisão estica os prazos acima.
 ATRASO_MAX = 10.0
+# Respostas seguidas que o Solis ouve sem o "Solis" (Escuta.seguir): "qual
+# música?" → "Haikyuu" → "qual versão?" → "a primeira" cabe; mais que isso,
+# ele chama de novo.
+SEGUIR_MAX = 2
 
 # Fala é o que passa ACIMA_DO_PISO dB do ruído de fundo (e de FALA_MIN_DB).
 # Medido com o microfone do Matheus no app (11/11/2026), sem o processamento de
@@ -269,6 +273,21 @@ def palavra_no_inicio(texto: str) -> tuple[bool, str]:
     return True, resto[:1].upper() + resto[1:]
 
 
+def como_chamou(texto: str) -> str:
+    """Só o pedaço do texto que valeu como "Solis" ("Ó lis, "), sem o resto do
+    que foi dito: vai pro log pra achar a próxima ativação sem chamada (relato
+    do Matheus, 19/11/2026: três ativações com ele falando com os amigos, e o
+    log não dizia o que o Whisper ouviu)."""
+    m = _PALAVRA.match(_sem_acento(texto))
+    return texto[:m.end()].strip() if m else ''
+
+
+def tem_fala(texto: str | None) -> bool:
+    """O texto tem alguma palavra. O Whisper da Groq escreve "." pro ruído, e
+    em 19/11/2026 três "." viraram mensagens seguidas (e três respostas)."""
+    return bool(texto and re.search(r'\w', texto))
+
+
 # — A escuta ——————————————————————————————————————————————————————————————————————
 
 def _energia(quadro: array.array) -> float:
@@ -318,6 +337,8 @@ class Escuta:
         self.silencio = 0.0  # segundos de silêncio seguidos no fim
         self.piso = -60.0  # ruído de fundo, aprendido fora do comando
         self.ativacoes = 0
+        # Pedidos abertos sem a palavra (seguir) desde o último "Solis" ouvido.
+        self.seguidas = 0
         # Whisper: o trecho de fala em curso, ainda sem saber se tem a palavra.
         self.antes: deque = deque(maxlen=max(1, round(ANTES * TAXA / self.n)))
         self.trecho: array.array | None = None
@@ -370,6 +391,7 @@ class Escuta:
           fica de rascunho — se ela continuar calada, já está pronto;
         - só "Solis" (e a pausa), o comando começa vazio: o pedido vem depois do bipe."""
         self.ativacoes += 1
+        self.seguidas = 0
         self.espera_extra = min(max(0.0, atraso), ATRASO_MAX)
         self.rascunho, self.rascunho_pedido, self.pronto = None, False, None
         aberto = self.trecho is not None
@@ -411,9 +433,15 @@ class Escuta:
         começa já, sem a palavra, e vale como um "Solis" ouvido agora — até
         INICIO_MAX pra pessoa começar a responder, senão ('comando', None).
         Com um pedido já aberto, nada muda (False). Pedido do Matheus,
-        17/11/2026: a resposta dele à pergunta se perdia."""
-        if self.comando is not None:
+        17/11/2026: a resposta dele à pergunta se perdia.
+
+        No máximo SEGUIR_MAX vezes seguidas sem um "Solis" no meio: em
+        19/11/2026, uma ativação sem chamada virou um laço (o Solis perguntava
+        "pode explicar?", ouvia o ruído ou a conversa dele com os amigos, e
+        perguntava de novo)."""
+        if self.comando is not None or self.seguidas >= SEGUIR_MAX:
             return False
+        self.seguidas += 1
         self.ativacoes += 1
         self.trecho = None
         self.antes.clear()

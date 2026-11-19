@@ -125,3 +125,43 @@ def test_pontuar_confere_substituicao_dia_e_sigilo():
     assert not p({'memoria': ['diabetes'], 'privada': True},
                  {'memorias': [{'texto': 'Tem diabetes.', 'privada': False}]})[0]
     assert not p({'nada': True}, {'tarefas': [{'texto': 'algo'}]})[0]
+
+
+def test_quando_o_solis_nao_entendeu_nada_vira_memoria(monkeypatch):
+    """19/11/2026: a escuta ativou sem chamada, o Solis respondeu "não entendi,
+    pode esclarecer?", e "Senhosa, vinha vaga!" virou a memória "Vaga disponível"."""
+    from solis import main, resumo
+    from solis.etapas import Etapas
+    vistos = []
+
+    async def aprender_falso(modelo, conversa, mensagem, contexto, mensagem_id, **kw):
+        vistos.append(mensagem)
+        return ['algo']
+
+    async def nada(*a, **k):
+        return None
+
+    async def zero(*a, **k):
+        return 0
+
+    async def modelo(m):
+        return 'qwen3:8b'
+    monkeypatch.setattr(memoria, 'aprender', aprender_falso)
+    monkeypatch.setattr(main, '_modelo_de_fundo', modelo)
+    monkeypatch.setattr(resumo, 'titular', nada)
+    monkeypatch.setattr(resumo, 'resumir', nada)
+    monkeypatch.setattr(busca, 'indexar_pendentes', zero)
+
+    def depois(texto, resposta):
+        etapas = Etapas(1)
+        asyncio.run(main._depois(etapas, '', 1, texto, [], 1, resposta))
+        return next(d for e, d in ((x['etapa'], x) for x in etapas.lista) if e == 'aprendizado')['novas']
+
+    assert depois('Senhosa, vinha vaga!', 'Desculpa, não entendi. Pode esclarecer, por favor?') == 0
+    assert depois('Seu irmão, tem que puxar esse gado.', 'Desculpa, pode explicar melhor o que você quer?') == 0
+    # Pedido de guardar aprende mesmo assim; e resposta normal aprende como sempre.
+    assert depois('Guarde que eu gosto de café sem açúcar.', 'Não entendi direito, mas anotei.') == 1
+    assert depois('Eu moro em Campinas.', 'Legal! Campinas é ótima.') == 1
+    assert vistos == ['Guarde que eu gosto de café sem açúcar.', 'Eu moro em Campinas.']
+    assert memoria.nao_entendeu('Desculpe, não entendi. Pode me dizer o que precisa?')
+    assert not memoria.nao_entendeu('Abri o Crunchyroll. O que você quer assistir?')

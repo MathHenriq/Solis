@@ -65,9 +65,17 @@ const falandoAgora = new Set<symbol>();
 // escuta esperava o "Solis" de novo — a resposta se perdeu.
 let fimComPergunta = false;
 
-/** O texto falado acaba numa pergunta (o "?" no fim, com aspas ou parêntese depois). */
+// "Não entendi, pode explicar?" não abre a escuta sem o "Solis": quem não foi
+// entendido chama de novo. Em 19/11/2026 uma ativação sem chamada virou um
+// laço: o Solis perguntava, ouvia o ruído ("." ) ou a conversa do Matheus com
+// os amigos, e perguntava de novo. A mesma lista do memoria.nao_entendeu.
+const NAO_ENTENDEU =
+  /\bn[ãa]o (entendi|compreendi|captei|consegui entender)\b|\bpode (explicar|esclarecer|repetir|reformular)\b|\bn[ãa]o ficou claro\b/i;
+
+/** O texto falado acaba numa pergunta (o "?" no fim, com aspas ou parêntese
+ *  depois) que espera resposta: não a de quem não entendeu. */
 export function acabaEmPergunta(texto: string): boolean {
-  return /\?["'”»)\]]*\s*$/.test(texto);
+  return /\?["'”»)\]]*\s*$/.test(texto) && !NAO_ENTENDEU.test(texto);
 }
 
 function avisarFala() {

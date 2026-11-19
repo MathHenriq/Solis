@@ -1437,7 +1437,7 @@ async def _responder(
             **({'cortada': True} if cortada else {}), **({'parada': True} if parada else {}))
 
         try:
-            await _depois(etapas, modelo, conversa, texto, historico, mensagem_id)
+            await _depois(etapas, modelo, conversa, texto, historico, mensagem_id, ''.join(resposta))
         except Exception:
             # Sem evento de erro: a resposta já está na tela, inteira, e um
             # aviso agora a trocaria pelo erro de uma etapa de fundo.
@@ -1458,7 +1458,8 @@ async def _responder(
         etapas.encerrar()
 
 
-async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, historico: list[dict], mensagem_id: int):
+async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, historico: list[dict], mensagem_id: int,
+                  resposta: str = ''):
     """Depois que a resposta terminou de chegar, nesta ordem: dar título (se a
     conversa ainda não tem — é rápido, e a lista do painel troca a primeira
     fala por ele), aprender (extrair memórias da mensagem), indexar (vetorizar
@@ -1473,15 +1474,21 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
     tudo, inclusive o que é privado, e não gastam cota. E no modelo de fundo
     (MODELO_FUNDO), não no da conversa. A exceção (16/11/2026, decisão do
     Matheus): com o Ollama fora, o aprendizado do que não é privado vai pra
-    Groq (memoria.aprender) — senão nada era guardado."""
+    Groq (memoria.aprender) — senão nada era guardado.
+
+    Quando o Solis respondeu que não entendeu, não aprende (a não ser que
+    seja um pedido de guardar): a mensagem não era pra ele ou chegou errada."""
     modelo = await _modelo_de_fundo(modelo)
     if titulo := await resumo.titular(modelo, conversa):
         etapas.marcar('titulo', titulo=titulo)
     criadas: list[dict] = list(etapas.anotadas)
     marcados: list[dict] = []
-    novas = await memoria.aprender(
-        modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas, compromissos=marcados
-    )
+    if memoria.nao_entendeu(resposta) and not memoria.eh_pedido(texto):
+        novas = []
+    else:
+        novas = await memoria.aprender(
+            modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas, compromissos=marcados
+        )
     etapas.marcar(
         'aprendizado', novas=len(novas or []), textos=novas or [], tarefas=criadas, compromissos=marcados, modelo=modelo
     )
@@ -2128,7 +2135,8 @@ async def escuta(ws: WebSocket):
                 elif tipo in ('previa', 'frase'):
                     # Whisper: o começo de um trecho de fala tem "Solis"?
                     t0 = time.monotonic()
-                    achou, resto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
+                    ouvido = await _transcrever_escuta(tipo, audio)
+                    achou, resto = ativacao.palavra_no_inicio(ouvido)
                     demora = time.monotonic() - t0
                     if demora > 1.5:
                         # Sem o que foi dito: só quanto demorou (pra achar chamada perdida).
@@ -2136,6 +2144,11 @@ async def escuta(ws: WebSocket):
                     if not achou:
                         escutando.descartar()
                         continue
+                    # Só o pedaço que valeu como "Solis", nunca o resto do que foi
+                    # dito: pra achar a próxima ativação sem chamada (19/11/2026).
+                    log.info('escuta: ativou com %r', ativacao.como_chamou(ouvido))
+                    # "Solis, ." (o ruído virou ponto): vale como só "Solis".
+                    resto = resto if ativacao.tem_fala(resto) else ''
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
                     pronto = escutando.confirmar(atraso=demora, resto=resto if tipo == 'frase' else '')
@@ -2154,7 +2167,8 @@ async def escuta(ws: WebSocket):
                     texto = escutando.pronto
                     if texto is None:
                         _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
-                    await ws.send_json({'tipo': 'texto', 'texto': texto} if texto else {'tipo': 'nada'})
+                    # Sem palavra nenhuma (o "." do ruído), não vira mensagem.
+                    await ws.send_json({'tipo': 'texto', 'texto': texto} if ativacao.tem_fala(texto) else {'tipo': 'nada'})
     except WebSocketDisconnect:
         pass
     finally:

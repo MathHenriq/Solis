@@ -358,6 +358,18 @@ def eh_privado(texto: str) -> bool:
     return bool(PRIVADO.search(texto))
 
 
+# O Solis respondeu que não entendeu: a mensagem não era pra ele, ou chegou
+# errada. Em 19/11/2026 a escuta ativou sem chamada com o Matheus falando com
+# os amigos, e "Senhosa, vinha vaga!" virou a memória "Vaga disponível".
+_NAO_ENTENDEU = re.compile(
+    r"\bn[aã]o (entendi|compreendi|captei|consegui entender)\b|\bpode (explicar|esclarecer|repetir|reformular)\b|"
+    r"\bn[aã]o ficou claro\b|\bsorry,? i didn'?t (understand|catch)", re.IGNORECASE)
+
+
+def nao_entendeu(resposta: str) -> bool:
+    return bool(_NAO_ENTENDEU.search(resposta or ''))
+
+
 def _normal(texto: str) -> str:
     return re.sub(r'\W+', ' ', texto).strip().lower()
 

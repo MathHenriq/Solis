@@ -785,6 +785,26 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      normal"). Abrindo o Solis com a chamada já em andamento, ele nem abriu o microfone. Numa
      chamada, chamar "Solis" pela voz não funciona (escolha consciente: ele estaria falando com os
      amigos).
+   - **O Solis ativou sem ser chamado, e o laço (19/11/2026).** Relato do Matheus, com prints: o
+     Solis aberto, ele falando com os amigos (fora do Discord: o log mostra a chamada acabando às
+     16:31, e o microfone livre dali em diante), e três ativações sem chamada (16:41, 17:21,
+     17:54). O que o banco e o log mostram: cada ativação virou mensagem ("Senhosa, vinha vaga!",
+     "Seu irmão, tem que puxar esse gado mesmo, olha."); a Groq respondeu "Desculpa, pode explicar
+     melhor?"; a resposta acabava em pergunta, então a escuta abria o pedido sem o "Solis"
+     (`Escuta.seguir`, pedido dele de 17/11); o ruído virou "." no Whisper da Groq e "." virou
+     mensagem, três vezes seguidas, cada uma com outra pergunta; e no fim uma frase dele pros
+     amigos entrou como pedido. Pior: o aprendizado guardou a conversa como memória ("Vaga
+     disponível", "Não é bravo", "Está escuro"...). O que mudou: (1) texto sem palavra nenhuma
+     (o "." do ruído) não vira mensagem (`ativacao.tem_fala`); (2) "não entendi, pode explicar?"
+     não abre a escuta sem o "Solis" (`fala.ts`, `acabaEmPergunta`), e no máximo 2 respostas
+     seguidas sem o "Solis" (`SEGUIR_MAX`; o "Solis" ouvido zera); (3) quando o Solis respondeu
+     que não entendeu, o aprendizado não roda, a não ser num pedido de guardar
+     (`memoria.nao_entendeu`); (4) o log agora diz o pedaço que valeu como "Solis" ("escuta:
+     ativou com 'Olis,'"), só ele, nunca o resto do que foi dito: o que causou as três ativações
+     não ficou registrado, então a próxima mostra se é a regra (o "S" que pode sumir, as duas
+     palavras curtas antes) que está larga demais. Com isso, a sequência de hoje para na primeira
+     resposta. **Não resolvido:** a ativação sem chamada em si (precisa do log da próxima). Testes
+     cobrem o "." virando nada, o teto do seguir e o aprendizado pulado; falta a prova ao vivo.
    - **O navegador de sempre (18/11/2026).** Configurações → Navegador → "Qual janela": a do
      Solis, ou o Chrome (ou Edge) de sempre do Matheus, com as abas e os logins dele, pela extensão
      oficial do Playwright (`--extension` no mesmo `@playwright/mcp`). Sem a extensão, a tela
