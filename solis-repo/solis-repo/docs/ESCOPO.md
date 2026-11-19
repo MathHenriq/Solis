@@ -964,8 +964,11 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      abrir o navegador"), porque o texto dizia "não sabe o que mudou hoje sem abrir o navegador".
      Agora, sem o Claude na fila, ela procura a informação de hoje no navegador (com ele, passa pra
      ele, que busca sem abrir janela): dólar, tempo e jogo de futebol abriram o navegador nos 3.
-     **Atenção:** com uma página sem a informação (a do teste), ela inventou "27 °C" em vez de
-     dizer que não achou — ponto pra medir com página de verdade.
+     Uma resposta inventada ("27 °C") apareceu nesse teste, mas era do próprio teste (o corpo
+     falso mandava "pare aqui e responda em uma frase"). Medido à parte, com páginas realistas sem a
+     resposta (a tela de cookies do Google, um "acesso negado", uma página carregando), 4 vezes
+     cada: nenhum dado inventado — ela disse o que a página mostrava e ofereceu clicar, ou tentou
+     outro site.
      **As tarefas agendadas sem depender do Claude (19/11/2026).** Elas iam só pro Claude (a do
      Claude Desktop), e com a cota dele acabada a tarefa falhava. Agora o Claude vem primeiro e,
      sem ele, a tarefa segue nos outros cérebros da ordem, que fazem pelo corpo. A pesquisa longa
