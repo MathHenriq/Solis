@@ -956,6 +956,16 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      a marca nos 12 — nenhum "fiz" falso; 6 de conversa (capital, presente, conta, lembrete, haiku,
      IGP-M) foram respondidos direto, sem pedir ferramenta. O "Anotado!" falso de antes era só o
      de anotar num servidor MCP (anotar lembrete é do Solis, depois da resposta), já corrigido.
+     **A escolha da ferramenta com o corpo (medido em 19/11/2026).** A Groq de verdade, com todas as
+     ferramentas do corpo e um corpo que só anota (nada rodou): nos 12 pedidos de ação, a primeira
+     chamada foi a certa em 11 — terminal pra git, criar arquivo, fechar o Chrome, abrir a pasta e
+     ver o disco; navegador pro YouTube e o Mercado Livre; ler a tela pra clicar em Salvar e pra
+     desligar a música; no WhatsApp ela perguntou antes. O erro: o preço do dólar ("não consigo sem
+     abrir o navegador"), porque o texto dizia "não sabe o que mudou hoje sem abrir o navegador".
+     Agora, sem o Claude na fila, ela procura a informação de hoje no navegador (com ele, passa pra
+     ele, que busca sem abrir janela): dólar, tempo e jogo de futebol abriram o navegador nos 3.
+     **Atenção:** com uma página sem a informação (a do teste), ela inventou "27 °C" em vez de
+     dizer que não achou — ponto pra medir com página de verdade.
      **As tarefas agendadas sem depender do Claude (19/11/2026).** Elas iam só pro Claude (a do
      Claude Desktop), e com a cota dele acabada a tarefa falhava. Agora o Claude vem primeiro e,
      sem ele, a tarefa segue nos outros cérebros da ordem, que fazem pelo corpo. A pesquisa longa

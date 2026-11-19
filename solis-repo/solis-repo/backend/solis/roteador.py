@@ -229,15 +229,30 @@ NOTA_PASSAR = (
 )
 # Com o corpo: o que ainda falta a eles (a tela, a busca na web; sem o
 # terminal, também os comandos e os arquivos).
-def _sem_o_resto(navegar: bool, terminal: bool = False, arquivos: bool = False, tela: bool = False) -> str:
+def _sem_o_resto(navegar: bool, terminal: bool = False, arquivos: bool = False, tela: bool = False,
+                 hoje: bool = True) -> str:
+    """`hoje`: dizer que ele não sabe o que mudou hoje (falso quando ele mesmo
+    procura no navegador)."""
     falta = [] if terminal else ['não roda comandos',
                                  'não escreve arquivos' if arquivos else 'não lê nem escreve arquivos do computador']
     if not tela:
         falta.append('não controla a tela nem outros programas' + (' (o navegador, sim)' if navegar else ''))
-    falta.append('não sabe o que mudou hoje (notícias, clima, cotações, resultados de jogos)'
-                 + (' sem abrir o navegador' if navegar else ''))
-    return ('Nesta resposta você ' + ', '.join(falta[:-1]) + ' e ' + falta[-1]
-            + '. Nunca diga que fez, abriu, pesquisou ou mandou algo que não fez.')
+    if hoje:
+        falta.append('não sabe o que mudou hoje (notícias, clima, cotações, resultados de jogos)')
+    nunca = 'Nunca diga que fez, abriu, pesquisou ou mandou algo que não fez.'
+    if not falta:
+        return nunca
+    lista = falta[0] if len(falta) == 1 else ', '.join(falta[:-1]) + ' e ' + falta[-1]
+    return f'Nesta resposta você {lista}. {nunca}'
+
+
+# Medido com a Groq de verdade (19/11/2026): com "não sabe o que mudou hoje sem
+# abrir o navegador", ela respondia "não consigo o preço do dólar sem abrir o
+# navegador" — e não abria. Sem o Claude na fila, ela mesma procura.
+NOTA_HOJE_NO_NAVEGADOR = (
+    ' Pra uma informação de hoje (cotação, notícia, clima, resultado de jogo), abra um site confiável com o '
+    'navegador (browser_navigate) e leia a página (browser_snapshot) antes de responder.'
+)
 
 
 NOTA_NAO_CONSEGUE = (
@@ -269,12 +284,16 @@ def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_
     notas = ''
     if com_o_corpo:
         tem = any(c in COM_FERRAMENTAS for c in depois)
-        notas += ('\n\n' + _sem_o_resto(navegar, terminal, arquivos, tela) + (
+        # Com o Claude na fila, a informação de hoje vai pra ele (busca na web,
+        # sem abrir janela); sem ele, o navegador.
+        pelo_navegador = navegar and not tem
+        notas += ('\n\n' + _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not pelo_navegador) + (
             f' Quando o pedido precisar de uma dessas coisas, responda exatamente {PASSA} e mais nada: o Solis passa '
             'o pedido pra quem tem as ferramentas. O que você já sabe, conversa, e o que as suas ferramentas fazem '
             'não precisam disso: responda ou faça.' if tem else
             ' Quando o pedido precisar de uma dessas coisas, diga em uma frase que isso você não consegue fazer agora.'
-            + (' Uma informação de hoje, procure no navegador.' if navegar else '')))
+            if _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not pelo_navegador).startswith('Nesta') else '')
+            + (NOTA_HOJE_NO_NAVEGADOR if pelo_navegador else ''))
     elif nome not in COM_FERRAMENTAS and nome != 'local':
         notas += NOTA_PASSAR if com_corpo(nome) or any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
         if com_corpo(nome) and (servidores := _servidores_mcp()):

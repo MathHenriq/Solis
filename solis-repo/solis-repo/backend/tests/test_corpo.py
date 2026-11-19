@@ -578,3 +578,14 @@ def test_a_saida_do_comando_vai_pra_tela_enquanto_ele_roda():
     assert parciais and 'linha 1' in parciais[0] and 'linha 4' not in parciais[0]
     passo = next(d for e, d in g.lista if e == 'ferramenta')
     assert {d['id'] for e, d in g.vivo} == {passo['id']} and g.vivo[0][1]['comando'] == comando
+
+
+def test_sem_o_claude_a_informacao_de_hoje_vai_no_navegador_e_com_ele_passa():
+    """Medido com a Groq: "não sabe o que mudou hoje sem abrir o navegador" fazia ela não abrir."""
+    sozinha = roteador.notas_do_cerebro('groq', [], True, True, True, True, True)
+    assert 'browser_navigate' in sozinha and 'não sabe o que mudou hoje' not in sozinha
+    assert 'dessas coisas' not in sozinha  # nada falta: não há "dessas coisas" pra recusar
+    com_claude = roteador.notas_do_cerebro('groq', ['claude'], True, True, True, True, True)
+    assert 'não sabe o que mudou hoje' in com_claude and roteador.PASSA in com_claude
+    sem_nav = roteador.notas_do_cerebro('groq', [], False, True, True, True, True)
+    assert 'browser_navigate' not in sem_nav and 'não sabe o que mudou hoje' in sem_nav
