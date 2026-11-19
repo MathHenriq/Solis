@@ -100,7 +100,25 @@ SISTEMA_NUVEM = (
 )
 
 
-def _modo_local(mensagem: str, voz: bool) -> dict:
+# O modelo local com o corpo do Solis (as do Solis e o terminal), nos pedidos
+# que não são de arquivo. Medido em 19/11/2026 (docs/ESCOPO.md), 16 perguntas
+# de arquivo, 6 de conversa e 3 do corpo:
+# - qwen3:8b só com as de arquivo: 13/16; com o corpo inteiro: 6/16 (respostas
+#   vazias, buscar_memoria no lugar de ler o arquivo). Com o meio-termo (o
+#   corpo sem as de arquivo, nos pedidos que não são de arquivo): 3/3 do corpo,
+#   nenhuma ferramenta sem precisar.
+# - llama3.2:3b: 2/3 do corpo, mas chamou ferramenta em 5 das 6 conversas, e
+#   anotou a tarefa "Haiku sobre o outono" pedindo só um haiku: fica sem o corpo.
+# Só os modelos medidos entram (SOLIS_CORPO_LOCAL_MODELOS, separados por vírgula).
+CORPO_LOCAL_MODELOS = {m.strip() for m in os.environ.get('SOLIS_CORPO_LOCAL_MODELOS', 'qwen3:8b').split(',')
+                       if m.strip()}
+
+
+def _corpo_local(modelo: str, mensagem: str) -> bool:
+    return modelo in CORPO_LOCAL_MODELOS and not (pc.disponivel() and do_pc(mensagem))
+
+
+def _modo_local(mensagem: str, voz: bool, modelo: str = '') -> dict:
     """Ferramentas e raciocínio do modelo local. Pela voz, o caminho rápido:
     sem raciocínio e sem ferramentas — o raciocínio custa ~5 s, e sem ele o
     modelo usa mal as ferramentas (5 de 16 certas, medido). Pergunta de arquivo
@@ -108,7 +126,7 @@ def _modo_local(mensagem: str, voz: bool) -> dict:
     arquivos = pc.disponivel() and do_pc(mensagem)
     if voz and not arquivos:
         return {'ferramentas': False, 'pensar': False}
-    return {'ferramentas': pc.disponivel()}
+    return {'ferramentas': pc.disponivel() or _corpo_local(modelo, mensagem)}
 
 
 # O Claude responde pelo Agent SDK (agente.py), com ferramentas: o que o
@@ -499,11 +517,18 @@ async def responder(
             if nome == 'local':
                 if not modelo_local:
                     raise ollama.OllamaIndisponivel()
+                modo = _modo_local(mensagem, voz, modelo_local)
+                o_corpo = None
+                if modo['ferramentas'] and _corpo_local(modelo_local, mensagem):
+                    # O meio-termo medido: as do Solis e o terminal, sem as de
+                    # arquivo, a tela e o navegador.
+                    o_corpo = corpo.Corpo(conversa, etapas, navegar=False, cerebro='local')
+                    o_corpo.arquivos = o_corpo.tela = False
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
                         conversa=conversa, voz=voz, projeto=nota_projeto(conversa, le_arquivos=False),
-                        **_modo_local(mensagem, voz),
+                        o_corpo=o_corpo, **modo,
                     ),
                     etapas,
                 )

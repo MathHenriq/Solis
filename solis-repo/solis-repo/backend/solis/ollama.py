@@ -417,6 +417,7 @@ async def conversar(
     voz: bool = False,
     pensar: bool | None = None,
     projeto: str = '',
+    o_corpo=None,
 ) -> AsyncIterator[str]:
     """Abre a resposta do modelo e devolve os pedaços de texto conforme saem.
     Com `ferramentas`, o modelo pode ler os arquivos das pastas autorizadas
@@ -427,8 +428,14 @@ async def conversar(
     status da resposta HTTP. Um corte no meio só encerra o texto onde parou.
     """
     # `projeto`: as instruções e os arquivos do projeto da conversa (roteador.nota_projeto).
-    mensagens_ollama = [{'role': 'system', 'content': sistema(memorias or [], trechos, resumo, arquivos=ferramentas, voz=voz)
-                         + projeto}] + [
+    # `o_corpo` (corpo.Corpo): as ferramentas do Solis inteiras (arquivo, as do
+    # Solis, terminal), as mesmas dos outros cérebros, no lugar das só de arquivo.
+    if o_corpo is not None:
+        from . import corpo as _corpo
+        instrucao = sistema(memorias or [], trechos, resumo, arquivos=False, voz=voz) + _corpo.instrucoes_local(o_corpo)
+    else:
+        instrucao = sistema(memorias or [], trechos, resumo, arquivos=ferramentas, voz=voz)
+    mensagens_ollama = [{'role': 'system', 'content': instrucao + projeto}] + [
         {'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens
     ]
     corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama}
@@ -437,7 +444,9 @@ async def conversar(
         corpo['think'] = pensar
     if voz:
         corpo['keep_alive'] = FICA_NA_VOZ
-    if ferramentas:
+    if o_corpo is not None:
+        corpo['tools'] = await o_corpo.especificacoes()
+    elif ferramentas:
         from . import pc
         corpo['tools'] = pc.FERRAMENTAS
     cliente = httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado())
@@ -509,8 +518,12 @@ async def conversar(
                 for c in chamadas:
                     f = c.get('function') or {}
                     nome, argumentos = f.get('name', ''), f.get('arguments') or {}
-                    saida, ok = await asyncio.to_thread(pc.rodar, nome, argumentos, conversa)
-                    etapas.marcar('ferramenta', ferramenta=nome, alvo=pc.alvo(argumentos), ok=ok)
+                    if o_corpo is not None:
+                        # O corpo marca a etapa e mostra o cartão, quando pede.
+                        saida = await o_corpo.rodar(nome, argumentos if isinstance(argumentos, dict) else {})
+                    else:
+                        saida, ok = await asyncio.to_thread(pc.rodar, nome, argumentos, conversa)
+                        etapas.marcar('ferramenta', ferramenta=nome, alvo=pc.alvo(argumentos), ok=ok)
                     mensagens_ollama.append({'role': 'tool', 'content': saida, 'tool_name': nome})
                 try:
                     r = await abrir()

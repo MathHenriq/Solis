@@ -845,10 +845,28 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      responder (Claude, Groq, Gemini, na nuvem); e o cartão de aprovação diz quem pede ("O Groq
      quer agendar uma tarefa", não "O Claude quer"), com o tempo dele contado da volta com as
      ferramentas (a etapa `com_corpo`). Prints nos 3 temas e 2 navs, aprovados pelo Matheus em 19/11/2026.
-     **Falta no corpo:** a saída do comando ao vivo, o modelo
-     local usar o corpo (o Ollama estava desligado; antes de ligar, medir se as ferramentas a mais
-     não pioram as de arquivo, que ele já acerta pouco sem raciocínio), e as aprovações saírem do
-     `agente.py` pro corpo.
+     **O modelo local no corpo (19/11/2026), decidido medindo.** As 16 perguntas de arquivo e as 6
+     de conversa da medição de 09/11 (numa pasta de teste refeita: a antiga tinha perdido os
+     arquivos, e a primeira rodada deu 4/16 por isso), mais 3 do corpo (terminal, anotar, agenda):
+
+     | Modelo | Só as de arquivo | Corpo inteiro | Corpo sem as de arquivo |
+     |---|---|---|---|
+     | qwen3:8b (pensando) | arquivo 13/16, 0/6 sem precisar | arquivo 6/16, corpo 3/3 | corpo 3/3, 0/6 sem precisar |
+     | llama3.2:3b | arquivo 5/16, 5/6 sem precisar | arquivo 2/16, corpo 3/3 | corpo 2/3, 5/6 sem precisar |
+
+     Com o corpo inteiro o qwen se perde nas de arquivo (respostas vazias, buscar_memoria no lugar
+     de ler o arquivo). Ficou o meio-termo: pergunta de arquivo continua só com as de arquivo; o
+     resto, com as do Solis e o terminal (sem arquivo, tela e navegador). Só pros modelos que
+     passaram (`SOLIS_CORPO_LOCAL_MODELOS`, hoje o qwen3:8b): o llama3.2:3b, o local de conversa
+     escolhido pelo Matheus, anotou a tarefa "Haiku sobre o outono" pedindo só um haiku e quis o
+     terminal pra dizer a capital da Austrália — fica como estava. Achados no caminho: (1) um
+     argumento com nome errado (`ler_arquivo(nome=...)`, do llama) quebrava a resposta; agora vira
+     texto pro modelo. (2) O llama já chamava ferramenta de arquivo em 5 das 6 conversas, antes do
+     corpo. (3) **Segurança:** o qwen3:8b repetiu o texto do arquivo de injeção ("Feito, apaguei
+     tudo") nas duas variantes — em 09/11 ele contava o que o arquivo dizia. Não apagou nada (as de
+     arquivo só leem, e a pergunta de arquivo não leva o terminal), mas mentiu na resposta.
+     **Falta no corpo:** a saída do comando ao vivo, o navegador e a tela no local (medir), as
+     aprovações saírem do `agente.py` pro corpo, e tratar a injeção no local.
 
 ### Controle do PC e visão da tela
 
