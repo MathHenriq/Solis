@@ -17,7 +17,8 @@ import {
  *  como as skills; o que vale pro Claude vale também pros cérebros por API
  *  (Groq, Gemini..., pelo corpo do Solis: backend/solis/corpo.py). O que só lê
  *  é livre e o resto pede cartão; no GPT, só o que lê roda. O texto dizia "pro
- *  Claude e pro GPT"; atualizado a pedido do Matheus (19/11/2026).
+ *  Claude e pro GPT"; atualizado a pedido do Matheus e aprovado pelos prints
+ *  nos 3 temas e 2 navs (19/11/2026).
  *
  *  Aprovado pelo Matheus em 15/11/2026 nos 3 temas e 2 navs — desenho próprio:
  *  o cartão e as linhas do de Cérebros (layout.configuracoes.cerebros), os
