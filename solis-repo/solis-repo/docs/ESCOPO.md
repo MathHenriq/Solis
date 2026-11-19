@@ -822,8 +822,16 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      (confere com o Git do PC), 8,3 s. No primeiro teste ela pediu a aprovação no texto em vez de
      chamar a ferramenta; o sistema agora diz que o cartão é do próprio Solis.
      **O Gemini** ainda não foi medido no corpo: na terceira tentativa, 60 s sem responder.
-     **Falta no corpo:** a tela e ler arquivo direto pros cérebros de API (pergunta sobre os
-     arquivos continua indo pro local, pela regra do privado), a saída do comando ao vivo, o modelo
+     **Ler arquivos (decisão do Matheus, 18/11/2026: "podem, como o Claude").** Os de API leem as
+     pastas autorizadas pelo corpo (as mesmas listar_pasta, buscar_arquivos e ler_arquivo do local,
+     livres, só dentro das pastas), e a pergunta de arquivo segue o online primeiro: antes ia
+     sempre pro local; agora vai pra ordem de sempre, com o local de reserva, e só vai direto pro
+     local quando ninguém da nuvem na ordem lê arquivo. Ela já sai com o corpo (sem a fase leve):
+     medido com a Groq, sem as ferramentas ela respondia "não sei" em vez de pedir. Provado com a
+     Groq de verdade numa pasta de teste (contrato inventado, nenhum arquivo do Matheus foi): achou
+     (buscar_arquivos "aluguel teste"), leu e respondeu "vence todo dia 12, multa de 2 aluguéis",
+     12,4 s, com uma espera de 9 s do limite por minuto.
+     **Falta no corpo:** a tela pros cérebros de API, a saída do comando ao vivo, o modelo
      local usar o corpo (o Ollama estava desligado; antes de ligar, medir se as ferramentas a mais
      não pioram as de arquivo, que ele já acerta pouco sem raciocínio), e as aprovações saírem do
      `agente.py` pro corpo.

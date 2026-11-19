@@ -50,7 +50,7 @@ pro Claude hoje; P3 é o que dá pra viver sem por um tempo.
 
 | | Coisa | No Solis hoje | P |
 |---|---|---|---|
-| ✅ | Ler arquivos nas pastas autorizadas | local (`pc.py`) e Claude | |
+| ✅ | Ler arquivos nas pastas autorizadas | local (`pc.py`), Claude e, desde 18/11/2026, os de API pelo corpo (decisão do Matheus: "podem, como o Claude"); a pergunta de arquivo segue o online primeiro, com o local de reserva | |
 | ✅ | Escrever e editar arquivos | Claude, com o cartão e o diff do que muda (12/11/2026: provado — `-def subtrai` / `+def diminui` no cartão antes de aprovar) | P1 |
 | ✅ | Terminal | Claude, com o cartão. A saída ao vivo (12/11/2026): o CLI escreve a saída de um comando que passa de ~2 s num arquivo temporário enquanto ele roda, e o Solis lê e mostra embaixo da resposta; no fim ela fica no passo "Rodei no terminal", que abre. Provado pelo app: 3, 5, 6 e 8 linhas chegando de um comando de 8 s. Não é API pública do SDK: se mudar, só o ao vivo some. 18/11/2026: os cérebros de API também (o corpo do Solis, a mesma ferramenta e o mesmo cartão), provado com a Groq de verdade (`git --version`); neles a saída chega no fim, sem o ao vivo | P1 |
 | ✅ | "Aprovar sempre" esta ferramenta / esta pasta | 12/11/2026: "Sempre este comando" (o comando exato) e "Sempre nesta conversa" (as edições), valendo enquanto o servidor está de pé. Provado: a edição e o comando seguintes passaram sem cartão | P1 |

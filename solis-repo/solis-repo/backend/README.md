@@ -241,6 +241,9 @@ Cérebros.
   `/openrouter` na frente escolhe quem responde (mesmo desligado), sem
   plano B — se falhar, o aviso diz isso em vez de outro responder sem pedir.
 - **Sigilo:** mensagem com "privado", "confidencial", "sigiloso" ou "segredo" só vai pro local.
+- **Pergunta sobre os arquivos** (a regra `do_pc`): segue a ordem, online primeiro (decisão do
+  Matheus, 18/11/2026), já com o corpo nos de API; só vai direto pro local quando ninguém da nuvem
+  na ordem lê arquivo.
 - **O que nunca vai pra nuvem:** memória privada, mensagem privada (no histórico ou como trecho
   antigo) e o resumo de uma conversa que tenha algo privado.
 - **Extração de memória, vetores e resumo rodam sempre no modelo local**, qualquer que seja
