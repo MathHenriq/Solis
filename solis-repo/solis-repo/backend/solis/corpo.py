@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Awaitable, Callable
 
-from . import banco, navegador, pc
+from . import banco, navegador, pc, tela
 from .etapas import MUDA
 
 log = logging.getLogger('solis.corpo')
@@ -211,6 +211,63 @@ def _rodar_comando(comando: str, pasta: str) -> tuple[str, bool]:
     return f'(código de saída {r.returncode})\n{saida.strip()}', r.returncode == 0
 
 
+# A tela, pra quem não vê imagem (a Groq e os outros de API só leem texto):
+# tela_ler é o texto da tela com a posição de cada linha (o OCR do Windows,
+# ocr.linhas_com_posicao), nas mesmas coordenadas do print que o Claude vê
+# (tela.escala). As ações têm os mesmos nomes das do Claude: o mesmo cartão,
+# com o print marcado pro Matheus, e o mesmo "Sempre neste programa".
+TELA_LER = SOLIS + 'tela_ler'
+_XY = {'x': {'type': 'number'}, 'y': {'type': 'number'}}
+_DA_TELA = [
+    ('tela_ler', 'O texto da tela principal do PC do Matheus agora, cada linha com o centro [x,y] em pixels '
+                 '(0,0 no canto de cima à esquerda) e o programa que está na frente. Leia antes de agir.',
+     {'type': 'object', 'properties': {}}),
+    ('tela_clicar', 'Clica num ponto da tela (as coordenadas do tela_ler). botao: esquerdo (padrão), direito ou meio; '
+                    'duplo: clique duplo. O Solis mostra o cartão pro Matheus.',
+     {'type': 'object', 'required': ['x', 'y'], 'properties': {
+         **_XY, 'botao': {'type': 'string', 'enum': list(tela.BOTOES)}, 'duplo': {'type': 'boolean'}}}),
+    ('tela_digitar', 'Digita um texto na janela da frente (clique no campo antes). \\n vira Enter. Nunca senha, '
+                     'cartão ou documento.',
+     {'type': 'object', 'required': ['texto'], 'properties': {'texto': {'type': 'string'}}}),
+    ('tela_tecla', 'Aperta uma tecla ou combinação na janela da frente: "enter", "ctrl+s", "alt+tab", "f5".',
+     {'type': 'object', 'required': ['teclas'], 'properties': {'teclas': {'type': 'string'}}}),
+    ('tela_rolar', 'Rola a tela no ponto. direcao: cima, baixo, esquerda ou direita; quantidade: cliques da rodinha '
+                   '(padrão 3).',
+     {'type': 'object', 'required': ['x', 'y', 'direcao'], 'properties': {
+         **_XY, 'direcao': {'type': 'string', 'enum': ['cima', 'baixo', 'esquerda', 'direita']},
+         'quantidade': {'type': 'integer'}}}),
+    ('tela_mover', 'Leva o mouse até um ponto, sem clicar (pra abrir um menu de passar o mouse).',
+     {'type': 'object', 'required': ['x', 'y'], 'properties': _XY}),
+]
+
+
+def _agir_na_tela(acao: str, e: dict) -> None:
+    if acao == 'tela_clicar':
+        tela.clicar(float(e['x']), float(e['y']), e.get('botao') or 'esquerdo', bool(e.get('duplo')))
+    elif acao == 'tela_digitar':
+        tela.digitar(str(e['texto']))
+    elif acao == 'tela_tecla':
+        tela.tecla(str(e['teclas']))
+    elif acao == 'tela_rolar':
+        tela.rolar(float(e['x']), float(e['y']), str(e['direcao']), int(e.get('quantidade') or 3))
+    elif acao == 'tela_mover':
+        tela.mover(float(e['x']), float(e['y']))
+
+
+async def texto_da_tela() -> str:
+    """O que o cérebro sem visão recebe no lugar do print: as linhas de texto,
+    cada uma com o centro, nas coordenadas do print (as que as ações usam)."""
+    from . import ocr
+    imagem = await asyncio.to_thread(tela._print)
+    e = tela.escala()
+    processo, titulo = await asyncio.to_thread(tela.janela_ativa)
+    linhas = await ocr.linhas_com_posicao(await asyncio.to_thread(tela._png, imagem))
+    largura, altura = round(imagem.width * e), round(imagem.height * e)
+    corpo = '\n'.join(f'[{round((x + w / 2) * e)},{round((y + h / 2) * e)}] {t}' for x, y, w, h, t in linhas)
+    return (f'Tela {largura}x{altura}; na frente: {tela.nome_do_programa(processo, titulo)}.\n'
+            + (corpo or '(nenhum texto na tela)'))
+
+
 # As chaves de JSON Schema que todo provedor aceita (o Gemini recusa "$schema"
 # e outras); o resto sai.
 _CHAVES = {'type', 'properties', 'required', 'items', 'enum', 'description', 'default', 'anyOf'}
@@ -284,6 +341,8 @@ class Corpo:
         # Ler os arquivos das pastas autorizadas (pc.py), livre, como o Claude lê.
         # Decisão do Matheus (18/11/2026): "podem, como o Claude".
         self.arquivos = pc.disponivel()
+        # A tela (Configurações → Controle da tela), lida como texto.
+        self.tela = os.name == 'nt' and tela.ligada()
         self.agiu = False  # rodou alguma ferramenta que muda algo (a queda pro próximo cérebro refaria)
 
     async def especificacoes(self) -> list[dict]:
@@ -293,6 +352,8 @@ class Corpo:
                       for f in pc.FERRAMENTAS]
         if self.terminal:
             specs.append(copy.deepcopy(_TERMINAL))
+        if self.tela:
+            specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA]
         if self.navegar:
             specs += await self._do_navegador()
         return specs
@@ -311,6 +372,7 @@ class Corpo:
 
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
+                or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS))
 
     def _de_arquivo(self, nome: str) -> bool:
@@ -357,6 +419,22 @@ class Corpo:
                                  'hora': (entrada.get('hora') or '').strip() or None})
             self._marcar(id_, nome, entrada, pagina, ok)
             return saida
+        if self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA}:
+            acao = nome.removeprefix(SOLIS)
+            try:
+                if acao != 'tela_ler':
+                    await asyncio.to_thread(_agir_na_tela, acao, entrada)
+                    self.agiu = True
+                    await asyncio.sleep(tela.DEPOIS_S)
+                saida, ok = await texto_da_tela(), True
+            except tela.TelaRecusada as e:
+                saida, ok = f'Não fiz: {e}.', False
+            except (KeyError, TypeError, ValueError) as e:
+                saida, ok = f'Não deu: faltou ou veio errado {e}.', False
+            except Exception as e:  # noqa: BLE001 — o OCR não leu: o modelo fica sabendo
+                saida, ok = f'Não consegui ler a tela: {e}', False
+            self._marcar(id_, nome, entrada, pagina, ok)
+            return _cortar(saida if acao == 'tela_ler' or not ok else f'Feito. A tela agora:\n{saida}')
         if self._de_arquivo(nome):
             # Só dentro das pastas autorizadas: o próprio pc.py recusa o resto.
             saida, ok = await asyncio.to_thread(pc.rodar, nome.removeprefix(SOLIS), entrada, self.conversa)

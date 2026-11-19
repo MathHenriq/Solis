@@ -7,7 +7,10 @@
 # A imagem chega em base64 pela entrada padrão, e não num arquivo temporário:
 # página de documento privado não passa pelo disco. O texto sai em UTF-8, uma
 # linha por linha reconhecida.
-param([string]$Lingua = 'pt-BR')
+# -Posicoes: cada linha sai como "x,y,largura,altura<TAB>texto", em pixels da
+# imagem (a caixa que junta as palavras da linha): o texto da tela pra quem não
+# vê imagem (corpo.py → tela_ler).
+param([string]$Lingua = 'pt-BR', [switch]$Posicoes)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -43,4 +46,12 @@ $fluxo.Seek(0)
 $decodificador = Esperar ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($fluxo)) ([Windows.Graphics.Imaging.BitmapDecoder])
 $imagem = Esperar ($decodificador.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
 $resultado = Esperar ($motor.RecognizeAsync($imagem)) ([Windows.Media.Ocr.OcrResult])
-foreach ($linha in $resultado.Lines) { $linha.Text }
+foreach ($linha in $resultado.Lines) {
+    if (-not $Posicoes) { $linha.Text; continue }
+    $caixas = $linha.Words | ForEach-Object { $_.BoundingRect }
+    $x0 = ($caixas | Measure-Object -Property X -Minimum).Minimum
+    $y0 = ($caixas | Measure-Object -Property Y -Minimum).Minimum
+    $x1 = ($caixas | ForEach-Object { $_.X + $_.Width } | Measure-Object -Maximum).Maximum
+    $y1 = ($caixas | ForEach-Object { $_.Y + $_.Height } | Measure-Object -Maximum).Maximum
+    '{0},{1},{2},{3}{4}{5}' -f [int]$x0, [int]$y0, [int]($x1 - $x0), [int]($y1 - $y0), "`t", $linha.Text
+}

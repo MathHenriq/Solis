@@ -68,21 +68,38 @@ def renderizar(pdf, pagina: int, dpi: int) -> bytes:
     return saida.getvalue()
 
 
-async def windows(png: bytes) -> str:
+async def windows(png: bytes, posicoes: bool = False) -> str:
     if os.name != 'nt':
         raise SemLeitor('o OCR de reserva é o do Windows')
     # Numa thread, pelo mesmo motivo dos avisos (avisos.mostrar).
     try:
         proc = await asyncio.to_thread(
             subprocess.run,
-            ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT)],
+            ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT)]
+            + (['-Posicoes'] if posicoes else []),
             input=base64.b64encode(png), capture_output=True, timeout=TEMPO_WINDOWS,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
         )
     except (OSError, subprocess.TimeoutExpired) as e:
         raise SemLeitor(f'o OCR do Windows não rodou: {e}') from e
     if proc.returncode:
         raise SemLeitor(f'o OCR do Windows falhou: {proc.stderr.decode("utf-8", "replace").strip()[:200]}')
     return proc.stdout.decode('utf-8', 'replace')
+
+
+async def linhas_com_posicao(png: bytes) -> list[tuple[int, int, int, int, str]]:
+    """As linhas de texto da imagem com a caixa de cada uma (x, y, largura,
+    altura, em pixels da imagem), pelo OCR do Windows."""
+    saida = []
+    for linha in (await windows(png, posicoes=True)).splitlines():
+        caixa, _, texto = linha.partition('\t')
+        try:
+            x, y, w, h = (int(v) for v in caixa.split(','))
+        except ValueError:
+            continue
+        if texto.strip():
+            saida.append((x, y, w, h, texto.strip()))
+    return saida
 
 
 async def _tem_visao() -> bool:
