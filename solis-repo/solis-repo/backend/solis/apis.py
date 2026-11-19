@@ -171,7 +171,9 @@ def _reservas_de(nome: str, ids: list[str]) -> list[str]:
     Gemini tem vários Flash, e o grátis é por modelo). Só o Gemini tem reserva."""
     if nome != 'gemini':
         return []
-    fora = ('tts', 'image', 'live', 'audio', 'embedding', 'exp', 'thinking')
+    # Fora também os "omni" (sem cota grátis: 429 desde o primeiro pedido do dia,
+    # medido em 19/11/2026) e os "-latest" (apelidos dos que já estão na lista).
+    fora = ('tts', 'image', 'live', 'audio', 'embedding', 'exp', 'thinking', 'omni', 'latest')
     flash = [i for i in ids if 'flash' in i and not any(f in i for f in fora)]
     # Os de conversa primeiro, como no _escolher; os lite por último.
     # Pela versão, com ou sem preview: medido em 19/11/2026, o 3-flash-preview
@@ -193,6 +195,8 @@ async def _modelo_livre(nome: str, chave: str, preferido: str, cliente=None) -> 
         except (ChaveRecusada, ProvedorFora, httpx.HTTPError):
             reservas = []
         banco.guardar_ajuste(f'modelos:{nome}', reservas)
+    # A regra de hoje vale também pra uma lista guardada antes dela.
+    reservas = _reservas_de(nome, reservas)
     return next((m for m in reservas if _lotados.get((nome, m), 0) <= agora), None)
 
 
@@ -342,6 +346,7 @@ async def responder(
         try:
             async with asyncio.timeout(prazo) as ate_a_primeira:
                 fechando = False
+                trocas = 0  # trocas de modelo na resposta inteira
                 for rodada in range(rodadas + 1):
                     pedido = {'model': escolhido, 'stream': True, 'messages': mensagens}
                     if ferramentas and not fechando:
@@ -350,7 +355,7 @@ async def responder(
                         pedido['reasoning_effort'] = RACIOCINIO_NA_VOZ
                     chamadas: dict[int, dict] = {}
                     dito = ''
-                    esperas = trocas = 0
+                    esperas = 0
                     try:
                         while True:
                             try:
@@ -377,7 +382,12 @@ async def responder(
                                 # mesmo serviço pode atender: o lotado fica de lado.
                                 # No Gemini o limite grátis é por modelo, então o 429
                                 # também troca.
-                                trocar_modelo = (rodada == 0 and not dito and not chamadas and trocas < TROCAS_MAX
+                                # No meio da tarefa também, no Gemini: a assinatura do
+                                # raciocínio de um modelo não vale no outro, então as de
+                                # antes viram a que o Google aceita pra histórico (visto em
+                                # 19/11/2026: a Wikipédia parou com o modelo lotando na 2ª rodada).
+                                trocar_modelo = (not dito and not chamadas and trocas < TROCAS_MAX
+                                                 and (rodada == 0 or nome == 'gemini')
                                                  and (isinstance(e, Lotado) or nome == 'gemini'))
                                 if trocar_modelo:
                                     _lotados[(nome, escolhido)] = time.time() + getattr(e, 'por', LOTADO_S)
@@ -386,6 +396,8 @@ async def responder(
                                         etapas.marcar('modelo', cerebro=nome, modelo=proximo, antes=escolhido, motivo=str(e))
                                         escolhido = pedido['model'] = proximo
                                         trocas += 1
+                                        if rodada > 0:
+                                            _sem_assinaturas(mensagens)
                                         continue
                                 if isinstance(e, Lotado):
                                     raise
@@ -447,6 +459,14 @@ def _assinatura(nome: str, chamada: dict) -> dict:
     return {}
 
 
+def _sem_assinaturas(mensagens: list[dict]) -> None:
+    """Trocou de modelo no meio da tarefa: as assinaturas do anterior viram a
+    que o Google aceita pra histórico sem assinatura."""
+    for m in mensagens:
+        for chamada in m.get('tool_calls') or []:
+            chamada['extra_content'] = {'google': {'thought_signature': 'skip_thought_signature_validator'}}
+
+
 @contextlib.asynccontextmanager
 async def _fechar(r: httpx.Response):
     try:
@@ -463,7 +483,8 @@ async def _uma_rodada(c: httpx.AsyncClient, nome: str, chave: str, pedido: dict,
     try:
         # O começo da resposta tem prazo na primeira rodada: medido no Gemini
         # (19/11/2026), modelo lotado ficava 60 s calado até o ReadTimeout.
-        async with asyncio.timeout(PRIMEIRO_MAX if primeira_rodada else None):
+        # Depois das ferramentas o pedido é maior: o dobro do prazo.
+        async with asyncio.timeout(PRIMEIRO_MAX if primeira_rodada else 2 * PRIMEIRO_MAX):
             r = await c.send(pedir, stream=True)
     except (TimeoutError, httpx.TimeoutException) as e:
         raise Lotado(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e

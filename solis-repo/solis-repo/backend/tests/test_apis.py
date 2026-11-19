@@ -347,7 +347,8 @@ def test_guardar_a_chave_guarda_a_lista_de_reserva():
 
 
 def test_a_ordem_e_pela_versao_com_ou_sem_preview_e_o_404_fica_de_lado_um_dia():
-    ids = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.1-flash-lite']
+    ids = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.1-flash-lite',
+           'gemini-omni-1.2-flash', 'gemini-flash-latest']
     assert apis._reservas_de('gemini', ids) == ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview',
                                                 'gemini-2.5-flash', 'gemini-3.1-flash-lite']
     _gemini_com(['gemini-2.5-flash', 'gemini-3-flash-preview'])
@@ -385,3 +386,53 @@ def test_a_assinatura_do_gemini_volta_na_rodada_seguinte():
     assert chamada['extra_content'] == {'google': {'thought_signature': 'ASSINATURA'}}
     # A Groq não recebe nada a mais.
     assert apis._assinatura('groq', {'id': 'x'}) == {}
+
+
+def test_gemini_lotado_no_meio_da_tarefa_troca_e_segue_sem_a_assinatura_do_outro():
+    """Visto em 19/11/2026: a Wikipédia parou com o modelo lotando na segunda rodada."""
+    from solis import corpo
+    _gemini_com(['gemini-3-flash-preview', 'gemini-3.1-flash-lite'])
+    pedidos = []
+
+    def rota(req):
+        p = json.loads(req.content)
+        pedidos.append(p)
+        if len(pedidos) == 1:
+            return httpx.Response(200, text=sse({'choices': [{'delta': {'tool_calls': [{
+                'index': 0, 'id': 'c1', 'type': 'function', 'function': {'name': 'mcp__solis__hora', 'arguments': '{}'},
+                'extra_content': {'google': {'thought_signature': 'DO_PREVIEW'}}}]}}]}),
+                headers={'content-type': 'text/event-stream'})
+        if p['model'] == 'gemini-3-flash-preview':
+            return httpx.Response(503, text='lotado')
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'São 10h.'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+
+    g = Gravador()
+    saida = ''.join(coletar(apis.responder('gemini', 'sis', 'que horas', g, servico(rota),
+                                           corpo=corpo.Corpo(1, g, navegar=False))))
+    assert saida == 'São 10h.'
+    assert [p['model'] for p in pedidos] == ['gemini-3-flash-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite']
+    chamada = pedidos[2]['messages'][-2]['tool_calls'][0]
+    assert chamada['extra_content'] == {'google': {'thought_signature': 'skip_thought_signature_validator'}}
+
+
+def test_a_groq_lotada_no_meio_nao_troca():
+    """Só o Gemini troca no meio (a Groq não tem reserva)."""
+    from solis import corpo
+    com_chave()
+    n = []
+
+    def rota(req):
+        n.append(1)
+        if len(n) == 1:
+            return resposta_sse({'choices': [{'delta': {'tool_calls': [{
+                'index': 0, 'id': 'c1', 'type': 'function', 'function': {'name': 'mcp__solis__hora', 'arguments': '{}'}}]}}]})
+        return httpx.Response(503, text='lotado')
+
+    g = Gravador()
+    with pytest.raises(cerebros.CerebroFalhou):
+        coletar(apis.responder('groq', 'sis', 'que horas', g, servico(rota), corpo=corpo.Corpo(1, g, navegar=False)))
+
+
+def resposta_sse(*eventos):
+    return httpx.Response(200, text=sse(*eventos), headers={'content-type': 'text/event-stream'})

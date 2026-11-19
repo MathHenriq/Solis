@@ -923,7 +923,13 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      verdade: o contrato de teste (trocou 4 vezes até o 3-flash-preview; leu e respondeu "dia 12,
      multa de 2 aluguéis", 47 s) e o example.com ("Example Domain", 21 s) funcionaram; a Wikipédia
      não (o modelo lotou no meio da tarefa, e no meio não se troca: a assinatura de um modelo não
-     vale no outro).
+     vale no outro). Depois, no mesmo dia: no Gemini a troca vale também no meio da tarefa, com as
+     assinaturas de antes trocadas pela que o Google aceita pra histórico; e a lista de reserva
+     deixa de fora os "omni" (sem cota grátis) e os "-latest" (apelidos). Com o Gemini de verdade,
+     a Wikipédia foi até o fim (abriu, pesquisou com cartão, leu e respondeu que não há artigo do
+     Tauri em português), mas em 130 s e com 10 trocas entre as duas tentativas da mensagem (a
+     leve e a com ferramentas) — e a cota grátis dos Flash acabou ali: a tarefa seguinte não achou
+     modelo livre. O grátis do Gemini, hoje, não sustenta tarefa longa.
      **Falta no corpo:** o navegador e a tela no local (medir), e a nota escondida em e-mail.
 
 ### Controle do PC e visão da tela
