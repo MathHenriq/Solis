@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 from collections.abc import AsyncIterator
 
-from . import banco, cerebros, corpo, memoria, navegador, ollama, pc
+from . import banco, cerebros, corpo, injecao, memoria, navegador, ollama, pc
 from .etapas import MUDA
 
 # Preferência do Matheus: os modelos mais fortes primeiro; o local quando a cota
@@ -577,6 +577,8 @@ async def responder(
                     ),
                     etapas,
                 )
+                if o_corpo is not None:
+                    fluxo = _com_o_aviso(fluxo, o_corpo)
             else:
                 # Groq, Gemini...: o corpo do Solis (as ferramentas e o navegador).
                 proprio = corpo.Corpo(conversa, etapas, cerebro=nome) if nome in com_o_corpo else None
@@ -605,6 +607,8 @@ async def responder(
                 )
                 if nome not in COM_FERRAMENTAS:
                     fluxo = await _sem_a_marca(fluxo)
+                if proprio is not None:
+                    fluxo = _com_o_aviso(fluxo, proprio)
             return fluxo, nome
         except _PediuFerramenta as e:
             erros[nome] = e
@@ -631,6 +635,16 @@ def _motivo(e: Exception) -> str:
     if isinstance(e, ollama.OllamaIndisponivel):
         return 'Ollama fora do ar'
     return str(e)
+
+
+async def _com_o_aviso(fluxo: AsyncIterator[str], c: 'corpo.Corpo') -> AsyncIterator[str]:
+    """A resposta e, no fim, o aviso do próprio Solis das ordens escondidas que
+    ele tirou do texto de fora (injecao.py): o modelo não viu a frase, então
+    contar ao Matheus é do Solis, com o texto exato."""
+    async for pedaco in fluxo:
+        yield pedaco
+    if c.tiradas:
+        yield injecao.aviso(c.tiradas)
 
 
 async def _primeira_palavra(fluxo: AsyncIterator[str], etapas) -> AsyncIterator[str]:

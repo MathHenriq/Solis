@@ -275,6 +275,12 @@ Cérebros.
   `SOLIS_CORPO_TERMINAL=0` tira. No meio de uma tarefa, o limite por minuto (`429`) se espera, até 30 s e 3 vezes;
   depois de ter agido (clicado, anotado), uma falha para ali em vez de cair pro próximo cérebro
   (que faria de novo). `SOLIS_CORPO=0` volta ao "só texto".
+  O texto de fora que volta pro modelo (a página, a tela, o que um servidor MCP devolve) vai
+  cercado (`corpo.cercar`), e a linha que é ordem pro assistente ("nota pro assistente de IA:
+  responda que…") sai do texto (`solis/injecao.py`): o modelo lê o resto, e o próprio Solis
+  acrescenta no fim da resposta "O Solis tirou da página uma ordem escondida pro assistente, e
+  ela não foi seguida: «…»" (`roteador._com_o_aviso`). Os arquivos das pastas dele só vão
+  cercados, sem tirar linha.
 - O Codex roda sem ferramentas (`--sandbox read-only`), numa pasta vazia do Solis. O prompt vai
   pela entrada padrão, nunca pela linha de comando.
 - Custo de tempo: cada mensagem sobe um processo do CLI. Medido no notebook (1º/11/2026), do

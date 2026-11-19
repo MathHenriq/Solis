@@ -258,7 +258,7 @@ def test_a_groq_com_corpo_sabe_do_navegador_e_ainda_passa_o_resto(monkeypatch):
     navegador, e o que falta a ela (terminal, arquivos) ainda passa pro Claude."""
     monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas, **_: (
         setattr(self, 'navegar', True), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
-        setattr(self, 'agiu', False), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
+        setattr(self, 'agiu', False), setattr(self, 'tiradas', []), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
     vistos = []
 
     async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
@@ -356,7 +356,7 @@ def test_com_o_corpo_e_ainda_faltando_ferramenta_passa_pro_claude(monkeypatch):
     """Terminal e arquivos a Groq ainda não tem: com o corpo, ela passa de novo, e vai pro Claude."""
     monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas, **_: (
         setattr(self, 'navegar', False), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
-        setattr(self, 'agiu', False), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
+        setattr(self, 'agiu', False), setattr(self, 'tiradas', []), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
     vistos = []
 
     async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
