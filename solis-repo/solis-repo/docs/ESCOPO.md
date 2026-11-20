@@ -1144,6 +1144,21 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      qualquer ferramenta; logo depois a cota grátis do dia acabou (429, gasta pelas medições de
      hoje), e não deu pra isolar a causa (o script de teste, ferramenta por ferramenta, fica pra
      amanhã).
+   - **Fechar a paridade, 8: os ajudantes nos outros cérebros (19/11/2026) — feitos, desligados até
+     medir.** A ferramenta `Agent` do corpo (o nome da do Claude; a tela diz "Pedi a um ajudante:
+     X"): o Solis roda um laço próprio (`Corpo._ajudar`), com o mesmo cérebro, as mesmas
+     ferramentas e o mesmo sistema (o roteador guarda em `corpo.sistema`) mais a nota de ajudante,
+     num contexto novo, e devolve o resultado ao pai. Ajudante não abre ajudante; vários `Agent` na
+     mesma rodada rodam ao mesmo tempo (`apis.responder`, só quando todos da rodada são `Agent`);
+     os cartões do ajudante chegam com "O ajudante quer…"; os passos dele não se misturam com a
+     resposta (como os do Claude), mas as páginas que ele lê viram fontes dela; e o que ele fez
+     conta como "agiu" do pai. Testado com a Groq simulada (o ajudante lê numa conversa própria e o
+     pai recebe o resultado, o cartão diz que é ele, dois ao mesmo tempo, o local não abre). **Não
+     medido de verdade:** a cota grátis da Groq acabou na primeira tentativa (as medições do dia),
+     e a do Gemini já tinha acabado. Pela regra "só existe o que funciona", fica **desligado**
+     (`SOLIS_CORPO_AJUDANTES=1` liga) até a medição, que é o primeiro passo de amanhã com o 400 do
+     Gemini: um cérebro que chamasse ajudante pra coisa simples dobraria os pedidos e gastaria o
+     limite grátis.
 
 ### Controle do PC e visão da tela
 

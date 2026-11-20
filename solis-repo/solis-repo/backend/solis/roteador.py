@@ -669,12 +669,15 @@ async def responder(
                 na_tela = bool(proprio and proprio.tela)
                 edita = bool(proprio and proprio.editar)
                 com_skills = proprio.lista_skills() if proprio is not None else []
+                sistema = (sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita, com_skills)
+                           + nota_projeto(conversa, le_arquivos=nome == 'claude')
+                           + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela,
+                                              edita, bool(proprio and proprio.web)))
+                if proprio is not None:
+                    proprio.sistema = sistema  # o ajudante (Agent) começa com as mesmas instruções
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita, com_skills)
-                    + nota_projeto(conversa, le_arquivos=nome == 'claude')
-                    + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela, edita,
-                                       bool(proprio and proprio.web)),
+                    sistema,
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],

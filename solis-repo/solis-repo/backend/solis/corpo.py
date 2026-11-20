@@ -183,6 +183,42 @@ TERMINAL = 'PowerShell'
 # As skills do Matheus: o mesmo nome da ferramenta do Claude (o passo na tela
 # diz "Segui a skill X", e o cartão não aparece: ler instrução é livre).
 SKILL = 'Skill'
+# Os ajudantes: o mesmo nome do Agent do Claude (a tela diz "Pedi a um
+# ajudante: X"). O Solis roda um laço próprio, com o mesmo cérebro e as mesmas
+# ferramentas, num contexto separado, e devolve o resultado. Ajudante não abre
+# ajudante.
+AGENTE = 'Agent'
+_AGENTE_SPEC = ('Passa uma parte do trabalho pra um ajudante: ele faz com as mesmas ferramentas que você, num '
+                'contexto separado, e devolve o resultado. Use pra partes independentes e longas (ler e resumir '
+                'várias páginas, examinar uma pasta, comparar opções); chame vários na mesma vez pra trabalharem '
+                'ao mesmo tempo. O ajudante não vê a conversa: escreva no prompt tudo o que ele precisa.',
+                {'type': 'object', 'required': ['description', 'prompt'], 'properties': {
+                    'description': {'type': 'string', 'description': 'A tarefa em poucas palavras.'},
+                    'prompt': {'type': 'string', 'description': 'O que ele deve fazer, completo, e o que devolver.'}}})
+AJUDANTE_NOTA = ('\n\nVocê é um ajudante do Solis: alguém te passou uma tarefa. Faça só ela, com as suas '
+                 'ferramentas, e termine com o resultado completo (o que achou, com os links das fontes que leu), '
+                 'sem conversar e sem perguntar: quem te chamou vai ler e seguir.')
+
+
+class _EtapasDoAjudante:
+    """As etapas de um ajudante: os cartões vão pra tela (com "O ajudante
+    quer…"), as páginas que ele leu viram fontes da resposta, e o resto dos
+    passos fica com ele (como os ajudantes do Claude, não se mistura com a
+    resposta)."""
+
+    def __init__(self, pai, descricao: str):
+        self.pai, self.descricao, self.passos = pai, descricao, 0
+        self.anotadas = getattr(pai, 'anotadas', None)
+
+    def marcar(self, etapa, **dados):
+        if etapa in ('aprovacao', 'aprovacao_resposta'):
+            self.pai.marcar(etapa, **dados)
+        elif etapa == 'ferramenta':
+            self.passos += 1
+            if dados.get('ferramenta') == WEBFETCH and dados.get('ok') and dados.get('alvo'):
+                self.pai.marcar('fonte', url=dados['alvo'])
+
+
 # Ler uma página (web.py): o mesmo nome do WebFetch do Claude (livre; a tela
 # conta como "fonte lida" e diz "Li a página X").
 WEBFETCH = 'WebFetch'
@@ -423,6 +459,18 @@ class Corpo:
         self.skills = os.environ.get('SOLIS_CORPO_SKILLS', '1') != '0'
         # Ler página da internet (web.py), sem janela. SOLIS_CORPO_WEB=0 tira.
         self.web = os.environ.get('SOLIS_CORPO_WEB', '1') != '0'
+        # Os ajudantes (Agent). DESLIGADOS até a medição de verdade (19/11/2026:
+        # feitos e testados com a Groq simulada, mas a cota grátis da Groq e do
+        # Gemini acabou antes de medir; "só existe o que funciona"): um cérebro
+        # que chamasse ajudante pra coisa simples dobraria os pedidos e gastaria
+        # o limite grátis. SOLIS_CORPO_AJUDANTES=1 liga. `ajudante`: este corpo é
+        # de um ajudante (a tarefa dele): não abre outro, e os cartões dizem "O
+        # ajudante quer…". `sistema`: o do cérebro, que o roteador põe aqui, pro
+        # ajudante começar igual.
+        self.ajudantes = os.environ.get('SOLIS_CORPO_AJUDANTES', '0') == '1'
+        self.ajudante: str | None = None
+        self.sistema = ''
+        self.transporte = None  # o do pedido do cérebro (apis.responder põe aqui; nos testes, o simulado)
         self._skills: list[dict] | None = None
         # As ordens escondidas tiradas do texto de fora (injecao.py): o Solis
         # avisa o Matheus no fim da resposta (roteador._com_o_aviso).
@@ -437,6 +485,8 @@ class Corpo:
             specs += [_funcao(n, d, p) for n, d, p in editar.ESPECIFICACOES]
         if self.web:
             specs.append(_funcao(WEBFETCH, *_WEBFETCH_SPEC))
+        if self._abre_ajudante():
+            specs.append(_funcao(AGENTE, *_AGENTE_SPEC))
         if self.lista_skills():
             specs.append(_funcao(SKILL, 'Devolve as instruções de uma skill do Matheus (um roteiro que ele escreveu), '
                                         'pra você seguir neste pedido. As skills e quando usar estão no sistema.',
@@ -483,10 +533,35 @@ class Corpo:
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
                 or (self.editar and nome in editar.NOMES) or (nome == SKILL and bool(self.lista_skills()))
-                or (self.web and nome == WEBFETCH)
+                or (self.web and nome == WEBFETCH) or (nome == AGENTE and self._abre_ajudante())
                 or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
                 or nome in self._do_mcp())
+
+    def _abre_ajudante(self) -> bool:
+        return self.ajudantes and self.ajudante is None and bool(self.cerebro) and self.cerebro != 'local'
+
+    async def _ajudar(self, entrada: dict) -> tuple[str, bool]:
+        """Roda um ajudante: o mesmo cérebro, as mesmas ferramentas, um contexto
+        novo. (o resultado dele pro modelo, se deu certo)."""
+        from . import apis
+        descricao = str(entrada.get('description') or 'uma tarefa').strip()[:120]
+        prompt = str(entrada.get('prompt') or '').strip()
+        if not prompt:
+            return 'Faltou o prompt: escreva o que o ajudante deve fazer.', False
+        etapas = _EtapasDoAjudante(self.etapas, descricao)
+        sub = Corpo(self.conversa, etapas, navegar=self.navegar, cerebro=self.cerebro)
+        for flag in ('terminal', 'arquivos', 'tela', 'mcp', 'editar', 'skills', 'web'):
+            setattr(sub, flag, getattr(self, flag))
+        sub.ajudante, sub.tiradas = descricao, self.tiradas
+        try:
+            texto = ''.join([p async for p in apis.responder(self.cerebro, (self.sistema or '') + AJUDANTE_NOTA,
+                                                              prompt, etapas, self.transporte, corpo=sub)])
+        except Exception as e:  # noqa: BLE001 — o cérebro falhou no meio: o pai fica sabendo e segue
+            self.agiu = self.agiu or sub.agiu
+            return f'O ajudante não conseguiu terminar ({descricao}): {str(e)[:200]}', False
+        self.agiu = self.agiu or sub.agiu
+        return f'O ajudante terminou "{descricao}" ({etapas.passos} passos). O resultado dele:\n\n{texto.strip()}', True
 
     def lista_skills(self) -> list[dict]:
         """As skills do Matheus pra este cérebro (lidas uma vez por resposta)."""
@@ -542,10 +617,14 @@ class Corpo:
         do_mcp = self._do_mcp().get(nome)
         decisao = await aprovacoes.decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina,
                                            so_le=bool(do_mcp and do_mcp[1].get('so_le')),
-                                           projeto=info['pasta'], modo=info['modo'])
+                                           projeto=info['pasta'], modo=info['modo'], ajudante=self.ajudante)
         if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
             return decisao.mensagem or 'O Matheus recusou.'
+        if nome == AGENTE:
+            saida, ok = await self._ajudar(entrada)
+            self._marcar(id_, nome, entrada, pagina, ok)
+            return _cortar(saida)
         if nome == WEBFETCH:
             from . import web
             try:

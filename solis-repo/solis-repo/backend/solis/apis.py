@@ -334,6 +334,8 @@ async def responder(
         raise CerebroFalhou('sem chave')
     escolhido = await _modelo_livre(nome, chave, escolhido) or escolhido
     mensagens = [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}]
+    if corpo is not None:
+        corpo.transporte = transporte  # o ajudante (Agent) fala pelo mesmo caminho
     ferramentas = await corpo.especificacoes() if corpo is not None else []
     rodadas = _corpo.RODADAS_MAX if ferramentas else 0
     # A conexão guardada (conexoes.py); com um transporte de teste, uma só desta vez.
@@ -437,8 +439,18 @@ async def responder(
                                 **_assinatura(nome, d)}
                                for i, d in sorted(chamadas.items())]
                     mensagens.append({'role': 'assistant', 'content': dito or None, 'tool_calls': pedidas})
-                    for p in pedidas:
-                        saida = await corpo.rodar(p['function']['name'], _corpo.argumentos(p['function']['arguments']))
+                    # Vários ajudantes na mesma rodada trabalham ao mesmo tempo (como
+                    # os do Claude); o resto, um por vez, na ordem pedida.
+                    if len(pedidas) > 1 and all(p['function']['name'] == _corpo.AGENTE for p in pedidas):
+                        saidas = await asyncio.gather(*(
+                            corpo.rodar(p['function']['name'], _corpo.argumentos(p['function']['arguments']))
+                            for p in pedidas))
+                    else:
+                        saidas = []
+                        for p in pedidas:
+                            saidas.append(await corpo.rodar(p['function']['name'],
+                                                            _corpo.argumentos(p['function']['arguments'])))
+                    for p, saida in zip(pedidas, saidas):
                         mensagens.append({'role': 'tool', 'tool_call_id': p['id'], 'content': saida})
         except TimeoutError as e:
             raise CerebroFalhou(f'não começou a responder em {prazo:.0f} s') from e
