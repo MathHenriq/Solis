@@ -24,7 +24,16 @@ import { SolisEstado } from '../components/SolisEstado';
 import { SolisSimbolo } from '../components/SolisSimbolo';
 import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
-import { NOMES_CEREBRO, enviarAnexo, lerVolta, votarResposta, type Anexo, type Voto } from '../servidor';
+import {
+  NOMES_CEREBRO,
+  abrirArquivo,
+  enviarAnexo,
+  imagemDoAnexo,
+  lerVolta,
+  votarResposta,
+  type Anexo,
+  type Voto,
+} from '../servidor';
 import { falaAutomatica, marcarRespostaFalada, respostaFalada, useFala } from '../fala';
 import { useFundo } from '../fundo';
 import { useVoz } from '../voz';
@@ -180,7 +189,69 @@ function BotoesVoto({ resposta, inicial }: { resposta: number; inicial: Voto }) 
 /** Um arquivo que vai (ou foi) junto com a fala. PROVISÓRIO — desenho
  *  próprio, base no Claude: a ficha do arquivo acima do texto, no tamanho dos
  *  chips da resposta (--et-chip-*), com a borda neutra. */
-function FichaAnexo({ nome, estado, aoRemover }: { nome: string; estado?: 'enviando' | 'falhou'; aoRemover?: () => void }) {
+function FichaAnexo({
+  nome,
+  estado,
+  aoRemover,
+  imagem,
+  aoAbrir,
+}: {
+  nome: string;
+  estado?: 'enviando' | 'falhou';
+  aoRemover?: () => void;
+  /** A imagem (no campo, a do próprio arquivo; na fala, a do servidor): a ficha vira a miniatura. */
+  imagem?: string;
+  aoAbrir?: () => void;
+}) {
+  const [quebrou, definirQuebrou] = useState(false);
+  if (imagem && estado !== 'falhou' && !quebrou) {
+    // Aprovado pelo Matheus em 19/11/2026 (design/anexo-miniatura-validacao.png)
+    // — desenho próprio, base no Claude (layout.thread.attachThumb no
+    // solis-tokens.json): o quadrado da imagem no lugar da ficha, do tamanho
+    // de duas fichas empilhadas (28 + 8 + 28 = 64), na borda neutra da ficha
+    // e no raio dos blocos (--cod-raio).
+    return (
+      <span
+        title={nome}
+        className="relative inline-block shrink-0 border border-divider overflow-hidden"
+        style={{
+          width: 'var(--th-anexo-mini)',
+          height: 'var(--th-anexo-mini)',
+          borderRadius: 'var(--cod-raio)',
+          opacity: estado === 'enviando' ? 0.6 : 1,
+        }}
+      >
+        <button
+          type="button"
+          onClick={aoAbrir}
+          disabled={!aoAbrir}
+          aria-label={`Abrir ${nome}`}
+          className="block w-full h-full"
+          style={{ cursor: aoAbrir ? 'pointer' : 'default' }}
+        >
+          <img src={imagem} alt={nome} onError={() => definirQuebrou(true)} className="w-full h-full" style={{ objectFit: 'cover' }} />
+        </button>
+        {aoRemover && (
+          <button
+            type="button"
+            onClick={aoRemover}
+            aria-label={`Tirar ${nome}`}
+            className="absolute flex items-center justify-center text-text-primary"
+            style={{
+              top: 'var(--space-xs)',
+              right: 'var(--space-xs)',
+              width: 'var(--icon-sm)',
+              height: 'var(--icon-sm)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'color-mix(in srgb, var(--canvas) 80%, transparent)',
+            }}
+          >
+            <Icone nome="adicionar" tamanho={14} style={{ transform: 'rotate(45deg)' }} />
+          </button>
+        )}
+      </span>
+    );
+  }
   return (
     <span
       title={nome}
@@ -272,9 +343,14 @@ function FalaPessoa({
   return (
     <div style={{ marginTop: 'var(--th-turno-gap)' }}>
       {t.anexos && (
-        <div className="flex flex-wrap justify-end" style={{ gap: 8, marginBottom: 8 }}>
+        <div className="flex flex-wrap items-end justify-end" style={{ gap: 8, marginBottom: 8 }}>
           {t.anexos.map((a) => (
-            <FichaAnexo key={a.caminho} nome={a.nome} />
+            <FichaAnexo
+              key={a.caminho}
+              nome={a.nome}
+              imagem={imagemDoAnexo(a)}
+              aoAbrir={() => void abrirArquivo(a.caminho)}
+            />
           ))}
         </div>
       )}
@@ -435,13 +511,17 @@ export function Thread({
   const [pesquisa, definirPesquisa] = useState(false);
   // Os arquivos que vão com a próxima mensagem: sobem assim que escolhidos
   // (como no Claude), e a mensagem só sai quando todos subiram.
-  const [pendentes, definirPendentes] = useState<{ id: number; nome: string; estado: 'enviando' | 'pronto' | 'falhou'; anexo?: Anexo }[]>([]);
+  // `previa`: a imagem do próprio arquivo (sem esperar o servidor), pra miniatura.
+  const [pendentes, definirPendentes] = useState<
+    { id: number; nome: string; estado: 'enviando' | 'pronto' | 'falhou'; anexo?: Anexo; previa?: string }[]
+  >([]);
   const seletor = useRef<HTMLInputElement>(null);
   const anexar = (arquivos: FileList | File[]) => {
     for (const arquivo of Array.from(arquivos)) {
       const id = Math.random();
       const nome = arquivo.name || 'colado.png';
-      definirPendentes((ps) => [...ps, { id, nome, estado: 'enviando' }]);
+      const previa = arquivo.type.startsWith('image/') ? URL.createObjectURL(arquivo) : undefined;
+      definirPendentes((ps) => [...ps, { id, nome, estado: 'enviando', previa }]);
       void enviarAnexo(arquivo).then((anexo) =>
         definirPendentes((ps) => ps.map((p) => (p.id === id ? { ...p, estado: anexo ? 'pronto' : 'falhou', anexo: anexo ?? undefined } : p))),
       );
@@ -632,7 +712,7 @@ export function Thread({
       >
         {pendentes.length > 0 && (
           <div
-            className="flex flex-wrap"
+            className="flex flex-wrap items-end"
             style={{ gap: 8, marginBottom: 8, width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
           >
             {pendentes.map((p) => (
@@ -640,7 +720,12 @@ export function Thread({
                 key={p.id}
                 nome={p.nome}
                 estado={p.estado === 'pronto' ? undefined : p.estado}
-                aoRemover={() => definirPendentes((ps) => ps.filter((x) => x.id !== p.id))}
+                imagem={p.previa}
+                aoAbrir={p.anexo ? () => void abrirArquivo(p.anexo!.caminho) : undefined}
+                aoRemover={() => {
+                  if (p.previa) URL.revokeObjectURL(p.previa);
+                  definirPendentes((ps) => ps.filter((x) => x.id !== p.id));
+                }}
               />
             ))}
           </div>
@@ -668,6 +753,8 @@ export function Thread({
             ditado.current = false;
             aoEnviar(rascunho, undefined, prontos, pesquisa);
             definirRascunho('');
+            // A fala enviada mostra a imagem pelo servidor: a do arquivo já pode sair.
+            pendentes.forEach((p) => p.previa && URL.revokeObjectURL(p.previa));
             definirPendentes([]);
           }}
         >

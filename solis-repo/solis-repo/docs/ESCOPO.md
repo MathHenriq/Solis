@@ -1056,6 +1056,15 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      capital da Austrália" sem ferramenta nenhuma), de 0,9 a 2,9 s, lendo antes de cada edição,
      um cartão por edição, nenhuma "mentira" (dizer que fez sem o disco mudar). O modelo local
      fica sem por ora: não foi medido (mede com a GPU livre). `SOLIS_CORPO_EDITAR=0` tira.
+   - **Fechar a paridade, 2: a miniatura da imagem anexada (19/11/2026).** O anexo de imagem só
+     mostrava o nome; agora vira um quadrado de 64 px com a foto (duas fichas empilhadas: 28 + 8 +
+     28), no campo de digitar (a imagem do próprio arquivo, antes de subir) e acima da fala (pelo
+     servidor: `GET /anexos/arquivo`, que só devolve imagem e só de dentro da pasta de anexos).
+     Borda da ficha, raio dos blocos (10 px), o x de tirar no canto, e clicar abre a imagem no
+     programa do Windows. Arquivo que não é imagem segue como ficha, alinhado pela base das
+     miniaturas. Medido nos prints (3 temas × 2 navs, dados inventados): 64×64, 8 px entre elas,
+     o x a 4 px da borda. **Aprovado pelo Matheus em 19/11/2026**
+     (`design/anexo-miniatura-validacao.png`).
 
 ### Controle do PC e visão da tela
 

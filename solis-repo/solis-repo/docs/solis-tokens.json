@@ -491,6 +491,8 @@
     },
     "thread": {
       "_fonte": "Medido em referencias/telas/18-conversa-thread.png. Ver _variantes/LEIA-ME.md pro porque das outras duas geracoes terem sido descartadas.",
+      "attachThumb": "64px",
+      "_attachThumb": "APROVADO pelo Matheus em 19/11/2026 nos 3 temas e 2 navs (design/anexo-miniatura-validacao.png) - desenho proprio, base no Claude, que mostra a imagem anexada como um quadrado com a foto em vez de so o nome (PARIDADE: faltava a miniatura). 64px = spacing.4xl = duas fichas de anexo empilhadas com o gap delas (28 + 8 + 28): o quadrado cai na mesma grade das fichas, no campo e acima da fala. Borda --divider (a da ficha), raio --cod-raio 10px (o dos blocos: codigo, diff), a foto cortada pra preencher (object-fit cover). No campo, o x de tirar num circulo de --icon-sm 20px no canto (a --space-xs 4px), fundo do canvas a 80%; clicar na miniatura abre a imagem no programa do Windows (POST /arquivos/abrir). Arquivo que nao e imagem segue como ficha; a fileira alinha pela base (items-end), rente ao balao: alinhada pelo topo, a ficha ficava solta ao lado das miniaturas.",
       "columnMax": "768px",
       "_columnMax": "Revisto em 08/11/2026, a pedido do Matheus, na proporcao do Claude: a conversa inteira numa COLUNA CENTRAL de ate 768px (48rem, a do Claude), com a mensagem dele a direita dentro dela, a resposta ocupando a largura toda da coluna e o campo de digitar com a mesma largura. Antes a resposta ficava num teto de 540px encostada a esquerda e o balao ia pra borda direita da janela: numa janela larga sobrava um vazio no meio e parecia que so havia o comeco das mensagens.",
       "bubbleMaxWidth": "85%",

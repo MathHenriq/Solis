@@ -87,3 +87,17 @@ def test_editar_apaga_os_anexos_da_mensagem():
     banco.guardar_anexos(m, [{'nome': 'a.txt', 'caminho': 'x', 'tipo': 'text/plain', 'tamanho': 1}])
     banco.apagar_desde(c, m)
     assert banco._con().execute('SELECT COUNT(*) FROM anexos').fetchone()[0] == 0
+
+
+def test_a_miniatura_so_serve_imagem_de_dentro_dos_anexos(cliente, trabalho, tmp_path):
+    """A miniatura da imagem na fala do Matheus (PARIDADE: faltava)."""
+    imagem = cliente.post('/anexos?nome=placa.png', content=b'\x89PNG dados').json()
+    r = cliente.get('/anexos/arquivo', params={'caminho': imagem['caminho']})
+    assert r.status_code == 200 and r.content == b'\x89PNG dados' and r.headers['content-type'] == 'image/png'
+    # Texto não é imagem; e nada de fora da pasta de anexos.
+    texto = cliente.post('/anexos?nome=pedido.txt', content=b'55120').json()
+    assert cliente.get('/anexos/arquivo', params={'caminho': texto['caminho']}).status_code == 404
+    fora = tmp_path / 'fora.png'
+    fora.write_bytes(b'\x89PNG')
+    assert cliente.get('/anexos/arquivo', params={'caminho': str(fora)}).status_code == 404
+    assert cliente.get('/anexos/arquivo', params={'caminho': imagem['caminho'] + '/../../fora.png'}).status_code == 404

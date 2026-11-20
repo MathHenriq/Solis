@@ -251,6 +251,7 @@
   --th-hora: 14px;
   --th-texto-max: none;
   --th-coluna: 768px;
+  --th-anexo-mini: 64px;
   /* Etapas da resposta. Ver layout.thread.etapas no JSON. */
   --et-texto: 14px;
   --et-passo: 30px;

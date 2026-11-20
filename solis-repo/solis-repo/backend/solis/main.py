@@ -442,6 +442,18 @@ async def anexar(request: Request, nome: str):
     return _anexo(str(caminho))
 
 
+@app.get('/anexos/arquivo')
+async def imagem_do_anexo(caminho: str):
+    """A imagem de um anexo, pra miniatura na fala do Matheus. Só imagem, e só
+    de dentro da pasta de anexos (o mesmo _anexo do POST): nada mais do disco
+    sai por aqui."""
+    a = _anexo(caminho)
+    if a is None or not a['tipo'].startswith('image/'):
+        return JSONResponse({'erro': 'nao_achado'}, status_code=404)
+    dados = await asyncio.to_thread(Path(a['caminho']).read_bytes)
+    return Response(dados, media_type=a['tipo'], headers={'Cache-Control': 'private, max-age=86400'})
+
+
 class Projeto(BaseModel):
     pasta: str | None = None
     modo: str = 'pedir'

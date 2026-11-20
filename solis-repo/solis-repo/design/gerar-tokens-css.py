@@ -278,7 +278,7 @@ for chave, var in [('bubbleMaxWidth','--th-balao-max'), ('bubblePadX','--th-bala
                    ('turnGap','--th-turno-gap'), ('paragraphGap','--th-par-gap'),
                    ('composerHeight','--th-composer-h'), ('composerBottom','--th-composer-base'),
                    ('timeSize','--th-hora'), ('textMaxWidth','--th-texto-max'),
-                   ('columnMax','--th-coluna')]:
+                   ('columnMax','--th-coluna'), ('attachThumb','--th-anexo-mini')]:
     w('  %s: %s;' % (var, th[chave]))
 w('  /* Etapas da resposta. Ver layout.thread.etapas no JSON. */')
 et = th['etapas']

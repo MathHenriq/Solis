@@ -328,6 +328,12 @@ export async function enviarAnexo(arquivo: File): Promise<Anexo | null> {
   }
 }
 
+/** A imagem de um anexo já guardado, pra miniatura na fala (o servidor só
+ *  serve imagem de dentro da pasta de anexos). undefined se não é imagem. */
+export function imagemDoAnexo(a: Anexo): string | undefined {
+  return a.tipo?.startsWith('image/') ? `${BASE}/anexos/arquivo?caminho=${encodeURIComponent(a.caminho)}` : undefined;
+}
+
 /** A pasta de projeto da conversa e o modo do Claude nela. */
 export type Projeto = {
   pasta: string | null;
