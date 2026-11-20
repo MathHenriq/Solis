@@ -71,4 +71,5 @@ async def main():
     print({k: r.count(k) for k in set(r)}, 'em', DESTINO)
 
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
