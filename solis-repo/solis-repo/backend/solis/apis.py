@@ -356,6 +356,12 @@ async def responder(
                     if rapido and RACIOCINIO_NA_VOZ and 'gpt-oss' in escolhido:
                         pedido['reasoning_effort'] = RACIOCINIO_NA_VOZ
                     chamadas: dict[int, dict] = {}
+                    # Posição no streaming → a chamada que está montando ali. O
+                    # Gemini manda várias chamadas da mesma rodada com a MESMA
+                    # posição (index 0), cada uma com o seu id: juntar pela posição
+                    # dava "WebFetchWebFetch..." e os argumentos colados, e a rodada
+                    # seguinte voltava 400 (visto em 20/11/2026, a pesquisa longa).
+                    na_posicao: dict[int, int] = {}
                     dito = ''
                     esperas = 0
                     try:
@@ -369,7 +375,12 @@ async def responder(
                                         dito += valor
                                         yield valor
                                         continue
-                                    d = chamadas.setdefault(valor.get('index', 0), {'id': '', 'nome': '', 'args': ''})
+                                    posicao = valor.get('index', 0)
+                                    d = chamadas.get(na_posicao.get(posicao, -1))
+                                    if d is None or (valor.get('id') and d['id'] and valor['id'] != d['id']):
+                                        # Um id novo na mesma posição é outra chamada.
+                                        na_posicao[posicao] = len(chamadas)
+                                        d = chamadas[len(chamadas)] = {'id': '', 'nome': '', 'args': ''}
                                     f = valor.get('function') or {}
                                     d['id'] = valor.get('id') or d['id']
                                     d['nome'] += f.get('name') or ''

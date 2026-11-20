@@ -436,3 +436,32 @@ def test_a_groq_lotada_no_meio_nao_troca():
 
 def resposta_sse(*eventos):
     return httpx.Response(200, text=sse(*eventos), headers={'content-type': 'text/event-stream'})
+
+
+def test_gemini_varias_chamadas_na_mesma_posicao_nao_se_juntam():
+    """20/11/2026: o Gemini manda as chamadas da mesma rodada todas com index 0,
+    cada uma com o seu id. Juntar pela posição dava "WebFetchWebFetch..." com os
+    argumentos colados, e a rodada seguinte voltava 400."""
+    from solis import corpo
+    _gemini_com(['gemini-3-flash-preview'])
+    pedidos = []
+
+    def rota(req):
+        pedidos.append(json.loads(req.content))
+        if len(pedidos) == 1:
+            pedacos = [{'choices': [{'delta': {'tool_calls': [{
+                'index': 0, 'id': f'c{i}', 'type': 'function', 'function': {'name': 'mcp__solis__hora', 'arguments': '{}'},
+                **({'extra_content': {'google': {'thought_signature': 'A'}}} if i == 1 else {})}]}}]}
+                for i in (1, 2, 3)]
+            return httpx.Response(200, text=sse(*pedacos), headers={'content-type': 'text/event-stream'})
+        return httpx.Response(200, text=sse({'choices': [{'delta': {'content': 'Pronto.'}}]}),
+                              headers={'content-type': 'text/event-stream'})
+
+    g = Gravador()
+    saida = ''.join(coletar(apis.responder('gemini', 'sis', 'que horas', g, servico(rota),
+                                           corpo=corpo.Corpo(1, g, navegar=False))))
+    assert saida == 'Pronto.'
+    chamadas = pedidos[1]['messages'][2]['tool_calls']
+    assert [c['id'] for c in chamadas] == ['c1', 'c2', 'c3']
+    assert all(c['function']['name'] == 'mcp__solis__hora' and c['function']['arguments'] == '{}' for c in chamadas)
+    assert [m['tool_call_id'] for m in pedidos[1]['messages'] if m['role'] == 'tool'] == ['c1', 'c2', 'c3']
