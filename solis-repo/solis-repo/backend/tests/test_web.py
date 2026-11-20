@@ -58,3 +58,45 @@ def test_no_corpo_o_webfetch_e_livre_cercado_e_vira_fonte(monkeypatch):
     assert not [d for e, d in g.lista if e == 'aprovacao']
     assert [(d['ferramenta'], d['alvo'], d['ok']) for e, d in g.lista if e == 'ferramenta'] == \
         [('WebFetch', 'https://exemplo.com.br/carros', True)]
+
+
+BUSCA_DDG = ('<html><body><div class="result results_links"><div class="links_main result__body">'
+             '<h2><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwise.com%2Fbr%2Fdolar-hoje&rut=x">'
+             'Dólar hoje - Wise</a></h2><a class="result__snippet" href="#">A taxa do dólar hoje é 5,35 reais.</a>'
+             '</div></div><div class="result"><div class="result__body"><h2><a class="result__a" '
+             'href="https://economia.uol.com.br/cotacoes/">Cotações - UOL</a></h2></div></div></body></html>')
+
+
+@pytest.mark.parametrize('url, termos', [
+    ('https://www.google.com/search?q=cotacao+dolar+hoje', 'cotacao dolar hoje'),
+    ('https://www.google.com.br/search?q=d%C3%B3lar&hl=pt', 'dólar'),
+    ('https://www.bing.com/search?q=clima+sp', 'clima sp'),
+    ('https://html.duckduckgo.com/html/?q=jogo', 'jogo'),
+    ('https://pt.wikipedia.org/wiki/Camberra', None),
+    ('https://www.google.com/maps?q=praia', None),
+])
+def test_endereco_de_busca(url, termos):
+    assert web.termos_da_busca(url) == termos
+
+
+def test_a_busca_do_google_vira_a_lista_de_resultados():
+    """Medido em 20/11/2026: o Google sem JavaScript devolve só "Clique aqui se
+    o redirecionamento não iniciar" — o modelo não achava a cotação."""
+    pedidos = []
+
+    def ddg(request):
+        pedidos.append(str(request.url))
+        return httpx.Response(200, html=BUSCA_DDG)
+    final, titulo, texto = asyncio.run(web.ler('https://www.google.com/search?q=cotacao+dolar+hoje',
+                                               httpx.MockTransport(ddg)))
+    assert pedidos == ['https://html.duckduckgo.com/html/?q=cotacao+dolar+hoje']
+    assert titulo == 'Resultados da busca: cotacao dolar hoje'
+    assert '1. Dólar hoje - Wise\n   https://wise.com/br/dolar-hoje\n   A taxa do dólar hoje é 5,35 reais.' in texto
+    assert '2. Cotações - UOL\n   https://economia.uol.com.br/cotacoes/' in texto
+    assert 'leia com WebFetch a página do resultado' in texto
+
+
+def test_busca_sem_resultado_diz_por_que():
+    with pytest.raises(web.NaoLeu, match='não trouxe resultados'):
+        asyncio.run(web.ler('https://www.bing.com/search?q=xyz',
+                            httpx.MockTransport(lambda r: httpx.Response(200, html='<html><body>nada</body></html>'))))
