@@ -44,6 +44,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `GET /cerebros/claude/ajustes` | o modelo do Claude (`fable`, `opus`, `sonnet`, `haiku` ou null = padrão da conta) e o esforço (`low` a `max` ou null), com as opções |
 | `PUT /cerebros/claude/ajustes` | `{"modelo", "esforco"}` → guarda; vale a partir da próxima resposta. `400` se algum não existe |
 | `POST /anexos?nome=` | o arquivo cru no corpo (até 50 MB) → guarda em `trabalho/anexos/AAAA-MM-DD/` e devolve `{nome, caminho, tipo, tamanho}`. `400` vazio, `413` grande demais |
+| `GET /anexos/arquivo?caminho=` | a imagem de um anexo, pra miniatura na fala: só imagem e só de dentro da pasta de anexos (`404` no resto) |
 | `GET /conversas/{id}/projeto` | a pasta de projeto da conversa (`pasta`, null = a de trabalho do Solis), o `modo` (`pedir`, `aceitar`, `planejar`) e as pastas `recentes` |
 | `PUT /conversas/{id}/projeto` | `{"pasta", "modo", "projeto"?}` (`projeto`: o id do projeto, ou null pra tirar; sem ele, fica o que era; num projeto, a pasta é a dele) → guarda; outra pasta esquece a sessão do Claude (ela mora com a pasta). `400` se a pasta não existe ou o modo não vale. Com projeto, o Claude trabalha nele (cwd), lê o CLAUDE.md e a configuração dele, e ler lá dentro é livre; `aceitar` edita arquivos do projeto sem pedir; `planejar` mostra o plano num cartão antes de fazer |
 | `GET /documentos` | as bibliotecas que as skills de documento (docx, xlsx, pptx, pdf) usam estão prontas? (`pronto`, `falta`, `pasta`) |
@@ -125,6 +126,7 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 | `POST /hooks` | `{"evento", "ferramenta"?, "comando", "tempo"?}` → grava na chave `hooks` (o resto do arquivo fica). `400` com `hook_invalido` e o `motivo` (`evento`, `comando`, `tempo`) |
 | `PUT /hooks/{id}` | o mesmo corpo → muda a linha |
 | `DELETE /hooks/{id}` | tira a linha (o grupo e o evento vazios saem junto) |
+| `POST /hooks/testar` | o mesmo corpo → roda o comando uma vez, sem salvar, como o Claude Code (Git Bash, ou PowerShell sem ele; o exemplo do evento em JSON na entrada; até 60 s) → `{codigo, saida, erros, segundos, shell, estourou, efeito}` (`efeito`: 0 deu certo, 2 bloqueia, outro não bloqueia) |
 | `GET /skills` | as skills: as suas (`origem` `solis`, com `para`: `claude`, `codex` ou os dois) e as da conta do claude.ai (`conta` ou `anthropic`), com `descricao`, `editavel` e `ligada` (desligar é só do Claude) |
 | `GET /skills/{nome}` | uma das suas inteira, pra editar: `nome`, `descricao`, `instrucoes`, `para` |
 | `POST /skills` | `{"nome", "descricao", "instrucoes", "para"}` → escreve o SKILL.md em `~/.claude/skills` e/ou `~/.codex/skills`. `400` com `skill_invalida` e o `motivo` (`nome`, `descrição`, `instruções`, `pra quem`, ou já existe) |

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Botao } from '../components/Controles';
-import { listarHooks, removerHook, salvarHook, type EventoHook, type Hook } from '../servidor';
+import { listarHooks, removerHook, salvarHook, testarHook, type EventoHook, type Hook, type TesteHook } from '../servidor';
 
 /** Configurações → Hooks: regras automáticas do Claude ("antes de rodar um
  *  comando, faça X", "quando a resposta terminar, avise"), como os hooks do
@@ -10,6 +10,8 @@ import { listarHooks, removerHook, salvarHook, type EventoHook, type Hook } from
  *  Decisão do Matheus (17/11/2026): fazer a tela.
  *
  *  Aprovado pelo Matheus pelos prints (17/11/2026, design/hooks-validacao.png).
+ *  O tempo máximo e o Testar: aprovados pelos prints (19/11/2026,
+ *  design/hooks-tempo-teste-validacao.png).
  *  Desenho próprio, com o Claude como base: o cartão,
  *  as linhas, as ações em texto e o formulário do de Servidores MCP
  *  (layout.configuracoes.mcp). Nenhum valor novo (layout.configuracoes.hooks). */
@@ -44,18 +46,48 @@ function Formulario({
   const [evento, definirEvento] = useState(inicial?.evento ?? 'PreToolUse');
   const [ferramenta, definirFerramenta] = useState(inicial?.ferramenta ?? '');
   const [comando, definirComando] = useState(inicial?.comando ?? '');
+  // O tempo máximo, em segundos; vazio é o padrão do Claude Code (600; 30 na mensagem).
+  const [tempo, definirTempo] = useState(inicial?.tempo != null ? String(inicial.tempo) : '');
   const [salvando, definirSalvando] = useState(false);
+  const [testando, definirTestando] = useState(false);
+  const [teste, definirTeste] = useState<TesteHook | null>(null);
   const [erro, definirErro] = useState('');
   const comFerramenta = eventos.find((e) => e.id === evento)?.ferramenta ?? false;
+  const padrao = evento === 'UserPromptSubmit' ? 30 : 600;
+  // Mudou o hook: o resultado do teste de antes não vale mais.
+  const mudou = <T,>(definir: (v: T) => void) => (v: T) => {
+    definir(v);
+    definirTeste(null);
+  };
 
+  /** Os campos, conferidos; null (com o erro na tela) se o tempo não for um número. */
+  const campos = () => {
+    if (tempo.trim() && !/^\d+$/.test(tempo.trim())) {
+      definirErro('O tempo máximo vai de 1 a 600 segundos.');
+      return null;
+    }
+    return { evento, ferramenta: comFerramenta ? ferramenta : '', comando, tempo: tempo.trim() ? Number(tempo) : null };
+  };
   const salvar = async () => {
-    definirSalvando(true);
     definirErro('');
-    // O tempo máximo não tem campo: vale o que já estava (ou o padrão do Claude Code).
-    const r = await salvarHook({ evento, ferramenta: comFerramenta ? ferramenta : '', comando, tempo: inicial?.tempo ?? null }, inicial?.id);
+    const dados = campos();
+    if (!dados) return;
+    definirSalvando(true);
+    const r = await salvarHook(dados, inicial?.id);
     definirSalvando(false);
     if ('erro' in r) definirErro(r.erro);
     else aoSalvar();
+  };
+  const testar = async () => {
+    definirErro('');
+    definirTeste(null);
+    const dados = campos();
+    if (!dados) return;
+    definirTestando(true);
+    const r = await testarHook(dados);
+    definirTestando(false);
+    if ('erro' in r) definirErro(r.erro);
+    else definirTeste(r);
   };
 
   const codigo: CSSProperties = {
@@ -77,7 +109,7 @@ function Formulario({
       <div className="flex items-center" style={{ gap: 'var(--mac-botao-gap)', maxWidth: 'var(--cer-texto-max)' }}>
         <select
           value={evento}
-          onChange={(e) => definirEvento(e.target.value)}
+          onChange={(e) => mudou(definirEvento)(e.target.value)}
           aria-label="Quando roda"
           autoFocus
           className={`solis-data text-text-secondary bg-canvas shrink-0 ${CAMPO}`}
@@ -90,7 +122,7 @@ function Formulario({
         {comFerramenta && (
           <input
             value={ferramenta}
-            onChange={(e) => definirFerramenta(e.target.value)}
+            onChange={(e) => mudou(definirFerramenta)(e.target.value)}
             placeholder="Ferramenta — ex.: Bash (vazio: todas)"
             aria-label="Ferramenta"
             spellCheck={false}
@@ -98,10 +130,29 @@ function Formulario({
             style={{ ...caixa, fontSize: 'var(--cod-texto)', minWidth: 0 }}
           />
         )}
+        {/* O tempo máximo como a linha da lista mostra ("até 60 s"): o campo na
+            altura dos outros, na largura de duas alturas de botão (3 dígitos). */}
+        <label
+          className={`flex items-center text-text-secondary shrink-0 ${comFerramenta ? '' : 'ml-auto'}`}
+          style={{ gap: 'var(--agd-campo-gap)', fontSize: 'var(--cfg-dica)' }}
+        >
+          até
+          <input
+            value={tempo}
+            onChange={(e) => mudou(definirTempo)(e.target.value)}
+            inputMode="numeric"
+            placeholder={String(padrao)}
+            aria-label="Tempo máximo, em segundos"
+            title={`Quanto o comando pode demorar. Vazio: o padrão do Claude Code (${padrao} s).`}
+            className={`font-mono text-center placeholder:text-text-placeholder ${CAMPO}`}
+            style={{ ...caixa, width: 'calc(var(--mac-botao-h) * 2)', fontSize: 'var(--cod-texto)', padding: 0 }}
+          />
+          s
+        </label>
       </div>
       <input
         value={comando}
-        onChange={(e) => definirComando(e.target.value)}
+        onChange={(e) => mudou(definirComando)(e.target.value)}
         placeholder="O comando — ex.: powershell -File C:\scripts\avisar.ps1"
         aria-label="Comando"
         spellCheck={false}
@@ -110,18 +161,63 @@ function Formulario({
       />
       <div className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)', textWrap: 'pretty' }}>
         O comando recebe o que aconteceu em JSON na entrada. Se ele sair com código 2, o Claude para: a ferramenta não roda,
-        ou a mensagem não vai.
+        ou a mensagem não vai. Testar roda o comando uma vez, de verdade, com um exemplo do que o Claude manda.
       </div>
       <div className="flex items-center flex-wrap" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
         <Botao tipo="destaque" onClick={() => void salvar()} disabled={salvando || !comando.trim()}>
           {salvando ? 'Salvando…' : inicial ? 'Salvar' : 'Adicionar'}
         </Botao>
+        <Botao onClick={() => void testar()} disabled={testando || !comando.trim()}>
+          {testando ? 'Testando…' : 'Testar'}
+        </Botao>
         <Botao onClick={aoCancelar}>Cancelar</Botao>
       </div>
+      {teste && <ResultadoTeste teste={teste} />}
       {erro && (
         <div className="text-[var(--erro)]" style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)' }}>
           {erro}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** O que o teste deu: o efeito em português (o código 0 e o 2 são o que o hook
+ *  quer; o resto, e passar do tempo, em erro), e o que o comando escreveu, no
+ *  bloco do código e do diff (--cod-*, --mem-hover-forte). */
+function ResultadoTeste({ teste }: { teste: TesteHook }) {
+  const problema = teste.estourou || (teste.codigo !== 0 && teste.codigo !== 2);
+  return (
+    <div style={{ marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)' }}>
+      <div
+        role="status"
+        className={problema ? 'text-[var(--erro)]' : 'text-text-primary'}
+        style={{ fontSize: 'var(--cfg-dica)', textWrap: 'pretty' }}
+      >
+        {teste.efeito}{' '}
+        <span className="text-text-secondary">
+          · {String(teste.segundos).replace('.', ',')} s, pelo {teste.shell}
+        </span>
+      </div>
+      {(teste.saida.trim() || teste.erros.trim()) && (
+        <pre
+          aria-label="O que o comando escreveu"
+          className="font-mono overflow-auto"
+          style={{
+            fontSize: 'var(--cod-texto)',
+            lineHeight: 1.55,
+            marginTop: 'var(--agd-campo-gap)',
+            maxHeight: 200,
+            padding: '8px var(--cod-px)',
+            borderRadius: 'var(--cod-raio)',
+            background: 'var(--mem-hover-forte)',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          {teste.saida.trim() && <span className="text-text-primary">{teste.saida.trim()}</span>}
+          {teste.saida.trim() && teste.erros.trim() && '\n'}
+          {teste.erros.trim() && <span className="text-[var(--erro)]">{teste.erros.trim()}</span>}
+        </pre>
       )}
     </div>
   );

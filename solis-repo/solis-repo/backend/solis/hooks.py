@@ -23,7 +23,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shutil
+import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 # Os eventos que a tela oferece, como o Matheus lê: só os que foram vistos
@@ -195,3 +199,116 @@ def remover(id_: str) -> dict:
     alvo = _tirar(dados, id_)
     _gravar(dados)
     return alvo
+
+
+# — Testar antes de salvar (PARIDADE: faltava) ————————————————————————————————————
+# Roda o comando uma vez, como o Claude Code roda (documentação dele, lida em
+# 19/11/2026): no Windows pelo Git Bash, ou pelo PowerShell quando não há Git
+# Bash; o que aconteceu em JSON na entrada; CLAUDE_PROJECT_DIR no ambiente. O
+# código de saída diz o efeito: 0 deu certo, 2 bloqueia, outro é erro que não
+# bloqueia. O padrão do tempo é o dele: 600 s (30 s pra mensagem).
+TESTE_MAX = 60          # o teste espera no máximo isso, mesmo que o hook possa mais
+SAIDA_MAX = 4000
+
+
+def padrao_de_tempo(evento: str) -> int:
+    return 30 if evento == 'UserPromptSubmit' else TEMPO_MAX
+
+
+def _git_bash() -> str | None:
+    """O bash do Git pra Windows, onde o Claude Code procura (nunca o bash do
+    WSL, em System32). Fora do Windows, o sh."""
+    if os.name != 'nt':
+        return shutil.which('sh')
+    escolhido = os.environ.get('CLAUDE_CODE_GIT_BASH_PATH')
+    if escolhido and Path(escolhido).is_file():
+        return escolhido
+    for base in (os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)'),
+                 os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs')):
+        if base and (Path(base) / 'Git' / 'bin' / 'bash.exe').is_file():
+            return str(Path(base) / 'Git' / 'bin' / 'bash.exe')
+    git = shutil.which('git')
+    if git and (Path(git).resolve().parent.parent / 'bin' / 'bash.exe').is_file():
+        return str(Path(git).resolve().parent.parent / 'bin' / 'bash.exe')
+    return None
+
+
+def exemplo(evento: str, ferramenta: str, pasta: str) -> dict:
+    """O que o Claude manda na entrada do hook, com valores de teste."""
+    base = {'session_id': 'teste-do-solis', 'transcript_path': '', 'cwd': pasta, 'hook_event_name': evento}
+    if evento in COM_FERRAMENTA:
+        # A primeira ferramenta do matcher ("Write|Edit" → Write); expressão ou vazio → Bash.
+        nome = ferramenta.split('|')[0].strip() if re.fullmatch(r'[\w|]+', ferramenta or '') else 'Bash'
+        entrada = {'Bash': {'command': 'echo teste do Solis', 'description': 'Teste do Solis'},
+                   'PowerShell': {'command': 'echo teste do Solis', 'description': 'Teste do Solis'},
+                   'Write': {'file_path': str(Path(pasta) / 'teste.txt'), 'content': 'teste do Solis'},
+                   'Edit': {'file_path': str(Path(pasta) / 'teste.txt'), 'old_string': 'teste',
+                            'new_string': 'teste do Solis'},
+                   'Read': {'file_path': str(Path(pasta) / 'teste.txt')}}.get(nome, {})
+        base.update(tool_name=nome, tool_input=entrada, tool_use_id='toolu_teste_do_solis')
+        if evento == 'PostToolUse':
+            base['tool_response'] = ({'stdout': 'teste do Solis', 'stderr': '', 'interrupted': False}
+                                     if nome in ('Bash', 'PowerShell') else {'success': True})
+    elif evento == 'UserPromptSubmit':
+        base['prompt'] = 'Mensagem de teste do Solis'
+    elif evento == 'Stop':
+        base.update(stop_hook_active=False, last_assistant_message='Resposta de teste do Solis.')
+    elif evento == 'SessionStart':
+        base['source'] = 'startup'
+    elif evento == 'SessionEnd':
+        base['reason'] = 'other'
+    return base
+
+
+_BLOQUEIA = {
+    'PreToolUse': 'a ferramenta não roda, e o que saiu em erros vai pro Claude como o motivo',
+    'PostToolUse': 'o Claude recebe o que saiu em erros',
+    'UserPromptSubmit': 'a mensagem não vai pro Claude',
+    'Stop': 'o Claude continua trabalhando em vez de parar',
+}
+
+
+def _efeito(evento: str, codigo: int | None, estourou: bool, limite: int, pedido: int) -> str:
+    if estourou:
+        if pedido > limite:
+            return f'Passou de {limite} s, o máximo que o teste espera (o hook pode até {pedido} s no Claude).'
+        return f'Passou de {limite} s: no Claude, ele seria interrompido e o Claude seguiria.'
+    if codigo == 0:
+        return 'Deu certo (código 0). ' + (
+            'No Claude, o que ele escrever vai junto como contexto.' if evento in ('UserPromptSubmit', 'SessionStart')
+            else 'No Claude, segue tudo normal.')
+    if codigo == 2:
+        return 'Código 2: no Claude, isso bloqueia — ' + _BLOQUEIA.get(evento, 'o Claude mostra o que saiu em erros') + '.'
+    return f'Código {codigo}: um erro que não bloqueia. No Claude, a ação segue e aparece um aviso.'
+
+
+def testar(evento: str, ferramenta: str, comando: str, tempo: float | None = None,
+           pasta: str | None = None) -> dict:
+    """Roda o comando uma vez com o exemplo do evento. {codigo, saida, erros,
+    segundos, shell, estourou, efeito}."""
+    ferramenta, comando, tempo = _validar(evento, ferramenta, comando, tempo)
+    if pasta is None:
+        from .agente import _pasta_trabalho
+        pasta = str(_pasta_trabalho())
+    pedido = tempo or padrao_de_tempo(evento)
+    limite = min(pedido, TESTE_MAX)
+    bash = _git_bash()
+    args = [bash, '-c', comando] if bash else ['powershell', '-NoProfile', '-Command', comando]
+    shell = ('Git Bash' if os.name == 'nt' else 'sh') if bash else 'PowerShell'
+    t0 = time.monotonic()
+    estourou, codigo, saida, erros = False, None, '', ''
+    try:
+        r = subprocess.run(args, input=json.dumps(exemplo(evento, ferramenta, pasta), ensure_ascii=False),
+                           capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=limite,
+                           cwd=pasta, env={**os.environ, 'CLAUDE_PROJECT_DIR': pasta},
+                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        codigo, saida, erros = r.returncode, r.stdout, r.stderr
+    except subprocess.TimeoutExpired as e:
+        estourou = True
+        saida = (e.stdout or b'').decode('utf-8', 'replace') if isinstance(e.stdout, bytes) else (e.stdout or '')
+        erros = (e.stderr or b'').decode('utf-8', 'replace') if isinstance(e.stderr, bytes) else (e.stderr or '')
+    except OSError as e:
+        raise HookInvalido(f'não consegui rodar: {e}') from e
+    return {'codigo': codigo, 'saida': saida[-SAIDA_MAX:], 'erros': erros[-SAIDA_MAX:],
+            'segundos': round(time.monotonic() - t0, 1), 'shell': shell, 'estourou': estourou,
+            'efeito': _efeito(evento, codigo, estourou, limite, pedido)}

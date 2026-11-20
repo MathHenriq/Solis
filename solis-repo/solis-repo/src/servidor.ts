@@ -1617,6 +1617,39 @@ export async function salvarHook(
   }
 }
 
+/** O teste de um hook (backend/solis/hooks.py, testar): rodou uma vez, como o
+ *  Claude Code rodaria. `codigo` null: passou do tempo. */
+export type TesteHook = {
+  codigo: number | null;
+  saida: string;
+  erros: string;
+  segundos: number;
+  shell: string;
+  estourou: boolean;
+  efeito: string;
+};
+
+export async function testarHook(dados: {
+  evento: string;
+  ferramenta: string;
+  comando: string;
+  tempo: number | null;
+}): Promise<TesteHook | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/hooks/testar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    if (r.ok) return (await r.json()) as TesteHook;
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    const motivo = corpo.motivo ?? '';
+    return { erro: MOTIVO_HOOK[motivo] ?? (motivo ? motivo.charAt(0).toUpperCase() + motivo.slice(1) + '.' : 'Não deu pra testar.') };
+  } catch {
+    return { erro: 'O servidor do Solis não respondeu.' };
+  }
+}
+
 export async function removerHook(id: string): Promise<boolean> {
   try {
     return (await fetch(`${BASE}/hooks/${encodeURIComponent(id)}`, { method: 'DELETE' })).ok;

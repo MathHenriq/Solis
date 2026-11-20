@@ -1113,6 +1113,22 @@ async def criar_hook(corpo: HookCorpo):
     return await _salvar_hook(corpo, None)
 
 
+@app.post('/hooks/testar')
+async def testar_hook(corpo: HookCorpo):
+    """Roda o comando do hook uma vez, como o Claude Code rodaria (o Git Bash,
+    o exemplo do evento na entrada), sem salvar: o código de saída e o que ele
+    escreveu, com o efeito em português. O Matheus clicou em Testar: roda de
+    verdade, então fica no registro de ações."""
+    from . import hooks
+    try:
+        r = await asyncio.to_thread(hooks.testar, corpo.evento, corpo.ferramenta, corpo.comando, corpo.tempo)
+    except hooks.HookInvalido as e:
+        return JSONResponse({'erro': 'hook_invalido', 'motivo': str(e)}, status_code=400)
+    banco.registrar_acao(None, 'testar_hook', {'evento': corpo.evento, 'ferramenta': corpo.ferramenta},
+                         corpo.comando, r['codigo'] == 0)
+    return r
+
+
 @app.put('/hooks/{id_}')
 async def editar_hook(id_: str, corpo: HookCorpo):
     return await _salvar_hook(corpo, id_)

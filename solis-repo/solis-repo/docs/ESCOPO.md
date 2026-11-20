@@ -1096,6 +1096,19 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      inteiros** (`slides-fotossintese.html`, 55 a 135 s). **A Groq grátis não aguenta a skill dos
      slides:** 17 KB de instruções mais o sistema passam do limite de 8 mil tokens por minuto ("o
      limite grátis acabou"); as menores cabem. O modelo local fica sem (não medido).
+   - **Fechar a paridade, 5: o tempo máximo e o Testar nos hooks (19/11/2026).** Faltavam na tela
+     de Hooks. O tempo máximo entra na linha do evento ("até 30 s", como a lista já mostra; vazio é
+     o padrão do Claude Code, 600 s, ou 30 na mensagem). O Testar (`POST /hooks/testar`,
+     `hooks.testar`) roda o comando uma vez, sem salvar, do jeito do Claude Code, conforme a
+     documentação dele lida hoje: no Windows pelo Git Bash (ou pelo PowerShell quando não há Git
+     Bash), com o exemplo do que o Claude manda naquele evento em JSON na entrada (a ferramenta e
+     o que ela recebe, a mensagem, o fim da resposta...) e o `CLAUDE_PROJECT_DIR`; o teste espera
+     até 60 s. Embaixo, o efeito em português — 0 "deu certo", 2 "no Claude, isso bloqueia: a
+     ferramenta não roda", outro "erro que não bloqueia", e quando passa do tempo — com o que o
+     comando escreveu no bloco do diff, os erros em vermelho. Fica no registro de ações. Provado:
+     os testes rodam o Git Bash de verdade (o comando lê o JSON da entrada e sai com 0, 2 e 1) e o
+     PowerShell de reserva; nos prints, `exit 2` deu o "bloqueia" em 0,2 s. **Aprovado pelo
+     Matheus em 19/11/2026** (`design/hooks-tempo-teste-validacao.png`).
 
 ### Controle do PC e visão da tela
 

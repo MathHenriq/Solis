@@ -1,6 +1,7 @@
 """Hooks do Claude pela tela: lidos e gravados no ~/.claude/settings.json, só na
 chave "hooks", sem mexer no resto (o arquivo é do Claude Code)."""
 import json
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -88,3 +89,49 @@ def test_rotas(casa):
     assert cli.delete(f'/hooks/{l["id"]}').status_code == 404
     (casa / '.claude' / 'settings.json').write_text('quebrado')
     assert cli.get('/hooks').status_code == 409
+
+
+# — Testar antes de salvar ————————————————————————————————————————————————————————
+@pytest.mark.skipif(hooks._git_bash() is None, reason='sem o Git Bash')
+def test_testar_roda_como_o_claude_com_o_exemplo_na_entrada(tmp_path):
+    """O comando lê o JSON da entrada (como o Claude manda) e sai com o código."""
+    py = sys.executable.replace(chr(92), '/')
+    leitor = (f'"{py}" -c "import sys,json; d=json.load(sys.stdin); '
+              "print(d['hook_event_name'], d['tool_name'], d['tool_input']['command'])\"")
+    r = hooks.testar('PreToolUse', 'Bash', leitor, pasta=str(tmp_path))
+    assert r['codigo'] == 0 and r['saida'].strip() == 'PreToolUse Bash echo teste do Solis'
+    assert r['shell'] == 'Git Bash' and r['efeito'].startswith('Deu certo')
+    bloqueia = hooks.testar('PreToolUse', 'Write|Edit', 'echo "nao pode" >&2; exit 2', pasta=str(tmp_path))
+    assert bloqueia['codigo'] == 2 and 'nao pode' in bloqueia['erros'] and 'a ferramenta não roda' in bloqueia['efeito']
+    erro = hooks.testar('Stop', '', 'exit 1', pasta=str(tmp_path))
+    assert erro['codigo'] == 1 and 'não bloqueia' in erro['efeito']
+    pasta = hooks.testar('SessionStart', '', 'echo "$CLAUDE_PROJECT_DIR"', pasta=str(tmp_path))
+    assert pasta['saida'].strip().replace(chr(92), '/').endswith(tmp_path.name)
+
+
+def test_testar_sem_git_bash_vai_pelo_powershell(tmp_path, monkeypatch):
+    monkeypatch.setattr(hooks, '_git_bash', lambda: None)
+    r = hooks.testar('UserPromptSubmit', '', 'exit 2', pasta=str(tmp_path))
+    assert r['shell'] == 'PowerShell' and r['codigo'] == 2 and 'a mensagem não vai' in r['efeito']
+
+
+def test_testar_que_passa_do_tempo_para(tmp_path, monkeypatch):
+    monkeypatch.setattr(hooks, '_git_bash', lambda: None)
+    r = hooks.testar('Stop', '', 'Start-Sleep -Seconds 5', tempo=1, pasta=str(tmp_path))
+    assert r['estourou'] and r['codigo'] is None and r['efeito'].startswith('Passou de 1 s: no Claude')
+    monkeypatch.setattr(hooks, 'TESTE_MAX', 1)
+    longo = hooks.testar('Stop', '', 'Start-Sleep -Seconds 5', pasta=str(tmp_path))
+    assert 'o máximo que o teste espera (o hook pode até 600 s' in longo['efeito']
+
+
+def test_exemplos_de_cada_evento():
+    assert hooks.exemplo('UserPromptSubmit', '', 'C:/p')['prompt'] == 'Mensagem de teste do Solis'
+    assert hooks.exemplo('PostToolUse', 'Write|Edit', 'C:/p')['tool_name'] == 'Write'
+    assert hooks.exemplo('PreToolUse', '.*', 'C:/p')['tool_name'] == 'Bash'
+    assert hooks.exemplo('SessionEnd', '', 'C:/p')['reason'] == 'other'
+    assert hooks.padrao_de_tempo('UserPromptSubmit') == 30 and hooks.padrao_de_tempo('Stop') == 600
+
+
+def test_rota_de_testar_recusa_comando_vazio(casa):
+    r = TestClient(main.app).post('/hooks/testar', json={'evento': 'Stop', 'comando': '  '})
+    assert r.status_code == 400
