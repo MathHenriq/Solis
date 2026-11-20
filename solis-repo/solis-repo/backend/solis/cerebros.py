@@ -18,6 +18,7 @@ Flags conferidas:
 import asyncio
 import json
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
@@ -124,7 +125,8 @@ def _comando(executavel: str, *args: str) -> list[str]:
     return [caminho, *args]
 
 
-async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = '') -> AsyncIterator[str]:
+async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = '',
+                  env: dict[str, str] | None = None) -> AsyncIterator[str]:
     """As linhas da saída do processo, conforme saem.
 
     Marca duas etapas, porque é entre elas que o CLI gasta o tempo de subir:
@@ -147,6 +149,7 @@ async def _linhas(comando: list[str], entrada: str, etapas=MUDA, cerebro: str = 
         text=True,
         encoding='utf-8',
         errors='replace',
+        env={**os.environ, **env} if env else None,
     )
     etapas.marcar('processo', cerebro=cerebro)
 
@@ -307,7 +310,8 @@ async def codex(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     comando = _comando('codex', 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'read-only',
                        *servidores_mcp.liberadas_no_codex(), '-')
     ultima = None
-    async for linha in _linhas(comando, f'{sistema}\n\n{prompt}', etapas, 'codex'):
+    # A chave dos servidores por endereço (bearer_token_env_var): do cofre, só nesta chamada.
+    async for linha in _linhas(comando, f'{sistema}\n\n{prompt}', etapas, 'codex', servidores_mcp.ambiente_do_codex()):
         try:
             evento = json.loads(linha)
         except json.JSONDecodeError:

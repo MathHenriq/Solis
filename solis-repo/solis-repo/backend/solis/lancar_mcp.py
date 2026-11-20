@@ -91,7 +91,23 @@ def ambiente(nome: str, base: dict[str, str]) -> dict[str, str] | str:
     return env
 
 
+def cabecalhos(nome: str) -> int:
+    """Pro servidor por endereço (20/11/2026): os cabeçalhos (a chave) do cofre,
+    em JSON na saída — o `headersHelper` do Claude Code roda isto ao conectar e
+    usa o que sair. A chave não fica no ~/.claude.json."""
+    import json
+    abertas = variaveis(nome)
+    if abertas is None or cofre.ILEGIVEL in abertas.values():
+        print(f'Solis: os cabeçalhos do servidor "{nome}" não abrem (o cofre é desta conta do Windows)',
+              file=sys.stderr)
+        return 1
+    print(json.dumps(abertas))
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if len(argv) == 2 and argv[0] == '--cabecalhos':
+        return cabecalhos(argv[1])
     if len(argv) < 2:
         print('uso: python -m solis.lancar_mcp <nome> <comando...>', file=sys.stderr)
         return 2

@@ -635,6 +635,17 @@ pela tela, a chave sai do arquivo e vai pro cofre. `GET /mcp` diz `no_cofre`. Pr
 de verdade numa casa de teste (17/11/2026): a chave não aparece no `.claude.json`, no `config.toml`
 nem no banco; o `claude mcp list` diz "Connected"; e a ferramenta do servidor viu a chave.
 
+Servidor por endereço com chave (20/11/2026): o mesmo campo vira "Cabeçalhos", um por linha
+(`Nome=valor` ou `Nome: valor`), e eles vão pro mesmo cofre. No `~/.claude.json` fica um
+`headersHelper` — `"<python do .venv>" "<backend/cabecalhos_mcp.py>" <nome>` — que o Claude Code
+roda ao conectar e que imprime os cabeçalhos em JSON (`lancar_mcp.cabecalhos`). No Codex, que só
+aceita a chave como `Authorization: Bearer`, vai `--bearer-token-env-var SOLIS_MCP_<NOME>_TOKEN`; o
+Codex que o Solis liga recebe essa variável do cofre (`servidores_mcp.ambiente_do_codex`), e outro
+cabeçalho pro Codex é recusado na hora de salvar. O Solis (o "Conferir" e os cérebros de API)
+conecta com os cabeçalhos direto. Quando o servidor responde com erro HTTP, o "Conferir" diz o
+código e o motivo dele ("o servidor recusou a chave (401)", "o servidor respondeu 400: ..."), em
+vez do erro genérico da biblioteca. Provado com o `claude mcp list` de verdade numa casa de teste.
+
 "Conferir" conecta no servidor (stdio ou HTTP, pela biblioteca `mcp`) e lista as ferramentas, com
 as que só leem (a marca `readOnlyHint` do servidor); fica guardado (`ajustes.mcp_ferramentas`). No
 Claude, um servidor seu conta como conector (`agente.conector_de`): o que só lê é livre, o resto

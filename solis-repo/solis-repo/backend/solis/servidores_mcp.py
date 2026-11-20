@@ -44,6 +44,12 @@ CACHE_S = 600
 _NOME = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 _CHAVE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 LANCADOR = 'solis.lancar_mcp'
+# Servidor por endereço com chave (20/11/2026): os cabeçalhos ficam no cofre; no
+# Claude Code vai o `headersHelper` (este script, que abre o cofre ao conectar);
+# no Codex, que só aceita a chave numa variável, a variável que o Solis põe ao
+# chamar ele (`ambiente_do_codex`).
+CABECALHOS = Path(__file__).resolve().parents[1] / 'cabecalhos_mcp.py'
+_CABECALHO = re.compile(r'^[A-Za-z0-9-]{1,64}$')
 
 
 class ServidorInvalido(Exception):
@@ -114,7 +120,9 @@ def _do_claude() -> dict[str, dict]:
     saida = {}
     for nome, c in (dados.get('mcpServers') or {}).items():
         if c.get('url'):
-            saida[nome] = {'tipo': 'endereco', 'url': c['url'], 'comando': [], 'env': {}}
+            nosso = CABECALHOS.name in str(c.get('headersHelper') or '')
+            saida[nome] = {'tipo': 'endereco', 'url': c['url'], 'comando': [],
+                           'env': _do_cofre(nome) if nosso else {}, **({'cofre': True} if nosso else {})}
         else:
             saida[nome] = _lancado(nome, {'tipo': 'comando', 'url': '',
                                           'comando': [c.get('command', ''), *(c.get('args') or [])],
@@ -141,7 +149,9 @@ def _do_codex() -> dict[str, dict]:
                 'tipo': 'comando', 'url': '', 'comando': [t.get('command', ''), *(t.get('args') or [])],
                 'env': dict(t.get('env') or {}), 'interno': _interno_do_codex(t), 'ligado': s.get('enabled', True)})
         else:
-            saida[s['name']] = {'tipo': 'endereco', 'url': t.get('url', ''), 'comando': [], 'env': {},
+            nosso = t.get('bearer_token_env_var') == variavel_do_codex(s['name'])
+            saida[s['name']] = {'tipo': 'endereco', 'url': t.get('url', ''), 'comando': [],
+                                'env': _do_cofre(s['name']) if nosso else {}, **({'cofre': True} if nosso else {}),
                                 'interno': False, 'ligado': s.get('enabled', True)}
     return saida
 
@@ -203,6 +213,48 @@ def _partes(linha: str) -> list[str]:
     return partes
 
 
+def _cabecalhos(texto: str) -> dict[str, str]:
+    """Os cabeçalhos de um servidor por endereço, um por linha: `Nome=valor` ou
+    `Nome: valor` (ex.: Authorization=Bearer sua-chave)."""
+    saida = {}
+    for linha in (texto or '').splitlines():
+        if not linha.strip():
+            continue
+        separador = min((i for i in (linha.find('='), linha.find(':')) if i > 0), default=-1)
+        nome, valor = linha[:separador].strip(), linha[separador + 1:].strip() if separador > 0 else ''
+        if separador <= 0 or not _CABECALHO.match(nome) or not valor:
+            raise ServidorInvalido('cabeçalhos')
+        saida[nome] = valor
+    return saida
+
+
+def _so_bearer(cabecalhos: dict[str, str]) -> bool:
+    """O Codex só aceita a chave como Authorization: Bearer, por variável."""
+    return list(cabecalhos) == ['Authorization'] and cabecalhos['Authorization'].startswith('Bearer ')
+
+
+def variavel_do_codex(nome: str) -> str:
+    return 'SOLIS_MCP_' + re.sub(r'[^A-Z0-9]', '_', nome.upper()) + '_TOKEN'
+
+
+def _ajudante_de_cabecalhos(nome: str) -> str:
+    """A linha do headersHelper (o Claude Code roda num shell): o Python do Solis
+    e o script que tira os cabeçalhos do cofre. Barras normais e aspas: valem
+    no bash e no cmd."""
+    return f'"{Path(_python()).as_posix()}" "{CABECALHOS.as_posix()}" {nome}'
+
+
+def ambiente_do_codex() -> dict[str, str]:
+    """As variáveis que o Codex precisa pra chave dos servidores por endereço
+    (`bearer_token_env_var`): o token de cada um, do cofre, só na hora de chamar."""
+    saida = {}
+    for nome, valores in _cofre().items():
+        cab = {k: cofre.abrir(v) for k, v in valores.items()}
+        if _so_bearer(cab):
+            saida[variavel_do_codex(nome)] = cab['Authorization'].removeprefix('Bearer ').strip()
+    return saida
+
+
 def _variaveis(texto: str) -> dict[str, str]:
     env = {}
     for linha in (texto or '').splitlines():
@@ -227,7 +279,9 @@ def _validar(nome: str, tipo: str, comando: str, url: str, variaveis: str, para:
         raise ServidorInvalido('comando')
     if tipo == 'endereco' and not re.match(r'^https?://\S+$', url or ''):
         raise ServidorInvalido('endereço')
-    env = _variaveis(variaveis) if tipo == 'comando' else {}
+    env = _variaveis(variaveis) if tipo == 'comando' else _cabecalhos(variaveis)
+    if tipo == 'endereco' and env and 'codex' in para and not _so_bearer(env):
+        raise ServidorInvalido('no Codex, só a chave como Authorization=Bearer ...')
     return partes, env
 
 
@@ -246,17 +300,22 @@ def salvar(nome: str, tipo: str, comando: str, url: str, variaveis: str, para: l
         remover(antigo)
     # Com chave: as variáveis vão pro cofre, e nos CLIs fica o lançador (com só
     # o que ele precisa pra achar o Solis e o banco). Sem chave: o comando direto.
+    cabecalhos = bool(env) and tipo == 'endereco'
     if env:
         _guardar_variaveis(nome, env)
+    if env and tipo == 'comando':
         partes = [_python(), '-m', LANCADOR, nome, *partes]
         env = dict(zip(NOSSAS, (str(Path(__file__).resolve().parents[1]), str(banco.arquivo()))))
     if 'claude' in para:
         config = {'type': 'http', 'url': url} if tipo == 'endereco' else \
             {'type': 'stdio', 'command': partes[0], 'args': partes[1:], 'env': env}
+        if cabecalhos:
+            config['headersHelper'] = _ajudante_de_cabecalhos(nome)
         _rodar('claude', 'mcp', 'add-json', '--scope', 'user', nome, json.dumps(config, ensure_ascii=False))
     if 'codex' in para:
         if tipo == 'endereco':
-            _rodar('codex', 'mcp', 'add', nome, '--url', url)
+            _rodar('codex', 'mcp', 'add', nome, '--url', url,
+                   *(['--bearer-token-env-var', variavel_do_codex(nome)] if cabecalhos else []))
         else:
             _rodar('codex', 'mcp', 'add', nome, *[a for k, v in env.items() for a in ('--env', f'{k}={v}')],
                    '--', *partes)
@@ -293,7 +352,19 @@ def _esquecer(nome: str) -> None:
 def _abrir(c: dict):
     if c['tipo'] == 'endereco':
         from mcp.client.streamable_http import streamable_http_client
-        return streamable_http_client(c['url'])
+        from mcp.shared._httpx_utils import create_mcp_http_client
+        # A chave do cofre nos cabeçalhos (Authorization, X-API-Key...).
+        cliente = create_mcp_http_client(headers=c['env'] or None)
+
+        async def recusou(resposta):
+            # O cliente do MCP troca o erro HTTP (401, o 400 do GitHub com chave
+            # errada...) por um genérico: o código e o motivo do servidor
+            # ficam aqui pra tela dizer o que foi.
+            if resposta.status_code >= 400 and 'recusa' not in c:
+                await resposta.aread()
+                c['recusa'] = (resposta.status_code, ' '.join(resposta.text.split())[:120])
+        cliente.event_hooks = {**cliente.event_hooks, 'response': [*cliente.event_hooks.get('response', []), recusou]}
+        return streamable_http_client(c['url'], http_client=cliente)
     from mcp.client.stdio import StdioServerParameters, stdio_client
     return stdio_client(StdioServerParameters(command=c['comando'][0], args=c['comando'][1:],
                                               env={**os.environ, **c['env']}))
@@ -357,6 +428,25 @@ async def chamar(c: dict, ferramenta: str, argumentos: dict) -> tuple[str, bool]
     return texto or ('(sem texto)' if not erro else 'deu erro'), not erro
 
 
+def _motivo(e: BaseException, recusa: tuple[int, str] | None = None, com_chave: bool = False) -> str:
+    """Por que o servidor não subiu, em uma linha pra tela: o erro de dentro dos
+    grupos do anyio, a recusa da chave dita como recusa, e o motivo que o
+    próprio servidor deu."""
+    if recusa:
+        status, texto = recusa
+        if status in (401, 403):
+            return (f'o servidor recusou a chave ({status}): confira os cabeçalhos' if com_chave else
+                    f'o servidor pede uma chave ({status}): ponha nos cabeçalhos')
+        return f'o servidor respondeu {status}' + (f': {texto}' if texto else '')
+    while getattr(e, 'exceptions', None):
+        e = e.exceptions[0]
+    if isinstance(e, (asyncio.TimeoutError, TimeoutError)):
+        return 'demorou demais pra responder'
+    # Erro sem texto (o endereço que não existe): o nome dele, pra não ficar
+    # "Não respondeu: não respondeu" na tela.
+    return ' '.join(str(e).split())[:200] or f'não conectou ({type(e).__name__})'
+
+
 async def conferir(nome: str) -> dict:
     """Conecta no servidor e lista as ferramentas: {total, so_leem, lista, erro, quando}."""
     claude, codex = _do_claude(), await asyncio.to_thread(_do_codex)
@@ -369,8 +459,7 @@ async def conferir(nome: str) -> dict:
         lista = await asyncio.wait_for(_listar_ferramentas(c), TESTE_MAX_S)
         r = {'total': len(lista), 'so_leem': sum(t['so_le'] for t in lista), 'lista': lista, 'erro': None}
     except Exception as e:  # noqa: BLE001 — o servidor não subiu: a tela diz
-        motivo = 'demorou demais pra responder' if isinstance(e, (asyncio.TimeoutError, TimeoutError)) else \
-            ' '.join(str(getattr(e, 'exceptions', [e])[0] if hasattr(e, 'exceptions') else e).split())[:200]
+        motivo = _motivo(e, c.get('recusa'), bool(c['env']))
         r = {'total': 0, 'so_leem': 0, 'lista': [], 'erro': motivo or 'não respondeu'}
     r['quando'] = time.time()
     # Só servidor que está no Codex ganha o -c: um -c de servidor que ele não

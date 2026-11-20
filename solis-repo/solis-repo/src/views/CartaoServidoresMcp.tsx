@@ -133,23 +133,26 @@ function Formulario({
           style={{ ...codigo, marginTop: 'var(--agd-campo-gap)' }}
         />
       )}
-      {tipo === 'comando' && (
-        <>
-          <textarea
-            value={variaveis}
-            onChange={(e) => definirVariaveis(e.target.value)}
-            placeholder="Variáveis, se o servidor pedir — uma por linha: CHAVE=valor"
-            aria-label="Variáveis"
-            rows={2}
-            spellCheck={false}
-            className={`block w-full resize-y font-mono placeholder:font-sans placeholder:text-text-placeholder ${CAMPO}`}
-            style={{ ...codigo, marginTop: 'var(--agd-campo-gap)', lineHeight: 1.5 }}
-          />
-          <div className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)' }}>
-            Uma chave de API fica no cofre do Solis, criptografada; o Claude Code e o Codex a recebem só na hora de ligar o servidor.
-          </div>
-        </>
-      )}
+      {/* Endereço: os cabeçalhos (a chave) no mesmo campo, no mesmo cofre (20/11/2026). */}
+      <textarea
+        value={variaveis}
+        onChange={(e) => definirVariaveis(e.target.value)}
+        placeholder={
+          tipo === 'comando'
+            ? 'Variáveis, se o servidor pedir — uma por linha: CHAVE=valor'
+            : 'Cabeçalhos, se o servidor pedir — um por linha: Nome=valor (ex.: Authorization=Bearer sua-chave)'
+        }
+        aria-label={tipo === 'comando' ? 'Variáveis' : 'Cabeçalhos'}
+        rows={2}
+        spellCheck={false}
+        className={`block w-full resize-y font-mono placeholder:font-sans placeholder:text-text-placeholder ${CAMPO}`}
+        style={{ ...codigo, marginTop: 'var(--agd-campo-gap)', lineHeight: 1.5 }}
+      />
+      <div className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)' }}>
+        {tipo === 'comando'
+          ? 'Uma chave de API fica no cofre do Solis, criptografada; o Claude Code e o Codex a recebem só na hora de ligar o servidor.'
+          : 'A chave fica no cofre do Solis, criptografada, e só sai na hora de conectar. O Codex aceita só Authorization=Bearer.'}
+      </div>
       <div className="flex items-center flex-wrap" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
         <select
           value={tipo}

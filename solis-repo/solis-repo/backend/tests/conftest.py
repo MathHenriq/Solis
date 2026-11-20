@@ -80,7 +80,9 @@ def mcp_de_mentira(monkeypatch, tmp_path):
         if args[:2] == ('mcp', 'add'):
             nome, resto = args[2], list(args[3:])
             if resto[0] == '--url':
-                t = {'type': 'streamable_http', 'url': resto[1]}
+                t = {'type': 'streamable_http', 'url': resto[1], 'bearer_token_env_var': None}
+                if '--bearer-token-env-var' in resto:
+                    t['bearer_token_env_var'] = resto[resto.index('--bearer-token-env-var') + 1]
             else:
                 env = {}
                 while resto[0] == '--env':

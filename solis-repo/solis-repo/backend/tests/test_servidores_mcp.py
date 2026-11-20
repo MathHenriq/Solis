@@ -187,3 +187,106 @@ def test_rotas(mcp_de_mentira, monkeypatch):
     assert [s['nome'] for s in cli.get('/mcp').json()['servidores']] == ['notion']
     assert cli.delete('/mcp/notion').json() == {'ok': True}
     assert cli.delete('/mcp/notion').status_code == 404
+
+
+# — servidor por endereço com chave (cabeçalhos), 20/11/2026 ——————————————————
+def test_cabecalhos_vao_pro_cofre_e_cada_cli_pega_do_seu_jeito(mcp_de_mentira):
+    s = servidores_mcp.salvar('gh', 'endereco', '', 'https://api.exemplo.com/mcp', 'Authorization=Bearer abc',
+                              ['claude', 'codex'])
+    assert s['no_cofre'] and s['para'] == ['claude', 'codex']
+    config = json.loads((servidores_mcp._casa() / '.claude.json').read_text())['mcpServers']['gh']
+    # No Claude Code: o ajudante que tira a chave do cofre ao conectar.
+    assert config['type'] == 'http' and servidores_mcp.CABECALHOS.name in config['headersHelper']
+    add = next(c for c in mcp_de_mentira['chamadas'] if c[:3] == ('codex', 'mcp', 'add'))
+    assert add[-2:] == ('--bearer-token-env-var', 'SOLIS_MCP_GH_TOKEN')
+    assert 'abc' not in json.dumps([config, mcp_de_mentira['chamadas']])
+    # O Codex que o Solis liga recebe o token na variável; a tela lê de volta.
+    assert servidores_mcp.ambiente_do_codex() == {'SOLIS_MCP_GH_TOKEN': 'abc'}
+    assert servidores_mcp.ler('gh')['variaveis'] == 'Authorization=Bearer abc'
+    assert servidores_mcp._do_codex()['gh']['env'] == {'Authorization': 'Bearer abc'}
+    # Tirar a chave limpa o cofre e volta ao endereço puro.
+    servidores_mcp.salvar('gh', 'endereco', '', 'https://api.exemplo.com/mcp', '', ['claude'], antigo='gh')
+    config = json.loads((servidores_mcp._casa() / '.claude.json').read_text())['mcpServers']['gh']
+    assert 'headersHelper' not in config and 'gh' not in (banco.ajuste('mcp_variaveis') or {})
+
+
+def test_cabecalhos_lidos_e_recusados():
+    assert servidores_mcp._cabecalhos('X-API-Key: k1\n\nAuthorization=Bearer a=b') == {
+        'X-API-Key': 'k1', 'Authorization': 'Bearer a=b'}
+    for ruim in ('sem separador', 'Nome com espaço=1', 'Vazio='):
+        with pytest.raises(servidores_mcp.ServidorInvalido, match='cabeçalhos'):
+            servidores_mcp._cabecalhos(ruim)
+    # O Codex só sabe a chave como Bearer: outro cabeçalho, só pro Claude.
+    with pytest.raises(servidores_mcp.ServidorInvalido, match='no Codex'):
+        servidores_mcp.salvar('k', 'endereco', '', 'https://x.com/mcp', 'X-API-Key=1', ['codex'])
+    assert servidores_mcp.variavel_do_codex('meu-servidor.2') == 'SOLIS_MCP_MEU_SERVIDOR_2_TOKEN'
+
+
+def test_o_ajudante_do_claude_code_imprime_os_cabecalhos(mcp_de_mentira):
+    servidores_mcp.salvar('gh', 'endereco', '', 'https://x.com/mcp', 'X-API-Key=k1', ['claude'])
+    config = json.loads((servidores_mcp._casa() / '.claude.json').read_text())['mcpServers']['gh']
+    # Roda a linha num shell, como o Claude Code, com o banco dos testes.
+    r = subprocess.run(config['headersHelper'], shell=True, capture_output=True, text=True, timeout=30,
+                       env={**os.environ, 'SOLIS_BANCO': str(banco.arquivo())})
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == {'X-API-Key': 'k1'}
+    servidores_mcp._guardar_variaveis('gh', {})
+    r = subprocess.run(config['headersHelper'], shell=True, capture_output=True, text=True, timeout=30,
+                       env={**os.environ, 'SOLIS_BANCO': str(banco.arquivo())})
+    assert r.returncode == 1 and 'não abrem' in r.stderr
+
+
+def test_o_solis_conecta_com_a_chave_num_servidor_de_verdade(mcp_de_mentira):
+    import socket
+    import threading
+    import time as _time
+
+    import uvicorn
+    from mcp.server.mcpserver import MCPServer
+    from starlette.responses import PlainTextResponse
+
+    srv = MCPServer('com-chave')
+
+    @srv.tool()
+    def eco(texto: str) -> str:
+        return texto
+
+    app = srv.streamable_http_app()
+
+    async def porteiro(scope, receive, send):
+        chave = dict(scope['headers']).get(b'authorization', b'') if scope['type'] == 'http' else b'Bearer certa'
+        if chave.startswith(b'Basic'):
+            # Como o GitHub com a chave errada: 400 e o motivo em texto.
+            await PlainTextResponse('bad request: Authorization header is badly formatted',
+                                    status_code=400)(scope, receive, send)
+            return
+        if chave != b'Bearer certa':
+            await PlainTextResponse('sem chave', status_code=401)(scope, receive, send)
+            return
+        await app(scope, receive, send)
+
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        porta = s.getsockname()[1]
+    servidor = uvicorn.Server(uvicorn.Config(porteiro, host='127.0.0.1', port=porta, log_level='error',
+                                             lifespan='on'))
+    fio = threading.Thread(target=servidor.run, daemon=True)
+    fio.start()
+    try:
+        while not servidor.started:
+            _time.sleep(0.05)
+        url = f'http://127.0.0.1:{porta}/mcp'
+        servidores_mcp.salvar('certo', 'endereco', '', url, 'Authorization=Bearer certa', ['claude'])
+        servidores_mcp.salvar('errado', 'endereco', '', url, 'Authorization=Bearer outra', ['claude'])
+        servidores_mcp.salvar('sem', 'endereco', '', url, '', ['claude'])
+        servidores_mcp.salvar('mal', 'endereco', '', url, 'Authorization=Basic x', ['claude'])
+        assert asyncio.run(servidores_mcp.conferir('mal'))['erro'] == (
+            'o servidor respondeu 400: bad request: Authorization header is badly formatted')
+        assert asyncio.run(servidores_mcp.conferir('certo'))['total'] == 1
+        assert asyncio.run(servidores_mcp.conferir('errado'))['erro'] == (
+            'o servidor recusou a chave (401): confira os cabeçalhos')
+        assert asyncio.run(servidores_mcp.conferir('sem'))['erro'] == 'o servidor pede uma chave (401): ponha nos cabeçalhos'
+
+    finally:
+        servidor.should_exit = True
+        fio.join(10)
