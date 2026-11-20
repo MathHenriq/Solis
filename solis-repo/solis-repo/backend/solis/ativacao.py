@@ -282,6 +282,19 @@ def como_chamou(texto: str) -> str:
     return texto[:m.end()].strip() if m else ''
 
 
+def mais_perto(texto: str, minimo: float = 0.6) -> str:
+    """A palavra do texto mais parecida com "solis" (sem acento, pela
+    semelhança de letras), se passar de `minimo`; senão ''. Pro log do "Solis"
+    que não acordou: só essa palavra, nunca o resto do que foi dito."""
+    import difflib
+    melhor, nota = '', 0.0
+    for original in re.findall(r'\w+', texto or ''):
+        n = difflib.SequenceMatcher(None, _sem_acento(original), 'solis').ratio()
+        if n > nota:
+            melhor, nota = original, n
+    return melhor if nota >= minimo else ''
+
+
 def tem_fala(texto: str | None) -> bool:
     """O texto tem alguma palavra. O Whisper da Groq escreve "." pro ruído, e
     em 19/11/2026 três "." viraram mensagens seguidas (e três respostas)."""

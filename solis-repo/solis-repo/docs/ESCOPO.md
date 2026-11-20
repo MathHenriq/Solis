@@ -805,6 +805,20 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      palavras curtas antes) que está larga demais. Com isso, a sequência de hoje para na primeira
      resposta. **Não resolvido:** a ativação sem chamada em si (precisa do log da próxima). Testes
      cobrem o "." virando nada, o teto do seguir e o aprendizado pulado; falta a prova ao vivo.
+   - **O "Solis" que não acordou na segunda vez (20/11/2026).** Relato do Matheus, mostrando o
+     Solis pra família: chamou, o Solis se apresentou; abriu uma nova aba e chamou de novo, e nada.
+     O log: 11:24:52 "ativou com 'Solis.'", a resposta falada às 11:25:03, e nenhuma ativação até
+     11:31 — o que funcionou depois foi o botão do microfone (o ditado) e o modo Conversa. A escuta
+     mora no App (não reinicia com a aba nova), e o fim da fala está certo no código. Sobram duas
+     causas, que o log de então não separava: (1) a escuta ficou pausada depois da fala (o "parei"
+     se perdeu e só a trava de 90 s soltaria), ou (2) ouviu e o Whisper não escreveu "Solis" (com a
+     família falando em volta, mais provável). O log agora separa: "escuta: conectada/
+     desconectada", "pausada (o Solis falando)" e "voltou a ouvir depois de N s", e cada trecho de
+     fala sem a palavra ("2.7 s de fala sem 'Solis'") com **só** a palavra mais parecida com
+     "Solis" quando parece ("o mais parecido: 'Sólus'"), nunca o resto do que foi dito. Na próxima
+     falha, o log diz qual das duas. Visto já ao vivo: com gente conversando em volta, o Whisper
+     confere um trecho de fala a cada 1 a 2 s — a placa trabalhando o tempo todo, que é o motivo
+     de fundo pra trocar pela palavra treinada (o openWakeWord, abaixo, em Candidatos).
    - **O navegador de sempre (18/11/2026).** Configurações → Navegador → "Qual janela": a do
      Solis, ou o Chrome (ou Edge) de sempre do Matheus, com as abas e os logins dele, pela extensão
      oficial do Playwright (`--extension` no mesmo `@playwright/mcp`). Sem a extensão, a tela

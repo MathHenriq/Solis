@@ -619,3 +619,27 @@ def test_websocket_o_ponto_do_ruido_nao_vira_mensagem(monkeypatch):
         assert ws.receive_json() == {'tipo': 'ativou'}
         ws.send_bytes((quadros(1.0) + quadros(ativacao.FIM_SILENCIO + 0.2, tom=False)).tobytes())
         assert ws.receive_json() == {'tipo': 'nada'}
+
+
+# — 20/11/2026: o "Solis" que não acordou na segunda vez ——————————————————————————
+def test_o_log_da_fala_sem_a_palavra_guarda_so_a_mais_parecida():
+    assert ativacao.mais_perto('Sólus, que horas são?') == 'Sólus'
+    assert ativacao.mais_perto('Celis me ajuda') == 'Celis'
+    assert ativacao.mais_perto('Bom dia pra vocês') == ''
+    assert ativacao.mais_perto('') == ''
+
+
+def test_o_log_diz_quando_a_escuta_pausa_e_volta(monkeypatch, caplog):
+    import logging
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(whisper=True))
+    with caplog.at_level(logging.INFO, logger='solis.main'):
+        with TestClient(main.app).websocket_connect('/escuta') as ws:
+            assert ws.receive_json() == {'tipo': 'pronta'}
+            ws.send_text('{"pausa": true}')
+            ws.send_text('{"pausa": false}')
+            ws.send_text('{"pausa": true}')
+    textos = [r.getMessage() for r in caplog.records if r.name == 'solis.main']
+    assert 'escuta: conectada' in textos and 'escuta: pausada (o Solis falando)' in textos
+    assert any(t.startswith('escuta: voltou a ouvir depois de') for t in textos)
+    assert 'escuta: desconectada (estava pausada)' in textos

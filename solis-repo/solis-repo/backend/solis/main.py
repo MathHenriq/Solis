@@ -2140,6 +2140,8 @@ async def escuta(ws: WebSocket):
         segurado.segurar()
     _aquecer_whisper(pequeno)
     pausada = cedida = False
+    pausou_em = 0.0
+    log.info('escuta: conectada')
     # Outro programa no microfone (o Discord numa chamada): a tela solta o
     # microfone e o som da escuta, e volta quando ele soltar (microfone.py).
     fila = microfone.vigia.entrar()
@@ -2174,7 +2176,17 @@ async def escuta(ws: WebSocket):
                     pedido = json.loads(msg['text'])
                 except ValueError:
                     continue
-                pausada = bool(pedido.get('pausa'))
+                agora_pausada = bool(pedido.get('pausa'))
+                # Relato do Matheus (20/11/2026): chamou, o Solis respondeu, e na
+                # vez seguinte o "Solis" não acordou mais — e o log não dizia se
+                # a escuta estava pausada (o Solis falando) ou se ouviu e não
+                # reconheceu. Agora diz quando pausa e quanto tempo ficou.
+                if agora_pausada and not pausada:
+                    pausou_em = time.monotonic()
+                    log.info('escuta: pausada (o Solis falando)')
+                elif pausada and not agora_pausada:
+                    log.info('escuta: voltou a ouvir depois de %.1f s pausada', time.monotonic() - pausou_em)
+                pausada = agora_pausada
                 # A fala dele acabou numa pergunta: ouve a resposta sem o "Solis".
                 if pedido.get('seguir') and not pausada and escutando.seguir():
                     await ws.send_json({'tipo': 'ativou'})
@@ -2197,6 +2209,11 @@ async def escuta(ws: WebSocket):
                         # Sem o que foi dito: só quanto demorou (pra achar chamada perdida).
                         log.info('escuta: a decisão do trecho demorou %.1f s', demora)
                     if not achou:
+                        # Só a palavra mais parecida com "Solis" (quando parece), nunca
+                        # o resto do que foi dito: pra ver o "Solis" que não acordou.
+                        perto = ativacao.mais_perto(ouvido)
+                        log.info('escuta: %.1f s de fala sem "Solis"%s', (len(audio) - 44) / 2 / ativacao.TAXA,
+                                 f' (o mais parecido: {perto!r})' if perto else '')
                         escutando.descartar()
                         continue
                     # Só o pedaço que valeu como "Solis", nunca o resto do que foi
@@ -2230,6 +2247,7 @@ async def escuta(ws: WebSocket):
         if vigiando is not None:
             vigiando.cancel()
         microfone.vigia.sair(fila)
+        log.info('escuta: desconectada' + (' (estava pausada)' if pausada else ''))
         escutando.fechar()
         if segurado:
             segurado.soltar()
