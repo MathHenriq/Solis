@@ -1076,6 +1076,26 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      temas × 2 navs): na linha e na altura (28 px) do "Sem projeto", a 12 px da borda do campo,
      13 px na cor secundária. **Aprovado pelo Matheus em 19/11/2026**
      (`design/aviso-cota-validacao.png`).
+   - **Fechar a paridade, 4: as skills dele em todo cérebro (19/11/2026).** As skills só valiam
+     no Claude. Agora o corpo lista no sistema as skills do Matheus (as da conta, como as do Núcleo
+     WIT, e as escritas no Solis; ligadas) com a descrição curta, e a ferramenta `Skill` (o nome da
+     do Claude, livre, sem cartão; o passo diz "Segui a skill X") devolve as instruções. A fase
+     leve também sabe os nomes: pedido que bate com uma skill vai pro cérebro com o corpo. As da
+     Anthropic (o navegador do Claude, o computer use, os conectores do claude.ai) ficam de fora:
+     descrevem ferramentas que só o Claude tem. Medido com a Groq e o Gemini de verdade, numa
+     pasta de teste, com as skills reais dele: os dois escolhem a skill certa (os slides, o plano
+     de aula) e não chamam skill na pergunta comum ("a capital do Japão"). Achados no caminho: (1)
+     no plano de aula, que é no Canva, os dois pediam os detalhes "pra gerar no Canva" sem dizer
+     que não têm o Canva, mesmo com um lembrete geral; o que resolveu foi o aviso concreto, decidido
+     pelo Solis (`skills.faltam`: a skill cita o Canva, e nenhuma ferramenta do cérebro é dele):
+     "esta skill cita o Canva, e você NÃO tem o Canva aqui; se o pedido precisar, diga na primeira
+     frase" — depois disso, os dois abriram dizendo que o Canva não está ligado. É "cita", não
+     "usa": a skill dos slides cita o Canva só pra dizer que o HTML é melhor, e com o aviso o Gemini
+     fez os slides do mesmo jeito. (2) Caminho relativo da skill (`assets/template.html`) é a partir
+     da pasta dela, e as da conta chegam só com o SKILL.md. **O Gemini fez os slides do Núcleo WIT
+     inteiros** (`slides-fotossintese.html`, 55 a 135 s). **A Groq grátis não aguenta a skill dos
+     slides:** 17 KB de instruções mais o sistema passam do limite de 8 mil tokens por minuto ("o
+     limite grátis acabou"); as menores cabem. O modelo local fica sem (não medido).
 
 ### Controle do PC e visão da tela
 

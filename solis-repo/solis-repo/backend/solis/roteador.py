@@ -202,13 +202,14 @@ NOTA_TELA = (
 
 
 def sistema_para(nome: str, navegar: bool = False, com_o_corpo: bool = False, terminal: bool = False,
-                 arquivos: bool = False, tela: bool = False, editar: bool = False) -> str:
+                 arquivos: bool = False, tela: bool = False, editar: bool = False,
+                 skills: list[dict] | None = None) -> str:
     if nome == 'claude':
         return SISTEMA_CLAUDE
     if com_o_corpo:
         return (SISTEMA_CORPO + (NOTA_ARQUIVOS if arquivos else '') + (NOTA_EDITAR if editar else '')
                 + (NOTA_TERMINAL if terminal else '') + (navegador.instrucoes() if navegar else '')
-                + (NOTA_TELA if tela else ''))
+                + (NOTA_TELA if tela else '') + nota_skills(skills or []))
     return SISTEMA_NUVEM
 
 
@@ -311,6 +312,9 @@ def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_
         if com_corpo(nome) and (servidores := _servidores_mcp()):
             notas += (f' O Matheus também tem ferramentas de fora (servidores MCP): {", ".join(servidores)}. Pedido que '
                       f'use uma delas precisa das ferramentas: responda {PASSA}.')
+        if com_corpo(nome) and (nomes := [s['nome'] for s in _skills()]):
+            notas += (f' E ele tem skills (roteiros que ele escreveu): {", ".join(nomes)}. Pedido que bata com uma '
+                      f'delas precisa das ferramentas: responda {PASSA}.')
     # Com o Ollama fora e a Groq aprendendo no lugar (memoria.na_nuvem), o que
     # não é privado continua sendo guardado: o aviso só vale sem os dois.
     if not memoria.aprende_agora():
@@ -374,6 +378,27 @@ def _servidores_mcp() -> list[str]:
         return [s['nome'] for s in servidores_mcp.do_corpo()]
     except Exception:  # noqa: BLE001 — a configuração dele quebrada não pode derrubar a resposta
         return []
+
+
+def _skills() -> list[dict]:
+    """As skills do Matheus que o corpo usa (skills.do_corpo)."""
+    if not CORPO:
+        return []
+    from . import skills
+    try:
+        return skills.do_corpo()
+    except Exception:  # noqa: BLE001 — uma skill quebrada no disco não pode derrubar a resposta
+        return []
+
+
+def nota_skills(lista: list[dict]) -> str:
+    """No sistema de quem tem o corpo: as skills dele, pra chamar com Skill."""
+    if not lista:
+        return ''
+    return ('\n\nO Matheus tem skills: roteiros que ele escreveu pra tarefas que repete. Quando o pedido bater com '
+            'uma delas, chame Skill com o nome ANTES de fazer qualquer coisa, e siga as instruções que voltarem. Se a '
+            'skill pedir uma ferramenta que você não tem (um conector, o Canva, o Google Forms), diga isso a ele em '
+            'vez de fingir que fez.\n' + '\n'.join(f'- {s["nome"]}: {s["descricao"]}' for s in lista))
 
 
 def _cita_servidor(texto: str) -> bool:
@@ -581,8 +606,8 @@ async def responder(
                     # a tela, sem piorar o terminal, a agenda e a conversa.
                     o_corpo = corpo.Corpo(conversa, etapas, cerebro='local')
                     o_corpo.arquivos = o_corpo.mcp = False
-                    # Ler/criar/editar (editar.py): ainda não medido no local.
-                    o_corpo.editar = False
+                    # Ler/criar/editar (editar.py) e as skills: ainda não medidos no local.
+                    o_corpo.editar = o_corpo.skills = False
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
@@ -601,9 +626,10 @@ async def responder(
                 arquivos = bool(proprio and proprio.arquivos)
                 na_tela = bool(proprio and proprio.tela)
                 edita = bool(proprio and proprio.editar)
+                com_skills = proprio.lista_skills() if proprio is not None else []
                 fluxo = await cerebros.abrir(
                     nome,
-                    sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita)
+                    sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita, com_skills)
                     + nota_projeto(conversa, le_arquivos=nome == 'claude')
                     + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela, edita),
                     prompt_nuvem(

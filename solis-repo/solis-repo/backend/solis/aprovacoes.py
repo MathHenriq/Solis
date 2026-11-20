@@ -27,7 +27,8 @@ APROVACAO_MAX_S = 10 * 60
 # A lista de tarefas do próprio Claude (o plano): TaskCreate/TaskUpdate no
 # CLI de agora, ligadas por CLAUDE_CODE_ENABLE_TODO_TOOLS (visto em 15/11/2026).
 PLANO = {'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet'}
-LIVRES = {'WebSearch', 'WebFetch', 'ToolSearch', 'Task', 'Agent'} | PLANO
+# Skill: ler as instruções de uma skill do Matheus (no Claude e no corpo) é livre.
+LIVRES = {'WebSearch', 'WebFetch', 'ToolSearch', 'Task', 'Agent', 'Skill'} | PLANO
 TERMINAL = {'Bash', 'PowerShell'}
 
 LEITURA = {'Read', 'Glob', 'Grep', 'LS'}

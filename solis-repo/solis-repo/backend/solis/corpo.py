@@ -180,6 +180,9 @@ RODADAS_MAX = 12
 # valerem o mesmo cartão ("Rodar no terminal: ..."), o mesmo "Sempre este
 # comando" (o comando exato) e o mesmo registro (aprovacoes.decidir).
 TERMINAL = 'PowerShell'
+# As skills do Matheus: o mesmo nome da ferramenta do Claude (o passo na tela
+# diz "Segui a skill X", e o cartão não aparece: ler instrução é livre).
+SKILL = 'Skill'
 TERMINAL_MAX_S = 120
 _TERMINAL = {
     'type': 'function',
@@ -406,6 +409,10 @@ class Corpo:
         # Ler, criar e editar arquivos (editar.py): Read, Write e Edit, as do
         # Claude, com o mesmo cartão e o diff. SOLIS_CORPO_EDITAR=0 tira.
         self.editar = os.environ.get('SOLIS_CORPO_EDITAR', '1') != '0'
+        # As skills do Matheus (skills.do_corpo), pela ferramenta Skill, o nome
+        # da do Claude. SOLIS_CORPO_SKILLS=0 tira.
+        self.skills = os.environ.get('SOLIS_CORPO_SKILLS', '1') != '0'
+        self._skills: list[dict] | None = None
         # As ordens escondidas tiradas do texto de fora (injecao.py): o Solis
         # avisa o Matheus no fim da resposta (roteador._com_o_aviso).
         self.tiradas: list[tuple[str, str]] = []
@@ -417,6 +424,12 @@ class Corpo:
                       for f in pc.FERRAMENTAS]
         if self.editar:
             specs += [_funcao(n, d, p) for n, d, p in editar.ESPECIFICACOES]
+        if self.lista_skills():
+            specs.append(_funcao(SKILL, 'Devolve as instruções de uma skill do Matheus (um roteiro que ele escreveu), '
+                                        'pra você seguir neste pedido. As skills e quando usar estão no sistema.',
+                                 {'type': 'object', 'required': ['skill'], 'properties': {'skill': {
+                                     'type': 'string', 'enum': [s['nome'] for s in self.lista_skills()],
+                                     'description': 'O nome da skill.'}}}))
         if self.terminal:
             specs.append(copy.deepcopy(_TERMINAL))
         if self.tela:
@@ -456,10 +469,22 @@ class Corpo:
 
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
-                or (self.editar and nome in editar.NOMES)
+                or (self.editar and nome in editar.NOMES) or (nome == SKILL and bool(self.lista_skills()))
                 or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
                 or nome in self._do_mcp())
+
+    def lista_skills(self) -> list[dict]:
+        """As skills do Matheus pra este cérebro (lidas uma vez por resposta)."""
+        if self._skills is None:
+            self._skills = []
+            if self.skills:
+                from . import skills
+                try:
+                    self._skills = skills.do_corpo()
+                except Exception:  # noqa: BLE001 — uma skill quebrada no disco não derruba a resposta
+                    log.exception('corpo: não consegui ler as skills')
+        return self._skills
 
     def _de_arquivo(self, nome: str) -> bool:
         return self.arquivos and nome.startswith(SOLIS) and nome.removeprefix(SOLIS) in pc.FUNCOES
@@ -507,6 +532,17 @@ class Corpo:
         if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
             return decisao.mensagem or 'O Matheus recusou.'
+        if nome == SKILL:
+            from . import skills
+            try:
+                # As ferramentas de fora que ele tem (os servidores MCP): o que a
+                # skill pedir e não estiver aqui, o Solis avisa (skills.faltam).
+                saida, ok = await asyncio.to_thread(skills.texto_pro_corpo, str(entrada.get('skill') or ''),
+                                                    list(self._do_mcp())), True
+            except (skills.SkillInvalida, OSError) as e:
+                saida, ok = str(e), False
+            self._marcar(id_, nome, entrada, pagina, ok)
+            return saida
         if nome in editar.NOMES:
             faz = {'Read': editar.ler, 'Write': editar.escrever, 'Edit': editar.editar}[nome]
             try:
