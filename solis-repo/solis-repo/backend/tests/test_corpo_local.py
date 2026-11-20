@@ -37,8 +37,13 @@ def test_o_qwen_recebe_o_corpo_com_navegador_e_tela_sem_arquivo_nem_mcp(monkeypa
     c = v['o_corpo']
     assert isinstance(c, corpo.Corpo) and v['ferramentas'] is True
     assert not c.arquivos and not c.mcp and c.tela and c.navegar and c.cerebro == 'local'
+    # Medido em 20/11/2026: editar, a internet (WebFetch) e as skills também.
+    assert c.editar and c.web and c.skills
+    c._skills = [{'nome': 'plano-de-aula', 'descricao': 'Gera o plano de aula da semana.'}]
     instrucoes = corpo.instrucoes_local(c)
     assert 'você TEM internet' in instrucoes and 'PRIMEIRO chame mcp__solis__tela_ler' in instrucoes
+    assert 'PRIMEIRO Read, depois Edit' in instrucoes and 'E WebFetch' in instrucoes
+    assert 'plano-de-aula — Gera o plano de aula da semana.' in instrucoes
 
 
 def test_com_as_ferramentas_o_local_nao_diz_que_nao_tem_internet():
@@ -57,6 +62,8 @@ def test_com_as_ferramentas_o_local_nao_diz_que_nao_tem_internet():
     asyncio.run(rodar())
     sistema = pedidos[0]['messages'][0]['content']
     assert ollama.NAO_PODE not in sistema and 'o que não estiver nas suas ferramentas' in sistema
+    # As ferramentas ocupam ~2.600 tokens: no padrão (4.096) a página lida empurrava a pergunta pra fora.
+    assert pedidos[0]['options'] == {'num_ctx': ollama.CONTEXTO}
 
 
 def test_pensou_e_nao_escreveu_nada_nao_sai_em_branco():
@@ -78,6 +85,18 @@ def test_pergunta_de_arquivo_continua_so_com_as_de_arquivo(monkeypatch, tmp_path
     pc.ligar(True)
     v = _responder_local(monkeypatch, 'qwen3:8b', 'Qual a multa do meu contrato de aluguel?')
     assert v['o_corpo'] is None and v['ferramentas'] is True
+
+
+def test_numa_conversa_de_projeto_o_pedido_de_arquivo_vai_com_o_corpo_pra_editar(monkeypatch, tmp_path):
+    """Medido em 20/11/2026: com a pasta do projeto, 10/10 nas edições pelo corpo."""
+    (tmp_path / 'Documentos').mkdir()
+    pc.guardar_pastas([str(tmp_path / 'Documentos')])
+    pc.ligar(True)
+    conversa = banco.nova_conversa()
+    assert not roteador._corpo_local('qwen3:8b', 'No conta.py, troca soma por somar.', conversa)
+    banco.guardar_projeto(conversa, str(tmp_path), 'pedir')
+    assert roteador._corpo_local('qwen3:8b', 'No conta.py, troca soma por somar.', conversa)
+    assert not roteador._corpo_local('llama3.2:3b', 'No conta.py, troca soma por somar.', conversa)
 
 
 def test_o_llama_fica_sem_o_corpo(monkeypatch):

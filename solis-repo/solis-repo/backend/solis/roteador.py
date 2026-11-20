@@ -114,8 +114,18 @@ CORPO_LOCAL_MODELOS = {m.strip() for m in os.environ.get('SOLIS_CORPO_LOCAL_MODE
                        if m.strip()}
 
 
-def _corpo_local(modelo: str, mensagem: str) -> bool:
-    return modelo in CORPO_LOCAL_MODELOS and not (pc.disponivel() and do_pc(mensagem))
+def _corpo_local(modelo: str, mensagem: str, conversa: int | None = None) -> bool:
+    """Se o local vai com o corpo. A pergunta sobre os arquivos das pastas dele
+    vai só com as de arquivo (com o corpo inteiro, 6/16 — medido de novo em
+    20/11/2026, com o contexto de 8.192 e o sistema certo: continua 6/16, e
+    só com as de arquivo, 13 a 14/16). Exceto numa conversa com a pasta de um
+    projeto: aí "troca o nome da função no conta.py" é pra editar, e vai com
+    o corpo (Read, Write, Edit) — medido assim, 10/10 nas edições."""
+    if modelo not in CORPO_LOCAL_MODELOS:
+        return False
+    if not (pc.disponivel() and do_pc(mensagem)):
+        return True
+    return conversa is not None and bool(banco.projeto_da_conversa(conversa)['pasta'])
 
 
 def _modo_local(mensagem: str, voz: bool, modelo: str = '') -> dict:
@@ -640,7 +650,7 @@ async def responder(
                     raise ollama.OllamaIndisponivel()
                 modo = _modo_local(mensagem, voz, modelo_local)
                 o_corpo = None
-                if modo['ferramentas'] and _corpo_local(modelo_local, mensagem):
+                if modo['ferramentas'] and _corpo_local(modelo_local, mensagem, conversa):
                     # O medido: as do Solis, o terminal, o navegador e a tela (se
                     # ligados em Configurações); sem as de arquivo (a pergunta de
                     # arquivo vai só com elas) e sem os servidores MCP. Medido em
@@ -648,8 +658,14 @@ async def responder(
                     # a tela, sem piorar o terminal, a agenda e a conversa.
                     o_corpo = corpo.Corpo(conversa, etapas, cerebro='local')
                     o_corpo.arquivos = o_corpo.mcp = False
-                    # Ler/criar/editar, as skills e o WebFetch: ainda não medidos no local.
-                    o_corpo.editar = o_corpo.skills = o_corpo.web = False
+                    # Ler/criar/editar (Read, Write, Edit), as skills e o
+                    # WebFetch, ligados medindo (20/11/2026, qwen3:8b, o corpo
+                    # e o laço de verdade numa pasta de teste): 16/17 e 17/17
+                    # — editar 10/10, internet 4/4, a skill e o resto sem
+                    # piorar. Precisou de três coisas, que valem pra todos:
+                    # o contexto de 8.192 (ollama.CONTEXTO), a busca que
+                    # funciona sem JavaScript (web.buscar) e o Write que não
+                    # reescreve arquivo sem ler (Corpo._reescrever_sem_ler).
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,

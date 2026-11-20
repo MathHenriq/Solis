@@ -442,7 +442,7 @@ async def conversar(
     mensagens_ollama = [{'role': 'system', 'content': instrucao + projeto}] + [
         {'role': PAPEIS[m['papel']], 'content': m['texto']} for m in mensagens
     ]
-    corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama}
+    corpo = {'model': modelo, 'stream': True, 'messages': mensagens_ollama, 'options': {'num_ctx': CONTEXTO}}
     # `pensar=False` desliga o raciocínio (qwen3): a voz rápida (roteador).
     if pensar is not None:
         corpo['think'] = pensar
@@ -548,6 +548,16 @@ async def conversar(
     return pedacos()
 
 
+# O tamanho do contexto (num_ctx) de toda conversa, título e aprendizado. As
+# ferramentas do corpo sozinhas já são ~2.600 tokens: no padrão do Ollama
+# (4.096) uma página lida pelo WebFetch empurrava a pergunta pra fora (medido
+# em 20/11/2026: o qwen3:8b resumia a página e esquecia o que o Matheus
+# perguntou). O MESMO em todas as chamadas: trocar o tamanho recarrega o
+# modelo, e cada troca custou 3,5 a 6 s medidos — a resposta com 8.192 e o
+# aprendizado logo depois no padrão recarregariam duas vezes por mensagem.
+# Custa ~1,1 GB a mais de placa no qwen3:8b (cabe nos 8 GB).
+CONTEXTO = 8192
+
 # Quanto o modelo fica na GPU depois de usado pela voz: o padrão do Ollama são
 # 5 minutos, e a segunda pergunta de uma conversa falada costuma vir depois.
 FICA_NA_VOZ = '15m'
@@ -558,7 +568,8 @@ async def aquecer(modelo: str, transporte: httpx.AsyncBaseTransport | None = Non
     Erro aqui não importa: é só pra adiantar."""
     try:
         async with httpx.AsyncClient(base_url=OLLAMA, timeout=TIMEOUT_CONVERSA, transport=transporte or _Guardado()) as c:
-            await c.post('/api/chat', json={'model': modelo, 'messages': [], 'keep_alive': FICA_NA_VOZ})
+            await c.post('/api/chat', json={'model': modelo, 'messages': [], 'keep_alive': FICA_NA_VOZ,
+                                            'options': {'num_ctx': CONTEXTO}})
     except httpx.HTTPError:
         pass
 
@@ -580,7 +591,7 @@ async def _perguntar(
     corpo = {
         'model': modelo,
         'stream': False,
-        'options': {'temperature': 0},
+        'options': {'temperature': 0, 'num_ctx': CONTEXTO},
         'messages': [{'role': 'system', 'content': instrucao}, {'role': 'user', 'content': texto}],
     }
     if pensar is not None:

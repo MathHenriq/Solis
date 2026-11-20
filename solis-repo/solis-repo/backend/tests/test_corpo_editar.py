@@ -168,3 +168,17 @@ def test_o_sistema_da_groq_fala_de_editar_e_nao_diz_que_nao_escreve():
     assert 'Read, Write, Edit' in sistema
     notas = roteador.notas_do_cerebro('groq', [], com_o_corpo=True, editar=True)
     assert 'não escreve arquivos' not in notas and 'não lê nem escreve' not in notas and 'não roda comandos' in notas
+
+
+def test_write_por_cima_sem_ler_e_recusado_e_depois_de_ler_passa(tmp_path):
+    """Medido em 20/11/2026: o qwen3:8b chamou Write só com a função nova e o
+    arquivo perdia o resto. Como no Claude Code: reescrever inteiro, só lido."""
+    (tmp_path / 'conta.py').write_text('def soma(a, b):\n    return a + b\n', encoding='utf-8')
+    conversa = conversa_no_projeto(tmp_path)
+    _, g, devolvido, _ = rodar(conversa, [('Write', {'file_path': 'conta.py', 'content': 'def multiplica(a, b): ...\n'})])
+    assert 'já existe e você não leu' in devolvido[0] and not [d for e, d in g.lista if e == 'aprovacao']
+    assert (tmp_path / 'conta.py').read_text(encoding='utf-8').startswith('def soma')
+    novo = 'def soma(a, b):\n    return a + b\n\n\ndef multiplica(a, b):\n    return a * b\n'
+    _, _, devolvido, _ = rodar(conversa, [('Read', {'file_path': 'conta.py'}),
+                                          ('Write', {'file_path': 'conta.py', 'content': novo})], aprovar=[True])
+    assert (tmp_path / 'conta.py').read_text(encoding='utf-8') == novo

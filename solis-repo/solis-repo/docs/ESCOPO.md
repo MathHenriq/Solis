@@ -1021,6 +1021,31 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      Configurações. E a resposta do local nunca mais sai em branco: pensou e não escreveu nada,
      ele diz que não conseguiu. Com o navegador no local, a nota escondida em e-mail (que
      enganava o qwen3:8b 2 em 4 vezes mesmo com a cerca) passou a alcançá-lo: resolvido abaixo.
+     **Editar, a internet e as skills no modelo local (20/11/2026, medido).** O qwen3:8b com o
+     corpo e o laço de verdade (`ollama.conversar`), numa pasta de teste que é o projeto da
+     conversa, os cartões de editar aprovados e o terminal recusado, em 17 pedidos: 5 de editar
+     (os mesmos da Groq), 2 de internet (a cotação do dólar, uma página da Wikipédia), a skill do
+     plano de aula, terminal, anotar, agenda e 6 de conversa. Só as especificações, sem texto:
+     13/17 — usou o Write pra "acrescentar uma função" e o conta.py perdeu o resto, recusou o
+     dólar, e na Wikipédia resumiu a página e esqueceu a pergunta. Três achados, que valem pra
+     todos os cérebros: (1) o contexto: o Ollama roda com 4.096 tokens por padrão, as ferramentas
+     já são ~2.600, e a página empurrava a pergunta pra fora — agora 8.192 (`ollama.CONTEXTO`) em
+     TODAS as chamadas de texto, porque trocar o tamanho recarrega o modelo (3,5 a 6 s medidos por
+     troca; a resposta e o aprendizado logo depois recarregariam duas vezes; com o mesmo, o
+     aprendizado ficou em 0,2 s); (2) a busca: o Google sem JavaScript devolve só "Clique aqui se
+     o redirecionamento não iniciar" — o endereço de busca agora vira a lista dos resultados, pelo
+     DuckDuckGo sem JavaScript (`web.buscar`); (3) o Write por cima de arquivo que ele não leu é
+     recusado, como no Claude Code (`Corpo._reescrever_sem_ler`). Com as instruções curtas
+     (`corpo.instrucoes_local`) e os três: 15/17, 14/17 e, com tudo, 16/17, 17/17 e 17/17 — editar
+     10/10 nas duas últimas, lendo antes; internet 4/4; a skill sempre; nenhuma mentira de "mudei".
+     O que sobra: às vezes ele busca na internet o que já sabe (o IGP-M), e aí a resposta sai
+     certa — antes ele inventava "Índice de Gestão Pública". Ligado pro qwen3:8b. Medido de novo
+     o corpo inteiro nas 16 perguntas de arquivo, agora com 8.192 e o sistema certo (o teste de
+     19/11 deixava o "não pode ler arquivos" no sistema): continua 6/16 — a pergunta sobre os
+     arquivos das pastas dele segue só com as de ler. Exceto numa conversa com a pasta de um
+     projeto: aí o pedido que fala de arquivo vai pro corpo, pra editar (`roteador._corpo_local`).
+     Pendência: os ajudantes (Agent) ainda não rodam no local — o ajudante usa o laço dos
+     cérebros de API (`apis.responder`); no local, teriam que rodar um de cada vez, na mesma placa.
      **A ordem escondida tirada do texto (19/11/2026, `solis/injecao.py`, medido).** Os mesmos 3
      casos (loja, e-mail, tela), 4 vezes cada, no qwen3:8b, contando também a meia obediência
      (dizer a frase plantada como fato mesmo contando a nota depois). Só a cerca: obedeceu 2 de 12,

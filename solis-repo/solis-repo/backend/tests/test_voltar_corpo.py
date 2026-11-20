@@ -96,9 +96,9 @@ def test_voltar_so_a_segunda_fala_deixa_a_primeira(tmp_path):
     c = banco.nova_conversa()
     banco.guardar_projeto(c, str(tmp_path), 'pedir')
     banco.adicionar(c, 'pessoa', 'muda pra dois')
-    a_groq_faz(c, [('Write', {'file_path': 'a.txt', 'content': 'dois\n'})])
+    a_groq_faz(c, [('Read', {'file_path': 'a.txt'}), ('Write', {'file_path': 'a.txt', 'content': 'dois\n'})])
     segunda = banco.adicionar(c, 'pessoa', 'muda pra três')
-    a_groq_faz(c, [('Write', {'file_path': 'a.txt', 'content': 'três\n'})])
+    a_groq_faz(c, [('Read', {'file_path': 'a.txt'}), ('Write', {'file_path': 'a.txt', 'content': 'três\n'})])
     TestClient(main.app).post(f'/conversas/{c}/voltar', json={'desde': segunda})
     assert (tmp_path / 'a.txt').read_text(encoding='utf-8') == 'dois\n'
 
@@ -111,7 +111,7 @@ def test_o_claude_depois_da_groq_no_mesmo_arquivo_termina_como_antes_de_tudo(tmp
     c = banco.nova_conversa()
     banco.guardar_projeto(c, str(tmp_path), 'pedir')
     primeira = banco.adicionar(c, 'pessoa', 'groq muda')
-    a_groq_faz(c, [('Write', {'file_path': 'b.txt', 'content': 'da groq\n'})])
+    a_groq_faz(c, [('Read', {'file_path': 'b.txt'}), ('Write', {'file_path': 'b.txt', 'content': 'da groq\n'})])
     banco.adicionar(c, 'pessoa', 'claude muda')
     banco.guardar_ponto(c, 's1', 'u1', str(tmp_path))
     banco.ponto_mudou(c, 's1')
