@@ -666,6 +666,13 @@ async def responder(
                     # o contexto de 8.192 (ollama.CONTEXTO), a busca que
                     # funciona sem JavaScript (web.buscar) e o Write que não
                     # reescreve arquivo sem ler (Corpo._reescrever_sem_ler).
+                    # Os ajudantes (Agent), no mesmo modelo, um de cada vez
+                    # (20/11/2026, medido): pedido explícito 3/3; duas páginas
+                    # inteiras, por conta própria 2/3 (sem ajudante, as duas
+                    # não cabiam na memória e ele resumia só uma); nenhum
+                    # ajudante à toa nos pedidos simples.
+                    o_corpo.modelo = modelo_local
+                    o_corpo.sistema = nota_projeto(conversa, le_arquivos=False)
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,

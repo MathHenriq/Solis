@@ -1044,8 +1044,17 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      19/11 deixava o "não pode ler arquivos" no sistema): continua 6/16 — a pergunta sobre os
      arquivos das pastas dele segue só com as de ler. Exceto numa conversa com a pasta de um
      projeto: aí o pedido que fala de arquivo vai pro corpo, pra editar (`roteador._corpo_local`).
-     Pendência: os ajudantes (Agent) ainda não rodam no local — o ajudante usa o laço dos
-     cérebros de API (`apis.responder`); no local, teriam que rodar um de cada vez, na mesma placa.
+     **Os ajudantes no local (20/11/2026, medido).** O ajudante (Agent) do modelo local roda no
+     mesmo laço da resposta dele (`ollama.conversar`), no mesmo modelo, um de cada vez (a placa
+     tem um modelo só), com as mesmas ferramentas e sem poder abrir outro. Medido no qwen3:8b:
+     pedido explícito ("usa um ajudante pra ler a página de Sydney") 3/3, com a resposta certa;
+     "lê estas duas páginas inteiras e resume cada uma", por conta própria, 2/3 com um ajudante
+     por página e as duas resumidas (87 e 178 s: lento, mas certo) — antes ele lia as duas
+     sozinho, não cabiam na memória, e resumia só uma (0/3). Só com o texto geral ("pra partes
+     longas") ele nunca chamava: o que funcionou foi a regra concreta "duas ou mais páginas
+     inteiras, um ajudante pra cada". Nenhum ajudante à toa nos pedidos simples. No caminho: se
+     a conexão com o Ollama cai entre uma ferramenta e a resposta, o Solis diz que o modelo parou
+     no meio (antes a resposta saía em branco).
      **A ordem escondida tirada do texto (19/11/2026, `solis/injecao.py`, medido).** Os mesmos 3
      casos (loja, e-mail, tela), 4 vezes cada, no qwen3:8b, contando também a meia obediência
      (dizer a frase plantada como fato mesmo contando a nota depois). Só a cerca: obedeceu 2 de 12,

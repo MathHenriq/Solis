@@ -166,8 +166,61 @@ def test_ligados_por_padrao_e_a_variavel_tira(monkeypatch):
     assert not corpo.Corpo(1, navegar=False, cerebro='groq').tem('Agent')
 
 
-def test_o_local_e_o_ajudante_nao_abrem_ajudante():
-    assert not corpo.Corpo(1, navegar=False, cerebro='local').tem('Agent')
+def test_o_ajudante_nao_abre_outro_e_o_local_precisa_do_modelo():
     sub = corpo.Corpo(1, navegar=False, cerebro='groq')
     sub.ajudante = 'uma tarefa'
     assert not sub.tem('Agent') and corpo.Corpo(1, navegar=False, cerebro='groq').tem('Agent')
+    local = corpo.Corpo(1, navegar=False, cerebro='local')
+    assert not local.tem('Agent')
+    local.modelo = 'qwen3:8b'
+    assert local.tem('Agent') and 'E Agent:' in corpo.instrucoes_local(local)
+
+
+def test_no_local_o_ajudante_roda_no_mesmo_modelo_pelo_ollama():
+    """O ajudante do local: o mesmo laço da resposta (ollama.conversar), no
+    mesmo modelo, com a nota de ajudante e sem poder abrir outro."""
+    from solis import ollama
+    pedidos = []
+
+    def ollama_falso(request):
+        corpo_ = json.loads(request.content)
+        pedidos.append(corpo_)
+        if len(pedidos) == 1:  # o pai chama um ajudante
+            msg = {'content': '', 'tool_calls': [{'function': {'name': 'Agent', 'arguments': {
+                'description': 'resumir a página', 'prompt': 'Resuma https://exemplo.com em uma frase.'}}}]}
+        elif len(pedidos) == 2:  # o ajudante responde
+            msg = {'content': 'A página fala de carros elétricos.'}
+        else:  # o pai junta
+            msg = {'content': 'Resumo: carros elétricos.'}
+        return httpx.Response(200, content=json.dumps({'message': msg, 'done': True}).encode())
+
+    transporte = httpx.MockTransport(ollama_falso)
+    original = httpx.AsyncClient.__init__
+
+    def com_o_falso(self, *a, **kw):  # o laço do ajudante abre o cliente dele: o mesmo Ollama falso
+        kw['transport'] = transporte
+        original(self, *a, **kw)
+
+    g = Gravador()
+
+    async def rodar():
+        c = corpo.Corpo(1, g, navegar=False, cerebro='local')
+        c.arquivos = c.tela = c.mcp = False
+        c.modelo = 'qwen3:8b'
+        fluxo = await ollama.conversar('qwen3:8b', [{'papel': 'pessoa', 'texto': 'resume a página'}],
+                                       transporte=transporte, ferramentas=True, o_corpo=c)
+        return ''.join([p async for p in fluxo])
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(httpx.AsyncClient, '__init__', com_o_falso)
+    try:
+        assert asyncio.run(rodar()) == 'Resumo: carros elétricos.'
+    finally:
+        mp.undo()
+    pai, ajudante, volta = pedidos
+    assert ajudante['model'] == 'qwen3:8b' and ajudante['messages'][-1]['content'].startswith('Resuma https://exemplo')
+    assert 'Você é um ajudante do Solis' in ajudante['messages'][0]['content']
+    assert 'Agent' in [t['function']['name'] for t in pai['tools']]
+    assert 'Agent' not in [t['function']['name'] for t in ajudante['tools']]
+    devolvido = [m['content'] for m in volta['messages'] if m['role'] == 'tool'][0]
+    assert devolvido.startswith('O ajudante terminou "resumir a página"') and 'carros elétricos' in devolvido

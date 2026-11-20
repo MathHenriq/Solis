@@ -39,6 +39,8 @@ def test_o_qwen_recebe_o_corpo_com_navegador_e_tela_sem_arquivo_nem_mcp(monkeypa
     assert not c.arquivos and not c.mcp and c.tela and c.navegar and c.cerebro == 'local'
     # Medido em 20/11/2026: editar, a internet (WebFetch) e as skills também.
     assert c.editar and c.web and c.skills
+    # E os ajudantes, no mesmo modelo (medido em 20/11/2026).
+    assert c.modelo == 'qwen3:8b' and c.tem('Agent')
     c._skills = [{'nome': 'plano-de-aula', 'descricao': 'Gera o plano de aula da semana.'}]
     instrucoes = corpo.instrucoes_local(c)
     assert 'você TEM internet' in instrucoes and 'PRIMEIRO chame mcp__solis__tela_ler' in instrucoes
@@ -64,6 +66,26 @@ def test_com_as_ferramentas_o_local_nao_diz_que_nao_tem_internet():
     assert ollama.NAO_PODE not in sistema and 'o que não estiver nas suas ferramentas' in sistema
     # As ferramentas ocupam ~2.600 tokens: no padrão (4.096) a página lida empurrava a pergunta pra fora.
     assert pedidos[0]['options'] == {'num_ctx': ollama.CONTEXTO}
+
+
+def test_o_ollama_caiu_depois_da_ferramenta_e_a_resposta_nao_sai_em_branco():
+    """Visto em 20/11/2026: leu o arquivo, a conexão caiu, e a resposta voltava vazia."""
+    vezes = []
+
+    def ollama_falso(request):
+        vezes.append(1)
+        if len(vezes) == 1:
+            msg = {'content': '', 'tool_calls': [{'function': {'name': 'mcp__solis__hora', 'arguments': {}}}]}
+            return httpx.Response(200, content=json.dumps({'message': msg, 'done': True}).encode())
+        raise httpx.ConnectError('caiu', request=request)
+
+    async def rodar():
+        c = corpo.Corpo(3, Etapas(3), navegar=False, cerebro='local')
+        c.arquivos = c.tela = False
+        fluxo = await ollama.conversar('qwen3:8b', [{'papel': 'pessoa', 'texto': 'que horas são?'}],
+                                       transporte=httpx.MockTransport(ollama_falso), ferramentas=True, o_corpo=c)
+        return ''.join([p async for p in fluxo])
+    assert asyncio.run(rodar()) == ollama.CAIU_NO_MEIO
 
 
 def test_pensou_e_nao_escreveu_nada_nao_sai_em_branco():

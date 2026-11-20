@@ -538,15 +538,22 @@ async def conversar(
                 try:
                     r = await abrir()
                 except (OllamaIndisponivel, ModeloInexistente):
+                    # Caiu entre uma ferramenta e a resposta (visto em 20/11/2026,
+                    # depois de ler o arquivo): a resposta não pode sair em branco.
+                    if not falou:
+                        yield CAIU_NO_MEIO
                     return
         except httpx.HTTPError:
-            pass
+            if not falou:
+                yield CAIU_NO_MEIO
         finally:
             await r.aclose()
             await cliente.aclose()
 
     return pedacos()
 
+
+CAIU_NO_MEIO = 'O modelo local parou no meio da resposta (a conexão com o Ollama caiu). Pode pedir de novo?'
 
 # O tamanho do contexto (num_ctx) de toda conversa, título e aprendizado. As
 # ferramentas do corpo sozinhas já são ~2.600 tokens: no padrão do Ollama
