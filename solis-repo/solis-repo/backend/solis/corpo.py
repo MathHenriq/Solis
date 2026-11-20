@@ -459,15 +459,15 @@ class Corpo:
         self.skills = os.environ.get('SOLIS_CORPO_SKILLS', '1') != '0'
         # Ler página da internet (web.py), sem janela. SOLIS_CORPO_WEB=0 tira.
         self.web = os.environ.get('SOLIS_CORPO_WEB', '1') != '0'
-        # Os ajudantes (Agent). DESLIGADOS até a medição de verdade (19/11/2026:
-        # feitos e testados com a Groq simulada, mas a cota grátis da Groq e do
-        # Gemini acabou antes de medir; "só existe o que funciona"): um cérebro
-        # que chamasse ajudante pra coisa simples dobraria os pedidos e gastaria
-        # o limite grátis. SOLIS_CORPO_AJUDANTES=1 liga. `ajudante`: este corpo é
-        # de um ajudante (a tarefa dele): não abre outro, e os cartões dizem "O
-        # ajudante quer…". `sistema`: o do cérebro, que o roteador põe aqui, pro
-        # ajudante começar igual.
-        self.ajudantes = os.environ.get('SOLIS_CORPO_AJUDANTES', '0') == '1'
+        # Os ajudantes (Agent). Ligados depois da medição de verdade (20/11/2026):
+        # no Gemini, dois ajudantes ao mesmo tempo leram uma página cada e o
+        # cérebro juntou; e nenhum dos dois cérebros chamou ajudante pra coisa
+        # simples (6 de 6: a capital, ler uma página, um lembrete) — o medo que
+        # os deixou desligados era dobrar os pedidos à toa. SOLIS_CORPO_AJUDANTES=0
+        # tira. `ajudante`: este corpo é de um ajudante (a tarefa dele): não abre
+        # outro, e os cartões dizem "O ajudante quer…". `sistema`: o do cérebro,
+        # que o roteador põe aqui, pro ajudante começar igual.
+        self.ajudantes = os.environ.get('SOLIS_CORPO_AJUDANTES', '1') != '0'
         self.ajudante: str | None = None
         self.sistema = ''
         self.transporte = None  # o do pedido do cérebro (apis.responder põe aqui; nos testes, o simulado)

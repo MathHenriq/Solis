@@ -1173,6 +1173,20 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      (`SOLIS_CORPO_AJUDANTES=1` liga) até a medição, que é o primeiro passo de amanhã com o 400 do
      Gemini: um cérebro que chamasse ajudante pra coisa simples dobraria os pedidos e gastaria o
      limite grátis.
+     **Medido e ligado (20/11/2026), e o 400 do Gemini achado.** O 400: o Gemini manda as
+     chamadas de ferramenta da mesma rodada todas com a posição 0 (index), cada uma com o seu id,
+     e o Solis juntava pela posição — saía uma chamada "WebFetchWebFetchWebFetch..." com os cinco
+     endereços colados, a ferramenta não existia, e a rodada seguinte voltava 400 com essa chamada
+     dentro (achado guardando o pedido que voltou 400; as reservas do Gemini aceitam todas as
+     ferramentas do corpo, então não era a descrição delas). Agora um id novo na mesma posição é
+     outra chamada (`apis.responder`); medido de novo, a pesquisa no Gemini terminou (4 fontes
+     lidas de 4 sites; com o navegador desligado ele chuta endereços, e 21 não abriram). Os
+     ajudantes, de verdade: no Gemini, "dois ajudantes ao mesmo tempo, um lê example.com e o outro
+     a página da IANA" — os dois leram, as duas páginas viraram fontes, o cérebro juntou (69 s); na
+     Groq grátis o primeiro leu e o segundo bateu no limite por minuto, e o cérebro disse isso em
+     vez de inventar. E o medo que os deixava desligados não se confirmou: com o Agent disponível,
+     nem a Groq nem o Gemini chamaram ajudante pra "a capital da França", "lê example.com" ou "me
+     lembra de comprar pão" (6 de 6, cada um com a ferramenta certa ou nenhuma). Ligados.
 
 ### Controle do PC e visão da tela
 

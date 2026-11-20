@@ -1,7 +1,7 @@
 """Os ajudantes nos outros cérebros (corpo.py, a ferramenta Agent): o Solis roda
 um laço próprio, com o mesmo cérebro e as mesmas ferramentas, e devolve o
-resultado. Antes só o Claude tinha ajudantes. A Groq é simulada. Desligados
-por padrão até a medição de verdade (SOLIS_CORPO_AJUDANTES=1 liga)."""
+resultado. Antes só o Claude tinha ajudantes. A Groq é simulada. Ligados
+depois da medição de verdade (20/11/2026); SOLIS_CORPO_AJUDANTES=0 tira."""
 import asyncio
 import json
 
@@ -159,8 +159,10 @@ def test_varios_ajudantes_na_mesma_rodada_trabalham_juntos(monkeypatch):
     assert original is not None
 
 
-def test_desligados_por_padrao(monkeypatch):
+def test_ligados_por_padrao_e_a_variavel_tira(monkeypatch):
     monkeypatch.delenv('SOLIS_CORPO_AJUDANTES')
+    assert corpo.Corpo(1, navegar=False, cerebro='groq').tem('Agent')
+    monkeypatch.setenv('SOLIS_CORPO_AJUDANTES', '0')
     assert not corpo.Corpo(1, navegar=False, cerebro='groq').tem('Agent')
 
 
