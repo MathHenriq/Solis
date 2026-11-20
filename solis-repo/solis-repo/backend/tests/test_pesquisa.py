@@ -90,3 +90,37 @@ def test_resposta_que_vem_sozinha_leva_as_fontes_da_rodada():
     fontes = [e for e in viva.sozinha.etapas if e['etapa'] == 'fontes'][0]['fontes']
     assert fontes == [{'url': 'https://doc.org', 'titulo': 'Doc', 'lida': True},
                       {'url': 'https://blog.dev', 'titulo': 'Blog', 'lida': False}]
+
+
+# — A pesquisa nos outros cérebros (19/11/2026) ———————————————————————————————————
+def test_sem_o_claude_a_pesquisa_vai_pros_de_api(capturado, monkeypatch):
+    from solis import cerebros
+    monkeypatch.setattr(roteador, '_ordem', lambda: ['claude', 'groq', 'local', 'gemini'])
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: nome != 'claude')
+    c = banco.nova_conversa()
+    TestClient(main.app).post(f'/conversas/{c}/mensagens', json={'texto': 'qual o melhor banco?', 'pesquisa': True})
+    assert capturado['ordem'] == ['groq', 'gemini']
+    monkeypatch.setattr(cerebros, 'disponivel', lambda nome: True)
+    TestClient(main.app).post(f'/conversas/{c}/mensagens', json={'texto': 'e o pior?', 'pesquisa': True})
+    assert capturado['ordem'] == ['claude', 'groq', 'gemini']
+
+
+def test_no_roteador_o_de_api_ja_vai_com_o_corpo_e_a_nota_dele(monkeypatch):
+    from solis import cerebros, corpo
+    vistos = []
+
+    async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
+        vistos.append((nome, prompt, corpo))
+
+        async def gen():
+            yield 'relatório'
+        return gen()
+    monkeypatch.setattr(cerebros, 'abrir', abrir)
+
+    async def ir():
+        fluxo, _ = await roteador.responder(['groq'], '', 1, [], [], [], None, 'carros elétricos' + roteador.NOTA_PESQUISA)
+        return ''.join([p async for p in fluxo])
+    assert asyncio.run(ir()) == 'relatório'
+    (nome, prompt, o_corpo), = vistos  # uma vez só: já com o corpo, sem a fase leve
+    assert isinstance(o_corpo, corpo.Corpo) and o_corpo.web
+    assert 'use WebFetch com o endereço' in prompt and 'use ajudantes' not in prompt

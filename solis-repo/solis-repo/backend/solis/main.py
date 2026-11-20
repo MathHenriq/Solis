@@ -344,8 +344,14 @@ async def enviar(conversa: int, envio: Envio):
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
     if envio.pesquisa and not forcado:
-        # Pesquisa longa é do Claude: ele busca, lê, usa ajudantes e cita.
-        ordem, forcado = ['claude'], True
+        # Pesquisa longa: o Claude primeiro (ele busca, lê, usa ajudantes e
+        # cita); sem ele (a cota acabou), os de API pelo corpo do Solis — o
+        # navegador pra buscar e o WebFetch pra ler (19/11/2026: as funções são
+        # do Solis). Antes era só o Claude, e sem ele a pesquisa falhava.
+        ordem = (['claude'] if cerebros.disponivel('claude') else []) + [
+            c for c in ordem if c != 'claude' and roteador.com_corpo(c)]
+        # Sem nenhum: o Claude mesmo assim, pra falhar com a mensagem certa.
+        ordem, forcado = ordem or ['claude'], True
     if envio.agendada and not forcado:
         # A tarefa agendada vai primeiro pro Claude (é a do Claude Desktop,
         # agendadas.py); sem ele (a cota acabou), segue nos outros, que fazem

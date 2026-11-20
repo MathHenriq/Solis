@@ -267,6 +267,12 @@ NOTA_HOJE_NO_NAVEGADOR = (
 )
 
 
+NOTA_HOJE_NA_WEB = (
+    ' Pra uma informação de hoje (cotação, notícia, clima, resultado de jogo), leia uma página confiável com '
+    'WebFetch (um site oficial, um jornal) antes de responder: não responda de memória nem diga que não consegue.'
+)
+
+
 NOTA_NAO_CONSEGUE = (
     f'\n\n{_SEM_FERRAMENTAS} Quando o pedido precisar de uma dessas coisas, diga em uma frase que '
     'isso você não consegue fazer agora. O que você já sabe (fatos, história, ciência, livros, '
@@ -288,7 +294,8 @@ NOTA_SEM_APRENDIZADO_CLAUDE = (
 
 
 def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_corpo: bool = False,
-                     terminal: bool = False, arquivos: bool = False, tela: bool = False, editar: bool = False) -> str:
+                     terminal: bool = False, arquivos: bool = False, tela: bool = False, editar: bool = False,
+                     web: bool = False) -> str:
     """O que vai no fim do sistema de cada cérebro: sem ferramentas, a marca pra
     passar o pedido (se alguém com ferramentas vem depois na fila, ou ele mesmo
     com o corpo) ou dizer que não consegue; e, com o aprendizado fora, que nada
@@ -299,14 +306,18 @@ def notas_do_cerebro(nome: str, depois: list[str], navegar: bool = False, com_o_
         # Com o Claude na fila, a informação de hoje vai pra ele (busca na web,
         # sem abrir janela); sem ele, o navegador.
         pelo_navegador = navegar and not tem
-        falta = _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not pelo_navegador, editar=editar)
+        # Sem o navegador, o WebFetch (web.py) também lê a página de hoje.
+        # Medido com a Groq (19/11/2026): com "não sabe o que mudou hoje... diga
+        # que não consegue", ela respondia isso à pesquisa, tendo o WebFetch.
+        pela_web = web and not tem and not pelo_navegador
+        falta = _sem_o_resto(navegar, terminal, arquivos, tela, hoje=not (pelo_navegador or pela_web), editar=editar)
         notas += ('\n\n' + falta + (
             f' Quando o pedido precisar de uma dessas coisas, responda exatamente {PASSA} e mais nada: o Solis passa '
             'o pedido pra quem tem as ferramentas. O que você já sabe, conversa, e o que as suas ferramentas fazem '
             'não precisam disso: responda ou faça.' if tem else
             ' Quando o pedido precisar de uma dessas coisas, diga em uma frase que isso você não consegue fazer agora.'
             if falta.startswith('Nesta') else '')
-            + (NOTA_HOJE_NO_NAVEGADOR if pelo_navegador else ''))
+            + (NOTA_HOJE_NO_NAVEGADOR if pelo_navegador else NOTA_HOJE_NA_WEB if pela_web else ''))
     elif nome not in COM_FERRAMENTAS and nome != 'local':
         notas += NOTA_PASSAR if com_corpo(nome) or any(c in COM_FERRAMENTAS for c in depois) else NOTA_NAO_CONSEGUE
         if com_corpo(nome) and (servidores := _servidores_mcp()):
@@ -488,6 +499,34 @@ NOTA_PESQUISA = (
 )
 
 
+# A mesma pesquisa nos outros cérebros (19/11/2026): sem os ajudantes e a busca
+# do Claude, com as ferramentas do corpo — o navegador pra buscar, o WebFetch
+# pra ler (web.py, só o texto, sem janela).
+NOTA_PESQUISA_CORPO = (
+    '\n\n[Modo pesquisa ligado pelo Matheus: faça uma pesquisa longa e cuidadosa. Pra achar as fontes, abra '
+    'buscas no navegador (browser_navigate com https://www.google.com/search?q=... e as palavras da busca) e veja '
+    'os resultados no que voltar; faça mais de uma busca se ajudar. Pra ler cada fonte, use WebFetch com o '
+    'endereço (lê o texto da página sem abrir janela). Leia pelo menos 5 fontes de lugares diferentes, as mais '
+    'confiáveis e recentes, e confira o que se contradiz. Responda com um relatório organizado, citando no texto '
+    'com links [assim](url), e termine com uma seção "Fontes" listando o que leu. Nunca cite uma fonte que você '
+    'não leu.]'
+)
+# Com o navegador desligado (Configurações → Navegador), não há buscador: só o
+# que se lê pelo endereço.
+# Medido com a Groq (19/11/2026): começando por "você não tem buscador", ela
+# respondeu "não consigo fazer pesquisas na web" e escreveu de memória, sem
+# chamar o WebFetch nenhuma vez. A ação vem primeiro.
+NOTA_PESQUISA_SEM_BUSCA = (
+    '\n\n[Modo pesquisa ligado pelo Matheus: faça uma pesquisa longa e cuidadosa NA INTERNET, não de memória. '
+    'COMECE chamando WebFetch, que lê qualquer página pelo endereço: leia fontes confiáveis cujo endereço você '
+    'conhece (a Wikipédia, sites oficiais e de órgãos públicos, jornais, associações do setor, documentação) e '
+    'siga os links que elas citam (o navegador, que busca, está desligado agora). Leia pelo menos 5 fontes de '
+    'lugares diferentes e confira o que se contradiz. Se um endereço não abrir, tente outro. Só depois de ler, '
+    'responda com um relatório organizado, citando no texto com links [assim](url), e termine com uma seção '
+    '"Fontes" listando o que leu. Nunca cite uma fonte que você não leu, e não diga que não consegue pesquisar.]'
+)
+
+
 def nota_agendada(nome: str) -> str:
     """Uma tarefa agendada roda sem ninguém olhando (agendadas.py)."""
     if not nome:
@@ -585,6 +624,9 @@ async def responder(
     # "Anotado!" sem as ferramentas, e nada foi anotado).
     elif _cita_servidor(mensagem):
         com_o_corpo = {c for c in fila if com_corpo(c)}
+    # O botão Pesquisa: precisa de buscar e ler na internet, então já vai com o corpo.
+    elif NOTA_PESQUISA in mensagem:
+        com_o_corpo = {c for c in fila if com_corpo(c)}
     de_novo = None
     while fila:
         nome = fila.pop(0)
@@ -606,8 +648,8 @@ async def responder(
                     # a tela, sem piorar o terminal, a agenda e a conversa.
                     o_corpo = corpo.Corpo(conversa, etapas, cerebro='local')
                     o_corpo.arquivos = o_corpo.mcp = False
-                    # Ler/criar/editar (editar.py) e as skills: ainda não medidos no local.
-                    o_corpo.editar = o_corpo.skills = False
+                    # Ler/criar/editar, as skills e o WebFetch: ainda não medidos no local.
+                    o_corpo.editar = o_corpo.skills = o_corpo.web = False
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
@@ -631,13 +673,17 @@ async def responder(
                     nome,
                     sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita, com_skills)
                     + nota_projeto(conversa, le_arquivos=nome == 'claude')
-                    + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela, edita),
+                    + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela, edita,
+                                       bool(proprio and proprio.web)),
                     prompt_nuvem(
                         [m for m in memorias if not m['privada']],
                         [t for t in trechos if not t['privada']],
                         None if banco.tem_privada(conversa) else resumo,
                         [m for m in historico if not m['privada']],
-                        mensagem,
+                        # A pesquisa do Claude fala dos ajudantes dele; a dos
+                        # outros, das ferramentas do corpo (o navegador, o WebFetch).
+                        mensagem.replace(NOTA_PESQUISA, NOTA_PESQUISA_CORPO if navegar else NOTA_PESQUISA_SEM_BUSCA)
+                        if nome != 'claude' else mensagem,
                         voz=voz,
                     ),
                     etapas,

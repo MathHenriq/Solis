@@ -1121,6 +1121,29 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      comandos rodados no terminal não voltam"). Provado pela tela, com o servidor de teste: um
      `conta.py` que a Groq tinha mudado pra `def somar` voltou a `def soma` no disco, e o botão
      sumiu. **Texto aprovado pelo Matheus em 19/11/2026** (`design/voltar-corpo-validacao.png`).
+   - **Fechar a paridade, 7: a pesquisa longa nos outros cérebros (19/11/2026).** O botão Pesquisa
+     ia só pro Claude, e sem ele a pesquisa falhava. Agora vai pro Claude se ele estiver
+     disponível e, sem ele, pros de API, já com o corpo (sem a fase leve). Pra eles, o "ler" é o
+     novo WebFetch do corpo (`web.py`, o mesmo nome do do Claude: livre, a tela conta como "fonte
+     lida"): o Solis baixa a página e devolve só o texto principal (a trafilatura do
+     Conhecimento), até 10 mil caracteres, cercado e sem as ordens escondidas, sem abrir janela.
+     **Nunca um endereço do próprio PC ou da rede de casa** (localhost, 127.x, 10.x, 192.168.x,
+     o ::1...), antes e depois dos redirecionamentos: senão um cérebro na nuvem leria o servidor do
+     Solis (as memórias) e levaria pra fora. O "buscar" é o navegador (a página de resultados do
+     Google); com o navegador desligado, a nota manda ler pelo endereço o que ele conhece. Medido
+     de verdade, sem o navegador (nada abriu na tela): **o Gemini fez a pesquisa** ("vantagens e
+     desvantagens dos carros elétricos no Brasil hoje"): 5 fontes lidas de 4 sites (ABVE, Agência
+     Brasil, Wikipédia, gov.br; 4 endereços não abriram), relatório com a seção Fontes, nenhuma
+     fonte citada sem ter lido, 92 s. **A Groq**, na primeira rodada, respondeu "não consigo fazer
+     pesquisas na web" e escreveu de memória: duas notas mandavam isso ("você não tem buscador" e
+     "não sabe o que mudou hoje... diga que não consegue"). Com a ação primeiro na nota da pesquisa
+     e, pra quem tem o WebFetch, "leia uma página confiável com WebFetch" no lugar do "não sabe o
+     que mudou hoje", ela leu a Wikipédia e bateu no limite grátis de 8 mil tokens por minuto: no
+     Solis, a pesquisa passa pro próximo cérebro (ler não conta como ter agido). **Pendente:** em
+     duas rodadas seguintes o Gemini respondeu 400 ("invalid argument"), uma delas antes de
+     qualquer ferramenta; logo depois a cota grátis do dia acabou (429, gasta pelas medições de
+     hoje), e não deu pra isolar a causa (o script de teste, ferramenta por ferramenta, fica pra
+     amanhã).
 
 ### Controle do PC e visão da tela
 

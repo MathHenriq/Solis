@@ -283,6 +283,11 @@ Cérebros.
   acrescenta no fim da resposta "O Solis tirou da página uma ordem escondida pro assistente, e
   ela não foi seguida: «…»" (`roteador._com_o_aviso`). Os arquivos das pastas dele só vão
   cercados, sem tirar linha.
+  Desde 19/11/2026 o corpo também tem, com os nomes do Claude: `Read`, `Write` e `Edit`
+  (`editar.py`, com o cartão e o diff; antes de mudar, guarda a cópia pro voltar atrás em
+  `copias_volta`), `Skill` (as skills do Matheus, `skills.do_corpo`) e `WebFetch` (`web.py`: o texto
+  principal de uma página, sem janela, e nunca endereço do PC ou da rede de casa). O botão
+  Pesquisa, sem o Claude, vai pros de API com o corpo (buscar no navegador, ler com o WebFetch).
 - O Codex roda sem ferramentas (`--sandbox read-only`), numa pasta vazia do Solis. O prompt vai
   pela entrada padrão, nunca pela linha de comando.
 - Custo de tempo: cada mensagem sobe um processo do CLI. Medido no notebook (1º/11/2026), do

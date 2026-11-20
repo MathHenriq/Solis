@@ -183,6 +183,15 @@ TERMINAL = 'PowerShell'
 # As skills do Matheus: o mesmo nome da ferramenta do Claude (o passo na tela
 # diz "Segui a skill X", e o cartão não aparece: ler instrução é livre).
 SKILL = 'Skill'
+# Ler uma página (web.py): o mesmo nome do WebFetch do Claude (livre; a tela
+# conta como "fonte lida" e diz "Li a página X").
+WEBFETCH = 'WebFetch'
+_WEBFETCH_SPEC = ('Lê o texto principal de uma página da internet pra você, sem abrir janela (devolve o título e o '
+                  'texto, até 10 mil caracteres). Use pra ler uma fonte, um artigo, uma documentação. Pra abrir um '
+                  'site pro Matheus ver, use o navegador.',
+                  {'type': 'object', 'required': ['url'], 'properties': {
+                      'url': {'type': 'string', 'description': 'O endereço da página (https://...).'},
+                      'prompt': {'type': 'string', 'description': 'O que você procura nela (opcional).'}}})
 TERMINAL_MAX_S = 120
 _TERMINAL = {
     'type': 'function',
@@ -412,6 +421,8 @@ class Corpo:
         # As skills do Matheus (skills.do_corpo), pela ferramenta Skill, o nome
         # da do Claude. SOLIS_CORPO_SKILLS=0 tira.
         self.skills = os.environ.get('SOLIS_CORPO_SKILLS', '1') != '0'
+        # Ler página da internet (web.py), sem janela. SOLIS_CORPO_WEB=0 tira.
+        self.web = os.environ.get('SOLIS_CORPO_WEB', '1') != '0'
         self._skills: list[dict] | None = None
         # As ordens escondidas tiradas do texto de fora (injecao.py): o Solis
         # avisa o Matheus no fim da resposta (roteador._com_o_aviso).
@@ -424,6 +435,8 @@ class Corpo:
                       for f in pc.FERRAMENTAS]
         if self.editar:
             specs += [_funcao(n, d, p) for n, d, p in editar.ESPECIFICACOES]
+        if self.web:
+            specs.append(_funcao(WEBFETCH, *_WEBFETCH_SPEC))
         if self.lista_skills():
             specs.append(_funcao(SKILL, 'Devolve as instruções de uma skill do Matheus (um roteiro que ele escreveu), '
                                         'pra você seguir neste pedido. As skills e quando usar estão no sistema.',
@@ -470,6 +483,7 @@ class Corpo:
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
                 or (self.editar and nome in editar.NOMES) or (nome == SKILL and bool(self.lista_skills()))
+                or (self.web and nome == WEBFETCH)
                 or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
                 or nome in self._do_mcp())
@@ -532,6 +546,15 @@ class Corpo:
         if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
             return decisao.mensagem or 'O Matheus recusou.'
+        if nome == WEBFETCH:
+            from . import web
+            try:
+                final, titulo, texto = await web.ler(str(entrada.get('url') or ''))
+                saida, ok = web.para_o_modelo(final, titulo, texto), True
+            except web.NaoLeu as e:
+                saida, ok = f'Não li a página: {e}.', False
+            self._marcar(id_, nome, entrada, pagina, ok)
+            return cercar(saida, 'da página', self.tiradas) if ok else saida
         if nome == SKILL:
             from . import skills
             try:
