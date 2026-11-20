@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravar o Solis</title>
+<style>
+  :root { --fundo: #07080D; --texto: #F1E4D4; --sec: #8A8178; --accent: #F0BA46; --borda: #24262B; --erro: #E4674A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px/1.5 system-ui, 'Segoe UI', sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 40px 16px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  .sec { color: var(--sec); font-size: 14px; }
+  label { display: block; margin-top: 24px; font-size: 14px; color: var(--sec); }
+  input { margin-top: 6px; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--borda); background: transparent; color: var(--texto); font: inherit; }
+  .cartao { margin-top: 28px; border: 1px solid var(--borda); border-radius: 16px; padding: 28px 24px; text-align: center; }
+  .n { color: var(--sec); font-size: 13px; }
+  .dica { margin-top: 8px; color: var(--sec); font-size: 14px; min-height: 21px; }
+  .frase { font-size: 30px; font-weight: 600; margin-top: 10px; }
+  button { margin-top: 22px; border: 0; border-radius: 999px; padding: 14px 32px; font: 600 16px system-ui; cursor: pointer; background: var(--accent); color: #1a1406; }
+  button.leve { background: transparent; color: var(--sec); border: 1px solid var(--borda); padding: 10px 20px; font-weight: 500; margin-left: 8px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .nivel { margin: 22px auto 0; height: 6px; width: 70%; background: var(--borda); border-radius: 999px; overflow: hidden; }
+  .nivel div { height: 100%; width: 0; background: var(--accent); transition: width .05s linear; }
+  .estado { margin-top: 14px; font-size: 14px; min-height: 21px; }
+  .erro { color: var(--erro); }
+  .barra { margin-top: 18px; height: 4px; background: var(--borda); border-radius: 999px; overflow: hidden; }
+  .barra div { height: 100%; background: var(--accent); width: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gravar o "Solis"</h1>
+  <div class="sec">Pra treinar o Solis a reconhecer quando é chamado. Fica só neste computador. Grave num lugar normal da casa, com o barulho de sempre.</div>
+  <label>Quem está gravando
+    <input id="quem" value="Matheus" autocomplete="off">
+  </label>
+  <div class="cartao">
+    <div class="n" id="n"></div>
+    <div class="frase" id="frase"></div>
+    <div class="dica" id="dica"></div>
+    <div class="nivel"><div id="nivel"></div></div>
+    <div>
+      <button id="gravar">Gravar</button>
+      <button id="refazer" class="leve">Refazer a anterior</button>
+    </div>
+    <div class="estado" id="estado">Clique em Gravar (ou aperte espaço) e fale quando ficar amarelo.</div>
+    <div class="barra"><div id="barra"></div></div>
+  </div>
+</main>
+<script>
+// Os exemplos: a palavra sozinha, chamando, com um pedido, de longe, baixinho e animado.
+const ROTEIRO = [
+  ...Array(12).fill({ frase: 'Solis', dica: 'Normal, perto do microfone', tipo: 'normal', s: 2.5 }),
+  ...Array(8).fill({ frase: 'Ei, Solis', dica: 'Chamando, normal', tipo: 'ei', s: 2.5 }),
+  { frase: 'Solis, que horas são?', dica: 'Com o pedido junto', tipo: 'pedido', s: 3.5 },
+  { frase: 'Solis, abre o YouTube', dica: 'Com o pedido junto', tipo: 'pedido', s: 3.5 },
+  { frase: 'Solis, toca uma música', dica: 'Com o pedido junto', tipo: 'pedido', s: 3.5 },
+  { frase: 'Solis, me lembra de pagar a luz', dica: 'Com o pedido junto', tipo: 'pedido', s: 3.5 },
+  { frase: 'Solis, como está o tempo?', dica: 'Com o pedido junto', tipo: 'pedido', s: 3.5 },
+  { frase: 'Solis, vamos conversar', dica: 'Com o pedido junto', tipo: 'pedido', s: 3.5 },
+  ...Array(8).fill({ frase: 'Solis', dica: 'De LONGE: uns 2 ou 3 metros do microfone', tipo: 'longe', s: 2.5 }),
+  ...Array(6).fill({ frase: 'Solis', dica: 'Baixinho', tipo: 'baixo', s: 2.5 }),
+  ...Array(5).fill({ frase: 'Solis!', dica: 'Rápido, animado', tipo: 'animado', s: 2.0 }),
+  ...Array(5).fill({ frase: 'Solis', dica: 'Devagar, ou meio cansado', tipo: 'devagar', s: 3.0 }),
+];
+const $ = (id) => document.getElementById(id);
+let i = 0, gravando = false, fluxo = null, contexto = null, analisador = null;
+
+function mostrar() {
+  if (i >= ROTEIRO.length) {
+    $('n').textContent = `${ROTEIRO.length} de ${ROTEIRO.length}`;
+    $('frase').textContent = 'Pronto! Obrigado.';
+    $('dica').textContent = 'Outra pessoa pode gravar também: troque o nome em cima e recarregue a página.';
+    $('gravar').disabled = true;
+    $('barra').style.width = '100%';
+    return;
+  }
+  const r = ROTEIRO[i];
+  $('n').textContent = `${i + 1} de ${ROTEIRO.length}`;
+  $('frase').textContent = r.frase;
+  $('dica').textContent = r.dica;
+  $('barra').style.width = `${(i / ROTEIRO.length) * 100}%`;
+}
+
+async function abrir() {
+  if (fluxo) return;
+  fluxo = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  contexto = new AudioContext();
+  analisador = contexto.createAnalyser();
+  analisador.fftSize = 512;
+  contexto.createMediaStreamSource(fluxo).connect(analisador);
+  const dados = new Uint8Array(analisador.fftSize);
+  (function medir() {
+    analisador.getByteTimeDomainData(dados);
+    let pico = 0;
+    for (const v of dados) pico = Math.max(pico, Math.abs(v - 128));
+    $('nivel').style.width = `${Math.min(100, (pico / 128) * 160)}%`;
+    requestAnimationFrame(medir);
+  })();
+}
+
+async function gravar() {
+  if (gravando || i >= ROTEIRO.length) return;
+  try { await abrir(); } catch { $('estado').innerHTML = '<span class="erro">Sem acesso ao microfone: libere no navegador.</span>'; return; }
+  gravando = true;
+  $('gravar').disabled = $('refazer').disabled = true;
+  const r = ROTEIRO[i];
+  const pedacos = [];
+  const gravador = new MediaRecorder(fluxo);
+  gravador.ondataavailable = (e) => e.data.size && pedacos.push(e.data);
+  const parou = new Promise((ok) => (gravador.onstop = ok));
+  gravador.start();
+  $('estado').innerHTML = '<b style="color:var(--accent)">Fale agora</b>';
+  await new Promise((ok) => setTimeout(ok, r.s * 1000));
+  gravador.stop();
+  await parou;
+  $('estado').textContent = 'Guardando…';
+  const quem = $('quem').value.trim() || 'Matheus';
+  const resp = await fetch(`/salvar?quem=${encodeURIComponent(quem)}&n=${i + 1}&tipo=${r.tipo}`, { method: 'POST', body: new Blob(pedacos) });
+  gravando = false;
+  $('gravar').disabled = $('refazer').disabled = false;
+  if (!resp.ok) { $('estado').innerHTML = '<span class="erro">Não guardou. Grave de novo.</span>'; return; }
+  $('estado').textContent = 'Guardado. Próximo:';
+  i += 1;
+  mostrar();
+}
+
+$('gravar').onclick = gravar;
+$('refazer').onclick = () => { if (i > 0 && !gravando) { i -= 1; mostrar(); $('estado').textContent = 'Grave essa de novo:'; } };
+document.addEventListener('keydown', (e) => { if (e.code === 'Space' && document.activeElement !== $('quem')) { e.preventDefault(); gravar(); } });
+mostrar();
+</script>
+</body>
+</html>

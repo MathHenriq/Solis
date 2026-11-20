@@ -6,3 +6,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 .venv-voz/
+
+# Os exemplos de voz pra treinar a palavra (design/gravar-solis): dados, nao codigo.
+design/_treino-solis/
