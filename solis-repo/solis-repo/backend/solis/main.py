@@ -1313,7 +1313,9 @@ async def ler_volta(conversa: int):
     fala da pessoa tem o "voltar atrás" (null: nada pra voltar)."""
     if not banco.existe(conversa):
         return JSONResponse({'erro': 'conversa_inexistente'}, status_code=404)
-    return {'ultima': banco.ultimo_ponto_mudado(conversa)}
+    # A do Claude (o checkpoint do CLI) ou a dos outros cérebros (as cópias do corpo).
+    ultimas = [u for u in (banco.ultimo_ponto_mudado(conversa), banco.ultima_copia(conversa)) if u is not None]
+    return {'ultima': max(ultimas) if ultimas else None}
 
 
 @app.post('/conversas/{conversa}/voltar')
@@ -1327,16 +1329,35 @@ async def voltar_atras(conversa: int, corpo: Volta):
     if corpo.conversa and not banco.mensagem_da_pessoa(conversa, corpo.desde):
         return JSONResponse({'erro': 'mensagem_inexistente'}, status_code=404)
     pontos = banco.pontos_desde(conversa, corpo.desde)
+    copias = banco.copias_desde(conversa, corpo.desde)
     r = {'arquivos': [], 'mais': 0, 'menos': 0, 'erros': []}
-    if pontos:
+
+    async def do_claude():
         from . import agente
+        return await agente.voltar(pontos, simular=corpo.simular)
+
+    async def dos_outros():
+        # As edições da Groq, do Gemini... pelo corpo (editar.py): as cópias do Solis.
+        from . import editar
+        return await asyncio.to_thread(editar.voltar, copias, corpo.simular)
+
+    # Um arquivo que o Claude e outro cérebro mudaram tem que terminar como
+    # estava antes da PRIMEIRA mudança: volta antes quem começou depois.
+    partes = [(min(p['mensagem'] for p in pontos), do_claude)] if pontos else []
+    if copias:
+        partes.append((banco.primeira_copia(conversa, corpo.desde), dos_outros))
+    for _, parte in sorted(partes, key=lambda x: x[0], reverse=True):
         try:
-            r = await agente.voltar(pontos, simular=corpo.simular)
-        except agente.AgenteFalhou as e:
-            return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)}, status_code=502)
+            uma = await parte()
+        except Exception as e:  # noqa: BLE001 — o CLI do Claude falhou: vira 502, como antes
+            return JSONResponse({'erro': 'nao_deu', 'motivo': str(e)[:300]}, status_code=502)
+        r['arquivos'] += [a for a in uma['arquivos'] if a not in r['arquivos']]
+        r['mais'] += uma['mais']
+        r['menos'] += uma['menos']
+        r['erros'] += uma['erros']
     if corpo.simular:
         return r
-    if pontos and not r['erros']:
+    if (pontos or copias) and not r['erros']:
         banco.limpar_pontos(conversa, corpo.desde)
     if r['arquivos']:
         banco.registrar_acao(conversa, 'voltar_atras', {'desde': corpo.desde, 'arquivos': r['arquivos']},

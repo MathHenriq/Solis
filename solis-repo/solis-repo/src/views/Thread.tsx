@@ -291,7 +291,7 @@ function FalaPessoa({
 }: {
   t: Turno;
   aoEditar?: (texto: string) => void;
-  /** O Claude mudou arquivo desta fala em diante: ela pode voltar atrás. */
+  /** Um cérebro mudou arquivo desta fala em diante: ela pode voltar atrás. */
   volta?: { conversa: number; aoVoltar: (comConversa: boolean) => void };
 }) {
   const [editando, definirEditando] = useState(false);
@@ -563,7 +563,7 @@ export function Thread({
     fala.narrar(lento);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lento]);
-  // Voltar atrás: a última fala depois da qual o Claude mudou arquivo (dela
+  // Voltar atrás: a última fala depois da qual um cérebro mudou arquivo (dela
   // pra trás, toda fala pode voltar). Relida no fim de cada resposta.
   const [ultimaVolta, definirUltimaVolta] = useState<number | null>(null);
   const [releVolta, definirReleVolta] = useState(0);

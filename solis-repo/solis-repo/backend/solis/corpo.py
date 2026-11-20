@@ -545,6 +545,12 @@ class Corpo:
             return saida
         if nome in editar.NOMES:
             faz = {'Read': editar.ler, 'Write': editar.escrever, 'Edit': editar.editar}[nome]
+            if nome != 'Read':
+                # O arquivo como estava, pro voltar atrás (o mesmo botão do Claude).
+                try:
+                    await asyncio.to_thread(editar.guardar_antes, self.conversa, entrada, info['pasta'])
+                except (OSError, editar.NaoDeu) as e:
+                    log.warning('corpo: não guardei a cópia pro voltar atrás (%s)', e)
             try:
                 saida, ok = await asyncio.to_thread(faz, entrada, info['pasta']), True
             except editar.NaoDeu as e:

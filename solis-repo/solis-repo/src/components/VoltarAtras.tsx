@@ -3,11 +3,14 @@ import { nomeDoArquivo } from '../etapas';
 import { voltarAtras, type Volta } from '../servidor';
 import { Botao } from './Controles';
 
-/** Voltar atrás, embaixo de uma fala da pessoa: o que o Claude mudou nos
+/** Voltar atrás, embaixo de uma fala da pessoa: o que o Claude (pelo checkpoint
+ *  do CLI dele) ou outro cérebro (pelas cópias do Solis, editar.py) mudou nos
  *  arquivos dela em diante volta a como estava antes dela — e, se o Matheus
  *  quiser, a conversa volta junto (a fala vai pro campo de novo, como no
  *  /rewind do Claude Code). Antes de voltar, mostra o que volta.
  *
+ *  O texto sem "o Claude" (agora volta o de qualquer cérebro): aprovado pelo Matheus em
+ *  19/11/2026 (design/voltar-corpo-validacao.png).
  *  Aprovado pelo Matheus em 13/11/2026 — desenho próprio (12/11/2026), base no Claude Code: o cartão
  *  de aprovação (--et-apr-*) com a borda neutra (layout.thread.etapas._rewind
  *  no solis-tokens.json). */
@@ -94,7 +97,7 @@ export function VoltarAtras({
 
       {estado.tipo === 'vendo' && (
         <div className="text-text-secondary" style={{ ...texto, marginTop: 6 }}>
-          Vendo o que o Claude mudou…
+          Vendo o que mudou…
         </div>
       )}
       {estado.tipo === 'erro' && (
@@ -118,7 +121,7 @@ export function VoltarAtras({
           </ul>
           <div className="text-text-secondary" style={{ ...texto, marginTop: 6 }}>
             {oQueMuda(volta, estado.tipo === 'feito')}
-            {estado.tipo !== 'feito' && ' Os comandos que o Claude rodou não voltam.'}
+            {estado.tipo !== 'feito' && ' Os comandos rodados no terminal não voltam.'}
           </div>
         </>
       )}

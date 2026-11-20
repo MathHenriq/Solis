@@ -412,6 +412,25 @@ MIGRACOES = [
     CREATE INDEX usos_quando ON usos (quando);
     CREATE INDEX usos_mensagem ON usos (mensagem);
     """,
+    # 22 — o voltar atrás dos outros cérebros (corpo.py, editar.py): o arquivo
+    # como estava antes da primeira mudança de cada fala da pessoa (a Groq, o
+    # Gemini...). O do Claude é o checkpoint do CLI dele (pontos_volta); este é
+    # do próprio Solis. `existia` 0: o arquivo foi criado (voltar apaga).
+    # Sem chave pra mensagens, como pontos_volta: editar apaga a fala, e o que
+    # mudou nela ainda tem que poder voltar.
+    """
+    CREATE TABLE copias_volta (
+        id       INTEGER PRIMARY KEY,
+        conversa INTEGER NOT NULL REFERENCES conversas(id) ON DELETE CASCADE,
+        mensagem INTEGER NOT NULL,
+        caminho  TEXT NOT NULL,
+        existia  INTEGER NOT NULL,
+        conteudo BLOB,
+        quando   TEXT NOT NULL,
+        UNIQUE (conversa, mensagem, caminho)
+    );
+    CREATE INDEX copias_volta_conversa ON copias_volta (conversa, mensagem);
+    """,
 ]
 
 
@@ -1504,6 +1523,45 @@ def limpar_pontos(conversa: int, mensagem: int) -> None:
     """Os arquivos voltaram: desses pontos em diante não há mais o que voltar."""
     with _con() as c:
         c.execute('UPDATE pontos_volta SET mudou = 0 WHERE conversa = ? AND mensagem >= ?', (conversa, mensagem))
+        c.execute('DELETE FROM copias_volta WHERE conversa = ? AND mensagem >= ?', (conversa, mensagem))
+
+
+def guardar_copia(conversa: int, caminho: str, existia: bool, conteudo: bytes | None) -> None:
+    """O arquivo antes de um cérebro pelo corpo mudar (editar.py), na fala de
+    agora (a última da pessoa). Só a primeira de cada fala conta: é o "antes
+    dela"; as mudanças seguintes na mesma fala não sobrescrevem."""
+    with _con() as c:
+        linha = c.execute(
+            "SELECT MAX(id) FROM mensagens WHERE conversa = ? AND papel = 'pessoa'", (conversa,)
+        ).fetchone()
+        if not linha or linha[0] is None:
+            return
+        c.execute(
+            'INSERT OR IGNORE INTO copias_volta (conversa, mensagem, caminho, existia, conteudo, quando) '
+            'VALUES (?, ?, ?, ?, ?, ?)', (conversa, linha[0], caminho, int(existia), conteudo, _agora()))
+
+
+def copias_desde(conversa: int, mensagem: int) -> list[dict]:
+    """Cada arquivo que um cérebro pelo corpo mudou da fala `mensagem` em
+    diante, como estava antes da primeira dessas mudanças."""
+    linhas = _con().execute(
+        'SELECT caminho, existia, conteudo FROM copias_volta WHERE conversa = ? AND mensagem >= ? '
+        'ORDER BY mensagem, id', (conversa, mensagem))
+    vistos: dict[str, dict] = {}
+    for caminho, existia, conteudo in linhas:
+        vistos.setdefault(caminho, {'caminho': caminho, 'existia': bool(existia), 'conteudo': conteudo})
+    return list(vistos.values())
+
+
+def primeira_copia(conversa: int, mensagem: int) -> int | None:
+    linha = _con().execute('SELECT MIN(mensagem) FROM copias_volta WHERE conversa = ? AND mensagem >= ?',
+                           (conversa, mensagem)).fetchone()
+    return linha[0] if linha else None
+
+
+def ultima_copia(conversa: int) -> int | None:
+    linha = _con().execute('SELECT MAX(mensagem) FROM copias_volta WHERE conversa = ?', (conversa,)).fetchone()
+    return linha[0] if linha else None
 
 
 # — Tarefas agendadas ————————————————————————————————————————————————————————————

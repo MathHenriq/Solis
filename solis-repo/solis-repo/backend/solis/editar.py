@@ -128,6 +128,50 @@ def editar(entrada: dict, projeto: str | None) -> str:
     return f'Editei {p}' + (f' ({vezes} trocas).' if vezes > 1 else '.')
 
 
+def guardar_antes(conversa: int | None, entrada: dict, projeto: str | None) -> None:
+    """Antes de Write/Edit: o arquivo como está, pro voltar atrás (banco.copias_volta).
+    Só a primeira mudança de cada fala conta (o banco ignora as seguintes)."""
+    from . import banco
+    if conversa is None:
+        return
+    p = caminho(entrada, projeto)
+    existia = p.is_file()
+    banco.guardar_copia(conversa, str(p), existia, p.read_bytes() if existia else None)
+
+
+def voltar(copias: list[dict], simular: bool = False) -> dict:
+    """Os arquivos voltam a como estavam (banco.copias_desde): reescritos, ou
+    apagados se não existiam. `simular`: só diz o que voltaria. O mesmo formato
+    do voltar do Claude (agente.voltar): {arquivos, mais, menos, erros}."""
+    import difflib
+    arquivos: list[str] = []
+    mais = menos = 0
+    erros: list[str] = []
+    for c in copias:
+        p = Path(c['caminho'])
+        hoje = p.read_bytes().decode('utf-8', 'replace') if p.is_file() else ''
+        antes = (c['conteudo'] or b'').decode('utf-8', 'replace') if c['existia'] else ''
+        if hoje == antes and p.is_file() == c['existia']:
+            continue
+        for linha in difflib.unified_diff(hoje.splitlines(), antes.splitlines(), lineterm='', n=0):
+            if linha.startswith('+') and not linha.startswith('+++'):
+                mais += 1
+            elif linha.startswith('-') and not linha.startswith('---'):
+                menos += 1
+        arquivos.append(str(p))
+        if simular:
+            continue
+        try:
+            if c['existia']:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(c['conteudo'] or b'')
+            elif p.is_file():
+                p.unlink()
+        except OSError as e:
+            erros.append(f'{p}: {e}')
+    return {'arquivos': arquivos, 'mais': mais, 'menos': menos, 'erros': erros}
+
+
 def escrever(entrada: dict, projeto: str | None) -> str:
     p = caminho(entrada, projeto)
     if p.is_dir():

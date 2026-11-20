@@ -89,6 +89,7 @@ def test_o_historico_entra_uma_vez_quando_o_registro_nasce(tmp_path):
     con.execute('DELETE FROM usos')
     con.execute('PRAGMA user_version = 20')
     con.execute('DROP TABLE usos')
+    con.execute('DROP TABLE copias_volta')
     cid = banco.nova_conversa()
     mid = banco.adicionar(cid, 'solis', 'oi', cerebro='claude')
     banco.guardar_etapas(mid, [{'etapa': 'ferramenta', 'ferramenta': 'Bash', 'ok': False},

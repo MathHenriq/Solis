@@ -1109,6 +1109,18 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      os testes rodam o Git Bash de verdade (o comando lê o JSON da entrada e sai com 0, 2 e 1) e o
      PowerShell de reserva; nos prints, `exit 2` deu o "bloqueia" em 0,2 s. **Aprovado pelo
      Matheus em 19/11/2026** (`design/hooks-tempo-teste-validacao.png`).
+   - **Fechar a paridade, 6: voltar atrás das edições dos outros cérebros (19/11/2026).** O botão
+     "voltar atrás" da fala só desfazia o que o Claude mudou (o checkpoint do CLI dele). Agora o
+     Solis guarda, antes de Write e Edit pelo corpo, o arquivo como estava (migração 22,
+     `banco.copias_volta`: a primeira mudança de cada fala da pessoa; arquivo criado guarda que não
+     existia), e o mesmo botão volta (`editar.voltar`): reescreve a cópia, ou apaga o que foi
+     criado, e mostra antes o que volta, no formato do Claude ("1 linha sai e 1 linha volta"). As
+     duas fontes juntas na mesma rota: o botão aparece quando qualquer cérebro mudou arquivo, e um
+     arquivo que o Claude e outro cérebro mudaram termina como antes da primeira mudança (volta
+     antes quem começou depois). O painel perdeu o "o Claude" do texto ("Vendo o que mudou…", "Os
+     comandos rodados no terminal não voltam"). Provado pela tela, com o servidor de teste: um
+     `conta.py` que a Groq tinha mudado pra `def somar` voltou a `def soma` no disco, e o botão
+     sumiu. **Texto aprovado pelo Matheus em 19/11/2026** (`design/voltar-corpo-validacao.png`).
 
 ### Controle do PC e visão da tela
 
