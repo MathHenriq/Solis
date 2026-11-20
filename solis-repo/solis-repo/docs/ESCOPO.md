@@ -1065,6 +1065,17 @@ O primeiro marco da `VISAO.md`: o Matheus parar de usar o Claude Desktop.
      miniaturas. Medido nos prints (3 temas × 2 navs, dados inventados): 64×64, 8 px entre elas,
      o x a 4 px da borda. **Aprovado pelo Matheus em 19/11/2026**
      (`design/anexo-miniatura-validacao.png`).
+   - **Fechar a paridade, 3: o aviso de cota do Claude na conversa (19/11/2026).** O Claude
+     Desktop avisa antes de a sessão acabar; o Solis só mostrava a cota em Configurações → Uso.
+     Agora, a partir de 90% da sessão de 5 h ou de uma semana, uma linha na fileira acima do
+     campo, à direita, no jeito do "1 comando em segundo plano" (`AvisoCota.tsx`): "Sessão do
+     Claude em 92% · volta às 18:00", e "A sessão do Claude acabou · volta às 18:00" com o ponto
+     vermelho; passando o mouse, que o próximo cérebro da ordem responde. Confere ao abrir a
+     conversa e depois de cada resposta do próprio Claude (o `/usage` abre o CLI dele; nas
+     respostas da Groq e dos outros, não). Medido nos prints (a cota inventada, 92% e 100%, 3
+     temas × 2 navs): na linha e na altura (28 px) do "Sem projeto", a 12 px da borda do campo,
+     13 px na cor secundária. **Aprovado pelo Matheus em 19/11/2026**
+     (`design/aviso-cota-validacao.png`).
 
 ### Controle do PC e visão da tela
 

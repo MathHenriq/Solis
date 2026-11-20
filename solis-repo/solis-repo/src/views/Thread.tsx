@@ -15,6 +15,7 @@ import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { BotaoConversa } from '../components/BotaoConversa';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
+import { AvisoCota } from '../components/AvisoCota';
 import { ComandosFundo } from '../components/ComandosFundo';
 import { EscolhaClaude } from '../components/EscolhaClaude';
 import { EscolhaEstilo } from '../components/EscolhaEstilo';
@@ -735,7 +736,11 @@ export function Thread({
           style={{ width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto', gap: 16 }}
         >
           <BarraProjeto conversa={conversa} respondendo={respondendo} />
-          <div className="ml-auto" style={{ marginBottom: 6, paddingRight: 12 }}>
+          <div className="ml-auto flex items-center" style={{ marginBottom: 6, paddingRight: 12, gap: 16 }}>
+            <AvisoCota
+              respondendo={respondendo}
+              ultimoCerebro={[...turnos].reverse().find((t) => t.de === 'solis')?.cerebro}
+            />
             <ComandosFundo conversa={conversa} comandos={fundo.comandos} />
           </div>
         </div>
