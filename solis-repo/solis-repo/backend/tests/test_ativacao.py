@@ -663,3 +663,41 @@ def test_o_log_diz_quando_a_escuta_pausa_e_volta(monkeypatch, caplog):
     assert 'escuta: conectada' in textos and 'escuta: pausada (o Solis falando)' in textos
     assert any(t.startswith('escuta: voltou a ouvir depois de') for t in textos)
     assert 'escuta: desconectada (estava pausada)' in textos
+
+
+def test_com_o_microfone_do_windows_a_escuta_ouve_pelo_servidor_e_nao_cede(monkeypatch):
+    """21/11/2026: aberto na janela, o microfone estragava o som do Discord; aberto
+    direto do Windows pelo servidor (microfone_nativo.py), o Discord ficou normal e
+    o Solis ouviu. A tela não abre o dela, e o Discord no microfone não muda nada."""
+    import asyncio as _asyncio
+
+    from solis import microfone, microfone_nativo
+    monkeypatch.setattr(microfone, 'NATIVO', True)
+    monkeypatch.setattr(microfone, 'CEDER', True)
+    fechou = []
+
+    class GravadorFalso:
+        def abrir(self, laco, fila):
+            # O "microfone": a palavra, aos pedaços de 64 ms, como o waveIn manda.
+            pcm = palavra().tobytes()
+            for i in range(0, len(pcm), 2048):
+                laco.call_soon_threadsafe(fila.put_nowait, pcm[i:i + 2048])
+
+        def fechar(self):
+            fechou.append(True)
+    monkeypatch.setattr(microfone_nativo, 'Gravador', GravadorFalso)
+    motor = MotorFalso()
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))
+    microfone.vigia.outros = ['Discord']
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta', 'microfone': 'servidor'}
+        assert ws.receive_json() == {'tipo': 'ativou'}
+    import time as _time
+    for _ in range(150):  # o servidor fecha o microfone logo depois de a conexão cair
+        if fechou:
+            break
+        _time.sleep(0.02)
+    assert fechou == [True]
+    microfone.vigia.outros = []

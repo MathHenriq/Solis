@@ -34,6 +34,11 @@ SCRIPT = Path(__file__).with_name('microfone_vigia.ps1')
 # Teste 1 de 21/11/2026 (o som da escuta a 48 kHz em vez de 16): a voz DELE pros
 # amigos ficou ruim e abafada — pior. Voltou a ceder.
 CEDER = os.environ.get('SOLIS_CEDER_MICROFONE', '1') == '1'
+# O microfone aberto direto do Windows pelo servidor (microfone_nativo.py), em
+# vez da janela. Testado com o Matheus numa chamada do Discord (21/11/2026): o
+# Discord ficou normal dos dois lados e o Solis ouviu e respondeu. Nesse modo a
+# escuta não cede a ninguém. SOLIS_ESCUTA_NATIVA=0 volta pra janela.
+NATIVO = os.name == 'nt' and os.environ.get('SOLIS_ESCUTA_NATIVA', '1') == '1'
 
 
 class Vigia:
@@ -69,7 +74,8 @@ class Vigia:
             return
         try:
             self._proc = subprocess.Popen(
-                ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT)],
+                ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
+                 '-PidDoSolis', str(os.getpid())],  # o próprio servidor (o microfone nativo) não conta
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         except OSError:
@@ -108,9 +114,9 @@ class Vigia:
             return
         if outros:
             log.info('microfone: %s está usando; %s', ', '.join(outros),
-                     'a escuta solta' if CEDER else 'a escuta continua junto')
+                     'a escuta solta' if CEDER and not NATIVO else 'a escuta continua junto')
         else:
-            log.info('microfone: livre de novo%s', '; a escuta volta' if CEDER else '')
+            log.info('microfone: livre de novo%s', '; a escuta volta' if CEDER and not NATIVO else '')
         self.outros = outros
         laco = self._laco
         if laco is None:

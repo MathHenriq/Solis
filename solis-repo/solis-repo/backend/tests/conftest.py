@@ -10,6 +10,14 @@ def banco_temporario(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def sem_microfone_de_verdade(monkeypatch):
+    """Nenhum teste abre o microfone do PC (microfone_nativo.py): a escuta dos
+    testes recebe o áudio pela "tela", como sempre."""
+    from solis import microfone
+    monkeypatch.setattr(microfone, 'NATIVO', False)
+
+
+@pytest.fixture(autouse=True)
 def sem_ollama_de_verdade(monkeypatch):
     """Nenhum teste sai pra rede atrás do Ollama. Por padrão as chamadas de fundo
     (embeddings, extração, resumo) dão "indisponível" — que é também o caminho de

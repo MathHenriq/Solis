@@ -73,6 +73,20 @@ function bipe(contexto: AudioContext) {
   o.stop(contexto.currentTime + 0.2);
 }
 
+/** O bipe com o microfone no servidor (backend/solis/microfone_nativo.py): sem o
+ *  contexto do microfone, um só de som, na taxa normal do aparelho, aberto na hora
+ *  e fechado depois — o som da janela tocando (a voz do Solis, o bipe) não
+ *  atrapalhou o Discord no teste de 21/11/2026; o microfone dela, sim. */
+function bipeSoSom() {
+  try {
+    const so = new AudioContext();
+    bipe(so);
+    window.setTimeout(() => void so.close(), 400);
+  } catch {
+    // Sem som: o estado "ouvindo" na tela continua avisando.
+  }
+}
+
 export type EstadoEscuta = 'desligada' | 'esperando' | 'ouvindo' | 'erro';
 
 /** `suspensa`: desligada por enquanto (o modo Conversa, com o microfone dele). */
@@ -233,8 +247,15 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
         tentativa = 0;
       };
       ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; motivo?: string };
-        if (msg.tipo === 'pronta') {
+        const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; motivo?: string; microfone?: string };
+        if (msg.tipo === 'pronta' && msg.microfone === 'servidor') {
+          // O servidor grava direto do Windows (backend/solis/microfone_nativo.py):
+          // a janela não abre o microfone dela — aberto aqui, ele estragava o som
+          // do Discord (21/11/2026).
+          cedida = false;
+          fecharMicrofone();
+          definirEstado('esperando');
+        } else if (msg.tipo === 'pronta') {
           // Conexão nova começa do zero: o "ceder" de uma conexão antiga (o
           // servidor reiniciou no meio de uma chamada) deixava o microfone
           // fechado pra sempre — o servidor novo nunca mandaria o "retomar"
@@ -253,6 +274,7 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
         } else if (msg.tipo === 'ativou') {
           definirEstado('ouvindo');
           if (contexto) bipe(contexto);
+          else bipeSoSom();
           definirFonte(analisador);
         } else if (msg.tipo === 'texto') {
           definirFonte(null);

@@ -2256,30 +2256,56 @@ async def escuta(ws: WebSocket):
     fila = microfone.vigia.entrar()
     vigiando = None
 
+    # O microfone direto do Windows (microfone_nativo.py, 21/11/2026): o servidor
+    # grava e a tela não abre o dela — aberto na janela, ele estragava o som do
+    # Discord. Nesse modo a escuta não sai do caminho de ninguém.
+    nativo = None
+    audio_nativo: asyncio.Queue = asyncio.Queue()
+    if microfone.NATIVO:
+        from . import microfone_nativo
+        nativo = microfone_nativo.Gravador()
+        try:
+            await asyncio.to_thread(nativo.abrir, asyncio.get_running_loop(), audio_nativo)
+        except Exception as e:  # noqa: BLE001 — sem o nativo, a escuta segue pela tela
+            log.warning('escuta: o microfone do Windows não abriu (%s); segue pela tela', e)
+            nativo = None
+
     async def vigiar():
         nonlocal cedida
         while True:
             outros = await fila.get()
-            if not microfone.CEDER:
-                continue  # a escuta continua junto (microfone.CEDER)
+            if not microfone.CEDER or nativo is not None:
+                continue  # a escuta continua junto (microfone.CEDER, ou o microfone nativo)
             if outros and not cedida:
                 cedida = True
                 await ws.send_json({'tipo': 'ceder', 'por': outros})
             elif not outros and cedida:
                 cedida = False
                 await ws.send_json({'tipo': 'retomar'})
+    t_ws = t_audio = None
     try:
         # Quem está no microfone agora, antes da tela abrir o dela.
         await microfone.vigia.primeira_leitura()
-        if microfone.vigia.outros and microfone.CEDER:
+        if microfone.vigia.outros and microfone.CEDER and nativo is None:
             cedida = True
             await ws.send_json({'tipo': 'ceder', 'por': microfone.vigia.outros})
         vigiando = asyncio.create_task(vigiar())
         # A tela só abre o microfone depois disto: escuta que não funciona (falta o
         # modelo, por exemplo) não pode deixar o microfone do PC aberto à toa.
-        await ws.send_json({'tipo': 'pronta'})
+        # Com o microfone nativo, a tela não abre o dela ("microfone": "servidor").
+        await ws.send_json({'tipo': 'pronta', **({'microfone': 'servidor'} if nativo is not None else {})})
         while True:
-            msg = await ws.receive()
+            if nativo is None:
+                msg = await ws.receive()
+            else:
+                # O que chegar primeiro: um pedido da tela (pausa) ou um pedaço do microfone.
+                t_ws = t_ws or asyncio.ensure_future(ws.receive())
+                t_audio = t_audio or asyncio.ensure_future(audio_nativo.get())
+                feitos, _ = await asyncio.wait({t_ws, t_audio}, return_when=asyncio.FIRST_COMPLETED)
+                if t_ws in feitos:
+                    msg, t_ws = t_ws.result(), None
+                else:
+                    msg, t_audio = {'bytes': t_audio.result()}, None
             if msg.get('type') == 'websocket.disconnect':
                 break
             if msg.get('text'):
@@ -2380,6 +2406,13 @@ async def escuta(ws: WebSocket):
     finally:
         if vigiando is not None:
             vigiando.cancel()
+        for t in (t_ws, t_audio):
+            if t is not None:
+                t.cancel()
+        if nativo is not None:
+            # Direto, sem esperar uma thread: com a conexão cancelada (o servidor
+            # reiniciando), um await aqui não roda, e o microfone ficaria aberto.
+            nativo.fechar()
         microfone.vigia.sair(fila)
         log.info('escuta: desconectada' + (' (estava pausada)' if pausada else ''))
         escutando.fechar()

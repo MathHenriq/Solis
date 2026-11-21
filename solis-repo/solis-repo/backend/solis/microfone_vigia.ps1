@@ -2,7 +2,10 @@
 # programas com uma sessão de captura ATIVA em qualquer microfone do Windows,
 # uma linha JSON por mudança ({"outros": ["Discord"]}). Fora: o sistema (pid 0),
 # o audiodg e o próprio Solis (o WebView2 dele, que tem com.solis.app na linha
-# de comando). Pelo PowerShell, como o OCR: é do sistema e já vem assinado.
+# de comando) e o servidor do Solis (o pid que vem no argumento: desde 21/11/2026
+# ele grava o microfone direto, microfone_nativo.py). Pelo PowerShell, como o
+# OCR: é do sistema e já vem assinado.
+param([int]$PidDoSolis = 0)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -64,7 +67,7 @@ while ($true) {
     try {
         foreach ($p in [VigiaMicrofone]::Ativos()) {
             $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
-            if (-not $proc -or $proc.ProcessName -eq 'audiodg') { continue }
+            if (-not $proc -or $proc.ProcessName -eq 'audiodg' -or $p -eq $PidDoSolis) { continue }
             if ($proc.ProcessName -eq 'msedgewebview2') {
                 if (-not $doSolis.ContainsKey($p)) {
                     $linha = (Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue).CommandLine
