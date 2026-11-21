@@ -26,6 +26,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+from collections import deque
+
 import numpy as np
 
 from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, rapidas, resumo, roteador, transcricao, voz
@@ -2047,6 +2049,36 @@ def _palavra_sombra():
     return None
 
 
+# As amostras ao vivo (21/11/2026, autorizado pelo Matheus): o detector treinado
+# acertou 32/32 nas gravações e só 1 de 6 chamadas de verdade no modo sombra.
+# Pra saber o que muda no áudio ao vivo (e treinar com ele), a escuta guarda no
+# PC dele — nunca manda pra lugar nenhum — o trecho que o Whisper ouviu com o
+# "Solis" ('whisper') e os 3 s de quando o detector acordaria sozinho
+# ('palavra': os alarmes falsos). No máximo AMOSTRAS_VIVAS_MAX de cada.
+AMOSTRAS_VIVAS = palavra.PASTA.parent / 'amostras-solis'
+AMOSTRAS_VIVAS_MAX = 400
+
+
+def _guardar_amostra_viva(tipo: str, pcm: 'np.ndarray', nota: float) -> None:
+    if os.environ.get('SOLIS_AMOSTRAS_VIVAS', '1') == '0' or not len(pcm):
+        return
+    import wave
+    try:
+        pasta = AMOSTRAS_VIVAS / f'vivo-{tipo}'
+        pasta.mkdir(parents=True, exist_ok=True)
+        existentes = sorted(pasta.glob('*.wav'))
+        for velho in existentes[:max(0, len(existentes) - AMOSTRAS_VIVAS_MAX + 1)]:
+            velho.unlink(missing_ok=True)
+        nome = time.strftime('%Y%m%d-%H%M%S') + f'-{int(nota * 100):03d}.wav'
+        with wave.open(str(pasta / nome), 'wb') as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(ativacao.TAXA)
+            w.writeframes(pcm.astype(np.int16).tobytes())
+    except OSError:
+        log.warning('escuta: não guardei a amostra ao vivo', exc_info=True)
+
+
 def _aquecer_whisper(pequeno: bool = False) -> None:
     """Sobe (em segundo plano) quem vai conferir a palavra: o Whisper pequeno
     com a Groq transcrevendo o pedido (transcricao.py), ou o turbo daqui (offline)."""
@@ -2218,6 +2250,7 @@ async def escuta(ws: WebSocket):
     sombra = await asyncio.to_thread(_palavra_sombra)
     sombra_ultimo = sombra_disparo = -99.0
     sombra_seguidas, sombra_pico = 0, 0.0
+    recente: deque = deque(maxlen=ativacao.TAXA * 3)  # os últimos 3 s, pras amostras ao vivo
     # Outro programa no microfone (o Discord numa chamada): a tela solta o
     # microfone e o som da escuta, e volta quando ele soltar (microfone.py).
     fila = microfone.vigia.entrar()
@@ -2273,9 +2306,10 @@ async def escuta(ws: WebSocket):
             if pausada or cedida or not msg.get('bytes'):
                 continue
             if sombra is not None:
+                pcm = np.frombuffer(msg['bytes'][:len(msg['bytes']) // 2 * 2], dtype=np.int16)
+                recente.extend(pcm.tolist())
                 try:
-                    notas = await asyncio.to_thread(sombra.alimentar, np.frombuffer(msg['bytes'][:len(msg['bytes']) // 2 * 2],
-                                                                                 dtype=np.int16))
+                    notas = await asyncio.to_thread(sombra.alimentar, pcm)
                 except Exception:  # noqa: BLE001 — a sombra nunca derruba a escuta
                     log.exception('escuta: a palavra treinada falhou; segue sem ela')
                     notas, sombra = [], None
@@ -2286,6 +2320,8 @@ async def escuta(ws: WebSocket):
                     if sombra_seguidas >= palavra.PACIENCIA and sombra_ultimo - sombra_disparo > 1.5:
                         sombra_disparo = sombra_ultimo
                         log.info('escuta: a palavra treinada acordaria (nota %.2f)', sombra_pico)
+                        # Os últimos 3 s (o que ela achou que era "Solis"): pros alarmes falsos.
+                        _guardar_amostra_viva('palavra', np.array(recente, dtype=np.int16), sombra_pico)
             # Gerador: cada decisão (confirmar/descartar) vale já pro quadro seguinte.
             for tipo, audio in escutando.alimentar(msg['bytes']):
                 if tipo == 'ativou':
@@ -2312,8 +2348,11 @@ async def escuta(ws: WebSocket):
                     # dito: pra achar a próxima ativação sem chamada (19/11/2026).
                     log.info('escuta: ativou com %r', ativacao.como_chamou(ouvido))
                     if sombra is not None:
-                        log.info('escuta: a palavra treinada %s', 'também ouviu' if sombra_ultimo - sombra_disparo < 4
-                                 else 'NÃO ouviu')
+                        ouviu = sombra_ultimo - sombra_disparo < 4
+                        log.info('escuta: a palavra treinada %s', 'também ouviu' if ouviu else 'NÃO ouviu')
+                        # O trecho que o Whisper ouviu (com o "Solis"): o positivo ao vivo.
+                        _guardar_amostra_viva('whisper', np.frombuffer(audio[44:], dtype=np.int16),
+                                              1.0 if ouviu else 0.0)
                     # "Solis, ." (o ruído virou ponto): vale como só "Solis".
                     resto = resto if ativacao.tem_fala(resto) else ''
                     await ws.send_json({'tipo': 'ativou'})

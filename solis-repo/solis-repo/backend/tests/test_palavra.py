@@ -45,3 +45,23 @@ def test_a_escuta_sem_a_palavra_treinada_segue_sem_sombra(monkeypatch):
     from solis import main
     monkeypatch.setenv('SOLIS_PALAVRA_SOMBRA', '0')
     assert main._palavra_sombra() is None
+
+
+def test_a_amostra_ao_vivo_fica_no_pc_com_teto(monkeypatch, tmp_path):
+    """Autorizado pelo Matheus (21/11/2026): o trecho com o "Solis" ao vivo fica
+    na pasta de voz dele, pra treinar o detector; nunca sai do PC; e tem teto."""
+    import wave
+
+    from solis import main
+    monkeypatch.setattr(main, 'AMOSTRAS_VIVAS', tmp_path)
+    monkeypatch.setattr(main, 'AMOSTRAS_VIVAS_MAX', 3)
+    pcm = (np.sin(np.arange(16000) / 5) * 3000).astype(np.int16)
+    for _ in range(5):
+        main._guardar_amostra_viva('whisper', pcm, 0.0)
+    guardadas = sorted((tmp_path / 'vivo-whisper').glob('*.wav'))
+    assert 1 <= len(guardadas) <= 3
+    with wave.open(str(guardadas[-1])) as w:
+        assert (w.getframerate(), w.getnchannels(), w.getnframes()) == (16000, 1, 16000)
+    monkeypatch.setenv('SOLIS_AMOSTRAS_VIVAS', '0')
+    main._guardar_amostra_viva('palavra', pcm, 0.9)
+    assert not (tmp_path / 'vivo-palavra').exists()
