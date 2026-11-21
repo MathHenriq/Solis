@@ -100,3 +100,33 @@ def test_busca_sem_resultado_diz_por_que():
     with pytest.raises(web.NaoLeu, match='não trouxe resultados'):
         asyncio.run(web.ler('https://www.bing.com/search?q=xyz',
                             httpx.MockTransport(lambda r: httpx.Response(200, html='<html><body>nada</body></html>'))))
+
+
+def test_pela_voz_a_pagina_vem_curta_e_no_maximo_duas_leituras(monkeypatch):
+    """21/11/2026: pela voz a Groq leu 5 páginas pro dólar e levou 59 s. Pela
+    voz: a página vem curta (TEXTO_MAX_VOZ) e, na terceira leitura, o Solis manda
+    responder com o que já leu."""
+    lidas = []
+
+    async def ler(url, transporte=None):
+        lidas.append(url)
+        return url, 'Página', 'x' * 9000
+    monkeypatch.setattr(web, 'ler', ler)
+
+    class Gravador:
+        def __init__(self):
+            self.lista = []
+
+        def marcar(self, etapa, **dados):
+            self.lista.append((etapa, dados))
+    c = corpo.Corpo(1, Gravador(), navegar=False, cerebro='groq')
+    c.voz = True
+    primeira = asyncio.run(c.rodar('WebFetch', {'url': 'https://a.com'}))
+    assert f'aqui vão os {web.TEXTO_MAX_VOZ} primeiros' in primeira
+    asyncio.run(c.rodar('WebFetch', {'url': 'https://b.com'}))
+    terceira = asyncio.run(c.rodar('WebFetch', {'url': 'https://c.com'}))
+    assert lidas == ['https://a.com', 'https://b.com'] and 'responda agora' in terceira
+    # Pela tela, sem teto e com a página inteira.
+    c2 = corpo.Corpo(1, Gravador(), navegar=False, cerebro='groq')
+    for u in ('https://d.com', 'https://e.com', 'https://f.com'):
+        assert 'x' * 9000 in asyncio.run(c2.rodar('WebFetch', {'url': u}))

@@ -693,6 +693,8 @@ async def responder(
             else:
                 # Groq, Gemini...: o corpo do Solis (as ferramentas e o navegador).
                 proprio = corpo.Corpo(conversa, etapas, cerebro=nome) if nome in com_o_corpo else None
+                if proprio is not None:
+                    proprio.voz = voz
                 navegar = bool(proprio and proprio.navegar)
                 terminal = bool(proprio and proprio.terminal)
                 arquivos = bool(proprio and proprio.arquivos)

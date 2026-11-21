@@ -222,6 +222,7 @@ class _EtapasDoAjudante:
 # Ler uma página (web.py): o mesmo nome do WebFetch do Claude (livre; a tela
 # conta como "fonte lida" e diz "Li a página X").
 WEBFETCH = 'WebFetch'
+LEITURAS_VOZ = 2   # leituras de página por resposta falada (a busca conta como uma)
 _WEBFETCH_SPEC = ('Lê o texto principal de uma página da internet pra você, sem abrir janela (devolve o título e o '
                   'texto, até 10 mil caracteres). Use pra ler uma fonte, um artigo, uma documentação. Pra abrir um '
                   'site pro Matheus ver, use o navegador.',
@@ -472,6 +473,10 @@ class Corpo:
         self.sistema = ''
         # O modelo do Ollama, quando o cérebro é o local (o ajudante roda nele).
         self.modelo: str | None = None
+        # O pedido veio pela voz: a página lida vai mais curta (web.TEXTO_MAX_VOZ),
+        # e no máximo LEITURAS_VOZ leituras por resposta.
+        self.voz = False
+        self.leituras = 0
         self.transporte = None  # o do pedido do cérebro (apis.responder põe aqui; nos testes, o simulado)
         self._skills: list[dict] | None = None
         # As ordens escondidas tiradas do texto de fora (injecao.py): o Solis
@@ -646,9 +651,17 @@ class Corpo:
             return _cortar(saida)
         if nome == WEBFETCH:
             from . import web
+            # Pela voz, no máximo LEITURAS_VOZ (21/11/2026): mandado "uma busca e no
+            # máximo uma página", a Groq leu 5 páginas pro dólar e levou 59 s.
+            if self.voz and self.leituras >= LEITURAS_VOZ:
+                self._marcar(id_, nome, entrada, pagina, ok=False)
+                return (f'Pela voz, já foram {LEITURAS_VOZ} leituras: responda agora, em voz alta, com o que você já '
+                        'leu (o trecho da busca vale), ou diga em uma frase o que não achou.')
+            self.leituras += 1
             try:
                 final, titulo, texto = await web.ler(str(entrada.get('url') or ''))
-                saida, ok = web.para_o_modelo(final, titulo, texto), True
+                saida, ok = web.para_o_modelo(final, titulo, texto,
+                                              web.TEXTO_MAX_VOZ if self.voz else web.TEXTO_MAX), True
             except web.NaoLeu as e:
                 saida, ok = f'Não li a página: {e}.', False
             self._marcar(id_, nome, entrada, pagina, ok)

@@ -21,6 +21,10 @@ from urllib.parse import parse_qs, quote_plus, urlsplit
 from . import conhecimento
 
 TEXTO_MAX = 10_000   # caracteres da página que vão pro modelo (o resto, cortado com aviso)
+# Pela voz (21/11/2026): com a página inteira, cada leitura comia quase metade do
+# minuto grátis da Groq, e a pergunta falada levava 16 a 49 s. A resposta falada
+# é uma ou duas frases: o começo da página basta.
+TEXTO_MAX_VOZ = 3_500
 
 
 class NaoLeu(Exception):
@@ -126,10 +130,10 @@ async def ler(url: str, transporte=None) -> tuple[str, str, str]:
     return final, nome, texto
 
 
-def para_o_modelo(final: str, titulo: str, texto: str) -> str:
+def para_o_modelo(final: str, titulo: str, texto: str, limite: int = TEXTO_MAX) -> str:
     """O cabeçalho (o endereço e o título) e o texto, cortado se passar do limite."""
     corte = ''
-    if len(texto) > TEXTO_MAX:
-        corte = f'\n\n[cortado: a página tinha {len(texto)} caracteres; aqui vão os {TEXTO_MAX} primeiros]'
-        texto = texto[:TEXTO_MAX]
+    if len(texto) > limite:
+        corte = f'\n\n[cortado: a página tinha {len(texto)} caracteres; aqui vão os {limite} primeiros]'
+        texto = texto[:limite]
     return f'- Page URL: {final}\n- Page Title: {titulo}\n\n{texto}{corte}'
