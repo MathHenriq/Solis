@@ -31,6 +31,8 @@ SCRIPT = Path(__file__).with_name('microfone_vigia.ps1')
 # chamadas normais, mas a voz dos amigos no Discord ficou esquisita de novo
 # (o mesmo de 19/11) — ligado de volta na hora, até achar a causa. Ligado, quem
 # passa o dia num canal de voz fica com o Solis surdo. SOLIS_CEDER_MICROFONE=0 desliga.
+# Teste 1 de 21/11/2026 (o som da escuta a 48 kHz em vez de 16): a voz DELE pros
+# amigos ficou ruim e abafada — pior. Voltou a ceder.
 CEDER = os.environ.get('SOLIS_CEDER_MICROFONE', '1') == '1'
 
 
