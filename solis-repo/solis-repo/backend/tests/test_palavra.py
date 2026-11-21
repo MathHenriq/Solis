@@ -22,3 +22,26 @@ def test_uma_nota_a_cada_80_ms_e_silencio_da_nota_baixa():
     assert len(o.alimentar(np.zeros(640, dtype=np.int16))) == 1  # a sobra completa o 13º
     ruido = np.random.default_rng(1).integers(-3000, 3000, 32000).astype(np.int16)
     assert max(o.alimentar(ruido)) < 0.5
+
+
+def test_a_camada_treinada_aqui_da_a_mesma_nota_do_treino(tmp_path):
+    """O modelo do "Solis" treinado no PC (design/gravar-solis/treinar_local.py,
+    numpy, .npz): a nota dentro do Solis é a mesma conta do treino."""
+    rng = np.random.default_rng(3)
+    pesos = {'W1': rng.standard_normal((1536, 8)).astype(np.float32), 'b1': rng.standard_normal(8).astype(np.float32),
+             'W2': rng.standard_normal((8, 1)).astype(np.float32), 'b2': np.zeros(1, np.float32),
+             'media': rng.standard_normal(1536).astype(np.float32), 'desvio': np.ones(1536, np.float32)}
+    np.savez(tmp_path / 'solis.npz', **pesos)
+    camada = palavra._Camada(tmp_path / 'solis.npz')
+    x = rng.standard_normal((1, 16, 96)).astype(np.float32)
+    z = x.reshape(1, -1) - pesos['media']
+    esperado = 1 / (1 + np.exp(-(np.maximum(z @ pesos['W1'] + pesos['b1'], 0) @ pesos['W2'])[0, 0]))
+    assert abs(camada.nota(x) - esperado) < 1e-5
+    with pytest.raises(palavra.SemModelo, match='solis.npz'):
+        palavra._Camada(tmp_path / 'nao' / 'solis.npz')
+
+
+def test_a_escuta_sem_a_palavra_treinada_segue_sem_sombra(monkeypatch):
+    from solis import main
+    monkeypatch.setenv('SOLIS_PALAVRA_SOMBRA', '0')
+    assert main._palavra_sombra() is None

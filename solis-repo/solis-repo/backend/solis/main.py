@@ -26,7 +26,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, pc, rapidas, resumo, roteador, transcricao, voz
+import numpy as np
+
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, rapidas, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -2031,6 +2033,20 @@ def _aquecer() -> None:
         tarefa.add_done_callback(_tarefas.discard)
 
 
+def _palavra_sombra():
+    """O ouvido da palavra treinada pra escuta em modo sombra, ou None (sem o
+    modelo, ou SOLIS_PALAVRA_SOMBRA=0)."""
+    if os.environ.get('SOLIS_PALAVRA_SOMBRA', '1') == '0':
+        return None
+    try:
+        return palavra.Ouvido(palavra.MODELO_SOLIS)
+    except palavra.SemModelo as e:
+        log.info('escuta: sem a palavra treinada (%s)', e)
+    except Exception:  # noqa: BLE001 — a sombra nunca impede a escuta
+        log.exception('escuta: a palavra treinada não abriu')
+    return None
+
+
 def _aquecer_whisper(pequeno: bool = False) -> None:
     """Sobe (em segundo plano) quem vai conferir a palavra: o Whisper pequeno
     com a Groq transcrevendo o pedido (transcricao.py), ou o turbo daqui (offline)."""
@@ -2195,6 +2211,13 @@ async def escuta(ws: WebSocket):
     pausada = cedida = False
     pausou_em = 0.0
     log.info('escuta: conectada')
+    # A palavra treinada em modo sombra (21/11/2026): ouve junto com o Whisper e
+    # só anota no log quando acordaria — e, a cada ativação do Whisper, se ela
+    # também ouviu. Um dia de uso em casa mede as duas lado a lado antes de ela
+    # decidir sozinha. SOLIS_PALAVRA_SOMBRA=0 tira.
+    sombra = await asyncio.to_thread(_palavra_sombra)
+    sombra_ultimo = sombra_disparo = -99.0
+    sombra_seguidas, sombra_pico = 0, 0.0
     # Outro programa no microfone (o Discord numa chamada): a tela solta o
     # microfone e o som da escuta, e volta quando ele soltar (microfone.py).
     fila = microfone.vigia.entrar()
@@ -2247,6 +2270,20 @@ async def escuta(ws: WebSocket):
                 continue
             if pausada or cedida or not msg.get('bytes'):
                 continue
+            if sombra is not None:
+                try:
+                    notas = await asyncio.to_thread(sombra.alimentar, np.frombuffer(msg['bytes'][:len(msg['bytes']) // 2 * 2],
+                                                                                 dtype=np.int16))
+                except Exception:  # noqa: BLE001 — a sombra nunca derruba a escuta
+                    log.exception('escuta: a palavra treinada falhou; segue sem ela')
+                    notas, sombra = [], None
+                for nota in notas:
+                    sombra_ultimo += 0.08
+                    sombra_seguidas = sombra_seguidas + 1 if nota >= palavra.LIMIAR_SOLIS else 0
+                    sombra_pico = max(sombra_pico, nota) if sombra_seguidas else 0.0
+                    if sombra_seguidas >= palavra.PACIENCIA and sombra_ultimo - sombra_disparo > 1.5:
+                        sombra_disparo = sombra_ultimo
+                        log.info('escuta: a palavra treinada acordaria (nota %.2f)', sombra_pico)
             # Gerador: cada decisão (confirmar/descartar) vale já pro quadro seguinte.
             for tipo, audio in escutando.alimentar(msg['bytes']):
                 if tipo == 'ativou':
@@ -2272,6 +2309,9 @@ async def escuta(ws: WebSocket):
                     # Só o pedaço que valeu como "Solis", nunca o resto do que foi
                     # dito: pra achar a próxima ativação sem chamada (19/11/2026).
                     log.info('escuta: ativou com %r', ativacao.como_chamou(ouvido))
+                    if sombra is not None:
+                        log.info('escuta: a palavra treinada %s', 'também ouviu' if sombra_ultimo - sombra_disparo < 4
+                                 else 'NÃO ouviu')
                     # "Solis, ." (o ruído virou ponto): vale como só "Solis".
                     resto = resto if ativacao.tem_fala(resto) else ''
                     await ws.send_json({'tipo': 'ativou'})

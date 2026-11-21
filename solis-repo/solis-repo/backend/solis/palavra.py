@@ -29,6 +29,11 @@ JANELA_MEL = 76        # quadros de melespectrograma por vetor
 PASSO_MEL = 8          # quadros de mel a cada 80 ms
 VETORES = 16           # quantos vetores o modelo da palavra olha
 LIMIAR = 0.5           # o do openWakeWord pros modelos dele; o nosso sai da medição
+# O modelo do "Solis" treinado aqui (design/gravar-solis/treinar_local.py) e o
+# limiar escolhido na medição dele (as 32 gravações guardadas e os negativos).
+MODELO_SOLIS = 'solis.npz'
+LIMIAR_SOLIS = float(os.environ.get('SOLIS_PALAVRA_LIMIAR', '0.9'))  # PROVISÓRIO: sai da medição
+PACIENCIA = 2          # notas altas seguidas pra acordar (80 ms cada)
 
 
 class SemModelo(Exception):
