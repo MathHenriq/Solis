@@ -1511,6 +1511,8 @@ export type ServidorMcp = {
   origem: 'seu' | 'solis' | 'codex';
   editavel: boolean;
   desligado_no_codex: boolean;
+  /** Entrou pelo login (OAuth) do serviço: o token está no cofre. */
+  login: boolean;
   ferramentas: FerramentasMcp | null;
 };
 export type ServidorMcpInteiro = {
@@ -1663,6 +1665,29 @@ export async function removerServidorMcp(nome: string): Promise<boolean> {
     return (await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}`, { method: 'DELETE' })).ok;
   } catch {
     return false;
+  }
+}
+
+/** Começa o login (OAuth) num servidor por endereço: o Solis abre a página de
+ *  login no navegador e devolve o endereço dela (pra abrir de novo). */
+export async function entrarServidorMcp(nome: string): Promise<{ url: string } | { erro: string }> {
+  try {
+    const r = await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}/entrar`, { method: 'POST' });
+    const d = await r.json();
+    return r.ok ? { url: d.url as string } : { erro: (d.motivo as string) || 'não consegui começar o login' };
+  } catch {
+    return { erro: 'o servidor do Solis não respondeu' };
+  }
+}
+
+export type SituacaoLoginMcp = { estado: 'nenhum' | 'esperando' | 'pronto' | 'erro'; erro: string | null };
+
+export async function situacaoLoginMcp(nome: string): Promise<SituacaoLoginMcp | null> {
+  try {
+    const r = await fetch(`${BASE}/mcp/${encodeURIComponent(nome)}/entrar`);
+    return r.ok ? ((await r.json()) as SituacaoLoginMcp) : null;
+  } catch {
+    return null;
   }
 }
 

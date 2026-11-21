@@ -310,8 +310,10 @@ async def codex(sistema: str, prompt: str, etapas=MUDA) -> AsyncIterator[str]:
     comando = _comando('codex', 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'read-only',
                        *servidores_mcp.liberadas_no_codex(), '-')
     ultima = None
-    # A chave dos servidores por endereço (bearer_token_env_var): do cofre, só nesta chamada.
-    async for linha in _linhas(comando, f'{sistema}\n\n{prompt}', etapas, 'codex', servidores_mcp.ambiente_do_codex()):
+    # A chave dos servidores por endereço (bearer_token_env_var): do cofre, só nesta
+    # chamada. Numa thread: o token de um login vencido é renovado pela rede.
+    ambiente = await asyncio.to_thread(servidores_mcp.ambiente_do_codex)
+    async for linha in _linhas(comando, f'{sistema}\n\n{prompt}', etapas, 'codex', ambiente):
         try:
             evento = json.loads(linha)
         except json.JSONDecodeError:

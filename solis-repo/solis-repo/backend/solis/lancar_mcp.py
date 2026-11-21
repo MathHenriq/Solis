@@ -96,10 +96,23 @@ def cabecalhos(nome: str) -> int:
     em JSON na saída — o `headersHelper` do Claude Code roda isto ao conectar e
     usa o que sair. A chave não fica no ~/.claude.json."""
     import json
-    abertas = variaveis(nome)
-    if abertas is None or cofre.ILEGIVEL in abertas.values():
+
+    from . import mcp_oauth
+    abertas = variaveis(nome) or {}
+    if cofre.ILEGIVEL in abertas.values():
         print(f'Solis: os cabeçalhos do servidor "{nome}" não abrem (o cofre é desta conta do Windows)',
               file=sys.stderr)
+        return 1
+    # O login (mcp_oauth, 20/11/2026): o token, renovado se venceu.
+    try:
+        token = mcp_oauth.token(nome)
+    except mcp_oauth.PrecisaEntrar as e:
+        print(f'Solis: {e} (pela tela do Solis: Configurações → Servidores MCP → Entrar)', file=sys.stderr)
+        return 1
+    if token:
+        abertas['Authorization'] = f'Bearer {token}'
+    if not abertas:
+        print(f'Solis: o cofre não tem a chave nem o login do servidor "{nome}"', file=sys.stderr)
         return 1
     print(json.dumps(abertas))
     return 0

@@ -233,7 +233,7 @@ def test_o_ajudante_do_claude_code_imprime_os_cabecalhos(mcp_de_mentira):
     servidores_mcp._guardar_variaveis('gh', {})
     r = subprocess.run(config['headersHelper'], shell=True, capture_output=True, text=True, timeout=30,
                        env={**os.environ, 'SOLIS_BANCO': str(banco.arquivo())})
-    assert r.returncode == 1 and 'não abrem' in r.stderr
+    assert r.returncode == 1 and 'não tem a chave nem o login' in r.stderr
 
 
 def test_o_solis_conecta_com_a_chave_num_servidor_de_verdade(mcp_de_mentira):
@@ -285,7 +285,8 @@ def test_o_solis_conecta_com_a_chave_num_servidor_de_verdade(mcp_de_mentira):
         assert asyncio.run(servidores_mcp.conferir('certo'))['total'] == 1
         assert asyncio.run(servidores_mcp.conferir('errado'))['erro'] == (
             'o servidor recusou a chave (401): confira os cabeçalhos')
-        assert asyncio.run(servidores_mcp.conferir('sem'))['erro'] == 'o servidor pede uma chave (401): ponha nos cabeçalhos'
+        assert asyncio.run(servidores_mcp.conferir('sem'))['erro'] == (
+            'o servidor pede login ou chave (401): use "Entrar", ou ponha a chave nos cabeçalhos')
 
     finally:
         servidor.should_exit = True

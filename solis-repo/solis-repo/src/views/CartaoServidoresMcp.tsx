@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Botao } from '../components/Controles';
 import {
   conferirServidorMcp,
+  entrarServidorMcp,
   lerServidorMcp,
+  situacaoLoginMcp,
   listarServidoresMcp,
   removerServidorMcp,
   salvarServidorMcp,
@@ -49,6 +51,11 @@ function Acao({ children, onClick, perigo }: { children: string; onClick: () => 
     </button>
   );
 }
+
+/** O servidor pede login (OAuth): a conferida voltou 401/403, ou o login venceu
+ *  (backend/solis/servidores_mcp.py, _motivo). Aí a linha mostra "Entrar". */
+const pedeLogin = (s: ServidorMcp) =>
+  s.tipo === 'endereco' && s.editavel && !!s.ferramentas?.erro && /login|chave \(40[13]\)|\(40[13]\)/.test(s.ferramentas.erro);
 
 function estadoDe(f: FerramentasMcp | null | undefined, conferindo: boolean): string {
   if (conferindo) return 'Vendo as ferramentas…';
@@ -202,7 +209,35 @@ export function CartaoServidoresMcp() {
   const [removendo, definirRemovendo] = useState<string | null>(null);
   const [conferindo, definirConferindo] = useState<Set<string>>(new Set());
   const [erro, definirErro] = useState('');
+  // O login (OAuth) de cada servidor: 'esperando' enquanto ele entra no navegador, ou o erro.
+  const [entrando, definirEntrando] = useState<Record<string, string>>({});
   const vistos = useRef<Set<string>>(new Set());
+
+  const entrar = async (nome: string) => {
+    definirEntrando((e) => ({ ...e, [nome]: 'esperando' }));
+    const r = await entrarServidorMcp(nome);
+    if ('erro' in r) {
+      definirEntrando((e) => ({ ...e, [nome]: r.erro }));
+      return;
+    }
+    // O Solis abriu a página de login no navegador: espera a volta (até 10 min).
+    for (let i = 0; i < 300; i++) {
+      await new Promise((ok) => setTimeout(ok, 2000));
+      const s = await situacaoLoginMcp(nome);
+      if (s?.estado === 'pronto') {
+        definirEntrando(({ [nome]: _, ...resto }) => resto);
+        vistos.current.add(nome);
+        ler();
+        await conferir(nome);
+        return;
+      }
+      if (s?.estado === 'erro') {
+        definirEntrando((e) => ({ ...e, [nome]: s.erro || 'o login não terminou' }));
+        return;
+      }
+    }
+    definirEntrando((e) => ({ ...e, [nome]: 'o login demorou demais' }));
+  };
 
   const conferir = async (nome: string) => {
     definirConferindo((c) => new Set(c).add(nome));
@@ -302,15 +337,30 @@ export function CartaoServidoresMcp() {
                       <span className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)' }}>
                         {paraQuem(s.para)}
                         {s.desligado_no_codex ? ' · desligado no Codex' : ''}
+                        {s.login ? ' · pelo seu login' : ''}
                       </span>
-                      {s.origem !== 'codex' && (
-                        <span
-                          className={f?.erro && !conferindo.has(s.nome) ? 'text-[var(--erro)]' : 'text-text-secondary'}
-                          style={{ fontSize: 'var(--cfg-dica)' }}
-                        >
-                          {estadoDe(f, conferindo.has(s.nome))}
-                        </span>
-                      )}
+                      {s.origem !== 'codex' &&
+                        (entrando[s.nome] === 'esperando' ? (
+                          <span className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)' }}>
+                            Esperando o login no navegador…
+                          </span>
+                        ) : entrando[s.nome] ? (
+                          <span className="text-[var(--erro)]" style={{ fontSize: 'var(--cfg-dica)' }}>
+                            Não entrou: {entrando[s.nome]}
+                          </span>
+                        ) : (
+                          <span
+                            className={f?.erro && !conferindo.has(s.nome) ? 'text-[var(--erro)]' : 'text-text-secondary'}
+                            style={{ fontSize: 'var(--cfg-dica)' }}
+                          >
+                            {estadoDe(f, conferindo.has(s.nome))}
+                          </span>
+                        ))}
+                      {(pedeLogin(s) || (entrando[s.nome] && entrando[s.nome] !== 'esperando')) &&
+                        entrando[s.nome] !== 'esperando' &&
+                        !conferindo.has(s.nome) && (
+                          <Acao onClick={() => void entrar(s.nome)}>{s.login ? 'Entrar de novo' : 'Entrar'}</Acao>
+                        )}
                       {s.editavel &&
                         (removendo === s.nome ? (
                           <>

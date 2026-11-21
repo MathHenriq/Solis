@@ -32,7 +32,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import banco, cofre
+from . import banco, cofre, mcp_oauth
 from .lancar_mcp import COFRE, NOSSAS
 
 log = logging.getLogger('solis.servidores_mcp')
@@ -121,7 +121,7 @@ def _do_claude() -> dict[str, dict]:
     for nome, c in (dados.get('mcpServers') or {}).items():
         if c.get('url'):
             nosso = CABECALHOS.name in str(c.get('headersHelper') or '')
-            saida[nome] = {'tipo': 'endereco', 'url': c['url'], 'comando': [],
+            saida[nome] = {'tipo': 'endereco', 'url': c['url'], 'comando': [], 'nome': nome,
                            'env': _do_cofre(nome) if nosso else {}, **({'cofre': True} if nosso else {})}
         else:
             saida[nome] = _lancado(nome, {'tipo': 'comando', 'url': '',
@@ -150,7 +150,7 @@ def _do_codex() -> dict[str, dict]:
                 'env': dict(t.get('env') or {}), 'interno': _interno_do_codex(t), 'ligado': s.get('enabled', True)})
         else:
             nosso = t.get('bearer_token_env_var') == variavel_do_codex(s['name'])
-            saida[s['name']] = {'tipo': 'endereco', 'url': t.get('url', ''), 'comando': [],
+            saida[s['name']] = {'tipo': 'endereco', 'url': t.get('url', ''), 'comando': [], 'nome': s['name'],
                                 'env': _do_cofre(s['name']) if nosso else {}, **({'cofre': True} if nosso else {}),
                                 'interno': False, 'ligado': s.get('enabled', True)}
     return saida
@@ -174,7 +174,8 @@ def listar() -> list[dict]:
         origem = 'solis' if nome in NOSSOS else 'codex' if interno else 'seu'
         saida.append({
             'nome': nome, 'tipo': c['tipo'], 'comando': _comando_legivel(c['comando']), 'url': c['url'],
-            'variaveis': sorted(c['env']), 'no_cofre': bool(c.get('cofre')), 'para': [p for p, l in (('claude', claude), ('codex', codex)) if nome in l],
+            'variaveis': sorted(c['env']), 'no_cofre': bool(c.get('cofre')), 'login': mcp_oauth.tem(nome),
+            'para': [p for p, l in (('claude', claude), ('codex', codex)) if nome in l],
             'origem': origem, 'editavel': origem == 'seu',
             'desligado_no_codex': nome in codex and not codex[nome].get('ligado', True),
             'ferramentas': cache.get(nome),
@@ -252,6 +253,15 @@ def ambiente_do_codex() -> dict[str, str]:
         cab = {k: cofre.abrir(v) for k, v in valores.items()}
         if _so_bearer(cab):
             saida[variavel_do_codex(nome)] = cab['Authorization'].removeprefix('Bearer ').strip()
+    # Os de login (mcp_oauth): o token renovado, se venceu.
+    for nome in mcp_oauth.nomes():
+        try:
+            t = mcp_oauth.token(nome)
+        except mcp_oauth.PrecisaEntrar as e:
+            log.warning('o Codex vai sem o login de "%s": %s', nome, e)
+            continue
+        if t:
+            saida[variavel_do_codex(nome)] = t
     return saida
 
 
@@ -296,11 +306,17 @@ def salvar(nome: str, tipo: str, comando: str, url: str, variaveis: str, para: l
             raise ServidorInvalido('esse servidor não existe mais')
     if nome in existentes and nome != antigo:
         raise ServidorInvalido('já existe um servidor com esse nome')
+    login = None
     if antigo:
+        # O login (mcp_oauth) segue o servidor salvo de novo, se o endereço é o mesmo.
+        login = mcp_oauth.tirar(antigo)
         remover(antigo)
+    if tipo == 'endereco' and mcp_oauth.do_endereco(login, url):
+        mcp_oauth.por(nome, login)
     # Com chave: as variáveis vão pro cofre, e nos CLIs fica o lançador (com só
     # o que ele precisa pra achar o Solis e o banco). Sem chave: o comando direto.
-    cabecalhos = bool(env) and tipo == 'endereco'
+    # Por endereço, com chave ou com login: o ajudante que tira do cofre.
+    cabecalhos = tipo == 'endereco' and (bool(env) or mcp_oauth.tem(nome))
     if env:
         _guardar_variaveis(nome, env)
     if env and tipo == 'comando':
@@ -334,8 +350,18 @@ def remover(nome: str) -> bool:
     if 'codex' in s['para']:
         _rodar('codex', 'mcp', 'remove', nome)
     _guardar_variaveis(nome, {})
+    mcp_oauth.esquecer(nome)
     _esquecer(nome)
     return True
+
+
+def depois_de_entrar(nome: str) -> None:
+    """O login terminou: o servidor é salvo de novo, agora com o ajudante dos
+    cabeçalhos no Claude Code e a variável no Codex (o token vai por eles)."""
+    s = ler(nome)
+    if s is None or s['tipo'] != 'endereco':
+        return
+    salvar(nome, 'endereco', '', s['url'], s['variaveis'], s['para'], antigo=nome)
 
 
 # — as ferramentas de cada um —————————————————————————————————————————————————
@@ -349,12 +375,23 @@ def _esquecer(nome: str) -> None:
         banco.guardar_ajuste('mcp_ferramentas', c)
 
 
-def _abrir(c: dict):
+async def _cabecalhos_de(c: dict) -> dict[str, str]:
+    """Os cabeçalhos da conexão: os do cofre e, se ele usa login, o token
+    (renovado se venceu; mcp_oauth.PrecisaEntrar se não deu)."""
+    cabecalhos = dict(c['env'])
+    if c['tipo'] == 'endereco' and c.get('nome') and mcp_oauth.tem(c['nome']):
+        c['login'] = True
+        cabecalhos['Authorization'] = 'Bearer ' + await asyncio.to_thread(mcp_oauth.token, c['nome'])
+    return cabecalhos
+
+
+def _abrir(c: dict, cabecalhos: dict[str, str] | None = None):
     if c['tipo'] == 'endereco':
         from mcp.client.streamable_http import streamable_http_client
         from mcp.shared._httpx_utils import create_mcp_http_client
-        # A chave do cofre nos cabeçalhos (Authorization, X-API-Key...).
-        cliente = create_mcp_http_client(headers=c['env'] or None)
+        # A chave do cofre nos cabeçalhos (Authorization, X-API-Key...), ou o
+        # token do login (mcp_oauth), que `_cabecalhos_de` já pôs.
+        cliente = create_mcp_http_client(headers=(c['env'] if cabecalhos is None else cabecalhos) or None)
 
         async def recusou(resposta):
             # O cliente do MCP troca o erro HTTP (401, o 400 do GitHub com chave
@@ -374,7 +411,7 @@ async def _listar_ferramentas(c: dict) -> list[dict]:
     """As ferramentas do servidor, com a descrição e o esquema: os cérebros
     que não são o Claude usam as mesmas pelo corpo do Solis (corpo.py)."""
     from mcp import ClientSession
-    async with _abrir(c) as (leitura, escrita, *_):
+    async with _abrir(c, await _cabecalhos_de(c)) as (leitura, escrita, *_):
         async with ClientSession(leitura, escrita) as sessao:
             await sessao.initialize()
             r = await sessao.list_tools()
@@ -411,7 +448,7 @@ async def chamar(c: dict, ferramenta: str, argumentos: dict) -> tuple[str, bool]
     from mcp import ClientSession
 
     async def rodar():
-        async with _abrir(c) as (leitura, escrita, *_):
+        async with _abrir(c, await _cabecalhos_de(c)) as (leitura, escrita, *_):
             async with ClientSession(leitura, escrita) as sessao:
                 await sessao.initialize()
                 return await sessao.call_tool(ferramenta, argumentos)
@@ -428,18 +465,23 @@ async def chamar(c: dict, ferramenta: str, argumentos: dict) -> tuple[str, bool]
     return texto or ('(sem texto)' if not erro else 'deu erro'), not erro
 
 
-def _motivo(e: BaseException, recusa: tuple[int, str] | None = None, com_chave: bool = False) -> str:
+def _motivo(e: BaseException, recusa: tuple[int, str] | None = None, com_chave: bool = False,
+            login: bool = False) -> str:
     """Por que o servidor não subiu, em uma linha pra tela: o erro de dentro dos
     grupos do anyio, a recusa da chave dita como recusa, e o motivo que o
     próprio servidor deu."""
+    while getattr(e, 'exceptions', None):
+        e = e.exceptions[0]
+    if isinstance(e, mcp_oauth.PrecisaEntrar):
+        return f'{e}'
     if recusa:
         status, texto = recusa
         if status in (401, 403):
+            if login:
+                return f'o servidor recusou o login ({status}): entre de novo'
             return (f'o servidor recusou a chave ({status}): confira os cabeçalhos' if com_chave else
-                    f'o servidor pede uma chave ({status}): ponha nos cabeçalhos')
+                    f'o servidor pede login ou chave ({status}): use "Entrar", ou ponha a chave nos cabeçalhos')
         return f'o servidor respondeu {status}' + (f': {texto}' if texto else '')
-    while getattr(e, 'exceptions', None):
-        e = e.exceptions[0]
     if isinstance(e, (asyncio.TimeoutError, TimeoutError)):
         return 'demorou demais pra responder'
     # Erro sem texto (o endereço que não existe): o nome dele, pra não ficar
@@ -459,7 +501,7 @@ async def conferir(nome: str) -> dict:
         lista = await asyncio.wait_for(_listar_ferramentas(c), TESTE_MAX_S)
         r = {'total': len(lista), 'so_leem': sum(t['so_le'] for t in lista), 'lista': lista, 'erro': None}
     except Exception as e:  # noqa: BLE001 — o servidor não subiu: a tela diz
-        motivo = _motivo(e, c.get('recusa'), bool(c['env']))
+        motivo = _motivo(e, c.get('recusa'), bool(c['env']), bool(c.get('login')))
         r = {'total': 0, 'so_leem': 0, 'lista': [], 'erro': motivo or 'não respondeu'}
     r['quando'] = time.time()
     # Só servidor que está no Codex ganha o -c: um -c de servidor que ele não

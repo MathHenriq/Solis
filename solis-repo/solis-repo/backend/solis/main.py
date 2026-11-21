@@ -1083,6 +1083,59 @@ async def conferir_servidor_mcp(nome: str):
         return JSONResponse({'erro': 'servidor_inexistente'}, status_code=404)
 
 
+@app.post('/mcp/{nome}/entrar')
+async def entrar_servidor_mcp(nome: str, request: Request):
+    """Começa o login (OAuth) num servidor por endereço: devolve `url`, a
+    página de login, pra tela abrir no navegador. O serviço volta pra
+    /mcp/oauth/volta; a tela acompanha por GET /mcp/{nome}/entrar."""
+    from . import mcp_oauth, servidores_mcp
+    s = await asyncio.to_thread(servidores_mcp.ler, nome)
+    if not s or s['tipo'] != 'endereco':
+        return JSONResponse({'erro': 'servidor_inexistente'}, status_code=404)
+    volta = str(request.base_url).rstrip('/') + mcp_oauth.VOLTA
+    try:
+        url = await mcp_oauth.comecar(nome, s['url'], volta, ao_terminar=servidores_mcp.depois_de_entrar)
+    except mcp_oauth.PrecisaEntrar as e:
+        return JSONResponse({'erro': 'login', 'motivo': str(e)}, status_code=400)
+    banco.registrar_acao(None, 'entrar_servidor_mcp', {'nome': nome}, s['url'], True)
+    # O navegador padrão do Windows, aberto pelo servidor do Solis (a janela do
+    # app não abre página de fora). A tela também recebe o endereço.
+    await asyncio.to_thread(_abrir_no_navegador, url)
+    return {'url': url}
+
+
+def _abrir_no_navegador(url: str) -> None:
+    import webbrowser
+    webbrowser.open(url)
+
+
+@app.get('/mcp/{nome}/entrar')
+async def situacao_do_login_mcp(nome: str):
+    from . import mcp_oauth
+    return mcp_oauth.situacao(nome)
+
+
+@app.get('/mcp/oauth/volta')
+async def volta_do_login_mcp(code: str | None = None, state: str | None = None, error: str | None = None):
+    """Pra onde o serviço manda o navegador depois do login: entrega o código
+    pro Solis terminar e diz ao Matheus que pode voltar."""
+    from html import escape
+
+    from fastapi.responses import HTMLResponse
+
+    from . import mcp_oauth
+    nome = mcp_oauth.voltou(state, code, error)
+    if nome is None:
+        texto = 'Esse login não estava sendo esperado pelo Solis (ou já terminou). Tente "Entrar" de novo.'
+    elif error:
+        texto = f'O serviço recusou o login em "{nome}". Pode fechar esta aba e tentar de novo no Solis.'
+    else:
+        texto = f'Pronto: o Solis entrou em "{nome}". Pode fechar esta aba e voltar pro Solis.'
+    return HTMLResponse('<!doctype html><meta charset="utf-8"><title>Solis</title>'
+                        '<body style="font-family:system-ui,sans-serif;margin:15vh auto;max-width:32rem;'
+                        f'padding:0 1rem;line-height:1.5">{escape(texto)}</body>')
+
+
 # — Hooks do Claude (hooks.py) —————————————————————————————————————————————————
 class HookCorpo(BaseModel):
     evento: str

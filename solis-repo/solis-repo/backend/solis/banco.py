@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sqlite3
+import threading
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -442,8 +443,10 @@ def caminho_padrao() -> Path:
     return Path.home() / '.local' / 'share' / 'solis' / 'solis.db'
 
 
-_conexao: sqlite3.Connection | None = None
+_conexao: sqlite3.Connection | None = None   # a de quem abriu o banco (o esquema e as migrações)
 _caminho: Path | None = None
+_local = threading.local()                    # a conexão de cada thread (_con)
+_geracao = 0                                  # muda a cada usar(): as das threads se refazem
 
 
 def pasta() -> Path:
@@ -456,28 +459,36 @@ def arquivo() -> Path:
     return _caminho or caminho_padrao()
 
 
-def usar(caminho: Path) -> None:
-    """Aponta o banco pra outro arquivo — os testes usam um temporário."""
-    global _conexao, _caminho
-    _caminho = caminho
-    if _conexao:
-        _conexao.close()
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-    # check_same_thread=False: o FastAPI pode atender de outra thread. As
-    # escritas são curtas e uma por vez; não há disputa que justifique um pool.
-    _conexao = sqlite3.connect(caminho, check_same_thread=False)
-    _conexao.row_factory = sqlite3.Row
-    _conexao.execute('PRAGMA foreign_keys = ON')
-    # WAL: o servidor MCP (outro processo) lê o mesmo arquivo enquanto o
-    # servidor do Solis escreve, sem um travar o outro.
-    _conexao.execute('PRAGMA journal_mode = WAL')
+def _abrir_conexao(caminho: Path) -> sqlite3.Connection:
+    # check_same_thread=False: quem fecha as de uma geração velha pode ser outra thread.
+    # timeout: quem escreve espera a vez (WAL: um escreve, todos leem).
+    c = sqlite3.connect(caminho, check_same_thread=False, timeout=30)
+    c.row_factory = sqlite3.Row
+    c.execute('PRAGMA foreign_keys = ON')
     # O SQLite não apaga o que é sobrescrito: o texto antigo sobra no espaço
     # livre das páginas. Com isto ele é zerado — sem isso, o segredo selado
     # depois de descoberto (ver _limpar_rastros) continuava legível no arquivo.
-    _conexao.execute('PRAGMA secure_delete = ON')
+    c.execute('PRAGMA secure_delete = ON')
+    return c
+
+
+def usar(caminho: Path) -> None:
+    """Aponta o banco pra outro arquivo — os testes usam um temporário."""
+    global _conexao, _caminho, _geracao
+    _caminho = caminho
+    _geracao += 1
+    if _conexao:
+        _conexao.close()
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    _conexao = _abrir_conexao(caminho)
+    # WAL: o servidor MCP (outro processo) lê o mesmo arquivo enquanto o
+    # servidor do Solis escreve, sem um travar o outro (e vale pras conexões
+    # de cada thread, abaixo). Fica gravado no arquivo.
+    _conexao.execute('PRAGMA journal_mode = WAL')
     _conexao.executescript(ESQUEMA)
     _migrar(_conexao)
     _selar_o_que_falta(_conexao)
+    _local.c, _local.geracao = _conexao, _geracao
 
 
 def _migrar(c: sqlite3.Connection) -> None:
@@ -598,9 +609,20 @@ def _selar_conversa(c: sqlite3.Connection, conversa: int) -> None:
 
 
 def _con() -> sqlite3.Connection:
+    """A conexão desta thread. Era uma só pra todas, e duas threads ao mesmo
+    tempo nela quebravam (visto em 20/11/2026: o login de um servidor MCP salvava
+    numa thread enquanto a tela listava em outra — "sqlite3.InterfaceError: bad
+    parameter or other API misuse"). Cada thread tem a sua, no mesmo arquivo;
+    as escritas são todas em `with` (commit no fim), então nenhuma fica aberta."""
     if _conexao is None:
         usar(caminho_padrao())
-    return _conexao
+    c = getattr(_local, 'c', None)
+    if c is None or getattr(_local, 'geracao', None) != _geracao:
+        if c is not None and c is not _conexao:
+            c.close()
+        c = _abrir_conexao(_caminho)
+        _local.c, _local.geracao = c, _geracao
+    return c
 
 
 def ajuste(chave: str):

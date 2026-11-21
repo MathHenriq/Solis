@@ -646,6 +646,23 @@ conecta com os cabeçalhos direto. Quando o servidor responde com erro HTTP, o "
 código e o motivo dele ("o servidor recusou a chave (401)", "o servidor respondeu 400: ..."), em
 vez do erro genérico da biblioteca. Provado com o `claude mcp list` de verdade numa casa de teste.
 
+Login (OAuth) nos servidores por endereço que pedem entrar pela página deles (`solis/mcp_oauth.py`,
+20/11/2026). `POST /mcp/{nome}/entrar` começa: a biblioteca `mcp` descobre o servidor de login,
+cadastra o Solis como cliente e monta a página de login (PKCE); o servidor do Solis abre no navegador
+padrão e devolve `url`. O serviço volta pra `GET /mcp/oauth/volta` (no próprio servidor do Solis),
+que entrega o código; `GET /mcp/{nome}/entrar` diz `estado` (`esperando`, `pronto`, `erro`). O token
+fica no cofre (`ajustes.mcp_oauth`, selado), com o refresh_token e o endereço de renovar; na hora
+de conectar, `mcp_oauth.token` devolve o token, renovado sozinho se venceu (sem abrir janela no meio
+de uma resposta; se não dá, a tela mostra "Entrar de novo"). Depois do login o servidor é salvo de
+novo com o `headersHelper` no Claude Code e o `--bearer-token-env-var` no Codex: os dois recebem o
+token do Solis, e ele não vai pros arquivos deles. `GET /mcp` diz `login`. Salvo de novo com o mesmo
+endereço, o login continua; com outro, ou removido, sai.
+
+O banco é usado por várias threads (o FastAPI, os `to_thread`): cada thread tem a sua conexão no
+mesmo arquivo (`banco._con`), em WAL. Era uma só pra todas, e duas ao mesmo tempo quebravam
+("sqlite3.InterfaceError: bad parameter or other API misuse", visto com o login salvando numa
+thread enquanto a tela listava em outra).
+
 "Conferir" conecta no servidor (stdio ou HTTP, pela biblioteca `mcp`) e lista as ferramentas, com
 as que só leem (a marca `readOnlyHint` do servidor); fica guardado (`ajustes.mcp_ferramentas`). No
 Claude, um servidor seu conta como conector (`agente.conector_de`): o que só lê é livre, o resto
