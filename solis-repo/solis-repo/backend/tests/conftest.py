@@ -25,6 +25,9 @@ def sem_leitor_de_paginas(monkeypatch):
     o teste do leitor liga ele com o site simulado."""
     from solis import web
     monkeypatch.setattr(web, 'LEITOR_LIGADO', False)
+    # As páginas lidas junto da busca (de outro laço de eventos) e os sites que recusaram.
+    web._guardadas.clear()
+    web._recusam.clear()
 
 
 @pytest.fixture(autouse=True)

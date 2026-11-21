@@ -86,7 +86,9 @@ def _resultados(html: bytes) -> list[tuple[str, str, str]]:
         destino = link[0].get('href') or ''
         # O link passa pelo DuckDuckGo (//duckduckgo.com/l/?uddg=<o de verdade>).
         destino = parse_qs(urlsplit(destino).query).get('uddg', [destino])[0]
-        if not destino.startswith('http'):
+        # O anúncio passa pelo próprio DuckDuckGo (duckduckgo.com/y.js?ad_domain=...):
+        # visto em 21/11/2026, a página da loja do anúncio tinha 3,5 MB e entrou como resultado.
+        if not destino.startswith('http') or (urlsplit(destino).hostname or '').endswith('duckduckgo.com'):
             continue
         trecho = r.xpath('.//*[contains(@class, "result__snippet")]')
         saida.append((' '.join(link[0].text_content().split()), destino,
@@ -94,8 +96,9 @@ def _resultados(html: bytes) -> list[tuple[str, str, str]]:
     return saida[:RESULTADOS_MAX]
 
 
-async def buscar(termos: str, transporte=None) -> tuple[str, str, str]:
-    """(endereço, título, texto) da busca: a lista dos resultados, pro modelo ler o que serve."""
+async def buscar(termos: str, transporte=None, voz: bool = False) -> tuple[str, str, str]:
+    """(endereço, título, texto) da busca: a lista dos resultados, pro modelo ler o que serve.
+    `voz`: menos resultados, e o que as melhores páginas dizem já junto (_ja_lidas)."""
     endereco = BUSCA + quote_plus(termos)
     try:
         final, _, corpo = await conhecimento.baixar(endereco, transporte)
@@ -104,17 +107,116 @@ async def buscar(termos: str, transporte=None) -> tuple[str, str, str]:
     resultados = await asyncio.to_thread(_resultados, corpo)
     if not resultados:
         raise NaoLeu('a busca não trouxe resultados (tente outras palavras, ou leia direto um site)')
+    if voz:
+        resultados = resultados[:RESULTADOS_VOZ]
     texto = '\n\n'.join(f'{i}. {t}\n   {u}\n   {s}' for i, (t, u, s) in enumerate(resultados, 1))
+    if voz:
+        lidas = await _ja_lidas(resultados, termos, transporte)
+        if lidas:
+            return final, f'Resultados da busca: {termos}', (
+                texto + '\n\nO que as melhores páginas dizem agora (lidas pelo Solis, só os trechos do assunto):\n\n'
+                + '\n\n'.join(f'[{i}] {t}\n{trecho}' for i, t, trecho in lidas)
+                + '\n\nResponda pelo que as páginas dizem: o trecho da busca pode ser antigo. Se nada aqui '
+                'responde, leia com WebFetch a página de outro resultado.')
     return final, f'Resultados da busca: {termos}', (
         texto + '\n\nO trecho é só um resumo: pra responder, leia com WebFetch a página do resultado que serve. '
         'Pro mais recente (o último, o de hoje, o de agora), um trecho com data antiga não serve: leia a página.')
 
 
-async def ler(url: str, transporte=None) -> tuple[str, str, str]:
+# Pela voz, a busca já traz o que as melhores páginas dizem (21/11/2026, medido):
+# com a lista só, a Groq respondia pelo trechinho da busca (rápido, 1,5 a 2,7 s,
+# mas o preço e a notícia do trecho podem ser velhos); mandada ler, era mais uma
+# rodada inteira (~3 mil tokens do minuto grátis) e a leitura (0,2 a 2,8 s direto,
+# 1 a 15 s pelo leitor). Aqui as melhores são lidas ao mesmo tempo, com prazo, e
+# vão só os trechos do assunto. A que não terminou no prazo segue lendo e fica
+# guardada uns minutos: se o cérebro pedir ela, já está pronta (ler).
+RESULTADOS_VOZ = 5
+LER_JUNTO = 3           # páginas lidas ao mesmo tempo
+JUNTAR_MAX = 2          # quantas vão junto da lista
+PRAZO_JUNTO = 2.5       # segundos esperando por elas, no máximo
+TRECHO_MAX = 900        # caracteres de cada uma
+GUARDADA_S = 180
+_guardadas: dict[str, tuple[float, asyncio.Task]] = {}
+# Os sites que recusam robôs (403): não se insiste (nem se disfarça o Solis de navegador).
+_recusam: set[str] = set()
+
+
+def _simples(t: str) -> str:
+    import unicodedata
+    return unicodedata.normalize('NFKD', t).encode('ascii', 'ignore').decode().lower()
+
+
+def trecho_do_assunto(texto: str, termos: str, limite: int = TRECHO_MAX) -> str:
+    """As linhas da página que falam do que se buscou (as palavras, um preço, um
+    número), na ordem da página; sem nenhuma, o começo."""
+    palavras = set(re.findall(r'\w{4,}', _simples(termos)))
+    # Por frase, não por linha: os trechos da leitura juntam parágrafos inteiros.
+    linhas = [l.strip()[:300] for l in re.split(r'(?<=[.!?])\s+|\n+', texto) if len(l.strip()) > 2]
+
+    def nota(linha: str) -> int:
+        s = _simples(linha)
+        return sum(p in s for p in palavras) + (2 if re.search(r'R\$\s?\d|\d+[.,]\d|\d+\s?%', linha) else 0)
+    notas = [nota(l) for l in linhas]
+    escolhidas, total = set(), 0
+    for i in sorted(range(len(linhas)), key=lambda i: -notas[i]):
+        if notas[i] == 0:
+            break
+        if total + len(linhas[i]) + 1 > limite:
+            continue
+        escolhidas.add(i)
+        total += len(linhas[i]) + 1
+    # Nenhuma linha do assunto: a página não serve (a de login do Mercado Livre,
+    # "acesse sua conta", entrava como se fosse o preço).
+    return '\n'.join(linhas[i] for i in sorted(escolhidas))
+
+
+def _guardar_leitura(url: str, transporte) -> asyncio.Task:
+    agora = asyncio.get_running_loop().time()
+    for u, (quando, _) in list(_guardadas.items()):
+        if agora - quando > GUARDADA_S:
+            _guardadas.pop(u, None)
+    if url not in _guardadas:
+        tarefa = asyncio.create_task(_ler_de_verdade(url, transporte))
+        # A que ninguém pediu e falhou não vira "exception was never retrieved" no log.
+        tarefa.add_done_callback(lambda t: t.cancelled() or t.exception())
+        _guardadas[url] = (agora, tarefa)
+    return _guardadas[url][1]
+
+
+async def _ja_lidas(resultados, termos: str, transporte) -> list[tuple[int, str, str]]:
+    """(número do resultado, título, trecho do assunto) das páginas lidas no prazo."""
+    candidatos = [(i, t, u) for i, (t, u, _) in enumerate(resultados, 1)
+                  if (urlsplit(u).hostname or '') not in _recusam][:LER_JUNTO]
+    tarefas = {_guardar_leitura(u, transporte): (i, t) for i, t, u in candidatos}
+    laco = asyncio.get_running_loop()
+    ate = laco.time() + PRAZO_JUNTO
+    faltam, uteis = set(tarefas), {}
+    # Para quando JUNTAR_MAX servem ou o prazo acaba: não espera a mais lenta.
+    while faltam and len(uteis) < JUNTAR_MAX and laco.time() < ate:
+        prontas, faltam = await asyncio.wait(faltam, timeout=ate - laco.time(), return_when=asyncio.FIRST_COMPLETED)
+        for tarefa in prontas:
+            if tarefa.cancelled() or tarefa.exception() is not None:
+                continue
+            _, _, texto = tarefa.result()
+            trecho = trecho_do_assunto(texto, termos)
+            if len(trecho) >= 80:
+                uteis[tarefa] = trecho
+    lidas = [(*tarefas[t], uteis[t]) for t in tarefas if t in uteis]  # na ordem da busca
+    return lidas[:JUNTAR_MAX]
+
+
+async def ler(url: str, transporte=None, voz: bool = False) -> tuple[str, str, str]:
     """(endereço final, título, texto). NaoLeu com o motivo em português."""
     termos = termos_da_busca(url)
     if termos:
-        return await buscar(termos, transporte)
+        return await buscar(termos, transporte, voz)
+    guardada = _guardadas.get(url)
+    if guardada is not None:
+        return await asyncio.shield(guardada[1])  # lida junto da busca: pronta ou terminando
+    return await _ler_de_verdade(url, transporte)
+
+
+async def _ler_de_verdade(url: str, transporte=None) -> tuple[str, str, str]:
     try:
         endereco = conhecimento._endereco(url)
     except conhecimento.NaoLeu as e:
@@ -124,6 +226,8 @@ async def ler(url: str, transporte=None) -> tuple[str, str, str]:
     try:
         final, tipo, corpo = await conhecimento.baixar(endereco, transporte)
     except conhecimento.NaoLeu as e:
+        if '403' in str(e):
+            _recusam.add(urlsplit(endereco).hostname or '')
         raise NaoLeu(str(e)) from e
     if final != endereco and not await asyncio.to_thread(_publico, urlsplit(final).hostname or ''):
         raise NaoLeu('a página mandou pra um endereço do computador ou da rede de casa: não li')

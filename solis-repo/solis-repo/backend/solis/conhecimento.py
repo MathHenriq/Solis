@@ -195,6 +195,10 @@ def _titulo(texto: str | None) -> str | None:
     return texto[:200] or None
 
 
+_SEM_SCRIPTS = re.compile(r'<(script|style|svg|noscript)\b[^>]*>.*?</\1\s*>', re.S | re.I)
+LEVE_MAX = 1_500_000  # caracteres do HTML (já sem os scripts) que vão pra trafilatura
+
+
 def preparar_pagina(url: str, tipo_conteudo: str, corpo: bytes) -> tuple[str, dict]:
     """(nome, preparado) — o mesmo `preparado` de preparar(). Roda numa thread."""
     caminho = urlsplit(url)
@@ -208,11 +212,16 @@ def preparar_pagina(url: str, tipo_conteudo: str, corpo: bytes) -> tuple[str, di
     import trafilatura
 
     html = corpo.decode('utf-8', errors='replace')
-    texto = trafilatura.extract(html, url=url, include_comments=False, include_tables=True, favor_recall=True)
+    # Os scripts, estilos e desenhos saem antes (21/11/2026, medido): a trafilatura
+    # ignora eles, mas paga pra percorrer — o mesmo texto do g1 em 0,7 s em vez de
+    # 2,7 s, e uma página de loja de 3,5 MB levou 40 s. E um teto no que sobra.
+    leve = _SEM_SCRIPTS.sub(' ', html)[:LEVE_MAX]
+    texto = trafilatura.extract(leve, url=url, include_comments=False, include_tables=True, favor_recall=True)
     trechos = [(None, t) for t in cortar(_limpo(texto or ''))]
     if not trechos:
         raise NaoLeu('não achei texto na página (pode pedir login ou ser montada por JavaScript)')
-    meta = trafilatura.extract_metadata(html, default_url=url)
+    # O título pode estar no JSON-LD (um script): no original, se não for enorme.
+    meta = trafilatura.extract_metadata(html if len(html) <= LEVE_MAX else leve, default_url=url)
     nome = _titulo(meta.title if meta else None) or f'{caminho.netloc}{caminho.path}'.rstrip('/')
     return nome, {
         'tipo': 'web', 'paginas': None, 'trechos': trechos, 'tamanho': len(corpo),

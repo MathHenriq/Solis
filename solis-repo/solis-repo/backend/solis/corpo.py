@@ -750,7 +750,7 @@ class Corpo:
                         'leu (o trecho da busca vale), ou diga em uma frase o que não achou.')
             self.leituras += 1
             try:
-                final, titulo, texto = await web.ler(str(entrada.get('url') or ''))
+                final, titulo, texto = await web.ler(str(entrada.get('url') or ''), voz=self.voz)
                 saida, ok = web.para_o_modelo(final, titulo, texto,
                                               web.TEXTO_MAX_VOZ if self.voz else web.TEXTO_MAX), True
             except web.NaoLeu as e:

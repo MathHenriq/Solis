@@ -78,7 +78,7 @@ def _do_ajudante(pedido):
 def test_o_ajudante_le_numa_conversa_propria_e_o_pai_recebe_o_resultado(monkeypatch):
     com_chave()
 
-    async def ler(url, transporte=None):
+    async def ler(url, transporte=None, voz=False):
         return url, 'Página', 'as vendas cresceram 80%'
     monkeypatch.setattr(web, 'ler', ler)
     pedidos = {'pai': [], 'ajudante': []}
