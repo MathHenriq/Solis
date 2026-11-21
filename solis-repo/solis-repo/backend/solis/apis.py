@@ -515,6 +515,9 @@ async def responder(
                                                             _corpo.argumentos(p['function']['arguments'])))
                     for p, saida in zip(pedidas, saidas):
                         mensagens.append({'role': 'tool', 'tool_call_id': p['id'], 'content': saida})
+                    if corpo.kit_mudou:  # pediu as outras ferramentas (o kit da voz): vão na próxima rodada
+                        corpo.kit_mudou = False
+                        ferramentas = await corpo.especificacoes()
         except TimeoutError as e:
             raise CerebroFalhou(f'não começou a responder em {prazo:.0f} s') from e
         except httpx.HTTPError as e:

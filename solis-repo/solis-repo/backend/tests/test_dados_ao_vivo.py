@@ -100,4 +100,7 @@ def test_time_que_nao_existe_manda_procurar_na_web():
     vazio = httpx.MockTransport(lambda req: httpx.Response(200, json={'results': []}))
     with pytest.raises(d.SemDado, match='não achei o time'):
         asyncio.run(d.jogos('Xyzópolis FC', vazio))
-    assert 'Procure na web' in asyncio.run(corpo._jogos({'time': ''}))
+    assert 'Procure na web' in asyncio.run(corpo._jogos({'equipe': ''}))
+    # "equipe", não "time" (o gpt-oss lia em inglês e mandava a hora).
+    jogos = next(f for f in corpo.DO_SOLIS if f.nome == 'jogos')
+    assert list(jogos.parametros['properties']) == ['equipe']

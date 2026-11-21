@@ -173,6 +173,17 @@ SISTEMA_CORPO = SISTEMA_NUVEM.replace(
 )
 
 
+# Pela voz, o kit enxuto (corpo.MAIS): as instruções das ferramentas guardadas
+# (arquivos, edição, skills) vão quando o modelo pede, não em todo pedido.
+SISTEMA_CORPO_VOZ = SISTEMA_CORPO.replace('mcp__solis__: hora, criar_lembrete', 'mcp__solis__: criar_lembrete').replace(
+    ', buscar_memoria, agendar_tarefa)', ', buscar_memoria, cotacao, clima, jogos)')
+NOTA_KIT_VOZ = (
+    '\n\nPela voz vão só as ferramentas do dia a dia. Pra arquivos do PC (ler, achar, criar, editar), as skills do '
+    'Matheus, os ajudantes, as tarefas agendadas e os conectores, chame antes mcp__solis__mais_ferramentas: elas '
+    'chegam na hora, com as instruções. Nunca diga que não consegue sem ter chamado.'
+)
+
+
 NOTA_TERMINAL = (
     '\n\nVocê também tem o terminal (a ferramenta PowerShell): roda comandos no PC do Matheus, na pasta de '
     'trabalho do Solis ou na do projeto da conversa. Chame direto: o Solis mostra o comando inteiro num cartão e '
@@ -213,14 +224,24 @@ NOTA_TELA = (
 
 def sistema_para(nome: str, navegar: bool = False, com_o_corpo: bool = False, terminal: bool = False,
                  arquivos: bool = False, tela: bool = False, editar: bool = False,
-                 skills: list[dict] | None = None) -> str:
+                 skills: list[dict] | None = None, kit_da_voz: bool = False) -> str:
+    """`kit_da_voz`: o corpo com o kit enxuto (corpo.MAIS): sem as instruções
+    das guardadas, que vão em instrucoes_do_kit."""
     if nome == 'claude':
         return SISTEMA_CLAUDE
+    if com_o_corpo and kit_da_voz:
+        return (SISTEMA_CORPO_VOZ + (NOTA_TERMINAL if terminal else '') + (navegador.instrucoes() if navegar else '')
+                + (NOTA_TELA if tela else '') + NOTA_KIT_VOZ)
     if com_o_corpo:
         return (SISTEMA_CORPO + (NOTA_ARQUIVOS if arquivos else '') + (NOTA_EDITAR if editar else '')
                 + (NOTA_TERMINAL if terminal else '') + (navegador.instrucoes() if navegar else '')
                 + (NOTA_TELA if tela else '') + nota_skills(skills or []))
     return SISTEMA_NUVEM
+
+
+def instrucoes_do_kit(arquivos: bool, editar: bool, skills: list[dict]) -> str:
+    """As instruções das ferramentas que, pela voz, ficam guardadas (corpo.MAIS)."""
+    return (NOTA_ARQUIVOS if arquivos else '') + (NOTA_EDITAR if editar else '') + nota_skills(skills)
 
 
 # Quem age de verdade: o Claude pelo Agent SDK (comandos, web, as ferramentas
@@ -705,12 +726,18 @@ async def responder(
                 na_tela = bool(proprio and proprio.tela)
                 edita = bool(proprio and proprio.editar)
                 com_skills = proprio.lista_skills() if proprio is not None else []
-                sistema = (sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita, com_skills)
-                           + nota_projeto(conversa, le_arquivos=nome == 'claude')
-                           + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela,
-                                              edita, bool(proprio and proprio.web)))
+                resto = (nota_projeto(conversa, le_arquivos=nome == 'claude')
+                         + notas_do_cerebro(nome, fila, navegar, proprio is not None, terminal, arquivos, na_tela,
+                                            edita, bool(proprio and proprio.web)))
+                sistema = sistema_para(nome, navegar, proprio is not None, terminal, arquivos, na_tela, edita,
+                                       com_skills) + resto
                 if proprio is not None:
-                    proprio.sistema = sistema  # o ajudante (Agent) começa com as mesmas instruções
+                    proprio.sistema = sistema  # o ajudante (Agent) começa com as instruções inteiras
+                    if voz:
+                        # O kit enxuto da voz: as instruções das guardadas vão quando ele pede.
+                        proprio.instrucoes_do_kit = instrucoes_do_kit(arquivos, edita, com_skills)
+                        sistema = sistema_para(nome, navegar, True, terminal, arquivos, na_tela, edita, com_skills,
+                                               kit_da_voz=True) + resto
                 fluxo = await cerebros.abrir(
                     nome,
                     sistema,

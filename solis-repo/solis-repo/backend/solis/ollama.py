@@ -301,8 +301,10 @@ NAO_PODE_COM_ARQUIVOS = (
 VOZ = (
     'Esta mensagem veio pela voz e a sua resposta vai ser FALADA. Fale como um assistente pessoal competente '
     'respondendo em voz alta: direto ao ponto, natural, em uma a três frases curtas, com a informação que ele '
-    'pediu (o número, o nome, o horário). Sem listas, títulos, markdown, sem repetir a pergunta e sem oferecer '
-    'alternativas que ninguém pediu. Se for algo de hoje (notícia, jogo, cotação, clima, o que está em alta) ou '
+    'pediu (o número, o nome, o horário). Números em algarismos (57,8; R$ 5,95; 34 dias; 10h), nunca por extenso: '
+    'a voz lê certo. Sem listas, títulos, markdown, sem repetir a pergunta e sem oferecer '
+    'alternativas que ninguém pediu. O que você já sabe (fatos, definições, contas, datas) responda direto, sem '
+    'ferramenta. Se for algo de hoje (notícia, jogo, cotação, clima, o que está em alta) ou '
     'algo que você não sabe, procure com as suas ferramentas ANTES de responder — rápido: uma busca, e no máximo '
     'uma página se o resultado da busca não trouxer a resposta; nunca responda só "não sei": '
     'diga o que tentou ou o que falta. Se ele reclamar ou corrigir você, entenda o que ele quer e faça. Nunca '
@@ -540,6 +542,9 @@ async def conversar(
                         saida, ok = await asyncio.to_thread(pc.rodar, nome, argumentos, conversa)
                         etapas.marcar('ferramenta', ferramenta=nome, alvo=pc.alvo(argumentos), ok=ok)
                     mensagens_ollama.append({'role': 'tool', 'content': saida, 'tool_name': nome})
+                if o_corpo is not None and o_corpo.kit_mudou:  # pediu as outras ferramentas (o kit da voz)
+                    o_corpo.kit_mudou = False
+                    corpo['tools'] = await o_corpo.especificacoes()
                 try:
                     r = await abrir()
                 except (OllamaIndisponivel, ModeloInexistente):

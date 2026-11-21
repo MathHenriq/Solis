@@ -329,6 +329,8 @@ def test_no_meio_da_tarefa_o_limite_por_minuto_se_espera_e_segue():
     n = []
 
     def rota(req):
+        if req.url.path.endswith('/models'):  # a conta só com este modelo: sem reserva, espera
+            return httpx.Response(200, json={'data': [{'id': 'openai/gpt-oss-120b'}]})
         n.append(1)
         if len(n) == 1:
             return resposta(chamada('mcp__solis__criar_lembrete', {'texto': 'Pagar a luz', 'dia': '', 'hora': ''}))
@@ -348,6 +350,8 @@ def test_espera_longa_demais_nao_se_espera(monkeypatch):
     n = []
 
     def rota(req):
+        if req.url.path.endswith('/models'):  # a conta só com este modelo: sem reserva
+            return httpx.Response(200, json={'data': [{'id': 'openai/gpt-oss-120b'}]})
         n.append(1)
         if len(n) == 1:
             return resposta(chamada('mcp__solis__hora', {}))
@@ -617,3 +621,81 @@ def test_sem_o_claude_a_informacao_de_hoje_vai_no_navegador_e_com_ele_passa():
     assert 'não sabe o que mudou hoje' in com_claude and roteador.PASSA in com_claude
     sem_nav = roteador.notas_do_cerebro('groq', [], False, True, True, True, True)
     assert 'browser_navigate' not in sem_nav and 'não sabe o que mudou hoje' in sem_nav
+
+
+# --- pela voz, o kit enxuto (21/11/2026) -------------------------------------
+
+def _nomes(c):
+    return [s['function']['name'] for s in asyncio.run(c.especificacoes())]
+
+
+def test_pela_voz_vao_as_do_dia_a_dia_e_o_resto_fica_a_um_pedido():
+    """Medido: o pedido pela voz levava ~3.700 tokens (17 ferramentas) e o minuto
+    grátis de cada modelo da Groq é 8 mil: em perguntas seguidas, estourava."""
+    c = corpo.Corpo(1, Gravador(), navegar=False, cerebro='groq')
+    c.voz = True
+    nomes = _nomes(c)
+    for dia_a_dia in ('mcp__solis__criar_lembrete', 'mcp__solis__ver_agenda', 'mcp__solis__cotacao',
+                      'mcp__solis__clima', 'mcp__solis__jogos', 'WebFetch', corpo.MAIS):
+        assert dia_a_dia in nomes
+    for guardada in ('Read', 'Edit', 'Write', 'Agent', 'mcp__solis__agendar_tarefa', 'mcp__solis__hora'):
+        assert guardada not in nomes
+    # Sem a voz, tudo, e sem o pedido de mais.
+    c.voz = False
+    assert {'Read', 'Edit', 'Agent', 'mcp__solis__agendar_tarefa'} <= set(_nomes(c)) and corpo.MAIS not in _nomes(c)
+
+
+def test_pedir_mais_traz_as_outras_com_as_instrucoes_na_rodada_seguinte():
+    com_chave()
+    pedidos = []
+
+    def rota(req):
+        pedidos.append(json.loads(req.content))
+        if len(pedidos) == 1:
+            return resposta(chamada(corpo.MAIS, {}))
+        if len(pedidos) == 2:
+            return resposta(chamada('mcp__solis__hora', {}, id_='c2'))  # guardada pela voz, e sem cartão
+        return resposta(texto('São dez horas.'))
+
+    g = Gravador()
+    c = corpo.Corpo(1, g, navegar=False)
+    c.voz = True
+    c.instrucoes_do_kit = '\n\nINSTRUÇÕES DAS GUARDADAS'
+    rodar(apis.responder('groq', 'sis', 'que horas são, certinho?', g, httpx.MockTransport(rota), rapido=True,
+                         corpo=c))
+    um, dois = [[t['function']['name'] for t in p['tools']] for p in pedidos[:2]]
+    assert corpo.MAIS in um and 'mcp__solis__hora' not in um
+    assert corpo.MAIS not in dois and {'mcp__solis__hora', 'mcp__solis__agendar_tarefa', 'Read', 'Edit'} <= set(dois)
+    volta = pedidos[1]['messages'][-1]
+    assert volta['role'] == 'tool' and 'INSTRUÇÕES DAS GUARDADAS' in volta['content']
+    # Abrir a lista não é ação no PC: sem cartão, e a queda pro próximo cérebro não refaria nada.
+    assert not any(e == 'aprovacao' for e, _ in g.lista)
+
+
+def test_pela_voz_o_sistema_vai_sem_as_instrucoes_das_guardadas_e_o_ajudante_com_tudo(monkeypatch):
+    vistos = []
+
+    async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
+        vistos.append((sistema, corpo))
+
+        async def gen():
+            yield 'ok'
+        return gen()
+    from solis import cerebros
+    monkeypatch.setattr(cerebros, 'abrir', abrir)
+    skill = [{'nome': 'plano-de-aula-wit', 'descricao': 'o plano da semana'}]
+    monkeypatch.setattr(corpo.Corpo, 'lista_skills', lambda self: skill)
+
+    async def ir(voz):
+        fluxo, _ = await roteador.responder(['groq'], '', 1, [], [], [], None, 'oi', Gravador(), voz=voz)
+        return ''.join([p async for p in fluxo])
+    asyncio.run(ir(True))
+    sistema, o_corpo = vistos[-1]
+    assert roteador.NOTA_KIT_VOZ in sistema and roteador.NOTA_EDITAR not in sistema
+    assert 'plano-de-aula-wit: o plano da semana' not in sistema
+    assert 'agendar_tarefa' not in sistema and 'mcp__solis__: hora' not in sistema
+    assert roteador.NOTA_EDITAR in o_corpo.instrucoes_do_kit and 'plano-de-aula-wit' in o_corpo.instrucoes_do_kit
+    assert roteador.NOTA_EDITAR in o_corpo.sistema  # o ajudante começa com as instruções inteiras
+    # Fora da voz, o sistema de sempre (com as instruções de todas).
+    assert roteador.NOTA_EDITAR in roteador.sistema_para('groq', com_o_corpo=True, editar=True)
+    assert roteador.NOTA_KIT_VOZ not in roteador.sistema_para('groq', com_o_corpo=True, editar=True)

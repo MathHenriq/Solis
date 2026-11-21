@@ -119,7 +119,7 @@ async def _clima(args: dict) -> str:
 async def _jogos(args: dict) -> str:
     from . import dados_ao_vivo
     try:
-        return await dados_ao_vivo.jogos(args.get('time') or '')
+        return await dados_ao_vivo.jogos(args.get('equipe') or args.get('time') or '')
     except dados_ao_vivo.SemDado as e:
         return f'Não consegui os jogos: {e}. Procure na web (WebFetch numa busca).'
 
@@ -161,9 +161,11 @@ DO_SOLIS: list[Ferramenta] = [
                _objeto({'cidade': _TEXTO}), _clima),
     Ferramenta('jogos', 'Os jogos de um time, direto da fonte: o placar ao vivo, o último resultado, os anteriores '
                'e o próximo jogo, com data, hora de Brasília e campeonato. Futebol (clubes e seleções) e as ligas '
-               'americanas (NBA, NFL...). Use SEMPRE pra placar ou jogo de um time, em vez de ler um site. '
-               'time: o nome (ex.: "Flamengo", "Seleção Brasileira", "Lakers").',
-               _objeto({'time': _TEXTO}), _jogos),
+               'americanas (NBA, NFL...). Use SEMPRE pra placar ou jogo de um time, em vez de ler um site.',
+               # "equipe", não "time": o gpt-oss lia "time" em inglês (a hora) e
+               # mandava {"time": "now", "timezone": ...} (medido na Groq, 21/11/2026).
+               _objeto({'equipe': {'type': 'string', 'description': 'O nome do time ou da seleção, ex.: "Flamengo", '
+                                                                    '"Seleção Brasileira", "Lakers".'}}), _jogos),
     Ferramenta('agendar_tarefa', 'Agenda uma tarefa que o Solis faz sozinho num horário, como as tarefas agendadas '
                'do Claude Desktop: na hora, o Solis abre uma conversa com o nome da tarefa, manda o pedido e avisa no '
                'Windows quando acaba. Use quando o Matheus pedir pra fazer algo todo dia, toda semana, numa data. '
@@ -259,6 +261,14 @@ class _EtapasDoAjudante:
 # conta como "fonte lida" e diz "Li a página X").
 WEBFETCH = 'WebFetch'
 LEITURAS_VOZ = 2   # leituras de página por resposta falada (a busca conta como uma)
+# Pela voz, o kit enxuto (21/11/2026): cada pedido à Groq levava ~3 mil tokens
+# (as 17 ferramentas e as instruções de todas), e o minuto grátis de cada modelo
+# é 8 mil: em perguntas seguidas os modelos estouravam, e a resposta esperava ou
+# não vinha. Pela voz vão as do dia a dia; o resto (arquivos, skills, ajudantes,
+# tarefas agendadas, conectores) fica a um pedido, mais_ferramentas, como as
+# ferramentas guardadas do Claude Code. A hora já vai na mensagem ("Agora: ...").
+MAIS = SOLIS + 'mais_ferramentas'
+FORA_DA_VOZ = {'hora', 'agendar_tarefa'}
 _WEBFETCH_SPEC = ('Lê o texto principal de uma página da internet pra você, sem abrir janela (devolve o título e o '
                   'texto, até 10 mil caracteres). Use pra ler uma fonte, um artigo, uma documentação. Pra abrir um '
                   'site pro Matheus ver, use o navegador.',
@@ -513,6 +523,12 @@ class Corpo:
         # e no máximo LEITURAS_VOZ leituras por resposta.
         self.voz = False
         self.leituras = 0
+        # O kit enxuto da voz (MAIS): aberto quando o modelo pede; `kit_mudou` faz
+        # quem chama o modelo pedir a lista de novo; as instruções das guardadas
+        # (o roteador põe aqui) voltam junto.
+        self.kit_aberto = False
+        self.kit_mudou = False
+        self.instrucoes_do_kit = ''
         self.transporte = None  # o do pedido do cérebro (apis.responder põe aqui; nos testes, o simulado)
         self._skills: list[dict] | None = None
         # As ordens escondidas tiradas do texto de fora (injecao.py): o Solis
@@ -522,15 +538,47 @@ class Corpo:
         # Write pode reescrever inteiros (_reescrever_sem_ler).
         self.lidos: set[str] = set()
 
+    def _kit_da_voz(self) -> bool:
+        """Pela voz, só as do dia a dia, até o modelo pedir as outras (MAIS)."""
+        return self.voz and not self.kit_aberto
+
+    def _guardadas(self) -> list[str]:
+        """O que o MAIS traz, em palavras (vai na descrição dele)."""
+        coisas = []
+        if self.arquivos or self.editar:
+            coisas.append('ler, achar, criar e editar arquivos do PC')
+        if self.lista_skills():
+            coisas.append('as skills do Matheus (' + ', '.join(s['nome'] for s in self.lista_skills()) + ')')
+        if self._abre_ajudante():
+            coisas.append('ajudantes que fazem partes de uma tarefa grande')
+        coisas.append('tarefas agendadas (o Solis faz sozinho num horário: todo dia, toda semana)')
+        servidores = sorted({srv['nome'] for srv, _ in self._do_mcp().values()})
+        if servidores:
+            coisas.append('os conectores (' + ', '.join(servidores) + ')')
+        return coisas
+
     async def especificacoes(self) -> list[dict]:
-        specs = [_funcao(f.completo, f.descricao, f.parametros) for f in DO_SOLIS]
-        if self.arquivos:
+        enxuto = self._kit_da_voz()
+        specs = [_funcao(f.completo, f.descricao, f.parametros) for f in DO_SOLIS
+                 if not (enxuto and f.nome in FORA_DA_VOZ)]
+        if self.arquivos and not enxuto:
             specs += [_funcao(SOLIS + f['function']['name'], f['function']['description'], f['function']['parameters'])
                       for f in pc.FERRAMENTAS]
-        if self.editar:
+        if self.editar and not enxuto:
             specs += [_funcao(n, d, p) for n, d, p in editar.ESPECIFICACOES]
         if self.web:
             specs.append(_funcao(WEBFETCH, *_WEBFETCH_SPEC))
+        if enxuto:
+            specs.append(_funcao(MAIS, 'Traz as outras ferramentas do Solis pra este pedido, com as instruções: '
+                                       + '; '.join(self._guardadas()) + '. Chame antes de dizer que não consegue.',
+                                 _objeto({})))
+            if self.terminal:
+                specs.append(copy.deepcopy(_TERMINAL))
+            if self.tela:
+                specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA]
+            if self.navegar:
+                specs += await self._do_navegador()
+            return specs
         if self._abre_ajudante():
             specs.append(_funcao(AGENTE, *_AGENTE_SPEC))
         if self.lista_skills():
@@ -578,6 +626,7 @@ class Corpo:
 
     def tem(self, nome: str) -> bool:
         return (nome in _POR_NOME or (self.terminal and nome == TERMINAL) or self._de_arquivo(nome)
+                or (nome == MAIS and self._kit_da_voz())
                 or (self.editar and nome in editar.NOMES) or (nome == SKILL and bool(self.lista_skills()))
                 or (self.web and nome == WEBFETCH) or (nome == AGENTE and self._abre_ajudante())
                 or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
@@ -653,6 +702,12 @@ class Corpo:
             nome = SOLIS + nome
         if not self.tem(nome):
             return f'Essa ferramenta não existe aqui: {nome}.'
+        if nome == MAIS:
+            # Só abre a lista (nada roda no PC): sem cartão.
+            coisas = self._guardadas()
+            self.kit_aberto = self.kit_mudou = True
+            return ('Pronto: as outras ferramentas já estão aqui (' + '; '.join(coisas) + '). Use agora a que o '
+                    'pedido precisa.' + self.instrucoes_do_kit)
         pagina = _paginas.get(self.conversa)
 
         def por(tipo, valor=None):
