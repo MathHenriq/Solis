@@ -15,8 +15,12 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import os
+import re
 import socket
 from urllib.parse import parse_qs, quote_plus, urlsplit
+
+import httpx
 
 from . import conhecimento
 
@@ -125,9 +129,46 @@ async def ler(url: str, transporte=None) -> tuple[str, str, str]:
     try:
         nome, lido = await asyncio.to_thread(conhecimento.preparar_pagina, final, tipo, corpo)
     except conhecimento.NaoLeu as e:
-        raise NaoLeu(str(e)) from e
+        if not LEITOR_LIGADO:
+            raise NaoLeu(str(e)) from e
+        nome, lido = final, {'trechos': []}
     texto = '\n\n'.join(t for _, t in lido['trechos'])
+    if len(texto) < POUCO_TEXTO and LEITOR_LIGADO:
+        renderizado = await _renderizado(final, transporte)
+        if renderizado and len(renderizado) > len(texto):
+            texto = renderizado
+    if not texto:
+        raise NaoLeu('a página veio vazia (nem renderizada deu texto)')
     return final, nome, texto
+
+
+# A página que só aparece com JavaScript (21/11/2026): o Globo Esporte do
+# Flamengo veio com 598 caracteres, a cotação do dólar sem o número. Quando a
+# leitura direta traz pouco, o Solis pede a página renderizada a um leitor
+# grátis e sem chave (r.jina.ai: roda o JavaScript e devolve o texto), e fica
+# com o que veio melhor. Só vai pra lá o endereço da página pública — nunca
+# nada do Matheus. SOLIS_WEB_LEITOR=0 desliga.
+LEITOR = 'https://r.jina.ai/'
+LEITOR_LIGADO = os.environ.get('SOLIS_WEB_LEITOR', '1') != '0'
+POUCO_TEXTO = 1500
+
+
+def _limpar_markdown(md: str) -> str:
+    """O texto do leitor sem as imagens, os endereços dos links e os menus curtos."""
+    md = md.split('Markdown Content:', 1)[-1]
+    md = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', md)
+    md = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', md)
+    linhas = [l.strip(' *#|-') for l in md.splitlines()]
+    return '\n'.join(l for l in linhas if len(l) > 25 or re.search(r'\d', l))
+
+
+async def _renderizado(url: str, transporte=None) -> str | None:
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0), transport=transporte) as c:
+            r = await c.get(LEITOR + url, headers={'Accept': 'text/plain'})
+    except httpx.HTTPError:
+        return None
+    return _limpar_markdown(r.text) if r.status_code == 200 else None
 
 
 def para_o_modelo(final: str, titulo: str, texto: str, limite: int = TEXTO_MAX) -> str:

@@ -130,3 +130,26 @@ def test_pela_voz_a_pagina_vem_curta_e_no_maximo_duas_leituras(monkeypatch):
     c2 = corpo.Corpo(1, Gravador(), navegar=False, cerebro='groq')
     for u in ('https://d.com', 'https://e.com', 'https://f.com'):
         assert 'x' * 9000 in asyncio.run(c2.rodar('WebFetch', {'url': u}))
+
+
+def test_pagina_que_so_aparece_com_javascript_vem_pelo_leitor(monkeypatch):
+    """21/11/2026: o Globo Esporte do Flamengo veio com 598 caracteres, a cotação
+    sem o número. Pouco texto direto: o Solis pede a página renderizada ao leitor
+    (só o endereço público vai) e fica com o que veio melhor, sem os menus e links."""
+    monkeypatch.setattr(web, 'LEITOR_LIGADO', True)
+    monkeypatch.setattr(web, '_publico', lambda host: True)
+    pedidos = []
+    renderizada = ('Title: Flamengo\nURL Source: https://ge.globo.com/flamengo\nMarkdown Content:\n* [Menu](https://x)\n'
+                   '![logo](https://img/logo.png)\n'
+                   'O Flamengo venceu o Palmeiras por 2 a 1 neste domingo, no Maracanã, com gol no fim do jogo.\n'
+                   '[Leia a matéria completa sobre a vitória do Flamengo](https://ge.globo.com/materia)\n')
+
+    def site(request):
+        pedidos.append(str(request.url))
+        if str(request.url).startswith(web.LEITOR):
+            return httpx.Response(200, text=renderizada)
+        return httpx.Response(200, html='<html><body><div id="app"></div><script>carregar()</script></body></html>')
+    final, _, texto = asyncio.run(web.ler('https://ge.globo.com/flamengo', httpx.MockTransport(site)))
+    assert pedidos == ['https://ge.globo.com/flamengo', web.LEITOR + 'https://ge.globo.com/flamengo']
+    assert 'venceu o Palmeiras por 2 a 1' in texto and 'Leia a matéria completa sobre a vitória' in texto
+    assert 'https://' not in texto and 'logo' not in texto and 'Menu' not in texto

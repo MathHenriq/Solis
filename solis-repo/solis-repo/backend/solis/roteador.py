@@ -278,8 +278,10 @@ NOTA_HOJE_NO_NAVEGADOR = (
 
 
 NOTA_HOJE_NA_WEB = (
-    ' Pra uma informação de hoje (cotação, notícia, clima, resultado de jogo), leia uma página confiável com '
-    'WebFetch (um site oficial, um jornal) antes de responder: não responda de memória nem diga que não consegue.'
+    ' Cotação e clima: use as ferramentas mcp__solis__cotacao e mcp__solis__clima (direto da fonte, exatas). Pra '
+    'outra informação de hoje (notícia, resultado de jogo, preço), busque com WebFetch num endereço de busca '
+    '(https://www.google.com/search?q=...) e, se o trecho não trouxer, leia a página do melhor resultado antes de '
+    'responder: não responda de memória nem diga que não consegue.'
 )
 
 

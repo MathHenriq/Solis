@@ -10,6 +10,14 @@ def banco_temporario(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def sem_leitor_de_paginas(monkeypatch):
+    """Nenhum teste pede página renderizada ao leitor de fora (web.py, r.jina.ai);
+    o teste do leitor liga ele com o site simulado."""
+    from solis import web
+    monkeypatch.setattr(web, 'LEITOR_LIGADO', False)
+
+
+@pytest.fixture(autouse=True)
 def sem_microfone_de_verdade(monkeypatch):
     """Nenhum teste abre o microfone do PC (microfone_nativo.py): a escuta dos
     testes recebe o áudio pela "tela", como sempre."""
