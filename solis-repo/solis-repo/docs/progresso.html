@@ -187,7 +187,7 @@ code { font-family: var(--mono); font-size: 13px; }
         <div class="topo"><h3>Chamar</h3><span class="pill mid">Em teste</span></div>
         <div class="num">32<small> de 32</small></div>
         <p>O detector treinado só pra "Solis" (21/11, aqui no PC, sem Colab): acertou as 32 gravações suas guardadas, com 0 alarme falso em 27 min de fala difícil. Com alguém falando por cima no mesmo volume, 22 de 32. O Whisper dava 11 de 12 limpo e ~5 em 10 em casa.</p>
-        <p class="falta">Agora: em modo sombra no app, anotando no log quando acordaria. Um dia de uso em casa decide se ele assume.</p>
+        <p class="falta">Ao vivo, em modo sombra, pegou só 1 de 6 chamadas: a escuta agora guarda os trechos de "Solis" no PC pra achar a diferença e treinar de novo. Quem decide ainda é o Whisper, que ouviu todas as chamadas normais. E o Solis agora ouve durante as chamadas do Discord, sem estragar o som (o microfone direto do Windows).</p>
       </div>
       <div class="etapa">
         <div class="topo"><h3>Ouvir</h3><span class="pill ok">Bom</span></div>
@@ -196,10 +196,10 @@ code { font-family: var(--mono); font-size: 13px; }
         <p class="falta">Falta: transcrever enquanto você fala, não depois.</p>
       </div>
       <div class="etapa">
-        <div class="topo"><h3>Pensar</h3><span class="pill mid">Mediano</span></div>
-        <div class="num">0,6–1,5<small> s</small></div>
-        <p>A Groq (gpt-oss-120b) responde rápido e certo, mas as respostas saem medianas, sem personalidade.</p>
-        <p class="falta">Falta: comparar cérebros pra voz e dar um jeito de falar que seja do Solis.</p>
+        <div class="topo"><h3>Pensar</h3><span class="pill mid">Melhorando</span></div>
+        <div class="num">3–12<small> s</small></div>
+        <p>Pesquisa pela voz (21/11): antes "Não sei" pro jogo do Flamengo e 16 a 59 s quando pesquisava; agora vai com as ferramentas, no máximo 2 leituras, e responde em 3 a 12 s. Conta e conhecimento continuam em menos de 1 s.</p>
+        <p class="falta">Falta: o grátis da Groq segura (8 mil tokens/min); a paga custaria ~US$ 1 a 2/mês. E o "deixa eu ver" enquanto procura.</p>
       </div>
       <div class="etapa">
         <div class="topo"><h3>Falar</h3><span class="pill ok">Escolhida</span></div>
@@ -277,6 +277,8 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-feito">
       <h2 id="t-feito">Feito nos últimos dias</h2>
       <ul class="lista">
+        <li><span class="d">21/11</span><span>O Solis ouve junto com o Discord: o microfone direto do Windows, testado com você numa chamada (o som ficou normal dos dois lados).</span></li>
+        <li><span class="d">21/11</span><span>Respostas pela voz com as ferramentas: pesquisa de 16–59 s pra 3–12 s, e sem "Não sei" pro que dá pra procurar.</span></li>
         <li><span class="d">21/11</span><span>O detector da palavra "Solis" treinado no PC, sem Colab: 32 de 32 e 0 alarmes falsos nos testes. Ligado em modo sombra.</span></li>
         <li><span class="d">21/11</span><span>Teste cego de 9 vozes; a sua escolhida (G) agora é a voz do Solis, falando em pedaços.</span></li>
         <li><span class="d">21/11</span><span>A ideia do orquestrador de IAs no código registrada, com a pesquisa do que existe lá fora.</span></li>
@@ -291,7 +293,8 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-voce">
       <h2 id="t-voce">Esperando você</h2>
       <ul class="lista voce">
-        <li><div><strong>Usar o Solis em casa por um dia</strong><br><span>Com o app aberto e chamando normalmente: o detector novo anota em silêncio quando acordaria, e o log compara com o Whisper.</span></div></li>
+        <li><div><strong>Usar o Solis em casa, até no Discord</strong><br><span>Chamando normalmente: cada "Solis" fica guardado no PC pra treinar o detector com a sua voz ao vivo.</span></div></li>
+        <li><div><strong>Groq paga ou não</strong><br><span>Uns US$ 1 a 2 por mês acaba com a espera do limite grátis nas pesquisas pela voz (ligar o faturamento na conta da Groq).</span></div></li>
         <li><div><strong>Pagar ou não a voz G</strong><br><span>De graça ela dá 10 respostas por dia e depois cai pra Fish. Paga: uns US$ 4 a 6 por mês (ligar o faturamento na chave do Google AI Studio).</span></div></li>
         <li><div><strong>Logins dos conectores</strong><br><span>Gmail e os outros. Pode ficar pra depois da voz.</span></div></li>
       </ul>
