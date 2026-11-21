@@ -637,6 +637,13 @@ async def responder(
     # O botão Pesquisa: precisa de buscar e ler na internet, então já vai com o corpo.
     elif NOTA_PESQUISA in mensagem:
         com_o_corpo = {c for c in fila if com_corpo(c)}
+    # Pela voz, sempre com o corpo (21/11/2026). Leve primeiro, a Groq com a
+    # instrução de "uma ou duas frases" e o raciocínio baixo respondia "Não sei"
+    # em vez da marca — "quem ganhou o jogo do Flamengo?", "o que tem nos meus
+    # downloads?" —, e as ferramentas nunca chegavam (o Matheus: "as respostas
+    # são horríveis"). Na voz não dá pra perguntar de novo pela tela.
+    if voz:
+        com_o_corpo |= {c for c in fila if com_corpo(c)}
     de_novo = None
     while fila:
         nome = fila.pop(0)

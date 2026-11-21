@@ -26,12 +26,12 @@ log = logging.getLogger('solis.microfone')
 
 SCRIPT = Path(__file__).with_name('microfone_vigia.ps1')
 
-# Sair do caminho quando outro programa está no microfone. Desligado em
-# 21/11/2026, num teste com o Matheus numa chamada do Discord: com a regra
-# ligada, quem passa o dia num canal de voz fica com o Solis surdo (as chamadas
-# dele nem chegavam ao servidor). O vigia continua anotando quem está no
-# microfone. SOLIS_CEDER_MICROFONE=1 liga de novo.
-CEDER = os.environ.get('SOLIS_CEDER_MICROFONE', '0') == '1'
+# Sair do caminho quando outro programa está no microfone. Testado desligado
+# em 21/11/2026 com o Matheus numa chamada do Discord: o Solis ouviu todas as
+# chamadas normais, mas a voz dos amigos no Discord ficou esquisita de novo
+# (o mesmo de 19/11) — ligado de volta na hora, até achar a causa. Ligado, quem
+# passa o dia num canal de voz fica com o Solis surdo. SOLIS_CEDER_MICROFONE=0 desliga.
+CEDER = os.environ.get('SOLIS_CEDER_MICROFONE', '1') == '1'
 
 
 class Vigia:

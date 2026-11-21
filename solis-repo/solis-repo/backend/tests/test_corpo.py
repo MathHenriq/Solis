@@ -287,6 +287,34 @@ def test_a_groq_com_corpo_sabe_do_navegador_e_ainda_passa_o_resto(monkeypatch):
     assert 'Você não roda comandos nem acessa a internet' not in sistema
 
 
+def test_pela_voz_a_groq_ja_vai_com_o_corpo(monkeypatch):
+    """21/11/2026: leve primeiro, pela voz a Groq respondia "Não sei" em vez da
+    marca ("quem ganhou o jogo do Flamengo?") e as ferramentas nunca chegavam.
+    Pela voz vai uma vez só, já com o corpo; e a instrução da voz manda procurar."""
+    monkeypatch.setattr(corpo.Corpo, '__init__', lambda self, conversa, etapas, **_: (
+        setattr(self, 'navegar', False), setattr(self, 'conversa', conversa), setattr(self, 'etapas', etapas),
+        setattr(self, 'agiu', False), setattr(self, 'tiradas', []), setattr(self, 'editar', False), setattr(self, 'skills', False), setattr(self, '_skills', None), setattr(self, 'web', True), setattr(self, '_nav', None), setattr(self, 'terminal', False), setattr(self, 'arquivos', False), setattr(self, 'tela', False))[0])
+    vistos = []
+
+    async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):
+        vistos.append((nome, prompt, corpo, rapido))
+
+        async def gen():
+            yield 'O Flamengo ganhou de dois a um.'
+        return gen()
+    from solis import cerebros, ollama
+    monkeypatch.setattr(cerebros, 'abrir', abrir)
+
+    async def ir():
+        fluxo, quem = await roteador.responder(['groq'], '', 1, [], [], [], None, 'quem ganhou o jogo do Flamengo?',
+                                               Gravador(), voz=True)
+        return ''.join([p async for p in fluxo])
+    assert asyncio.run(ir()) == 'O Flamengo ganhou de dois a um.'
+    [(nome, prompt, o_corpo, rapido)] = vistos
+    assert nome == 'groq' and isinstance(o_corpo, corpo.Corpo) and rapido
+    assert ollama.VOZ in prompt and 'nunca responda só "não sei"' in ollama.VOZ
+
+
 def test_desligado_volta_ao_so_texto(monkeypatch):
     monkeypatch.setattr(roteador, 'CORPO', False)
     assert not roteador.com_corpo('groq')
