@@ -448,6 +448,19 @@ async def falar_aos_pedacos(texto: str, conversa: int | None = None):
     chave_cache = (limpo, voz_gemini(), voz_fish(), tuple(n for n, _, _ in NUVEM + LOCAL))
     nuvem = not privado(limpo, conversa)
     t0 = time.monotonic()
+    # A voz G primeiro (o teste cego de 21/11/2026), depois a Fish (a segunda).
+    if nuvem and chave_cache not in _cache and _fora_ate.get('gemini-flash', 0) <= time.time():
+        try:
+            pedacos = await _gemini_aos_pedacos(limpo, chave_cache)
+            _anotar_demora(t0, 'gemini-flash', limpo)
+            return pedacos, 'audio/mpeg', 'gemini-flash'
+        except SemVoz as e:
+            log.info('gemini flash aos pedaços falhou (%s): segue pra Fish', str(e)[:200])
+            if re.search(r'\b(401|403|429)\b', str(e)):
+                # O limite diário do grátis: descansa o que o Google mandar (ou 10 min).
+                _fora_ate['gemini-flash'] = time.time() + (_espera(str(e)) or 600)
+        except httpx.HTTPError as e:
+            log.info('gemini flash aos pedaços caiu (%s): segue pra Fish', type(e).__name__)
     if nuvem and chave_cache not in _cache and chave_fish() and _fora_ate.get('fish', 0) <= time.time():
         try:
             pedacos = await _fish_aos_pedacos(limpo, lingua_, chave_cache)
@@ -512,6 +525,135 @@ async def _fish_aos_pedacos(texto: str, lingua_: str, chave_cache) -> 'AsyncIter
             # Inteiro, entra no cache como os outros: repetir a frase é na hora.
             if completo:
                 _cache[chave_cache] = (b''.join(recebido), 'audio/mpeg', 'fish')
+                while len(_cache) > CACHE_MAX:
+                    _cache.popitem(last=False)
+    return resto()
+
+
+# — A voz G (21/11/2026): o Gemini Flash TTS (não o Lite), Aoede, em pedaços ————
+# O teste cego do Matheus deu G=5 (Flash TTS · Aoede), A=4 (Fish), C=E=3 (o Lite)
+# — "a mais direta pra passar a informação, sem cara de IA, e a entonação".
+# Pelo endpoint de sempre (interactions) ela devolvia a frase inteira em 4 a 5 s;
+# pelo streamGenerateContent (SSE), medido: o primeiro pedaço em 0,92 s e a frase
+# em 2,2 s. Vem em PCM 24 kHz; vira mp3 enquanto chega (a tela toca mp3 em pedaços,
+# como a Fish). Grátis: 10 pedidos por dia (cai pra Fish quando acaba); pago,
+# US$ 0,00225 a cada 10 s de fala (~US$ 0,0135 por minuto).
+GEMINI_FLUXO_MODELO = os.environ.get('SOLIS_FALA_GEMINI_FLUXO', 'gemini-3.8-flash-tts')
+GEMINI_FLUXO_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{modelo}:streamGenerateContent?alt=sse'
+_transporte_gemini: httpx.AsyncBaseTransport | None = None  # só os testes trocam
+
+
+class _PcmEmMp3:
+    """PCM 16 bits mono (24 kHz) em mp3, aos pedaços (libmp3lame, pelo av)."""
+
+    def __init__(self, taxa: int = 24000):
+        import av
+        self._av = av
+        self.cc = av.CodecContext.create('libmp3lame', 'w')
+        self.cc.sample_rate = taxa
+        self.cc.layout = 'mono'
+        self.cc.format = 's16p'
+        self.cc.bit_rate = 64000
+        self.taxa = taxa
+        self.fila = av.AudioFifo()
+        self.pts = 0
+
+    def _sair(self, frame) -> bytes:
+        return b''.join(bytes(p) for p in self.cc.encode(frame))
+
+    def __call__(self, pcm: bytes) -> bytes:
+        import numpy as np
+        if not pcm:
+            return b''
+        amostras = np.frombuffer(pcm[:len(pcm) // 2 * 2], dtype=np.int16).reshape(1, -1)
+        quadro = self._av.AudioFrame.from_ndarray(amostras, format='s16p', layout='mono')
+        quadro.sample_rate = self.taxa
+        quadro.pts = None
+        self.fila.write(quadro)
+        saida = b''
+        tamanho = self.cc.frame_size or 1152
+        while self.fila.samples >= tamanho:
+            q = self.fila.read(tamanho)
+            q.pts, self.pts = self.pts, self.pts + tamanho
+            saida += self._sair(q)
+        return saida
+
+    def fim(self) -> bytes:
+        saida = b''
+        if self.fila.samples:
+            q = self.fila.read(self.fila.samples)
+            q.pts = self.pts
+            saida += self._sair(q)
+        return saida + self._sair(None)
+
+
+async def _gemini_aos_pedacos(texto: str, chave_cache) -> 'AsyncIterator[bytes]':
+    """Abre o pedido no Gemini Flash TTS e espera o PRIMEIRO pedaço de áudio
+    aqui — é onde a falha (limite do grátis, chave) aparece, e ainda dá pra cair
+    pra Fish."""
+    import json as _json
+
+    from . import apis
+    chave = apis._chave_de('gemini')
+    if not chave:
+        raise SemVoz('sem chave do Gemini')
+    corpo = {'contents': [{'role': 'user', 'parts': [{'text': texto}]}],
+             'generationConfig': {'responseModalities': ['AUDIO'], 'speechConfig': {
+                 'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': voz_gemini()}}}}}
+    cliente = httpx.AsyncClient(transport=_transporte_gemini, timeout=TEMPO_NUVEM)
+    try:
+        r = await cliente.send(cliente.build_request(
+            'POST', GEMINI_FLUXO_URL.format(modelo=GEMINI_FLUXO_MODELO), json=corpo,
+            headers={'x-goog-api-key': chave}), stream=True)
+        if r.status_code >= 400:
+            erro = (await r.aread()).decode(errors='replace')[:300]
+            await r.aclose()
+            raise SemVoz(f'Gemini Flash TTS respondeu {r.status_code}: {erro}')
+        linhas = r.aiter_lines()
+
+        async def pcm():
+            async for linha in linhas:
+                if not linha.startswith('data:'):
+                    continue
+                for c in _json.loads(linha[5:]).get('candidates', []):
+                    for p in c.get('content', {}).get('parts', []):
+                        if (p.get('inlineData') or {}).get('data'):
+                            yield base64.b64decode(p['inlineData']['data'])
+
+        fonte = pcm()
+        mp3 = _PcmEmMp3()
+        primeiro = b''
+        async for bruto in fonte:
+            primeiro = mp3(bruto)
+            if primeiro:
+                break
+        if not primeiro:
+            await r.aclose()
+            raise SemVoz('Gemini Flash TTS não devolveu áudio')
+    except BaseException:
+        await cliente.aclose()
+        raise
+
+    async def resto():
+        recebido = [primeiro]
+        completo = False
+        try:
+            yield primeiro
+            async for bruto in fonte:
+                p = mp3(bruto)
+                if p:
+                    recebido.append(p)
+                    yield p
+            ultimo = mp3.fim()
+            if ultimo:
+                recebido.append(ultimo)
+                yield ultimo
+            completo = True
+        finally:
+            await r.aclose()
+            await cliente.aclose()
+            if completo:
+                _cache[chave_cache] = (b''.join(recebido), 'audio/mpeg', 'gemini-flash')
                 while len(_cache) > CACHE_MAX:
                     _cache.popitem(last=False)
     return resto()

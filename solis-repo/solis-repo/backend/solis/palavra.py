@@ -35,6 +35,25 @@ class SemModelo(Exception):
     pass
 
 
+class _Camada:
+    """O modelo da palavra treinado aqui (design/gravar-solis/treinar_local.py,
+    21/11/2026): a mesma ideia do openWakeWord (uma camada pequena sobre os 16
+    vetores), em numpy, salva em .npz — o treino oficial precisa do PyTorch, que
+    o Windows bloqueia neste PC."""
+
+    def __init__(self, caminho: Path):
+        if not caminho.is_file():
+            raise SemModelo(f'falta {caminho.name} em {caminho.parent}')
+        d = np.load(caminho)
+        self.W1, self.b1, self.W2, self.b2 = d['W1'], d['b1'], d['W2'], d['b2']
+        self.media, self.desvio = d['media'], d['desvio']
+
+    def nota(self, entrada: np.ndarray) -> float:
+        z = (entrada.reshape(1, -1) - self.media) / self.desvio
+        h = np.maximum(z @ self.W1 + self.b1, 0)
+        return float(1 / (1 + np.exp(-(h @ self.W2 + self.b2)[0, 0])))
+
+
 def _sessao(caminho: Path):
     import onnxruntime as ort
     if not caminho.is_file():
@@ -52,10 +71,14 @@ class Ouvido:
         pasta = pasta or PASTA
         self._mels = _sessao(pasta / MELS)
         self._espinha = _sessao(pasta / ESPINHA)
-        self._palavra = _sessao(Path(modelo) if Path(modelo).is_absolute() else pasta / modelo)
+        caminho = Path(modelo) if Path(modelo).is_absolute() else pasta / modelo
+        if caminho.suffix == '.npz':
+            self._camada, self._palavra = _Camada(caminho), None
+        else:
+            self._camada, self._palavra = None, _sessao(caminho)
+            self._entrada_palavra = self._palavra.get_inputs()[0].name
         self._entrada_mels = self._mels.get_inputs()[0].name
         self._entrada_espinha = self._espinha.get_inputs()[0].name
-        self._entrada_palavra = self._palavra.get_inputs()[0].name
         self.zerar()
 
     def zerar(self):
@@ -95,5 +118,8 @@ class Ouvido:
             if self._mel.shape[0] >= JANELA_MEL:
                 self._vetores = np.vstack([self._vetores, self._vetor_de(self._mel[-JANELA_MEL:])])[-120:]
             entrada = self._vetores[-VETORES:][None, :, :].astype(np.float32)
-            notas.append(float(np.squeeze(self._palavra.run(None, {self._entrada_palavra: entrada})[0])))
+            if self._camada is not None:
+                notas.append(self._camada.nota(entrada))
+            else:
+                notas.append(float(np.squeeze(self._palavra.run(None, {self._entrada_palavra: entrada})[0])))
         return notas

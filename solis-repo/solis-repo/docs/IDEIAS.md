@@ -257,6 +257,52 @@ Estimativa com metade do tempo cada um falando, sem texto e sem crescimento do h
 Gemini Live, cada turno cobra o histórico inteiro; conversas longas precisam ser "zeradas" de
 tempos em tempos.
 
+## O orquestrador de IAs no código (21/11/2026)
+
+Nas palavras do Matheus: quando os tokens do Claude Code acabam no meio de algo pequeno e a pessoa
+põe o Codex, ele "mexe em tudo que é código desnecessariamente, porque não sabe no que está
+mexendo"; quando o Claude volta, o Codex quebrou o projeto ou "criou tudo menos o que você pediu".
+O Solis resolve isso em duas partes:
+
+1. **O caderno do projeto, dentro do Solis.** Tudo o que qualquer IA faz no código fica
+   registrado no Solis (o plano, o que já foi feito, por quê, o que cada uma pode mexer), e
+   qualquer IA que entra depois lê antes de mexer. Usar vários modelos sem que um desfaça o
+   que o outro fez.
+2. **Trabalhar juntos de verdade.** Hoje cada ferramenta faz uma parte e a pessoa conecta.
+   No Solis, o pedido ("um sistema de nota fiscal eletrônica") é dividido por um cérebro que
+   decide as etapas: o Claude Code no back-end, o Codex no front-end, um modelo barato
+   pesquisando como a NF-e funciona, e eles conversando entre si enquanto constroem (gasta
+   mais tokens, e isso entra na conta). Cada IA cuida só da sua parte.
+
+**O portão (inadmissível falhar nisto):** o resultado dividido nunca pode sair pior do que se
+ele tivesse feito tudo só no Claude Code. Como medir: a mesma tarefa feita só pelo Claude Code
+e pelo orquestrador, comparando se funciona, o tempo, os tokens e o retrabalho.
+
+**O que existe lá fora (pesquisa de 21/11/2026).** O problema é comum e ninguém tem uma
+ferramenta oficial pra coordenar o Claude Code e o Codex, só arranjos:
+[o Codex que sobrescreveu meses de trabalho](https://community.openai.com/t/codex-overwrote-months-of-my-local-project-work-and-i-honestly-don-t-know-what-to-do-anymore/1384417),
+[o Claude que parou no meio da edição quando os tokens acabaram](https://claudeissues.com/issue/21451-bug-critical-claude-aborts-code-edits-mid-process-when-tokens-run-out-leaving-ir).
+Os arranjos que aparecem: um arquivo de contexto só, lido pelos dois (o AGENTS.md como fonte e o
+CLAUDE.md importando ele,
+[mindstudio](https://www.mindstudio.ai/blog/claude-code-vs-codex-same-project-setup),
+[hora de codar](https://horadecodar.com.br/claude-code-codex-mesmo-time/)); um registro de
+passagem que os dois leem antes e escrevem depois; um ramo (worktree) por agente; e "cada agente
+dono de uma pasta". A lição que mais importa pro portão acima: dividir por pasta acabou com os
+conflitos, mas juntar as partes levou umas seis horas de depuração —
+[dividir evita conflito, não garante que o todo funciona](https://dev.to/builtbyzac/how-i-run-4-claude-code-agents-in-parallel-without-them-stepping-on-each-other-45md)
+([Addy Osmani](https://addyosmani.com/blog/code-agent-orchestra/) e
+[a coordenação entre agentes na comunidade da OpenAI](https://community.openai.com/t/cross-agent-workspace-coordination-for-concurrent-coding-agents-claude-codex/1397620)
+vão na mesma linha). O espaço do Solis: ser a camada que ninguém tem — o caderno, a divisão,
+quem pode mexer em quê, o aviso quando um agente mexe fora da parte dele, e a integração
+conferida no fim.
+
+**O Solis como produto.** "A internet criou tanta coisa (skill, MCP, agentes, subagentes,
+sistemas). E se o Solis reunisse tudo num lugar só e fizesse tudo por você?" Em vez do assessor
+num app, do treino em outro, do ChatGPT separado do Claude Code: tudo no Solis, com um "mini n8n"
+interno pros agentes. A ordem dele: primeiro útil pra ele, depois útil pras pessoas, por fim um
+produto que qualquer pessoa compra — com o custo por usuário pensado desde já (as 4 opções:
+grátis bom, grátis médio, pago bom, pago médio, com o custo do mês).
+
 ## Funções para quem cria soluções com IA
 
 O que o Claude ou o ChatGPT sozinhos não fazem, voltado a quem cria soluções sem dominar todas as
