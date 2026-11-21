@@ -272,16 +272,18 @@ def _sem_o_resto(navegar: bool, terminal: bool = False, arquivos: bool = False, 
 # abrir o navegador", ela respondia "não consigo o preço do dólar sem abrir o
 # navegador" — e não abria. Sem o Claude na fila, ela mesma procura.
 NOTA_HOJE_NO_NAVEGADOR = (
-    ' Pra uma informação de hoje (cotação, notícia, clima, resultado de jogo), abra um site confiável com o '
-    'navegador (browser_navigate) e leia a página (browser_snapshot) antes de responder.'
+    ' Cotação, clima e jogos de um time: use as ferramentas mcp__solis__cotacao, mcp__solis__clima e '
+    'mcp__solis__jogos (direto da fonte, exatas). Pra outra informação de hoje (notícia, preço), abra um site '
+    'confiável com o navegador (browser_navigate) e leia a página (browser_snapshot) antes de responder.'
 )
 
 
 NOTA_HOJE_NA_WEB = (
-    ' Cotação e clima: use as ferramentas mcp__solis__cotacao e mcp__solis__clima (direto da fonte, exatas). Pra '
-    'outra informação de hoje (notícia, resultado de jogo, preço), busque com WebFetch num endereço de busca '
-    '(https://www.google.com/search?q=...) e, se o trecho não trouxer, leia a página do melhor resultado antes de '
-    'responder: não responda de memória nem diga que não consegue.'
+    ' Cotação, clima e jogos de um time: use as ferramentas mcp__solis__cotacao, mcp__solis__clima e '
+    'mcp__solis__jogos (direto da fonte, exatas). Pra outra informação de hoje (notícia, preço, o que está em '
+    'alta), busque com WebFetch num endereço de busca (https://www.google.com/search?q=...) e, se o trecho não '
+    'trouxer, leia a página do melhor resultado antes de responder: não responda de memória nem diga que não '
+    'consegue.'
 )
 
 

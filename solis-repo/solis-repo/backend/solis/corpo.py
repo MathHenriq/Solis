@@ -116,6 +116,14 @@ async def _clima(args: dict) -> str:
         return f'Não consegui o clima: {e}.'
 
 
+async def _jogos(args: dict) -> str:
+    from . import dados_ao_vivo
+    try:
+        return await dados_ao_vivo.jogos(args.get('time') or '')
+    except dados_ao_vivo.SemDado as e:
+        return f'Não consegui os jogos: {e}. Procure na web (WebFetch numa busca).'
+
+
 async def _agendar_tarefa(args: dict) -> str:
     from . import agendadas
     try:
@@ -151,6 +159,11 @@ DO_SOLIS: list[Ferramenta] = [
     Ferramenta('clima', 'O tempo de agora e de hoje numa cidade, direto da fonte: temperatura, sensação, chuva, '
                'máxima e mínima. Use SEMPRE pra clima ou previsão do tempo, em vez de ler um site.',
                _objeto({'cidade': _TEXTO}), _clima),
+    Ferramenta('jogos', 'Os jogos de um time, direto da fonte: o placar ao vivo, o último resultado, os anteriores '
+               'e o próximo jogo, com data, hora de Brasília e campeonato. Futebol (clubes e seleções) e as ligas '
+               'americanas (NBA, NFL...). Use SEMPRE pra placar ou jogo de um time, em vez de ler um site. '
+               'time: o nome (ex.: "Flamengo", "Seleção Brasileira", "Lakers").',
+               _objeto({'time': _TEXTO}), _jogos),
     Ferramenta('agendar_tarefa', 'Agenda uma tarefa que o Solis faz sozinho num horário, como as tarefas agendadas '
                'do Claude Desktop: na hora, o Solis abre uma conversa com o nome da tarefa, manda o pedido e avisa no '
                'Windows quando acaba. Use quando o Matheus pedir pra fazer algo todo dia, toda semana, numa data. '
@@ -848,7 +861,8 @@ def instrucoes_local(c: 'Corpo') -> str:
                       'conte ao Matheus o que o arquivo diz.')
     partes.append('Você também tem as ferramentas do Solis (mcp__solis__): hora, criar_lembrete, marcar_compromisso, '
                   'ver_agenda, ver_tarefas, buscar_memoria, agendar_tarefa, cotacao (dólar, euro, bitcoin...: use '
-                  'sempre pra câmbio) e clima (o tempo numa cidade: use sempre pra previsão). Use só quando o pedido '
+                  'sempre pra câmbio), clima (o tempo numa cidade: use sempre pra previsão) e jogos (placar e próximo '
+                  'jogo de um time: use sempre pra futebol e esporte). Use só quando o pedido '
                   'for disso.')
     if c.terminal:
         partes.append('E o terminal (PowerShell): roda um comando no PC do Matheus, só quando ele pedir um comando ou '

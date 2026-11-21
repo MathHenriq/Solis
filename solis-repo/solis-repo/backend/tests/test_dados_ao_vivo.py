@@ -48,4 +48,56 @@ def test_sem_cidade_ou_cidade_que_nao_existe_diz_o_que_falta():
 
 def test_as_duas_sao_ferramentas_do_solis_pra_todos_os_cerebros():
     nomes = [f.nome for f in corpo.DO_SOLIS]
-    assert 'cotacao' in nomes and 'clima' in nomes
+    assert 'cotacao' in nomes and 'clima' in nomes and 'jogos' in nomes
+
+
+def _evento(id_, data, estado, casa, gols_casa, fora, gols_fora, relogio=''):
+    def lado(nome, gols, onde):
+        return {'homeAway': onde, 'team': {'displayName': nome},
+                **({'score': {'displayValue': gols}} if gols is not None else {})}
+    return {'id': id_, 'date': data, 'league': {'name': 'Campeonato Brasileiro'},
+            'competitions': [{'venue': {'fullName': 'Maracanã'},
+                              'status': {'displayClock': relogio,
+                                         'type': {'state': estado, 'completed': estado == 'post'}},
+                              'competitors': [lado(fora, gols_fora, 'away'), lado(casa, gols_casa, 'home')]}]}
+
+
+def test_jogos_do_time_principal_com_o_ultimo_o_ao_vivo_e_o_proximo():
+    """21/11/2026: pela busca, a Groq deu o "último jogo do Flamengo" com um trecho
+    de 26/10; o de hoje (Palmeiras 1 x 1) estava numa página que só vem com JavaScript."""
+    pedidos = []
+
+    def api(req):
+        pedidos.append(req.url)
+        if 'search' in req.url.path:
+            assert req.url.params['query'] == 'Flamengo'  # "mengão" vira o nome que a fonte acha
+            return httpx.Response(200, json={'results': [{'type': 'team', 'contents': [
+                {'uid': 's:600~t:18467', 'displayName': 'Flamengo U20', 'sport': 'soccer',
+                 'defaultLeagueSlug': 'bra.brasileiro_u20'},
+                {'uid': 's:600~t:819', 'displayName': 'Flamengo', 'sport': 'soccer', 'defaultLeagueSlug': 'bra.1'}]}]})
+        assert '/teams/819/' in req.url.path
+        if req.url.params.get('fixture'):
+            return httpx.Response(200, json={'events': [
+                _evento('4', '2026-11-29T19:00Z', 'pre', 'Coritiba', None, 'Flamengo', None)]})
+        return httpx.Response(200, json={'events': [
+            _evento('1', '2026-11-04T22:30Z', 'post', 'Flamengo', '3', 'Grêmio', '1'),
+            _evento('2', '2026-11-18T23:30Z', 'post', 'Flamengo', '2', 'Athletico-PR', '1'),
+            _evento('3', '2026-11-21T19:30Z', 'post', 'Palmeiras', '1', 'Flamengo', '1'),
+            _evento('5', '2026-11-22T20:00Z', 'in', 'Flamengo', '0', 'Vasco', '0', "12'")]})
+    texto = asyncio.run(d.jogos('mengão', httpx.MockTransport(api)))
+    ligas = sorted({p.path.split('/')[-4] for p in pedidos if 'schedule' in p.path})
+    assert ligas == ['all', 'bra.1']  # a liga do time e todas (as copas), sem repetir os jogos
+    assert texto.splitlines() == [
+        'Flamengo (horário de Brasília):',
+        "Ao vivo agora: Flamengo 0 x 0 Vasco, 12', Campeonato Brasileiro (Maracanã).",
+        'Último jogo: Palmeiras 1 x 1 Flamengo, sábado, 21/11 às 16:30, Campeonato Brasileiro (Maracanã), encerrado.',
+        'Antes: Flamengo 2 x 1 Athletico-PR (quarta, 18/11, Campeonato Brasileiro (Maracanã)); '
+        'Flamengo 3 x 1 Grêmio (quarta, 04/11, Campeonato Brasileiro (Maracanã)).',
+        'Próximo jogo: Coritiba x Flamengo, domingo, 29/11 às 16:00, Campeonato Brasileiro (Maracanã).']
+
+
+def test_time_que_nao_existe_manda_procurar_na_web():
+    vazio = httpx.MockTransport(lambda req: httpx.Response(200, json={'results': []}))
+    with pytest.raises(d.SemDado, match='não achei o time'):
+        asyncio.run(d.jogos('Xyzópolis FC', vazio))
+    assert 'Procure na web' in asyncio.run(corpo._jogos({'time': ''}))

@@ -106,7 +106,8 @@ async def buscar(termos: str, transporte=None) -> tuple[str, str, str]:
         raise NaoLeu('a busca não trouxe resultados (tente outras palavras, ou leia direto um site)')
     texto = '\n\n'.join(f'{i}. {t}\n   {u}\n   {s}' for i, (t, u, s) in enumerate(resultados, 1))
     return final, f'Resultados da busca: {termos}', (
-        texto + '\n\nO trecho é só um resumo: pra responder, leia com WebFetch a página do resultado que serve.')
+        texto + '\n\nO trecho é só um resumo: pra responder, leia com WebFetch a página do resultado que serve. '
+        'Pro mais recente (o último, o de hoje, o de agora), um trecho com data antiga não serve: leia a página.')
 
 
 async def ler(url: str, transporte=None) -> tuple[str, str, str]:
