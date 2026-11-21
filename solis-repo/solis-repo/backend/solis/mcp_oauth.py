@@ -234,9 +234,12 @@ async def comecar(nome: str, url: str, volta: str, ao_terminar=None) -> str:
             if not dados['token_endpoint']:
                 dados['token_endpoint'] = ctx.get_authorization_base_url(url).rstrip('/') + '/token'
             _guardar(nome, dados)
-            entrada['estado'] = 'pronto'
+            # "Pronto" só depois que os CLIs já usam o login (ao_terminar põe o
+            # ajudante nos arquivos deles): antes, a tela dizia pronto e o Claude
+            # Code ainda conectava sem o login por um instante.
             if ao_terminar is not None:
                 await asyncio.to_thread(ao_terminar, nome)
+            entrada['estado'] = 'pronto'
         except asyncio.CancelledError:
             entrada.update(estado='erro', erro='o login foi recomeçado')
             raise
