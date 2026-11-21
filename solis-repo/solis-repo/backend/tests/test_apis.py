@@ -417,7 +417,7 @@ def test_gemini_lotado_no_meio_da_tarefa_troca_e_segue_sem_a_assinatura_do_outro
 
 
 def test_a_groq_lotada_no_meio_nao_troca():
-    """Só o Gemini troca no meio (a Groq não tem reserva)."""
+    """A Groq sem a lista dos modelos (o /models não veio) lotada no meio cai."""
     from solis import corpo
     com_chave()
     n = []
@@ -465,3 +465,151 @@ def test_gemini_varias_chamadas_na_mesma_posicao_nao_se_juntam():
     assert [c['id'] for c in chamadas] == ['c1', 'c2', 'c3']
     assert all(c['function']['name'] == 'mcp__solis__hora' and c['function']['arguments'] == '{}' for c in chamadas)
     assert [m['tool_call_id'] for m in pedidos[1]['messages'] if m['role'] == 'tool'] == ['c1', 'c2', 'c3']
+
+
+# --- a Groq: o limite grátis é de cada modelo (21/11/2026) --------------------
+
+GROQ_HOJE = ['allam-2-7b', 'canopylabs/orpheus-v1-english', 'meta-llama/llama-prompt-guard-2-86m', 'openai/gpt-oss-120b',
+             'openai/gpt-oss-20b', 'openai/gpt-oss-safeguard-20b', 'qwen/qwen3.8-27b', 'whisper-large-v3-turbo']
+DIA_ACABOU = ('{"error":{"message":"Rate limit reached for model `openai/gpt-oss-120b` on tokens per day (TPD): '
+              'Limit 200000, Used 199494","type":"tokens","code":"rate_limit_exceeded"}}')
+
+
+def _groq_com_reservas():
+    com_chave()
+    banco.guardar_ajuste('modelos:groq', apis._reservas_de('groq', GROQ_HOJE))
+
+
+def test_a_groq_tem_reserva_dos_modelos_de_conversa():
+    """Os da conta do Matheus em 21/11/2026: os gpt-oss do maior pro menor, depois o qwen;
+    fora a voz, a transcrição, os classificadores e o allam (4 mil de contexto)."""
+    assert apis._reservas_de('groq', GROQ_HOJE) == ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b']
+
+
+def test_a_groq_no_limite_do_dia_troca_de_modelo_e_o_proximo_vai_direto():
+    """Medido: o 120b acabou o dia (199.494 de 200 mil) e a voz caía pro Gemini, de 14 a 18 s."""
+    _groq_com_reservas()
+    vistos = []
+
+    def rota(req):
+        modelo = json.loads(req.content)['model']
+        vistos.append(modelo)
+        if modelo == 'openai/gpt-oss-120b':
+            return httpx.Response(429, text=DIA_ACABOU, headers={'retry-after': '3600'})
+        return resposta_sse({'choices': [{'delta': {'content': 'Canberra.'}}]})
+
+    g = Gravador()
+    assert ''.join(coletar(apis.responder('groq', 'sis', 'capital', g, servico(rota), rapido=True))) == 'Canberra.'
+    assert vistos == ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']
+    assert ('modelo', {'cerebro': 'groq', 'modelo': 'openai/gpt-oss-20b', 'antes': 'openai/gpt-oss-120b',
+                       'motivo': 'o limite grátis acabou'}) in g.lista
+    # De lado até quando a Groq disse (não os 10 min fixos do Gemini), e a Groq não fica pausada.
+    assert 3500 < apis._lotados[('groq', 'openai/gpt-oss-120b')] - time.time() <= 3600
+    assert cerebros.pausa('groq') is None
+    vistos.clear()
+    coletar(apis.responder('groq', 'sis', 'de novo', Gravador(), servico(rota), rapido=True))
+    assert vistos == ['openai/gpt-oss-20b']
+
+
+def test_a_groq_no_limite_do_minuto_no_meio_da_pesquisa_troca_em_vez_de_esperar():
+    """Uma pesquisa pela voz são 3 pedidos de ~3 mil tokens, e o minuto grátis é 8 mil."""
+    from solis import corpo
+    _groq_com_reservas()
+    pedidos = []
+
+    def rota(req):
+        p = json.loads(req.content)
+        pedidos.append(p)
+        if len(pedidos) == 1:
+            return resposta_sse({'choices': [{'delta': {'tool_calls': [{
+                'index': 0, 'id': 'c1', 'type': 'function', 'function': {'name': 'mcp__solis__hora', 'arguments': '{}'}}]}}]})
+        if p['model'] == 'openai/gpt-oss-120b':
+            return httpx.Response(429, text='tokens per minute (TPM)', headers={'retry-after': '7'})
+        return resposta_sse({'choices': [{'delta': {'content': 'São 10h.'}}]})
+
+    g = Gravador()
+    t0 = time.monotonic()
+    saida = ''.join(coletar(apis.responder('groq', 'sis', 'que horas', g, servico(rota), rapido=True,
+                                           corpo=corpo.Corpo(1, g, navegar=False))))
+    assert saida == 'São 10h.' and time.monotonic() - t0 < 3
+    assert [p['model'] for p in pedidos] == ['openai/gpt-oss-120b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b']
+    # Pra Groq a chamada volta como veio (a assinatura é só do Gemini).
+    assert 'extra_content' not in pedidos[2]['messages'][-2]['tool_calls'][0]
+    assert not any(e == 'esperando' for e, _ in g.lista)
+
+
+def test_todos_os_modelos_da_groq_no_limite_ela_fica_de_lado_ate_o_primeiro_voltar():
+    _groq_com_reservas()
+    espera = {'openai/gpt-oss-120b': '3600', 'openai/gpt-oss-20b': '40', 'qwen/qwen3.8-27b': '900'}
+    rota = lambda req: httpx.Response(429, text='limite', headers={  # noqa: E731
+        'retry-after': espera[json.loads(req.content)['model']]})
+    with pytest.raises(cerebros.CerebroFalhou):
+        coletar(apis.responder('groq', 'sis', 'oi', Gravador(), servico(rota), rapido=True))
+    assert 30 < cerebros.pausa('groq')['ate'] - time.time() <= 40
+
+
+def test_na_voz_cada_modelo_da_groq_com_o_seu_ajuste():
+    """O gpt-oss pensa pouco; o qwen não pensa e responde curto (o grátis dele: mil
+    tokens de saída por minuto, e sem max_tokens um pedido foi recusado)."""
+    _groq_com_reservas()
+    pedidos = []
+
+    def rota(req):
+        p = json.loads(req.content)
+        pedidos.append(p)
+        if 'gpt-oss' in p['model']:
+            return httpx.Response(429, text='limite', headers={'retry-after': '60'})
+        return resposta_sse({'choices': [{'delta': {'content': 'ok'}}]})
+
+    assert ''.join(coletar(apis.responder('groq', 'sis', 'oi', Gravador(), servico(rota), rapido=True))) == 'ok'
+    assert [(p['model'], p.get('reasoning_effort'), p.get('max_tokens')) for p in pedidos] == [
+        ('openai/gpt-oss-120b', 'low', None), ('openai/gpt-oss-20b', 'low', None), ('qwen/qwen3.8-27b', 'none', 400)]
+
+
+def _fluxo(*linhas):
+    return httpx.Response(200, text='\n\n'.join(linhas) + '\n\n', headers={'content-type': 'text/event-stream'})
+
+
+ERRO_DE_FORMATO = ('{"error":{"message":"Failed to parse tool call arguments as JSON","type":"invalid_request_error",'
+                   '"code":"tool_use_failed","failed_generation":"{\\"name\\": \\"mcp__solis__jogos\\"}"}}')
+
+
+def test_chamada_fora_do_formato_no_meio_do_fluxo_pede_de_novo():
+    """21/11/2026, medido: o erro vinha no meio do streaming ("event: error"), o
+    Solis pulava a linha e a resposta saía vazia — pela voz, o Solis calado."""
+    com_chave()
+    n = []
+
+    def rota(req):
+        n.append(1)
+        if len(n) == 1:
+            return _fluxo('event: error', ERRO_DE_FORMATO)
+        if len(n) == 2:
+            return _fluxo('event: error', 'data: ' + ERRO_DE_FORMATO)
+        return resposta_sse({'choices': [{'delta': {'content': 'Empatou, 1 a 1.'}}]})
+
+    assert ''.join(coletar(apis.responder('groq', 'sis', 'flamengo', Gravador(), servico(rota), rapido=True))) \
+        == 'Empatou, 1 a 1.'
+    assert len(n) == 3
+
+
+def test_chamada_fora_do_formato_sempre_cai_dizendo_por_que_e_nao_responde_vazio():
+    com_chave()
+    n = []
+
+    def rota(req):
+        n.append(1)
+        if len(n) % 2:
+            return httpx.Response(400, text=ERRO_DE_FORMATO)
+        return _fluxo('event: error', ERRO_DE_FORMATO)
+
+    with pytest.raises(cerebros.CerebroFalhou, match='fora do formato'):
+        coletar(apis.responder('groq', 'sis', 'flamengo', Gravador(), servico(rota)))
+    assert len(n) == 1 + apis.FORMATO_TENTATIVAS
+
+
+def test_outro_erro_no_meio_do_fluxo_cai_em_vez_de_responder_vazio():
+    com_chave()
+    rota = lambda req: _fluxo('data: {"error": {"message": "internal error", "code": "server_error"}}')  # noqa: E731
+    with pytest.raises(cerebros.CerebroFalhou, match='internal error'):
+        coletar(apis.responder('groq', 'sis', 'oi', Gravador(), servico(rota)))

@@ -10,6 +10,16 @@ def banco_temporario(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def sem_modelos_de_lado():
+    """O "modelo no limite, de lado até tal hora" (apis._lotados) não passa de um
+    teste pro outro: sobrava, e o teste seguinte pedia a lista de modelos à rota dele."""
+    from solis import apis
+    apis._lotados.clear()
+    yield
+    apis._lotados.clear()
+
+
+@pytest.fixture(autouse=True)
 def sem_leitor_de_paginas(monkeypatch):
     """Nenhum teste pede página renderizada ao leitor de fora (web.py, r.jina.ai);
     o teste do leitor liga ele com o site simulado."""

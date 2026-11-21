@@ -114,6 +114,23 @@ LOTADO_S = 10 * 60
 SUMIU_S = 24 * 3600
 TROCAS_MAX = 6
 _lotados: dict[tuple[str, str], float] = {}
+# Nestes o limite grátis é de cada modelo: no limite de um, outro do mesmo
+# serviço atende, no começo ou no meio da tarefa. A Groq (medido em 21/11/2026,
+# na conta do Matheus): o gpt-oss-120b, o gpt-oss-20b e o qwen3.8-27b com 200
+# mil tokens por dia e 7 a 8 mil por minuto cada um. Só com o 120b, o dia
+# acabava no meio das medições e a voz caía pro Gemini (14 a 18 s).
+LIMITE_POR_MODELO = {'gemini', 'groq'}
+# Na voz, o qwen da Groq: sem pensar antes (responde em 0,6 s) e com a saída
+# curta — o grátis dele tem só mil tokens de saída por minuto, e um pedido sem
+# max_tokens chegou a ser recusado por "pedir" 1.137.
+QWEN_VOZ = {'reasoning_effort': 'none', 'max_tokens': 400}
+# O modelo escreveu a chamada da ferramenta fora do formato: pede de novo até este tanto.
+FORMATO_TENTATIVAS = 2
+
+
+class FormatoErrado(CerebroFalhou):
+    """A chamada de ferramenta veio fora do formato (a Groq: tool_use_failed).
+    Pedir de novo costuma dar certo; não é o cérebro que caiu."""
 
 
 class ChaveRecusada(Exception):
@@ -166,9 +183,23 @@ def _escolher(nome: str, ids: list[str]) -> str | None:
     return ids[0] if ids else None
 
 
+def _tamanho(modelo: str) -> int:
+    """Os bilhões de parâmetros no nome ("gpt-oss-120b" → 120), ou 0."""
+    achado = re.search(r'(\d+)b\b', modelo)
+    return int(achado.group(1)) if achado else 0
+
+
 def _reservas_de(nome: str, ids: list[str]) -> list[str]:
     """Os modelos do serviço na ordem de usar, do escolhido pro último (o
-    Gemini tem vários Flash, e o grátis é por modelo). Só o Gemini tem reserva."""
+    grátis é por modelo). O Gemini e a Groq têm reserva."""
+    if nome == 'groq':
+        # Os de conversa: os gpt-oss primeiro (do maior pro menor), depois os outros.
+        # Fora a voz, a transcrição, os classificadores (guard, safeguard) e o
+        # allam (4 mil de contexto, menos que o pedido com as ferramentas).
+        fora = ('whisper', 'orpheus', 'guard', 'tts', 'allam', 'compound', 'playai')
+        conversa = [i for i in ids if not any(f in i for f in fora)]
+        conversa.sort(key=lambda i: ('gpt-oss' not in i, -_tamanho(i), i))
+        return conversa
     if nome != 'gemini':
         return []
     # Fora também os "omni" (sem cota grátis: 429 desde o primeiro pedido do dia,
@@ -182,7 +213,8 @@ def _reservas_de(nome: str, ids: list[str]) -> list[str]:
     return flash
 
 
-async def _modelo_livre(nome: str, chave: str, preferido: str, cliente=None) -> str | None:
+async def _modelo_livre(nome: str, chave: str, preferido: str,
+                       transporte: httpx.AsyncBaseTransport | None = None) -> str | None:
     """O preferido, se não está lotado; senão o próximo da lista do serviço
     (guardada ao salvar a chave; numa chave antiga, pedida ao serviço uma vez)."""
     agora = time.time()
@@ -191,10 +223,10 @@ async def _modelo_livre(nome: str, chave: str, preferido: str, cliente=None) -> 
     reservas = banco.ajuste(f'modelos:{nome}')
     if reservas is None:
         try:
-            reservas = _reservas_de(nome, await listar(nome, chave))
+            reservas = _reservas_de(nome, await listar(nome, chave, transporte))
+            banco.guardar_ajuste(f'modelos:{nome}', reservas)
         except (ChaveRecusada, ProvedorFora, httpx.HTTPError):
-            reservas = []
-        banco.guardar_ajuste(f'modelos:{nome}', reservas)
+            reservas = []  # sem guardar: a próxima vez pergunta de novo
     # A regra de hoje vale também pra uma lista guardada antes dela.
     reservas = _reservas_de(nome, reservas)
     return next((m for m in reservas if _lotados.get((nome, m), 0) <= agora), None)
@@ -215,7 +247,10 @@ async def listar(nome: str, chave: str, transporte: httpx.AsyncBaseTransport | N
     if r.status_code >= 400:
         raise ProvedorFora(f'{PROVEDORES[nome]["rotulo"]} respondeu {r.status_code}')
     # O Gemini devolve "models/gemini-...", e o chat aceita sem o prefixo.
-    return [m['id'].removeprefix('models/') for m in r.json().get('data', []) if m.get('id')]
+    try:
+        return [m['id'].removeprefix('models/') for m in r.json().get('data', []) if m.get('id')]
+    except (ValueError, AttributeError, TypeError) as e:
+        raise ProvedorFora(f'{PROVEDORES[nome]["rotulo"]} mandou uma lista que não deu pra ler') from e
 
 
 async def _listar_gemini_nativo(chave: str, transporte: httpx.AsyncBaseTransport | None) -> list[str]:
@@ -332,7 +367,7 @@ async def responder(
     chave, escolhido = _chave_de(nome), modelo(nome)
     if not chave or not escolhido:
         raise CerebroFalhou('sem chave')
-    escolhido = await _modelo_livre(nome, chave, escolhido) or escolhido
+    escolhido = await _modelo_livre(nome, chave, escolhido, transporte) or escolhido
     mensagens = [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': prompt}]
     if corpo is not None:
         corpo.transporte = transporte  # o ajudante (Agent) fala pelo mesmo caminho
@@ -353,8 +388,7 @@ async def responder(
                     pedido = {'model': escolhido, 'stream': True, 'messages': mensagens}
                     if ferramentas and not fechando:
                         pedido['tools'] = ferramentas
-                    if rapido and RACIOCINIO_NA_VOZ and 'gpt-oss' in escolhido:
-                        pedido['reasoning_effort'] = RACIOCINIO_NA_VOZ
+                    _na_voz(pedido, rapido)
                     chamadas: dict[int, dict] = {}
                     # Posição no streaming → a chamada que está montando ali. O
                     # Gemini manda várias chamadas da mesma rodada com a MESMA
@@ -364,6 +398,7 @@ async def responder(
                     na_posicao: dict[int, int] = {}
                     dito = ''
                     esperas = 0
+                    de_novo = 0  # pedidos de novo pela chamada fora do formato
                     try:
                         while True:
                             try:
@@ -390,26 +425,43 @@ async def responder(
                                     if valor.get('extra_content'):
                                         d['extra'] = valor['extra_content']
                                 break
+                            except FormatoErrado:
+                                # 21/11/2026, a Groq: a chamada da ferramenta saiu fora do
+                                # formato e o erro vinha no meio do streaming — o Solis não
+                                # via, e a resposta saía vazia (pela voz, calado). Nada dito
+                                # nesta rodada: pede de novo.
+                                if dito or de_novo == FORMATO_TENTATIVAS:
+                                    raise
+                                de_novo += 1
+                                chamadas.clear()
+                                na_posicao.clear()
+                                continue
                             except (Lotado, Limite) as e:
                                 # No começo (nada dito, nada feito), outro modelo do
                                 # mesmo serviço pode atender: o lotado fica de lado.
-                                # No Gemini o limite grátis é por modelo, então o 429
-                                # também troca.
-                                # No meio da tarefa também, no Gemini: a assinatura do
-                                # raciocínio de um modelo não vale no outro, então as de
-                                # antes viram a que o Google aceita pra histórico (visto em
-                                # 19/11/2026: a Wikipédia parou com o modelo lotando na 2ª rodada).
+                                # No Gemini e na Groq o limite grátis é por modelo, então
+                                # o 429 também troca, no começo ou no meio da tarefa.
+                                # No Gemini, a assinatura do raciocínio de um modelo não
+                                # vale no outro: as de antes viram a que o Google aceita pra
+                                # histórico (visto em 19/11/2026: a Wikipédia parou com o
+                                # modelo lotando na 2ª rodada).
+                                por_modelo = nome in LIMITE_POR_MODELO
                                 trocar_modelo = (not dito and not chamadas and trocas < TROCAS_MAX
-                                                 and (rodada == 0 or nome == 'gemini')
-                                                 and (isinstance(e, Lotado) or nome == 'gemini'))
+                                                 and (rodada == 0 or por_modelo)
+                                                 and (isinstance(e, Lotado) or por_modelo))
                                 if trocar_modelo:
-                                    _lotados[(nome, escolhido)] = time.time() + getattr(e, 'por', LOTADO_S)
-                                    proximo = await _modelo_livre(nome, chave, escolhido)
+                                    # A Groq diz quando o limite daquele modelo volta (o do
+                                    # minuto, em segundos); o Gemini fica de lado o tempo fixo.
+                                    volta = e.ate if (nome == 'groq' and isinstance(e, Limite) and e.ate) \
+                                        else time.time() + getattr(e, 'por', LOTADO_S)
+                                    _lotados[(nome, escolhido)] = volta
+                                    proximo = await _modelo_livre(nome, chave, escolhido, transporte)
                                     if proximo and proximo != escolhido:
                                         etapas.marcar('modelo', cerebro=nome, modelo=proximo, antes=escolhido, motivo=str(e))
                                         escolhido = pedido['model'] = proximo
+                                        _na_voz(pedido, rapido)
                                         trocas += 1
-                                        if rodada > 0:
+                                        if rodada > 0 and nome == 'gemini':
                                             _sem_assinaturas(mensagens)
                                         continue
                                 if isinstance(e, Lotado):
@@ -418,7 +470,7 @@ async def responder(
                                 # por minuto se espera; no começo, cai pro próximo.
                                 quanto = (e.ate - time.time()) if e.ate else 10.0
                                 if rodada == 0 or esperas == ESPERAS_NO_MEIO or quanto > ESPERA_NO_MEIO_MAX:
-                                    pausar(nome, e.ate, 'o limite grátis acabou')
+                                    pausar(nome, _primeiro_livre(nome, e.ate), 'o limite grátis acabou')
                                     raise
                                 esperas += 1
                                 etapas.marcar('esperando', cerebro=nome, segundos=round(max(quanto, 1.0), 1))
@@ -469,6 +521,28 @@ async def responder(
             raise CerebroFalhou(f'{type(e).__name__}: {e}'[:200]) from e
 
 
+def _na_voz(pedido: dict, rapido: bool) -> None:
+    """O ajuste de cada modelo pra responder falado (o pedido é refeito na troca de modelo)."""
+    for chave in ('reasoning_effort', *QWEN_VOZ):
+        pedido.pop(chave, None)
+    if not rapido:
+        return
+    if RACIOCINIO_NA_VOZ and 'gpt-oss' in pedido['model']:
+        pedido['reasoning_effort'] = RACIOCINIO_NA_VOZ
+    elif 'qwen' in pedido['model']:
+        pedido.update(QWEN_VOZ)
+
+
+def _primeiro_livre(nome: str, ate: float | None) -> float | None:
+    """Até quando o cérebro fica de lado: até o primeiro dos seus modelos voltar
+    (o limite é de cada um), ou o que o serviço disse."""
+    agora = time.time()
+    voltas = [t for (n, _), t in _lotados.items() if n == nome and t > agora]
+    if nome not in LIMITE_POR_MODELO or not voltas:
+        return ate
+    return min(voltas + ([ate] if ate else []))
+
+
 def _assinatura(nome: str, chamada: dict) -> dict:
     """O que volta junto de cada chamada de ferramenta na rodada seguinte: a
     assinatura do raciocínio do Gemini 3 (`extra_content.google.thought_signature`),
@@ -488,6 +562,25 @@ def _sem_assinaturas(mensagens: list[dict]) -> None:
     for m in mensagens:
         for chamada in m.get('tool_calls') or []:
             chamada['extra_content'] = {'google': {'thought_signature': 'skip_thought_signature_validator'}}
+
+
+def _erro_no_fluxo(pedaco) -> None:
+    """Levanta o erro que o serviço mandou no meio do streaming, se é um."""
+    if isinstance(pedaco, str):
+        try:
+            pedaco = json.loads(pedaco)
+        except json.JSONDecodeError:
+            return
+    erro = pedaco.get('error') if isinstance(pedaco, dict) else None
+    if not erro:
+        return
+    if not isinstance(erro, dict):
+        erro = {'message': str(erro)}
+    if erro.get('code') == 'tool_use_failed':
+        raise FormatoErrado('a chamada da ferramenta veio fora do formato')
+    if erro.get('code') == 'rate_limit_exceeded':
+        raise Limite('o limite grátis acabou', None)
+    raise CerebroFalhou(f'deu erro no meio da resposta: {str(erro.get("message") or erro)[:160]}')
 
 
 @contextlib.asynccontextmanager
@@ -529,6 +622,8 @@ async def _uma_rodada(c: httpx.AsyncClient, nome: str, chave: str, pedido: dict,
             raise CerebroFalhou('a chave foi recusada')
         if r.status_code >= 400:
             await r.aread()
+            if 'tool_use_failed' in r.text:
+                raise FormatoErrado('a chamada da ferramenta veio fora do formato')
             raise CerebroFalhou(f'respondeu {r.status_code}: {r.text[:160]}')
         pensou = False
         linhas = r.aiter_lines()
@@ -544,14 +639,23 @@ async def _uma_rodada(c: httpx.AsyncClient, nome: str, chave: str, pedido: dict,
                 return
             except asyncio.TimeoutError as e:
                 raise CerebroFalhou(f'não começou a responder em {PRIMEIRO_MAX:.0f} s') from e
+            # O erro no meio do streaming (a Groq, 21/11/2026: "event: error" e o
+            # JSON do erro): antes era pulado, e a resposta terminava vazia.
             if not linha.startswith('data:'):
+                if linha.startswith('{'):
+                    _erro_no_fluxo(linha)
                 continue
             dado = linha[5:].strip()
             if dado == '[DONE]':
                 return
             try:
-                delta = json.loads(dado)['choices'][0].get('delta', {})
-            except (json.JSONDecodeError, KeyError, IndexError):
+                pedaco = json.loads(dado)
+            except json.JSONDecodeError:
+                continue
+            _erro_no_fluxo(pedaco)
+            try:
+                delta = pedaco['choices'][0].get('delta', {})
+            except (KeyError, IndexError, TypeError, AttributeError):
                 continue
             # Modelos que raciocinam mandam o raciocínio à parte; não vai
             # pra tela, só o fato de que está pensando.
