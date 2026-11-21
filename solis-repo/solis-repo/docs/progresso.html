@@ -1,0 +1,298 @@
+<title>Progresso do Solis</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: um quadro de comando — o veredito no topo, a voz (a prioridade) em funil, depois a ordem com o "pronto quando" de cada fase. */
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --fg: #1d2330;
+  --muted: #5d6576;
+  --line: #e2e0d8;
+  --accent: #c9781a;          /* o sol do Solis */
+  --accent-soft: #f6e7d2;
+  --ok: #2f7d4f;  --ok-bg: #e2f1e7;
+  --mid: #a8650b; --mid-bg: #fbecd2;
+  --no: #8a8f9c;  --no-bg: #eceef2;
+  --bad: #b3413a; --bad-bg: #f7e1df;
+  --display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --text: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151c; --surface: #1a1f29; --fg: #e8e6e0; --muted: #9aa1b0; --line: #2a303c;
+    --accent: #f0a23b; --accent-soft: #3a2b16;
+    --ok: #6fcf92; --ok-bg: #173324; --mid: #f2b45a; --mid-bg: #3a2a12;
+    --no: #8f96a5; --no-bg: #242a35; --bad: #f08a80; --bad-bg: #3a1c1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151c; --surface: #1a1f29; --fg: #e8e6e0; --muted: #9aa1b0; --line: #2a303c;
+  --accent: #f0a23b; --accent-soft: #3a2b16;
+  --ok: #6fcf92; --ok-bg: #173324; --mid: #f2b45a; --mid-bg: #3a2a12;
+  --no: #8f96a5; --no-bg: #242a35; --bad: #f08a80; --bad-bg: #3a1c1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--text); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 18px; color: var(--muted); max-width: 64ch; }
+.lead strong { color: var(--fg); font-weight: 600; }
+header { display: grid; gap: 12px; }
+
+/* Pílulas de estado */
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; font-weight: 500;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ok { color: var(--ok); background: var(--ok-bg); }
+.mid { color: var(--mid); background: var(--mid-bg); }
+.no { color: var(--no); background: var(--no-bg); }
+.bad { color: var(--bad); background: var(--bad-bg); }
+
+/* Mapa das frentes */
+.mapa { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.frente { display: grid; grid-template-columns: minmax(150px, 220px) 120px 1fr; gap: 16px; align-items: baseline;
+  padding: 14px 0; border-bottom: 1px solid var(--line); }
+.frente .nome { font-family: var(--display); font-weight: 600; font-size: 16px; }
+.frente .det { color: var(--muted); min-width: 0; }
+.frente.foco .nome::after { content: "prioridade 1"; margin-left: 8px; font-family: var(--mono); font-size: 11px;
+  color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 4px; vertical-align: 2px; }
+@media (max-width: 640px) {
+  .frente { grid-template-columns: 1fr auto; }
+  .frente .det { grid-column: 1 / -1; }
+}
+
+/* Funil da voz */
+.voz { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: grid; gap: 20px; }
+.funil { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 820px) { .funil { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .funil { grid-template-columns: 1fr; } }
+.etapa { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.etapa .topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.num { font-family: var(--mono); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.num small { font-size: 13px; color: var(--muted); }
+.etapa p { color: var(--muted); font-size: 14px; }
+.etapa .falta { color: var(--fg); font-size: 14px; }
+.tempo { display: grid; gap: 8px; }
+.barra { position: relative; height: 34px; border-radius: 8px; background: var(--no-bg); overflow: hidden; }
+.barra span { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 12px; color: var(--fg); border-right: 2px solid var(--surface); overflow: hidden; white-space: nowrap; }
+.legenda { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--muted); gap: 8px; flex-wrap: wrap; }
+.meta-linha { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ok); }
+
+/* Por que demorou */
+.porque { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .porque { grid-template-columns: 1fr; } }
+.porque div { border-left: 3px solid var(--line); padding: 4px 0 4px 14px; display: grid; gap: 4px; }
+.porque div.grande { border-left-color: var(--accent); }
+.porque p { color: var(--muted); font-size: 14px; }
+
+/* A ordem */
+.ordem { display: grid; gap: 12px; counter-reset: fase; }
+.fase { display: grid; grid-template-columns: 44px 1fr; gap: 14px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px; }
+.fase.agora { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.fase .n { counter-increment: fase; font-family: var(--display); font-weight: 700; font-size: 22px; color: var(--muted); }
+.fase .n::before { content: counter(fase); }
+.fase.agora .n { color: var(--accent); }
+.fase .corpo { display: grid; gap: 8px; min-width: 0; }
+.fase .cab { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pronto { font-size: 14px; }
+.pronto b { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 500; margin-right: 6px; }
+.passos { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 3px; }
+
+/* Duas colunas no fim */
+.fim { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+@media (max-width: 760px) { .fim { grid-template-columns: 1fr; } }
+.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.lista li { display: grid; grid-template-columns: 76px 1fr; gap: 10px; font-size: 14px; }
+.lista .d { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 2px; }
+.lista.voce li { grid-template-columns: 1fr; border-left: 3px solid var(--accent); padding-left: 12px; }
+.lista.voce span { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.sub { color: var(--muted); font-size: 14px; max-width: 70ch; }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+code { font-family: var(--mono); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Atualizado em 21/11/2026</div>
+    <h1>Progresso do Solis</h1>
+    <p class="lead"><strong>A base está pronta; o que faz o Solis valer a pena, ainda não.</strong>
+      Quase tudo o que o Claude Code faz já funciona dentro do Solis, com qualquer cérebro. Mas é exatamente
+      o que o Claude Code já faz. A voz, as personalidades, o assessor e os agentes, que são o motivo de o Solis
+      existir, estão medianos ou nem começaram.</p>
+  </header>
+
+  <section aria-labelledby="t-mapa">
+    <h2 id="t-mapa">As frentes</h2>
+    <div class="mapa">
+      <div class="frente foco">
+        <div class="nome">Voz</div><div><span class="pill mid">Mediano</span></div>
+        <div class="det">Chama, ouve, responde e fala, mas falha em casa com barulho, a voz e as respostas são medianas e leva 2,5 a 3 s pra começar a falar. Detalhe abaixo.</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Base (paridade com o Claude Code)</div><div><span class="pill ok">Pronto</span></div>
+        <div class="det">25 de 28 itens: conversa, arquivos, terminal, navegador, controle da tela, projetos, skills, ajudantes, servidores MCP com chave e login, tarefas agendadas. Falta: conectores (Gmail e outros, com login seu) e o PR do Git (o <code>gh</code> instalado).</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Qualquer cérebro</div><div><span class="pill ok">Pronto</span></div>
+        <div class="det">Claude, GPT, Groq, Gemini, OpenRouter e o local usam as mesmas funções. O local (qwen3:8b) edita arquivo, lê a internet, usa skills e ajudantes: 17 de 17 na medição de 20/11.</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Assessor de rotina e finanças</div><div><span class="pill no">Não começou</span></div>
+        <div class="det">As peças existem (agenda, tarefas, lembretes). Faltam os gastos, o resumo do mês e o WhatsApp.</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Personalidades</div><div><span class="pill no">Não começou</span></div>
+        <div class="det">Jarvis, Eva, Ed e o Assessor, cada um com voz, jeito e área própria na memória.</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Agentes</div><div><span class="pill no">Não começou</span></div>
+        <div class="det">Pesquisador, Vigia de projetos, Segurança, Validador de ideias. Os ajudantes técnicos (que leem e fazem partes do trabalho) já existem.</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Cérebro na nuvem e celular</div><div><span class="pill no">Não começou</span></div>
+        <div class="det">Hoje tudo roda no PC. A decisão de servidor e custo está em aberto.</div>
+      </div>
+      <div class="frente">
+        <div class="nome">Visual</div><div><span class="pill bad">Provisório</span></div>
+        <div class="det">Vai ser refeito do zero no fim, com tudo funcionando. Até lá, nada de prints e aprovação de telinha.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="voz" aria-labelledby="t-voz">
+    <div style="display:grid;gap:6px">
+      <h2 id="t-voz">A voz hoje, medida</h2>
+      <p class="sub">O que o Claude Code não tem e o Solis precisa ter muito bem. Cada etapa com o último número medido.</p>
+    </div>
+    <div class="funil">
+      <div class="etapa">
+        <div class="topo"><h3>Chamar</h3><span class="pill mid">Mediano</span></div>
+        <div class="num">11<small> de 12</small></div>
+        <p>Numa gravação limpa. Em casa, com a família falando, falhou bem na hora de mostrar (19/11). Hoje é o Whisper procurando a palavra, e ele não foi feito pra isso.</p>
+        <p class="falta">Falta: o modelo treinado só pra "Solis". Suas 100 gravações e o pacote estão prontos; falta rodar o treino.</p>
+      </div>
+      <div class="etapa">
+        <div class="topo"><h3>Ouvir</h3><span class="pill ok">Bom</span></div>
+        <div class="num">~1,0<small> s</small></div>
+        <p>O Whisper turbo da Groq, na nuvem. Erra às vezes ("Conta 15 vezes 3" no lugar de "quanto é quinze vezes três").</p>
+        <p class="falta">Falta: transcrever enquanto você fala, não depois.</p>
+      </div>
+      <div class="etapa">
+        <div class="topo"><h3>Pensar</h3><span class="pill mid">Mediano</span></div>
+        <div class="num">0,6–1,5<small> s</small></div>
+        <p>A Groq (gpt-oss-120b) responde rápido e certo, mas as respostas saem medianas, sem personalidade.</p>
+        <p class="falta">Falta: comparar cérebros pra voz e dar um jeito de falar que seja do Solis.</p>
+      </div>
+      <div class="etapa">
+        <div class="topo"><h3>Falar</h3><span class="pill mid">Mediano</span></div>
+        <div class="num">0,7<small> s</small></div>
+        <p>Até o primeiro som. A Fish Audio grátis, com o Gemini e a voz do Edge de reserva. A voz está "mais ou menos".</p>
+        <p class="falta">Falta: um teste cego entre as melhores vozes do mercado, com o custo por minuto.</p>
+      </div>
+    </div>
+    <div class="tempo" aria-label="Do fim da fala ao primeiro som">
+      <h3>Do fim da sua fala até o Solis começar a falar</h3>
+      <div class="barra" role="img" aria-label="Ouvir 1,0 s, pensar cerca de 1,0 s, falar 0,75 s: cerca de 2,75 s no total; a meta é 1 s">
+        <span style="left:0;width:36.4%;background:var(--ok-bg)">ouvir 1,0 s</span>
+        <span style="left:36.4%;width:36.4%;background:var(--mid-bg)">pensar ~1,0 s</span>
+        <span style="left:72.8%;width:27.2%;background:var(--accent-soft)">falar 0,75 s</span>
+        <i class="meta-linha" style="left:36.4%" title="meta: 1 s"></i>
+      </div>
+      <div class="legenda"><span>0 s</span><span>meta: ~1 s (a linha verde)</span><span>hoje: ~2,75 s</span></div>
+    </div>
+    <p class="sub">O modo Conversa (bate-papo em tempo real pelo Gemini Live) já está construído: 8 de 8 respostas certas e 1,4 s até o primeiro som na medição. Nunca foi testado com você falando no microfone de verdade.</p>
+  </section>
+
+  <section aria-labelledby="t-porque">
+    <h2 id="t-porque">Por que demorou</h2>
+    <div class="porque">
+      <div class="grande"><h3>Seguimos a lista errada</h3>
+        <p>Seu documento de 15/11 dizia "voz primeiro, nada novo antes de ela passar no teste". Nós seguimos a lista de paridade com o Claude Code (25 itens). Saiu muita coisa que o Claude Code já faz.</p></div>
+      <div><h3>Cerimônia em toda telinha</h3>
+        <p>Cada botão passava por prints em 3 temas e 2 navegações e esperava a sua aprovação. Acabou hoje: o visual vai ser refeito no fim.</p></div>
+      <div><h3>Cotas grátis estouradas</h3>
+        <p>As medições gastaram a cota diária da Groq e do Gemini e travaram testes por um dia inteiro.</p></div>
+      <div><h3>Coisas esperando você</h3>
+        <p>O treino da palavra "Solis" (no Colab, porque o PyTorch é bloqueado no seu PC) e os logins dos conectores.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-ordem">
+    <h2 id="t-ordem">A ordem daqui pra frente</h2>
+    <p class="sub">Uma frente por vez, e cada uma só fecha quando passa no "pronto quando". Nada de "funcionou mais ou menos".</p>
+    <div class="ordem">
+      <div class="fase agora"><div class="n"></div><div class="corpo">
+        <div class="cab"><h3>Voz no nível dos melhores "Jarvis"</h3><span class="pill mid">Agora</span></div>
+        <p class="pronto"><b>Pronto quando</b>chamar 19 de 20 vezes em casa com barulho e 0 falsos em 1 h; primeiro som em até 1,2 s; uma voz que você escolhe num teste cego; um dia inteiro de uso sem travar.</p>
+        <ul class="passos">
+          <li>Treinar a palavra "Solis" (o pacote está pronto) e medir nas 32 gravações guardadas e no barulho de casa.</li>
+          <li>Comparativo de verdade, com a sua voz e o custo por minuto: Gemini Live (fala-pra-fala, com as ferramentas do Solis), OpenAI Realtime, e a cascata com ElevenLabs ou Cartesia.</li>
+          <li>O vencedor vira o modo Pedido também: fala pra fala, agindo (agenda, abrir programa, pesquisar).</li>
+          <li>Um dia de uso real, com o registro de cada chamada.</li>
+        </ul>
+      </div></div>
+      <div class="fase"><div class="n"></div><div class="corpo">
+        <div class="cab"><h3>Assessor de rotina e finanças</h3><span class="pill no">Depois</span></div>
+        <p class="pronto"><b>Pronto quando</b>"gastei 50 no mercado", por voz ou WhatsApp, vira o lançamento certo 19 de 20 vezes, e o resumo do mês bate com a conta.</p>
+      </div></div>
+      <div class="fase"><div class="n"></div><div class="corpo">
+        <div class="cab"><h3>Personalidades</h3><span class="pill no">Depois</span></div>
+        <p class="pronto"><b>Pronto quando</b>Jarvis, Eva, Ed e o Assessor têm voz, jeito e memória próprios, e você reconhece quem está falando sem olhar a tela.</p>
+      </div></div>
+      <div class="fase"><div class="n"></div><div class="corpo">
+        <div class="cab"><h3>Agentes</h3><span class="pill no">Depois</span></div>
+        <p class="pronto"><b>Pronto quando</b>o Pesquisador traz uma novidade útil por semana e o Vigia avisa um site fora do ar antes de você notar.</p>
+      </div></div>
+      <div class="fase"><div class="n"></div><div class="corpo">
+        <div class="cab"><h3>Cérebro na nuvem e celular</h3><span class="pill no">Depois</span></div>
+        <p class="pronto"><b>Pronto quando</b>o Solis responde pelo celular com o PC desligado.</p>
+      </div></div>
+      <div class="fase"><div class="n"></div><div class="corpo">
+        <div class="cab"><h3>O visual novo</h3><span class="pill no">No fim</span></div>
+        <p class="pronto"><b>Pronto quando</b>dá vontade de mostrar pra alguém.</p>
+      </div></div>
+    </div>
+  </section>
+
+  <div class="fim">
+    <section aria-labelledby="t-feito">
+      <h2 id="t-feito">Feito nos últimos dias</h2>
+      <ul class="lista">
+        <li><span class="d">20/11</span><span>O modelo local edita arquivos, lê a internet, usa skills e ajudantes (17 de 17).</span></li>
+        <li><span class="d">20/11</span><span>Login (OAuth) e chave nos servidores MCP, valendo pra todos os cérebros.</span></li>
+        <li><span class="d">20/11</span><span>Defeito do banco com duas tarefas ao mesmo tempo, achado e consertado.</span></li>
+        <li><span class="d">20/11</span><span>A busca na internet que funciona sem JavaScript (a cotação do dólar voltou).</span></li>
+        <li><span class="d">20/11</span><span>Suas 100 gravações de "Solis" e o pacote de treino da palavra.</span></li>
+        <li><span class="d">19/11</span><span>O Solis parou de acordar sozinho (o laço de falsos).</span></li>
+      </ul>
+    </section>
+    <section aria-labelledby="t-voce">
+      <h2 id="t-voce">Esperando você</h2>
+      <ul class="lista voce">
+        <li><div><strong>Rodar o treino da palavra "Solis"</strong><br><span>No Colab, uns 30 a 60 minutos de máquina. É o que destrava a voz.</span></div></li>
+        <li><div><strong>O teto de gasto pra voz</strong><br><span>As melhores vozes são pagas. O comparativo vai mostrar o custo por minuto de cada uma pra você decidir.</span></div></li>
+        <li><div><strong>Logins dos conectores</strong><br><span>Gmail e os outros. Pode ficar pra depois da voz.</span></div></li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>Os números vêm das medições registradas em <code>docs/ESCOPO.md</code> e <code>docs/PARIDADE.md</code>. Este painel mora em <code>docs/progresso.html</code> e é atualizado a cada entrega grande.</footer>
+</div>

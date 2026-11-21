@@ -90,6 +90,21 @@ pedido dele em 18/11/2026.
 - **"Grok" é Groq.** O Matheus dita pela transcrição do Claude, que escreve "Grok". Ele fala da
   **Groq** (a da transcrição e dos modelos rápidos que o Solis usa), não do Grok da xAI, que o
   Solis não usa.
+- **Acelerar, sem nada mediano** (21/11/2026). O Solis estava "patinando" em coisinhas
+  (aprovação de MCP, OAuth, botõezinhos) sem nada que ele já usasse no lugar do Claude Code.
+  - **O Solis resolve o que o Claude Code não faz, e muito bem.** A voz primeiro (o Claude Code
+    não tem): chamou, ouviu, respondeu, sem bug na primeira nem na segunda vez. A barra são os
+    "Jarvis" que circulam na internet: se lá tem melhor, o nosso não serve.
+  - **Comparar e medir as opções de verdade** (OpenRouter, local, pagas, o que existir) e ficar
+    com a melhor, sem se prender às ferramentas de costume. "Funcionou mais ou menos" não fecha.
+  - **Sem prints e aprovação de telinha até a refação do visual.** O visual inteiro vai ser
+    refeito no fim, com tudo funcionando. Até lá, mudança de tela não precisa dos prints nos 3
+    temas × 2 navs nem de aprovação (vale sobre a Regra 2 e o passo 3 do fluxo): segue, testa,
+    commita. As telas aprovadas por referência continuam como estão.
+  - **O progresso fica num painel visual** que ele acompanha (onde estamos, o que falta, por que
+    demora): o fonte é `docs/progresso.html`, publicado em
+    https://claude.ai/artifact/PSKGzSftMkVLtf3XBE59fc (atualizar publicando com esse `url`). Manter
+    atualizado a cada entrega grande.
 
 ## Lembrete de fluxo para o Matheus (o Claude Code deve reforçar isto)
 
