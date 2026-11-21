@@ -235,6 +235,11 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; motivo?: string };
         if (msg.tipo === 'pronta') {
+          // Conexão nova começa do zero: o "ceder" de uma conexão antiga (o
+          // servidor reiniciou no meio de uma chamada) deixava o microfone
+          // fechado pra sempre — o servidor novo nunca mandaria o "retomar"
+          // (visto em 21/11/2026). Se ainda for pra ceder, ele manda de novo.
+          cedida = false;
           void abrirMicrofone();
         } else if (msg.tipo === 'ceder') {
           cedida = true;

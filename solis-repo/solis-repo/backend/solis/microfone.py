@@ -26,6 +26,13 @@ log = logging.getLogger('solis.microfone')
 
 SCRIPT = Path(__file__).with_name('microfone_vigia.ps1')
 
+# Sair do caminho quando outro programa está no microfone. Desligado em
+# 21/11/2026, num teste com o Matheus numa chamada do Discord: com a regra
+# ligada, quem passa o dia num canal de voz fica com o Solis surdo (as chamadas
+# dele nem chegavam ao servidor). O vigia continua anotando quem está no
+# microfone. SOLIS_CEDER_MICROFONE=1 liga de novo.
+CEDER = os.environ.get('SOLIS_CEDER_MICROFONE', '0') == '1'
+
 
 class Vigia:
     """Um vigia pra todas as escutas abertas. `entrar()` devolve uma fila que
@@ -98,9 +105,10 @@ class Vigia:
         if outros == self.outros:
             return
         if outros:
-            log.info('microfone: %s está usando; a escuta solta', ', '.join(outros))
+            log.info('microfone: %s está usando; %s', ', '.join(outros),
+                     'a escuta solta' if CEDER else 'a escuta continua junto')
         else:
-            log.info('microfone: livre de novo; a escuta volta')
+            log.info('microfone: livre de novo%s', '; a escuta volta' if CEDER else '')
         self.outros = outros
         laco = self._laco
         if laco is None:

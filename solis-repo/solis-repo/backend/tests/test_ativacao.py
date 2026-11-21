@@ -526,8 +526,9 @@ def test_websocket_seguir_abre_o_pedido_e_pausado_nao(monkeypatch):
 def test_outro_programa_no_microfone_a_escuta_solta_e_volta(monkeypatch):
     """Relato do Matheus (19/11/2026): com o Solis aberto, a chamada do Discord
     ficava abafada. Com o Discord no microfone, a escuta solta e não ouve; quando
-    ele solta, ela volta."""
+    ele solta, ela volta. Desde 21/11/2026 só com a regra ligada (microfone.CEDER)."""
     from solis import microfone
+    monkeypatch.setattr(microfone, 'CEDER', True)
     motor = MotorFalso()
     original = ativacao.Escuta
     monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))
@@ -542,6 +543,24 @@ def test_outro_programa_no_microfone_a_escuta_solta_e_volta(monkeypatch):
         ws.send_bytes(palavra().tobytes())
         assert ws.receive_json() == {'tipo': 'ativou'}
     assert microfone.vigia._filas == set()
+
+
+def test_com_a_regra_desligada_a_escuta_ouve_junto_com_o_discord(monkeypatch):
+    """21/11/2026: com a regra ligada, quem passa o dia num canal de voz ficava
+    com o Solis surdo. Desligada (o padrão), o Discord no microfone não muda nada."""
+    from solis import microfone
+    monkeypatch.setattr(microfone, 'CEDER', False)
+    motor = MotorFalso()
+    original = ativacao.Escuta
+    monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))
+    microfone.vigia.outros = ['Discord']
+    c = TestClient(main.app)
+    with c.websocket_connect('/escuta') as ws:
+        assert ws.receive_json() == {'tipo': 'pronta'}
+        microfone.vigia.mudou(['Discord', 'Zoom'])
+        ws.send_bytes(palavra().tobytes())
+        assert ws.receive_json() == {'tipo': 'ativou'}
+    microfone.vigia.outros = []
 
 
 def test_o_vigia_so_avisa_quando_muda():
@@ -566,6 +585,7 @@ def test_o_vigia_so_avisa_quando_muda():
 def test_abrir_o_solis_no_meio_da_chamada_ja_comeca_cedida(monkeypatch):
     """O "ceder" vem antes do "pronta": a tela nem abre o microfone."""
     from solis import microfone
+    monkeypatch.setattr(microfone, 'CEDER', True)
     motor = MotorFalso()
     original = ativacao.Escuta
     monkeypatch.setattr(ativacao, 'Escuta', lambda: original(motor))

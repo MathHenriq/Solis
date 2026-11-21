@@ -2227,6 +2227,8 @@ async def escuta(ws: WebSocket):
         nonlocal cedida
         while True:
             outros = await fila.get()
+            if not microfone.CEDER:
+                continue  # a escuta continua junto (microfone.CEDER)
             if outros and not cedida:
                 cedida = True
                 await ws.send_json({'tipo': 'ceder', 'por': outros})
@@ -2236,7 +2238,7 @@ async def escuta(ws: WebSocket):
     try:
         # Quem está no microfone agora, antes da tela abrir o dela.
         await microfone.vigia.primeira_leitura()
-        if microfone.vigia.outros:
+        if microfone.vigia.outros and microfone.CEDER:
             cedida = True
             await ws.send_json({'tipo': 'ceder', 'por': microfone.vigia.outros})
         vigiando = asyncio.create_task(vigiar())
