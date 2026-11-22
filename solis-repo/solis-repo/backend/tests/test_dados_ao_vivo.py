@@ -104,3 +104,21 @@ def test_time_que_nao_existe_manda_procurar_na_web():
     # "equipe", não "time" (o gpt-oss lia em inglês e mandava a hora).
     jogos = next(f for f in corpo.DO_SOLIS if f.nome == 'jogos')
     assert list(jogos.parametros['properties']) == ['equipe']
+
+
+def test_a_conta_com_datas_e_do_relogio_e_nao_de_cabeca(monkeypatch):
+    """21/11/2026, pela voz: o gpt-oss-20b disse "quarenta e quatro dias" pro Natal (eram 34)."""
+    from datetime import date
+    monkeypatch.setattr(corpo, '_hoje', lambda: date(2026, 11, 21))
+
+    def conta(**args):
+        return asyncio.run(corpo._datas(args))
+    assert conta(data='25/12') == 'Hoje é sábado, 21/11/2026. sexta, 25/12/2026: faltam 34 dias.'
+    assert conta(data='25 de dezembro').endswith('faltam 34 dias.')
+    # Sem ano e já passou: a próxima vez que a data chega. Com o ano: quanto faz.
+    assert conta(data='01/01').endswith('sexta, 01/01/2027: faltam 41 dias.')
+    assert conta(data='01/01/2026').endswith('foi há 324 dias.')
+    assert conta(data='2026-11-21').endswith('é hoje.')
+    assert conta(dias='45').endswith('Daqui a 45 dias: terça, 05/01/2027.')
+    assert 'Não entendi a data' in conta(data='semana que vem')
+    assert 'datas' in [f.nome for f in corpo.DO_SOLIS]

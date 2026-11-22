@@ -176,7 +176,7 @@ SISTEMA_CORPO = SISTEMA_NUVEM.replace(
 # Pela voz, o kit enxuto (corpo.MAIS): as instruções das ferramentas guardadas
 # (arquivos, edição, skills) vão quando o modelo pede, não em todo pedido.
 SISTEMA_CORPO_VOZ = SISTEMA_CORPO.replace('mcp__solis__: hora, criar_lembrete', 'mcp__solis__: criar_lembrete').replace(
-    ', buscar_memoria, agendar_tarefa)', ', buscar_memoria, cotacao, clima, jogos)')
+    ', buscar_memoria, agendar_tarefa)', ', buscar_memoria, cotacao, clima, jogos, datas)')
 NOTA_KIT_VOZ = (
     '\n\nPela voz vão só as ferramentas do dia a dia. Pra arquivos do PC (ler, achar, criar, editar), as skills do '
     'Matheus, os ajudantes, as tarefas agendadas e os conectores, chame antes mcp__solis__mais_ferramentas: elas '

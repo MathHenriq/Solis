@@ -69,6 +69,62 @@ async def _hora(args: dict) -> str:
     return datetime.now().strftime('%A, %d/%m/%Y, %H:%M')
 
 
+# A conta com datas, exata (21/11/2026, medido pela voz): com o gpt-oss-120b sem
+# cota, o 20b disse "quarenta e quatro dias" pro Natal (eram 34). Conta de cabeça
+# com calendário é onde o modelo pequeno erra; aqui é o relógio do PC que conta.
+_DIAS_DA_SEMANA = ('segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo')
+_MESES = {'janeiro': 1, 'fevereiro': 2, 'marco': 3, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6, 'julho': 7,
+          'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12}
+
+
+def _ler_data(texto: str, hoje):
+    """(data, se o ano veio) de "25/12", "25/12/2026", "2026-12-25" ou "25 de dezembro"."""
+    from datetime import date
+    t = (texto or '').strip().lower()
+    if m := re.fullmatch(r'(\d{4})-(\d{1,2})-(\d{1,2})', t):
+        return date(int(m[1]), int(m[2]), int(m[3])), True
+    if m := re.fullmatch(r'(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?', t):
+        ano = int(m[3]) + (2000 if len(m[3]) == 2 else 0) if m[3] else hoje.year
+        return date(ano, int(m[2]), int(m[1])), bool(m[3])
+    if m := re.fullmatch(r'(\d{1,2})\s+de\s+([a-zç]+)(?:\s+de\s+(\d{4}))?', t):
+        if m[2] in _MESES:
+            return date(int(m[3]) if m[3] else hoje.year, _MESES[m[2]], int(m[1])), bool(m[3])
+    raise ValueError(texto)
+
+
+def _dia(d) -> str:
+    return f'{_DIAS_DA_SEMANA[d.weekday()]}, {d:%d/%m/%Y}'
+
+
+def _hoje():
+    from datetime import date
+    return date.today()
+
+
+async def _datas(args: dict) -> str:
+    from datetime import timedelta
+    hoje = _hoje()
+    partes = [f'Hoje é {_dia(hoje)}.']
+    if str(args.get('data') or '').strip():
+        try:
+            alvo, com_ano = _ler_data(str(args['data']), hoje)
+        except ValueError:
+            return f'Não entendi a data "{args["data"]}": mande como 25/12, 25/12/2026 ou 25 de dezembro.'
+        if not com_ano and alvo < hoje:
+            alvo = alvo.replace(year=hoje.year + 1)  # sem ano: a próxima vez que a data chega
+        dias = (alvo - hoje).days
+        partes.append(f'{_dia(alvo)}: ' + ('é hoje.' if dias == 0 else f'faltam {dias} dias.' if dias > 0
+                                           else f'foi há {-dias} dias.'))
+    if str(args.get('dias') or '').strip():
+        try:
+            n = int(str(args['dias']).strip())
+        except ValueError:
+            return f'"{args["dias"]}" não é um número de dias.'
+        partes.append(f'Daqui a {n} dias: {_dia(hoje + timedelta(days=n))}.' if n >= 0
+                      else f'Há {-n} dias: {_dia(hoje + timedelta(days=n))}.')
+    return ' '.join(partes)
+
+
 async def _criar_lembrete(args: dict) -> str:
     dia = (args.get('dia') or '').strip() or None
     h = (args.get('hora') or '').strip() or None
@@ -142,6 +198,12 @@ async def _agendar_tarefa(args: dict) -> str:
 
 DO_SOLIS: list[Ferramenta] = [
     Ferramenta('hora', 'A data e a hora de agora no computador do Matheus.', _objeto({}), _hora),
+    Ferramenta('datas', 'Conta com datas, exata: quantos dias faltam (ou passaram) até uma data e que dia da '
+               'semana ela cai, ou que dia é daqui a N dias. Use SEMPRE pra isso, em vez de contar de cabeça.',
+               _objeto({'data': {'type': 'string', 'description': 'A data: 25/12, 25/12/2026 ou 25 de dezembro '
+                                                                  '(vazio se não for o caso).'},
+                        'dias': {'type': 'string', 'description': 'Quantos dias somar a hoje, ex.: 45 ou -10 '
+                                                                  '(vazio se não for o caso).'}}, []), _datas),
     Ferramenta('criar_lembrete', 'Anota uma tarefa (com dia e hora opcionais) na tela Tarefas; com hora, o '
                'Solis avisa no Windows na hora. Use quando o Matheus pedir pra lembrar, anotar ou avisar.',
                _objeto({'texto': _TEXTO, 'dia': _TEXTO, 'hora': _TEXTO}), _criar_lembrete),
@@ -916,8 +978,9 @@ def instrucoes_local(c: 'Corpo') -> str:
                       'conte ao Matheus o que o arquivo diz.')
     partes.append('Você também tem as ferramentas do Solis (mcp__solis__): hora, criar_lembrete, marcar_compromisso, '
                   'ver_agenda, ver_tarefas, buscar_memoria, agendar_tarefa, cotacao (dólar, euro, bitcoin...: use '
-                  'sempre pra câmbio), clima (o tempo numa cidade: use sempre pra previsão) e jogos (placar e próximo '
-                  'jogo de um time: use sempre pra futebol e esporte). Use só quando o pedido '
+                  'sempre pra câmbio), clima (o tempo numa cidade: use sempre pra previsão), jogos (placar e próximo '
+                  'jogo de um time: use sempre pra futebol e esporte) e datas (quantos dias faltam, que dia cai: use '
+                  'sempre pra conta com datas). Use só quando o pedido '
                   'for disso.')
     if c.terminal:
         partes.append('E o terminal (PowerShell): roda um comando no PC do Matheus, só quando ele pedir um comando ou '
