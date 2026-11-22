@@ -178,7 +178,10 @@ def montar(x, negativos, antes, depois=0.5):
 
 
 def aumentar(x, negativos):
-    x = x * 10 ** rng.uniform(-0.6, 0.25)
+    # O volume de -20 a +15 dB (22/11/2026, medido): as chamadas ao vivo pelo
+    # microfone direto do Windows chegam 10 a 20 dB mais altas que as gravações
+    # (pico de -3 dB, quase estourando), e com -12 a +5 dB o detector pegou 2 de 24.
+    x = x * 10 ** rng.uniform(-1.0, 0.75)
     if rng.random() < 0.3:
         x = eco(x)
     r = rng.random()
@@ -325,13 +328,41 @@ def acordou(notas, limiar, paciencia=PACIENCIA):
     return False
 
 
+def _grupos_no_tempo(arquivos, junto_s=3):
+    """As gravações ao vivo de uma mesma chamada (salvas com 1 s de diferença) ficam juntas."""
+    grupos, ultimo = [], None
+    for a in arquivos:
+        m = re.search(r'(\d{8})-(\d{2})(\d{2})(\d{2})', Path(a).name)
+        t = (int(m[1]), int(m[2]) * 3600 + int(m[3]) * 60 + int(m[4])) if m else None
+        if grupos and t and ultimo and t[0] == ultimo[0] and t[1] - ultimo[1] <= junto_s:
+            grupos[-1].append(a)
+        else:
+            grupos.append([a])
+        ultimo = t
+    return grupos
+
+
+def separar_ao_vivo(tempos):
+    """As chamadas ao vivo: as do Whisper (confirmadas) — um terço das chamadas fica de
+    fora pra medir —, e os disparos do detector, que só são positivos se o Whisper
+    achar "Solis" neles (senão, são alarme falso: negativo)."""
+    whisper = sorted(glob.glob(str(AMOSTRAS / 'vivo-whisper' / '*.wav')))
+    grupos = _grupos_no_tempo(whisper)
+    teste = [a for i, g in enumerate(grupos) if i % 3 == 1 for a in g]
+    treino = [a for a in whisper if a not in teste]
+    disparos = sorted(glob.glob(str(AMOSTRAS / 'vivo-palavra' / '*.wav')))
+    falsos = [a for a in disparos if not tempos.get(a)]
+    return treino + [a for a in disparos if tempos.get(a)], teste, falsos
+
+
 def main():
     t0 = time.time()
     ext = Extrator()
     guardadas = {l.strip() for l in (TREINO / 'teste-local.txt').read_text(encoding='utf-8').splitlines() if l.strip()}
-    reais = sorted(glob.glob(str(AMOSTRAS / '*' / '*.wav')))
+    reais = sorted(a for a in glob.glob(str(AMOSTRAS / '*' / '*.wav')) if '\\vivo-' not in a and '/vivo-' not in a)
     reais_treino = [a for a in reais if a not in guardadas]
     reais_teste = [a for a in reais if a in guardadas]
+    vivos = sorted(glob.glob(str(AMOSTRAS / 'vivo-*' / '*.wav')))
     pos_tts = sorted(glob.glob(str(TREINO / 'positivos-tts' / '*.wav')))
     negs = sorted(glob.glob(str(TREINO / 'negativos-tts' / '*.wav')))
     # Negativos guardados pra medir: um a cada 7 (todas as frases e vozes aparecem dos dois lados).
@@ -341,9 +372,13 @@ def main():
           f'negativos: {len(neg_treino)} treino, {len(neg_teste)} guardados', flush=True)
 
     print('marcando onde a palavra termina (Whisper turbo)...', flush=True)
-    tempos = marcar_tempos(reais + pos_tts)
+    tempos = marcar_tempos(reais + pos_tts + vivos)
     sem = [a for a, v in tempos.items() if not v]
     print(f'  sem a palavra achada (fica a energia): {len(sem)} — {[Path(a).name for a in sem[:8]]}', flush=True)
+    vivo_treino, vivo_teste, vivo_falsos = separar_ao_vivo(tempos)
+    print(f'ao vivo: {len(vivo_treino)} treino, {len(vivo_teste)} guardadas pra medir, '
+          f'{len(vivo_falsos)} disparos sem "Solis" (alarme falso)', flush=True)
+    medir_o_de_hoje(ext, vivo_teste + vivo_treino, neg_teste)
 
     guardado = TREINO / 'janelas.npz'
     if guardado.exists() and '--de-novo' not in sys.argv:
@@ -351,18 +386,39 @@ def main():
         X, Y = d['X'], d['Y']
         print(f'  janelas guardadas: {len(X)} ({int(Y.sum())} positivas) — --de-novo refaz', flush=True)
     else:
-        X, Y = extrair(ext, reais_treino, pos_tts, neg_treino, tempos, t0)
+        X, Y = extrair(ext, reais_treino, pos_tts, neg_treino, tempos, t0, vivo_treino, vivo_falsos)
         np.savez(guardado, X=X, Y=Y)
-    return treinar_e_medir(ext, X, Y, reais_teste, neg_treino, neg_teste, t0)
+    return treinar_e_medir(ext, X, Y, reais_teste, neg_treino, neg_teste, t0, vivo_teste)
 
 
-def extrair(ext, reais_treino, pos_tts, neg_treino, tempos, t0):
+def medir_o_de_hoje(ext, vivos, neg_teste):
+    """O detector instalado agora, nas chamadas ao vivo (o antes)."""
+    if not SAIDA.exists() or not vivos:
+        return
+    d = np.load(SAIDA)
+    rede = Rede()
+    rede.W1, rede.b1, rede.W2, rede.b2, rede.media, rede.desvio = (d[k] for k in ('W1', 'b1', 'W2', 'b2', 'media', 'desvio'))
+    for limiar in (0.5, 0.9):
+        pegou = sum(acordou(notas_do_audio(ext, rede, montar(ler(a), neg_teste, 1.0)[0])[0], limiar) for a in vivos)
+        print(f'  o detector de hoje, ao vivo (limiar {limiar}): {pegou}/{len(vivos)}', flush=True)
+
+
+def extrair(ext, reais_treino, pos_tts, neg_treino, tempos, t0, vivo_treino=(), vivo_falsos=()):
     print('vetores...', flush=True)
     X, Y = [], []
     for i, a in enumerate(reais_treino):
         xs, ys = positivos_de(ext, a, tempos.get(a), neg_treino, 14)
         X += xs
         Y += ys
+    # As chamadas ao vivo valem mais: é o microfone e a sala de verdade.
+    for a in vivo_treino:
+        xs, ys = positivos_de(ext, a, tempos.get(a), neg_treino, 40)
+        X += xs
+        Y += ys
+    for a in vivo_falsos:  # o que o detector achou que era "Solis" e não era
+        for w in negativos_de(ext, a, neg_treino, 20):
+            X.append(w)
+            Y.append(np.zeros(len(w)))
     for a in pos_tts:
         xs, ys = positivos_de(ext, a, tempos.get(a), neg_treino, 4)
         X += xs
@@ -388,7 +444,7 @@ def extrair(ext, reais_treino, pos_tts, neg_treino, tempos, t0):
     return X, Y
 
 
-def treinar_e_medir(ext, X, Y, reais_teste, neg_treino, neg_teste, t0):
+def treinar_e_medir(ext, X, Y, reais_teste, neg_treino, neg_teste, t0, vivo_teste=()):
     # O teste: as 32 guardadas (limpas e com fala por cima); os negativos guardados em fila (com
     # silêncio digital e com o fundo de casa); e a fala corrida que nunca entra no treino.
     teste_limpo = [montar(ler(a), neg_teste, 1.0)[0] for a in reais_teste]
@@ -403,15 +459,18 @@ def treinar_e_medir(ext, X, Y, reais_teste, neg_treino, neg_teste, t0):
     j_limpo = [janelas(*ext.vetores(x))[0] for x in teste_limpo]
     j_barulho = [janelas(*ext.vetores(x))[0] for x in teste_barulho]
     j_falsos = [janelas(*ext.vetores(a)) for a in (fila, fila_casa, corrida)]
+    j_vivo = [janelas(*ext.vetores(montar(ler(a), neg_teste, 1.0)[0]))[0] for a in vivo_teste]
 
     def aval(rede, limiar=0.5, detalhe=False):
         acertos = sum(acordou(rede.nota(w), limiar) for w in j_limpo)
         com_barulho = sum(acordou(rede.nota(w), limiar) for w in j_barulho)
+        ao_vivo = sum(acordou(rede.nota(w), limiar) for w in j_vivo)
         falsos = [ativacoes(rede.nota(w), t, limiar) for w, t in j_falsos]
         txt = (f'guardadas {acertos}/{len(teste_limpo)} · com fala por cima {com_barulho}/{len(teste_barulho)} · '
+               f'ao vivo (nunca vistas) {ao_vivo}/{len(j_vivo)} · '
                f'falsos: fila {falsos[0]}, fila com fundo {falsos[1]} ({min_fila:.1f} min cada), '
                f'fala corrida {falsos[2]} ({min_corrida:.1f} min)')
-        return (acertos, com_barulho, falsos) if detalhe else txt
+        return (acertos, com_barulho, falsos, ao_vivo) if detalhe else txt
 
     def cacar(rede, limiar=0.15, rodadas=400):
         """As janelas negativas que o modelo confunde (fala colada nova, e o
@@ -439,11 +498,15 @@ def treinar_e_medir(ext, X, Y, reais_teste, neg_treino, neg_teste, t0):
     print('limiares:', flush=True)
     resultado = {}
     for limiar in (0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.98):
-        a, b, f = aval(rede, limiar, detalhe=True)
-        resultado[limiar] = (int(a), int(b), [int(x) for x in f])
+        a, b, f, v = aval(rede, limiar, detalhe=True)
+        resultado[limiar] = (int(a), int(b), [int(x) for x in f], int(v))
         print(f'  {limiar}: guardadas {a}/{len(teste_limpo)} · com fala por cima {b}/{len(teste_barulho)} · '
-              f'falsos fila {f[0]}, fila com fundo {f[1]}, fala corrida {f[2]}', flush=True)
+              f'ao vivo {v}/{len(j_vivo)} · falsos fila {f[0]}, fila com fundo {f[1]}, fala corrida {f[2]}', flush=True)
     horas = (2 * min_fila + min_corrida) / 60
+    if '--so-medir' in sys.argv:
+        rede.salvar(TREINO / 'solis-novo.npz')
+        print('medido e guardado só em _treino-solis/solis-novo.npz (--so-medir)')
+        return
     rede.salvar(SAIDA)
     # Uma cópia na pasta do treino: o que o terminal do Claude grava em %LOCALAPPDATA%
     # pode não chegar ao Windows de verdade (a caixa de areia); o Solis instala dali.
