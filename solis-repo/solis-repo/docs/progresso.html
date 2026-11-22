@@ -193,7 +193,7 @@ code { font-family: var(--mono); font-size: 13px; }
         <div class="topo"><h3>Ouvir</h3><span class="pill ok">Bom</span></div>
         <div class="num">~1,0<small> s</small></div>
         <p>O Whisper turbo da Groq, na nuvem. Erra às vezes ("Conta 15 vezes 3" no lugar de "quanto é quinze vezes três").</p>
-        <p class="falta">Falta: transcrever enquanto você fala, não depois.</p>
+        <p class="falta">Medido na sua voz (22/11, 12 pedidos): a Groq acerta ~9 de 12 em 0,41 s; o Whisper pequeno do PC, 7 de 12 em 0,28 s; o turbo do PC, ~8 de 12 em 0,52 s. Transcrever enquanto você fala exigiria mandar o áudio antes de conferir o privado: fica como está (~1 s do fim da fala ao texto).</p>
       </div>
       <div class="etapa">
         <div class="topo"><h3>Pensar</h3><span class="pill mid">Melhorando</span></div>
@@ -246,7 +246,7 @@ code { font-family: var(--mono); font-size: 13px; }
           <li><s>Treinar a palavra "Solis"</s> — feito aqui no PC (21/11): 32 de 32, 0 falsos; em modo sombra pra medir em casa.</li>
           <li><s>Teste cego das vozes</s> — feito: a G (Gemini Flash TTS · Aoede), falando em pedaços (~1 s).</li>
           <li>Comparativo de tempo real — o Gemini medido (22/11): o 3.1 Flash Live, fala pra fala com as ferramentas do Solis, acertou 8 de 8 com o primeiro som em 1,9 s (1,2 s sem ferramenta; o caminho de hoje leva 2,75 s, e 3 a 5 s com pesquisa). OpenAI Realtime, ElevenLabs e Cartesia só com chave sua (preços já levantados).</li>
-          <li><s>O vencedor vira o modo Pedido</s> — feito (22/11): o "Solis, ..." responde pela voz do Gemini Live, agindo pelas ferramentas do Solis; só o texto conferido vai pro Google, nunca o áudio. Do fim da fala ao primeiro som: 2,5 a 2,8 s nos pedidos com ferramenta (eram 3 a 4 s). Falta: transcrever enquanto você fala (o "ouvir" ainda leva ~1,2 s) e testar com você.</li>
+          <li><s>O vencedor vira o modo Pedido</s> — feito (22/11): o "Solis, ..." responde pela voz do Gemini Live, agindo pelas ferramentas do Solis; só o texto conferido vai pro Google, nunca o áudio. Do fim da fala ao primeiro som: 2,5 a 2,8 s nos pedidos com ferramenta (eram 3 a 4 s). Falta: testar com você (o "ouvir" medido não fica mais curto sem abrir mão do privado ou do entendimento).</li>
           <li>Um dia de uso real, com o registro de cada chamada.</li>
         </ul>
       </div></div>
