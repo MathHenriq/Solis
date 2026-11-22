@@ -185,9 +185,9 @@ code { font-family: var(--mono); font-size: 13px; }
     <div class="funil">
       <div class="etapa">
         <div class="topo"><h3>Chamar</h3><span class="pill mid">Em teste</span></div>
-        <div class="num">32<small> de 32</small></div>
-        <p>O detector treinado só pra "Solis" (21/11, aqui no PC, sem Colab): acertou as 32 gravações suas guardadas, com 0 alarme falso em 27 min de fala difícil. Com alguém falando por cima no mesmo volume, 22 de 32. O Whisper dava 11 de 12 limpo e ~5 em 10 em casa.</p>
-        <p class="falta">Ao vivo, em modo sombra, pegou só 1 de 6 chamadas: a escuta agora guarda os trechos de "Solis" no PC pra achar a diferença e treinar de novo. Quem decide ainda é o Whisper, que ouviu todas as chamadas normais. E o Solis agora ouve durante as chamadas do Discord, sem estragar o som (o microfone direto do Windows).</p>
+        <div class="num">7<small> de 8 ao vivo</small></div>
+        <p>O detector treinado de novo (22/11) com as suas chamadas ao vivo: o microfone direto do Windows chega 10 a 20 dB mais alto que as gravações, e o de antes pegava 0 de 26 chamadas. Agora, nas chamadas que ele nunca viu, 7 de 8; as 32 guardadas, 32 de 32; e 0 alarme falso em 27 min de fala difícil.</p>
+        <p class="falta">Falta: mais chamadas ao vivo pra confirmar (8 é pouco) antes de ele decidir sozinho; até lá segue em modo sombra e quem decide é o Whisper. Com alguém falando por cima, 20 de 32.</p>
       </div>
       <div class="etapa">
         <div class="topo"><h3>Ouvir</h3><span class="pill ok">Bom</span></div>
@@ -277,6 +277,8 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-feito">
       <h2 id="t-feito">Feito nos últimos dias</h2>
       <ul class="lista">
+        <li><span class="d">22/11</span><span>O detector do "Solis" treinado com as chamadas ao vivo: de 0 pra 7 de 8, sem alarme falso a mais.</span></li>
+        <li><span class="d">22/11</span><span>"Deixa eu ver." quando o Solis vai pesquisar (na mesma voz da resposta), a conta com datas exata e o ditado pelo microfone do Windows, online primeiro.</span></li>
         <li><span class="d">21/11</span><span>Pesquisa pela voz de 18–24 s pra 3–5 s, respondendo pelo que as páginas dizem (não pelo trechinho da busca, que pode ser velho). Pela voz, 14 de 15 certas.</span></li>
         <li><span class="d">21/11</span><span>O grátis dura o triplo: no limite de um modelo da Groq, outro atende na hora, e a voz manda 36% menos por pedido. Consertado o Solis calado quando a Groq mandava erro no meio da resposta.</span></li>
         <li><span class="d">21/11</span><span>Olhos melhores: cotação, clima e jogos (placar ao vivo, último e próximo) direto da fonte, pra qualquer cérebro, e as páginas de JavaScript lidas já renderizadas. Pela voz, 6 de 6 nas perguntas do dia.</span></li>
