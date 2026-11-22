@@ -55,8 +55,12 @@ export default function App() {
   // Antes o pedido novo era ignorado calado (o campo estava ocupado), e a ilha
   // mostrava a frase nova com a resposta da anterior (relato do Matheus, 18/11/2026).
   const pedidoNaFila = useRef<string | null>(null);
+  // O pedido ao vivo: o que o Solis está dizendo (a resposta na ilha enquanto fala);
+  // null fora dele, e a ilha mostra a última resposta da conversa, como sempre.
+  const [respostaAoVivo, definirRespostaAoVivo] = useState<string | null>(null);
   const escuta = useEscuta(
     (texto) => {
+      definirRespostaAoVivo(null);
       definirTela('conversa');
       if (pedeConversa(texto)) {
         voz.iniciar(conversa.conversa);
@@ -73,11 +77,31 @@ export default function App() {
     },
     // Na conversa, o microfone é dela: a escuta do "Solis" desliga.
     voz.fase !== null,
+    // O pedido ao vivo (backend/solis/pedido_ao_vivo.py): com "Responder falando",
+    // o servidor responde pela voz do Gemini e salva a troca na conversa aberta.
+    {
+      conversa: conversa.conversa,
+      falar: falaAutomatica(),
+      aoVivo: (pedido) => {
+        definirTela('conversa');
+        definirRespostaAoVivo('');
+        chamada.enviado(pedido);
+      },
+      aoVivoTexto: (disse) => definirRespostaAoVivo(disse),
+      aoVivoFim: (id, disse) => {
+        definirRespostaAoVivo(disse);
+        void conversa.abrir(id);
+      },
+    },
   );
   const ouvindo = escuta.estado === 'ouvindo';
   // O Solis aparecendo quando é chamado (components/Chamada.tsx).
   const ultimo = conversa.turnos[conversa.turnos.length - 1];
-  const chamada = useChamada(escuta.estado, conversa.respondendo, !!(ultimo?.de === 'solis' && ultimo.texto));
+  const chamada = useChamada(
+    escuta.estado,
+    conversa.respondendo,
+    respostaAoVivo !== null ? !!respostaAoVivo : !!(ultimo?.de === 'solis' && ultimo.texto),
+  );
   // O pedido na fila sai quando a resposta parada acaba. Depois da chamada (os
   // efeitos rodam em ordem): o dela manda a ilha embora com a resposta parada,
   // e este a põe de volta pensando no pedido novo.
@@ -90,7 +114,8 @@ export default function App() {
     chamada.enviado(texto);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversa.respondendo]);
-  const resposta = chamada.resposta ?? (ultimo?.de === 'solis' ? ultimo.texto : undefined);
+  const resposta =
+    chamada.resposta ?? (respostaAoVivo !== null ? respostaAoVivo || undefined : ultimo?.de === 'solis' ? ultimo.texto : undefined);
   // Com a janela do Solis na frente, a voz aparece na esfera, dentro do app;
   // atrás ou minimizada, na ilha — no app Tauri, uma janela própria por cima
   // de tudo (tauri.ts). Decisão do Matheus, 16/11/2026.

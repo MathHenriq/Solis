@@ -92,6 +92,13 @@ function marcarFala(quem: symbol, falando: boolean) {
   if (antes !== falandoAgora.size > 0) avisarFala();
 }
 
+/** A voz do pedido ao vivo (escuta.ts, que toca o que o servidor manda): a escuta
+ *  da palavra pausa igual a quando o Solis fala pela tela. */
+const AO_VIVO = Symbol('pedido ao vivo');
+export function marcarFalaAoVivo(falando: boolean) {
+  marcarFala(AO_VIVO, falando);
+}
+
 /** `pergunta`: o Solis acabou de falar uma resposta inteira que termina numa pergunta. */
 export function aoMudarFala(ouvinte: (falando: boolean, pergunta: boolean) => void): () => void {
   ouvintesDaFala.add(ouvinte);

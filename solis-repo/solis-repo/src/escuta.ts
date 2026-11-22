@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { aoMudarFala } from './fala';
+import { aoMudarFala, marcarFalaAoVivo } from './fala';
 import { criarAnalisador, definirFonte } from './nivel';
 import { urlEscuta } from './servidor';
 
@@ -89,14 +89,38 @@ function bipeSoSom() {
 
 export type EstadoEscuta = 'desligada' | 'esperando' | 'ouvindo' | 'erro';
 
+/** O pedido ao vivo (backend/solis/pedido_ao_vivo.py, 22/11/2026): o servidor
+ *  responde o "Solis, ..." pela voz do Gemini Live e manda a voz pela própria
+ *  escuta (PCM 16 bits, 24 kHz). `conversa` e `falar` dizem a ele onde salvar e
+ *  se a resposta é falada; `aoVivo` avisa que o pedido foi ao vivo, e
+ *  `aoVivoFim` que a troca já está salva na conversa. */
+export type AoVivo = {
+  conversa: number | null;
+  falar: boolean;
+  aoVivo?: (pedido: string) => void;
+  /** O que ele já disse (o texto da voz, enquanto fala). */
+  aoVivoTexto?: (disse: string) => void;
+  aoVivoFim?: (conversa: number, disse: string) => void;
+};
+
 /** `suspensa`: desligada por enquanto (o modo Conversa, com o microfone dele). */
-export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
+export function useEscuta(aoTexto: (texto: string) => void, suspensa = false, vivo?: AoVivo) {
   const [ligada, definirLigada] = useState(escutaLigada);
   const [rapida, definirRapida] = useState(escutaRapida);
   const [estado, definirEstado] = useState<EstadoEscuta>('desligada');
   const [erro, definirErro] = useState<string | null>(null);
   const aoTextoAtual = useRef(aoTexto);
   aoTextoAtual.current = aoTexto;
+  const vivoAtual = useRef(vivo);
+  vivoAtual.current = vivo;
+  const wsAtual = useRef<WebSocket | null>(null);
+  // A conversa aberta e o "Responder falando" vão pro servidor quando mudam.
+  const avisarAoVivo = () => {
+    const ws = wsAtual.current;
+    if (ws?.readyState === WebSocket.OPEN)
+      ws.send(JSON.stringify({ conversa: vivoAtual.current?.conversa ?? null, falar: !!vivoAtual.current?.falar }));
+  };
+  useEffect(avisarAoVivo, [vivo?.conversa, vivo?.falar]);
 
   useEffect(() => {
     const atualizar = () => {
@@ -237,17 +261,85 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
     }
     navigator.mediaDevices.addEventListener('devicechange', trocouAparelho);
 
+    // A voz do pedido ao vivo: os pedaços em fila, um depois do outro; enquanto
+    // toca, a escuta pausa (marcarFalaAoVivo), e volta quando o último acaba.
+    let saida: AudioContext | null = null;
+    let proximo = 0;
+    const tocando = new Set<AudioBufferSourceNode>();
+    let fimAoVivo = true;
+    function terminarAoVivo() {
+      marcarFalaAoVivo(false);
+      void saida?.close();
+      saida = null;
+      proximo = 0;
+    }
+    function tocarAoVivo(dados: ArrayBuffer) {
+      const pcm = new Int16Array(dados);
+      if (!pcm.length) return;
+      if (!saida || saida.state === 'closed') {
+        saida = new AudioContext({ sampleRate: 24000 });
+        proximo = 0;
+      }
+      if (!tocando.size) marcarFalaAoVivo(true);
+      const buffer = saida.createBuffer(1, pcm.length, 24000);
+      const canal = buffer.getChannelData(0);
+      for (let i = 0; i < pcm.length; i++) canal[i] = pcm[i] / 0x8000;
+      const fonte = saida.createBufferSource();
+      fonte.buffer = buffer;
+      fonte.connect(saida.destination);
+      const quando = Math.max(saida.currentTime + 0.02, proximo);
+      fonte.start(quando);
+      proximo = quando + buffer.duration;
+      tocando.add(fonte);
+      fonte.onended = () => {
+        tocando.delete(fonte);
+        if (!tocando.size && fimAoVivo) terminarAoVivo();
+      };
+    }
+
     function conectar(tentativa = 0) {
       if (fim) return;
       ws = new WebSocket(urlEscuta(rapida));
+      wsAtual.current = ws;
       ws.binaryType = 'arraybuffer';
       ws.onopen = () => {
         definirErro(null);
         if (pausada) ws?.send(JSON.stringify({ pausa: true }));
+        avisarAoVivo();
         tentativa = 0;
       };
       ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; motivo?: string; microfone?: string };
+        if (typeof e.data !== 'string') {
+          tocarAoVivo(e.data as ArrayBuffer);
+          return;
+        }
+        const msg = JSON.parse(e.data) as {
+          tipo: string; texto?: string; motivo?: string; microfone?: string; pedido?: string; conversa?: number;
+          disse?: string;
+        };
+        if (msg.tipo === 'ao_vivo') {
+          // O pedido foi ao vivo: a voz vem por aqui mesmo.
+          fimAoVivo = false;
+          definirFonte(null);
+          definirEstado('esperando');
+          vivoAtual.current?.aoVivo?.(msg.pedido ?? '');
+          return;
+        }
+        if (msg.tipo === 'ao_vivo_texto') {
+          vivoAtual.current?.aoVivoTexto?.(msg.disse ?? '');
+          return;
+        }
+        if (msg.tipo === 'ao_vivo_fim') {
+          fimAoVivo = true;
+          if (!tocando.size) terminarAoVivo();
+          if (msg.conversa != null) vivoAtual.current?.aoVivoFim?.(msg.conversa, msg.disse ?? '');
+          return;
+        }
+        if (msg.tipo === 'texto' && !fimAoVivo) {
+          // O ao vivo não deu (falhou, ou precisa de cartão): segue como sempre.
+          fimAoVivo = true;
+          if (!tocando.size) terminarAoVivo();
+        }
         if (msg.tipo === 'pronta' && msg.microfone === 'servidor') {
           // O servidor grava direto do Windows (backend/solis/microfone_nativo.py):
           // a janela não abre o microfone dela — aberto aqui, ele estragava o som
@@ -309,7 +401,11 @@ export function useEscuta(aoTexto: (texto: string) => void, suspensa = false) {
       pararDeOuvirFala();
       window.clearTimeout(espera);
       ws?.close();
+      wsAtual.current = null;
       fecharMicrofone();
+      tocando.forEach((f) => f.stop());
+      tocando.clear();
+      terminarAoVivo();
     };
     // Trocar a escuta rápida reconecta: o servidor decide se segura o Whisper na conexão.
   }, [ligada, rapida, suspensa]);
