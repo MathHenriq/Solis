@@ -811,6 +811,9 @@ class Corpo:
                 return (f'Pela voz, já foram {LEITURAS_VOZ} leituras: responda agora, em voz alta, com o que você já '
                         'leu (o trecho da busca vale), ou diga em uma frase o que não achou.')
             self.leituras += 1
+            # Antes de ler (22/11/2026): pela voz, a tela fala "Deixa eu ver." se o
+            # Solis ainda não começou a responder (a pesquisa leva 3 a 5 s).
+            self.etapas.marcar('buscando', ferramenta=nome, alvo=str(entrada.get('url') or ''))
             try:
                 final, titulo, texto = await web.ler(str(entrada.get('url') or ''), voz=self.voz)
                 saida, ok = web.para_o_modelo(final, titulo, texto,

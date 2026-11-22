@@ -563,6 +563,16 @@ export function Thread({
     fala.narrar(lento);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lento]);
+  // E quando um cérebro com o corpo (a Groq, o Gemini...) vai pesquisar antes de
+  // ter dito qualquer coisa: "Deixa eu ver." (22/11/2026: eram 3 a 5 s de silêncio).
+  const pesquisando =
+    !!ultima?.digitando && !ultima.texto?.trim() && !!ultima.etapas?.some((e) => e.etapa === 'buscando');
+  useEffect(() => {
+    if (!pesquisando || !respostaFalada.proxima || respostaFalada.narrou) return;
+    respostaFalada.narrou = true;
+    fala.narrar('pesquisa');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pesquisando]);
   // Voltar atrás: a última fala depois da qual um cérebro mudou arquivo (dela
   // pra trás, toda fala pode voltar). Relida no fim de cada resposta.
   const [ultimaVolta, definirUltimaVolta] = useState<number | null>(null);

@@ -58,6 +58,9 @@ def test_no_corpo_o_webfetch_e_livre_cercado_e_vira_fonte(monkeypatch):
     assert not [d for e, d in g.lista if e == 'aprovacao']
     assert [(d['ferramenta'], d['alvo'], d['ok']) for e, d in g.lista if e == 'ferramenta'] == \
         [('WebFetch', 'https://exemplo.com.br/carros', True)]
+    # O aviso de que vai ler sai antes (a tela fala "Deixa eu ver." pela voz).
+    etapas = [e for e, _ in g.lista]
+    assert etapas.index('buscando') < etapas.index('ferramenta')
 
 
 BUSCA_DDG = ('<html><body><div class="result results_links"><div class="links_main result__body">'

@@ -212,17 +212,25 @@ def test_motivo_com_quebra_de_linha_nao_derruba_a_resposta(vozes):
     assert '\n' not in r.headers['x-solis-antes'] and 'API key not valid' in r.headers['x-solis-antes']
 
 
+def _falando(audio, tipo, quem, geradas=None):
+    """A voz das respostas simulada (falar_aos_pedacos): o áudio num pedaço só."""
+    async def falar_aos_pedacos(texto, conversa=None):
+        if geradas is not None:
+            geradas.append(texto)
+
+        async def pedacos():
+            yield audio
+        return pedacos(), tipo, quem
+    return falar_aos_pedacos
+
+
 def test_frase_fixa_e_gravada_uma_vez_e_depois_sai_do_disco(monkeypatch, tmp_path):
     """A narração (16/11/2026): "Vou passar pro Claude, um instante." enquanto ele trabalha."""
     import asyncio
     monkeypatch.setattr(fala, 'PASTA_FRASES', tmp_path)
     monkeypatch.setattr(fala, 'chave_fish', lambda: 'k')
     geradas = []
-
-    async def falar(texto, conversa=None, voz=None):
-        geradas.append(texto)
-        return b'ID3mp3', 'audio/mpeg', 'fish'
-    monkeypatch.setattr(fala, 'falar', falar)
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', _falando(b'ID3mp3', 'audio/mpeg', 'fish', geradas))
     assert asyncio.run(fala.frase('claude')) == (b'ID3mp3', 'audio/mpeg', 'fish')
     assert asyncio.run(fala.frase('claude')) == (b'ID3mp3', 'audio/mpeg', 'gravada')
     assert geradas == [fala.FRASES['claude']]
@@ -232,14 +240,30 @@ def test_frase_fixa_e_gravada_uma_vez_e_depois_sai_do_disco(monkeypatch, tmp_pat
     assert len(geradas) == 2
 
 
+def test_a_frase_sai_na_voz_das_respostas_e_a_reserva_nao_fica_gravada(monkeypatch, tmp_path):
+    """22/11/2026: as frases eram gravadas pela Fish e as respostas saíam na voz G
+    (a escolhida): a narração falava com uma voz e a resposta com outra."""
+    import asyncio
+    from solis import apis
+    monkeypatch.setattr(fala, 'PASTA_FRASES', tmp_path / 'frases')
+    monkeypatch.setattr(fala, 'chave_fish', lambda: 'k')
+    monkeypatch.setattr(apis, 'tem_chave', lambda nome: nome == 'gemini')
+    # A G no limite do dia: falou a Fish — serve agora, mas não vira a frase pra sempre.
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', _falando(b'ID3fish', 'audio/mpeg', 'fish'))
+    assert asyncio.run(fala.frase('pesquisa'))[2] == 'fish'
+    assert not (tmp_path / 'frases').exists()
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', _falando(b'ID3g', 'audio/mpeg', 'gemini-flash'))
+    asyncio.run(fala.frase('pesquisa'))
+    assert asyncio.run(fala.frase('pesquisa')) == (b'ID3g', 'audio/mpeg', 'gravada')
+    assert fala.FRASES['pesquisa'] == 'Deixa eu ver.'
+
+
 def test_frase_na_voz_de_reserva_nao_fica_gravada(monkeypatch, tmp_path):
     import asyncio
     monkeypatch.setattr(fala, 'PASTA_FRASES', tmp_path / 'frases')
     monkeypatch.setattr(fala, 'chave_fish', lambda: 'k')
-
-    async def falar(texto, conversa=None, voz=None):
-        return b'RIFFwav', 'audio/wav', 'kokoro'  # a Fish caiu: falou a local
-    monkeypatch.setattr(fala, 'falar', falar)
+    # A Fish caiu: falou a local.
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', _falando(b'RIFFwav', 'audio/wav', 'kokoro'))
     asyncio.run(fala.frase('claude'))
     assert not (tmp_path / 'frases').exists()
 
@@ -248,28 +272,21 @@ def test_rota_da_frase(monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
     from solis import main
     monkeypatch.setattr(fala, 'PASTA_FRASES', tmp_path)
-
-    async def falar(texto, conversa=None, voz=None):
-        return b'ID3mp3', 'audio/mpeg', 'ava'
-    monkeypatch.setattr(fala, 'falar', falar)
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', _falando(b'ID3mp3', 'audio/mpeg', 'ava'))
     c = TestClient(main.app)
     r = c.get('/fala/frase/claude')
     assert r.status_code == 200 and r.content == b'ID3mp3' and r.headers['content-type'] == 'audio/mpeg'
     assert c.get('/fala/frase/qualquer').status_code == 404
 
 
-def test_gravar_frases_so_com_a_fish(monkeypatch, tmp_path):
+def test_gravar_frases_so_com_a_voz_escolhida(monkeypatch, tmp_path):
     import asyncio
     monkeypatch.setattr(fala, 'PASTA_FRASES', tmp_path / 'frases')
     geradas = []
-
-    async def falar(texto, conversa=None, voz=None):
-        geradas.append(texto)
-        return b'ID3', 'audio/mpeg', 'fish'
-    monkeypatch.setattr(fala, 'falar', falar)
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', _falando(b'ID3', 'audio/mpeg', 'fish', geradas))
     monkeypatch.setattr(fala, 'chave_fish', lambda: None)
     asyncio.run(fala.gravar_frases())
-    assert geradas == []  # sem a Fish, nada sai pra rede
+    assert geradas == []  # sem voz de nuvem, nada sai pra rede
     monkeypatch.setattr(fala, 'chave_fish', lambda: 'k')
     asyncio.run(fala.gravar_frases())
     asyncio.run(fala.gravar_frases())

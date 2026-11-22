@@ -682,6 +682,9 @@ async def vigiar() -> None:
 FRASES = {
     'claude': 'Vou passar pro Claude, um instante.',
     'codex': 'Vou passar pro Codex, um instante.',
+    # Pela voz, quando um cérebro com o corpo vai pesquisar (22/11/2026): a
+    # pesquisa leva 3 a 5 s, e era silêncio até a resposta.
+    'pesquisa': 'Deixa eu ver.',
 }
 PASTA_FRASES = PASTA / 'frases'
 
@@ -689,32 +692,43 @@ PASTA_FRASES = PASTA / 'frases'
 def _arquivo_da_frase(nome: str, ext: str) -> Path:
     import hashlib
     # A voz escolhida entra na chave: trocou a voz, a frase é gravada de novo.
-    marca = hashlib.sha1(f'{FRASES[nome]}|{voz_fish()}|{voz_gemini()}|{FISH_MODELO}'.encode()).hexdigest()[:12]
+    marca = hashlib.sha1(f'{FRASES[nome]}|{voz_fish()}|{voz_gemini()}|{FISH_MODELO}|{GEMINI_FLUXO_MODELO}'
+                         .encode()).hexdigest()[:12]
     return PASTA_FRASES / f'{nome}-{marca}.{ext}'
+
+
+def _a_escolhida() -> str | None:
+    """A voz das respostas: a G (o Gemini Flash TTS, a escolhida no teste cego de
+    21/11/2026) se tem a chave do Gemini, senão a Fish."""
+    from . import apis
+    return 'gemini-flash' if apis.tem_chave('gemini') else 'fish' if chave_fish() else None
 
 
 async def frase(nome: str) -> tuple[bytes, str, str]:
     """(áudio, tipo, quem) de uma frase fixa: do disco, ou gerada agora e guardada.
-    KeyError se a frase não existe."""
+    KeyError se a frase não existe. Na mesma voz das respostas (falar_aos_pedacos):
+    antes era a Fish, e a narração falava com uma voz e a resposta com outra."""
     texto = FRASES[nome]
     for ext, tipo in (('mp3', 'audio/mpeg'), ('wav', 'audio/wav')):
         arquivo = _arquivo_da_frase(nome, ext)
         if arquivo.is_file():
             return arquivo.read_bytes(), tipo, 'gravada'
-    audio, tipo, quem = await falar(texto)
-    # Só fica gravada na voz escolhida: com a Fish configurada, a reserva que
-    # falou porque a Fish caiu não vira a frase pra sempre.
-    if quem == 'fish' or (not chave_fish() and quem not in {n for n, _, _ in LOCAL}):
+    pedacos, tipo, quem = await falar_aos_pedacos(texto)
+    audio = b''.join([p async for p in pedacos]) if not isinstance(pedacos, (bytes, bytearray)) else bytes(pedacos)
+    # Só fica gravada na voz escolhida: a reserva que falou porque a escolhida
+    # caiu (o limite do dia) não vira a frase pra sempre.
+    if audio and quem == _a_escolhida():
         PASTA_FRASES.mkdir(parents=True, exist_ok=True)
         _arquivo_da_frase(nome, 'mp3' if tipo == 'audio/mpeg' else 'wav').write_bytes(audio)
     return audio, tipo, quem
 
 
 async def gravar_frases() -> None:
-    """Grava (em segundo plano, quando o servidor sobe) as frases que faltam.
-    Só com a Fish: é a voz de nuvem que leva ~2,5 s pra gerar a frase (medido
-    em 16/11/2026: 2,47 s a primeira vez, 0,004 a 0,013 s do disco depois)."""
-    if not chave_fish():
+    """Grava (em segundo plano, quando o servidor sobe) as frases que faltam,
+    na voz das respostas: a de nuvem leva ~1 a 2,5 s pra gerar a frase (medido
+    em 16/11/2026: 2,47 s a primeira vez, 0,004 a 0,013 s do disco depois).
+    Cada uma é gravada uma vez só (o grátis da voz G é de poucas falas por dia)."""
+    if not _a_escolhida():
         return
     for nome in FRASES:
         try:
