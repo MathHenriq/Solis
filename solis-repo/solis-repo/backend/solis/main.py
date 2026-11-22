@@ -2300,7 +2300,13 @@ async def escuta(ws: WebSocket):
     Texto {"pausa": true} do navegador suspende a escuta — enquanto o Solis
     fala, a voz dele não pode acordar ele mesmo. {"pausa": false, "seguir": true}
     quando a fala dele acabou numa pergunta: o pedido abre sem o "Solis" (volta
-    {"tipo": "ativou"}, e o resto como depois da palavra)."""
+    {"tipo": "ativou"}, e o resto como depois da palavra).
+
+    O pedido ao vivo (pedido_ao_vivo.py, 22/11/2026): com {"conversa": id,
+    "falar": true} da tela, o pedido que não é privado vai fala pra fala pro
+    Gemini Live — {"tipo": "ao_vivo", "pedido"}, a voz dele (PCM 16 bits, 24 kHz,
+    binário) e {"tipo": "ao_vivo_fim", "conversa", "pedido", "disse"}. O privado,
+    a falha e o que precisa de cartão voltam como sempre: {"tipo": "texto"}."""
     await ws.accept()
     try:
         escutando = await asyncio.to_thread(ativacao.Escuta)
@@ -2320,6 +2326,84 @@ async def escuta(ws: WebSocket):
     _aquecer_whisper(pequeno)
     pausada = cedida = False
     pausou_em = 0.0
+    # O pedido ao vivo (pedido_ao_vivo.py): a conversa aberta na tela e se a
+    # resposta é falada (a tela manda); a sessão do Gemini, aberta no "Solis"
+    # (conecta enquanto ele fala o pedido); e a resposta, em segundo plano.
+    ao_vivo = {'conversa': None, 'falar': False}
+    sessao_viva = None
+    tarefa_viva: asyncio.Task | None = None
+
+    def preparar_ao_vivo() -> None:
+        nonlocal sessao_viva
+        from . import pedido_ao_vivo
+        if not ao_vivo['falar'] or not pedido_ao_vivo.disponivel():
+            return
+        largar_ao_vivo()
+        sessao_viva = pedido_ao_vivo.Sessao(ao_vivo['conversa'], fala.voz_gemini())
+        sessao_viva.abrir()
+
+    def largar_ao_vivo() -> None:
+        nonlocal sessao_viva
+        if sessao_viva is not None:
+            asyncio.ensure_future(sessao_viva.fechar())
+            sessao_viva = None
+
+    def responder_ao_vivo(texto: str) -> bool:
+        """O pedido vai ao vivo (True) ou pelo caminho de hoje (False: privado, sem
+        fala, sem o Gemini, ou a resposta não é falada)."""
+        nonlocal sessao_viva, tarefa_viva, pausada
+        from . import pedido_ao_vivo
+        if (not ao_vivo['falar'] or not pedido_ao_vivo.disponivel() or not ativacao.tem_fala(texto)
+                or pedido_ao_vivo.privado(texto) or pedido_ao_vivo.pede_conversa(texto)):
+            largar_ao_vivo()
+            return False
+        sessao = sessao_viva or pedido_ao_vivo.Sessao(ao_vivo['conversa'], fala.voz_gemini())
+        sessao_viva = None
+        # Enquanto o Solis responde, a escuta não ouve (senão a voz dele nas caixas
+        # entraria na fila do microfone); a tela tira a pausa quando a voz acabar.
+        pausada = True
+        tarefa_viva = asyncio.ensure_future(_ao_vivo(sessao, texto))
+        return True
+
+    async def _ao_vivo(sessao, texto: str) -> None:
+        nonlocal pausada
+        from . import conversa_voz, pedido_ao_vivo
+        enviou = False
+        try:
+            await ws.send_json({'tipo': 'ao_vivo', 'pedido': texto})
+
+            async def enviar_audio(pedaco: bytes) -> None:
+                nonlocal enviou
+                enviou = True
+                await ws.send_bytes(pedaco)
+            async def enviar_texto(disse: str) -> None:
+                await ws.send_json({'tipo': 'ao_vivo_texto', 'disse': disse})
+            try:
+                r = await sessao.responder(texto, enviar_audio, enviar_texto)
+            except pedido_ao_vivo.Falhou as e:
+                log.info('pedido ao vivo: %s; segue pelo caminho de hoje', e)
+                if any(x in str(e) for x in ('429', 'quota', 'RESOURCE_EXHAUSTED', 'chave', '403')):
+                    conversa_voz.deixar_gemini(str(e))
+                pausada = False
+                await ws.send_json({'tipo': 'texto', 'texto': texto})
+                return
+            if r.passar is not None:
+                # Precisa de cartão (abrir programa, arquivo, skill...): o caminho de hoje.
+                log.info('pedido ao vivo: passou pro caminho completo')
+                pausada = False
+                await ws.send_json({'tipo': 'texto', 'texto': texto})
+                return
+            conversa = ao_vivo['conversa'] or banco.nova_conversa()
+            conversa_voz.salvar_turno(conversa, texto, r.disse)
+            log.info('pedido ao vivo: primeiro som em %s s (%s)', r.primeiro_som,
+                     ', '.join(r.ferramentas) or 'sem ferramenta')
+            await ws.send_json({'tipo': 'ao_vivo_fim', 'conversa': conversa, 'pedido': texto, 'disse': r.disse})
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+        finally:
+            if not enviou:
+                pausada = False
+            await sessao.fechar()
     log.info('escuta: conectada')
     # A palavra treinada em modo sombra (21/11/2026): ouve junto com o Whisper e
     # só anota no log quando acordaria — e, a cada ativação do Whisper, se ela
@@ -2391,6 +2475,12 @@ async def escuta(ws: WebSocket):
                     pedido = json.loads(msg['text'])
                 except ValueError:
                     continue
+                if 'conversa' in pedido or 'falar' in pedido:
+                    # A conversa aberta na tela e se a resposta é falada: o pedido ao vivo.
+                    ao_vivo['conversa'] = pedido.get('conversa', ao_vivo['conversa'])
+                    ao_vivo['falar'] = bool(pedido.get('falar', ao_vivo['falar']))
+                    if 'pausa' not in pedido:
+                        continue
                 agora_pausada = bool(pedido.get('pausa'))
                 # Relato do Matheus (20/11/2026): chamou, o Solis respondeu, e na
                 # vez seguinte o "Solis" não acordou mais — e o log não dizia se
@@ -2406,6 +2496,7 @@ async def escuta(ws: WebSocket):
                 if pedido.get('seguir') and not pausada and escutando.seguir():
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
+                    preparar_ao_vivo()
                 continue
             if pausada or cedida or not msg.get('bytes'):
                 continue
@@ -2431,6 +2522,7 @@ async def escuta(ws: WebSocket):
                 if tipo == 'ativou':
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
+                    preparar_ao_vivo()
                 elif tipo in ('previa', 'frase'):
                     # Whisper: o começo de um trecho de fala tem "Solis"?
                     t0 = time.monotonic()
@@ -2461,15 +2553,18 @@ async def escuta(ws: WebSocket):
                     resto = resto if ativacao.tem_fala(resto) else ''
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
+                    preparar_ao_vivo()
                     pronto = escutando.confirmar(atraso=demora, resto=resto if tipo == 'frase' else '')
                     if pronto:
                         # "Solis, que horas são?" de uma vez, e acabou: já é o comando.
-                        await ws.send_json({'tipo': 'texto', 'texto': pronto})
+                        if not responder_ao_vivo(pronto):
+                            await ws.send_json({'tipo': 'texto', 'texto': pronto})
                 elif tipo == 'rascunho':
                     # A cascata: calado há pouco, o texto adianta; vale se ele não voltar a falar.
                     _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
                     escutando.guardar_rascunho(texto)
                 elif audio is None:
+                    largar_ao_vivo()
                     await ws.send_json({'tipo': 'nada'})
                 else:
                     # Com o rascunho valendo, o texto já está pronto; senão, o Whisper agora.
@@ -2477,6 +2572,9 @@ async def escuta(ws: WebSocket):
                     texto = escutando.pronto
                     if texto is None:
                         _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
+                    # O texto conferido vai ao vivo (pedido_ao_vivo.py), ou como sempre.
+                    if responder_ao_vivo(texto):
+                        continue
                     # Sem palavra nenhuma (o "." do ruído), não vira mensagem.
                     await ws.send_json({'tipo': 'texto', 'texto': texto} if ativacao.tem_fala(texto) else {'tipo': 'nada'})
     except WebSocketDisconnect:
@@ -2492,6 +2590,9 @@ async def escuta(ws: WebSocket):
             # reiniciando), um await aqui não roda, e o microfone ficaria aberto.
             nativo.fechar()
         microfone.vigia.sair(fila)
+        largar_ao_vivo()
+        if tarefa_viva is not None and not tarefa_viva.done():
+            tarefa_viva.cancel()
         log.info('escuta: desconectada' + (' (estava pausada)' if pausada else ''))
         escutando.fechar()
         if segurado:
