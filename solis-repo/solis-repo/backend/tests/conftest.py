@@ -10,6 +10,19 @@ def banco_temporario(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def sem_amostras_vivas_de_verdade(monkeypatch, tmp_path):
+    """Nenhum teste grava na pasta das amostras ao vivo do "Solis" do Matheus
+    (main._guardar_amostra_viva): 22/11/2026, os sons sintéticos da escuta dos
+    testes viraram 53 "chamadas ao vivo" lá, e o detector foi treinado em cima."""
+    monkeypatch.setattr(main_mod(), 'AMOSTRAS_VIVAS', tmp_path / 'amostras-vivas')
+
+
+def main_mod():
+    from solis import main
+    return main
+
+
+@pytest.fixture(autouse=True)
 def sem_modelos_de_lado():
     """O "modelo no limite, de lado até tal hora" (apis._lotados) não passa de um
     teste pro outro: sobrava, e o teste seguinte pedia a lista de modelos à rota dele."""

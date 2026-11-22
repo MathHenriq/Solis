@@ -178,9 +178,12 @@ def montar(x, negativos, antes, depois=0.5):
 
 
 def aumentar(x, negativos):
-    # O volume de -20 a +15 dB (22/11/2026, medido): as chamadas ao vivo pelo
-    # microfone direto do Windows chegam 10 a 20 dB mais altas que as gravações
-    # (pico de -3 dB, quase estourando), e com -12 a +5 dB o detector pegou 2 de 24.
+    # O volume de -20 a +15 dB. ATENÇÃO (22/11/2026): a razão dada no treino
+    # daquela manhã ("o microfone direto chega 10 a 20 dB mais alto") veio de sons
+    # sintéticos dos testes gravados como "chamadas ao vivo" (separados em
+    # amostras-solis/_dos-testes); e as chamadas de verdade são salvas já
+    # normalizadas pro Whisper, então não dizem o volume cru. A faixa larga fica
+    # (não atrapalha), mas sem essa razão — medir de novo com chamadas reais.
     x = x * 10 ** rng.uniform(-1.0, 0.75)
     if rng.random() < 0.3:
         x = eco(x)
