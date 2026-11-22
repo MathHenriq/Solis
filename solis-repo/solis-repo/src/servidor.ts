@@ -1247,6 +1247,8 @@ export const urlConversaVoz = (conversa: number | null) =>
   `${BASE.replace(/^http/, 'ws')}/conversa-voz${conversa !== null ? `?conversa=${conversa}` : ''}`;
 
 export const urlEscuta = (rapida = true) => `${BASE.replace(/^http/, 'ws')}/escuta?segurar=${rapida ? 1 : 0}`;
+/** O ditado pelo microfone direto do Windows (backend: main.ditado). */
+export const urlDitado = () => `${BASE.replace(/^http/, 'ws')}/voz/ditado`;
 
 /** O teste da escuta (backend/solis/voz_teste.py). */
 export type PassoTeste = { i: number; tipo: 'chamada' | 'sem'; mostrar: string; esperado: string; inicio: number; fim: number };

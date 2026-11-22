@@ -1797,6 +1797,84 @@ async def transcrever_voz(request: Request):
         return JSONResponse({'erro': 'audio_ruim', 'motivo': str(e)}, status_code=400)
 
 
+# O ditado (o microfone da caixa de texto) pelo microfone direto do Windows
+# (22/11/2026), como a escuta: aberto na janela, o microfone estragava o som do
+# Discord. E online primeiro (transcricao.escuta): o privado conferido aqui pelo
+# Whisper pequeno, o resto pelo Whisper da Groq, e o turbo daqui sem internet —
+# antes o ditado ia sempre pelo turbo daqui.
+DITADO_MAX_S = 120.0
+DITADO_MIN_S = 0.3
+
+
+@app.websocket('/voz/ditado')
+async def ditado(ws: WebSocket):
+    """{"tipo": "ouvindo"} quando o microfone abriu (ou {"tipo": "sem_nativo"}: a
+    tela grava pela dela). A tela manda {"parar": true} (ou {"cancelar": true}, ou
+    fecha) e recebe {"tipo": "texto", "texto"} ou {"tipo": "erro", "estado"}."""
+    import array
+    await ws.accept()
+    if not microfone.NATIVO:
+        await ws.send_json({'tipo': 'sem_nativo'})
+        await ws.close()
+        return
+    from . import microfone_nativo
+    fila: asyncio.Queue = asyncio.Queue()
+    gravador = microfone_nativo.Gravador()
+    try:
+        await asyncio.to_thread(gravador.abrir, asyncio.get_running_loop(), fila)
+    except Exception as e:  # noqa: BLE001 — sem o nativo, a tela grava pela dela
+        log.warning('ditado: o microfone do Windows não abriu (%s); vai pela tela', e)
+        await ws.send_json({'tipo': 'sem_nativo'})
+        await ws.close()
+        return
+    partes: list[bytes] = []
+    pedido = None
+    try:
+        await ws.send_json({'tipo': 'ouvindo'})
+        laco = asyncio.get_running_loop()
+        ate = laco.time() + DITADO_MAX_S
+        receber = asyncio.ensure_future(ws.receive_json())
+        while pedido is None and laco.time() < ate:
+            pegar = asyncio.ensure_future(fila.get())
+            prontos, _ = await asyncio.wait({receber, pegar}, timeout=ate - laco.time(),
+                                            return_when=asyncio.FIRST_COMPLETED)
+            if pegar in prontos:
+                partes.append(pegar.result())
+            else:
+                pegar.cancel()
+            if receber in prontos:
+                pedido = receber.result()  # WebSocketDisconnect: desistiu
+        if pedido is None:
+            receber.cancel()
+            pedido = {'parar': True}  # passou do tempo: para sozinho, como na tela
+    except (WebSocketDisconnect, RuntimeError):
+        return
+    finally:
+        await asyncio.to_thread(gravador.fechar)
+    if not pedido.get('parar'):
+        await ws.close()
+        return
+    while not fila.empty():
+        partes.append(fila.get_nowait())
+    pcm = b''.join(partes)
+    if len(pcm) / 2 / ativacao.TAXA < DITADO_MIN_S:
+        await ws.send_json({'tipo': 'erro', 'estado': 'vazio'})
+        await ws.close()
+        return
+    amostras = array.array('h')
+    amostras.frombytes(pcm[:len(pcm) // 2 * 2])
+    try:
+        texto = await transcricao.escuta('comando', ativacao._wav(amostras))
+    except voz.SemModelo:
+        await ws.send_json({'tipo': 'erro', 'estado': 'sem-modelo'})
+        await ws.close()
+        return
+    except voz.AudioRuim:
+        texto = ''
+    await ws.send_json({'tipo': 'texto', 'texto': texto.strip()} if texto.strip() else {'tipo': 'erro', 'estado': 'vazio'})
+    await ws.close()
+
+
 # — Fala ———————————————————————————————————————————————————————————————————————————
 
 class TextoFala(BaseModel):

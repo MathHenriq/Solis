@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { criarAnalisador, definirFonte } from './nivel';
-import { transcreverAudio } from './servidor';
+import { transcreverAudio, urlDitado } from './servidor';
 
 /** Apertar pra falar: um clique no microfone começa a ouvir, outro para, e o
- *  texto transcrito (Whisper, no servidor local) volta pra caixa da conversa —
- *  a pessoa confere antes de enviar. Esc desiste sem transcrever.
+ *  texto transcrito volta pra caixa da conversa — a pessoa confere antes de
+ *  enviar. Esc desiste sem transcrever.
  *
- *  O áudio não é guardado em lugar nenhum: vai do navegador pro servidor e
- *  morre ali (backend/solis/voz.py). */
+ *  No Windows, quem grava é o servidor, pelo microfone direto do Windows
+ *  (main.ditado, 22/11/2026): aberto aqui na janela, o microfone estragava o
+ *  som do Discord, como já tinha acontecido com a escuta. E ele transcreve
+ *  online primeiro (o Whisper da Groq; o do PC sem internet). Sem o microfone
+ *  do Windows, a janela grava pela dela, como antes.
+ *
+ *  O áudio não é guardado em lugar nenhum: morre no servidor (backend/solis/voz.py). */
 
 export type EstadoVoz = 'parado' | 'ouvindo' | 'transcrevendo';
 
@@ -28,6 +33,8 @@ export function useVoz(aoTexto: (texto: string) => void) {
   const [estado, definirEstado] = useState<EstadoVoz>('parado');
   const [erro, definirErro] = useState<string | null>(null);
   const gravador = useRef<MediaRecorder | null>(null);
+  // O ditado no servidor (o microfone do Windows): a conexão enquanto ouve.
+  const nativo = useRef<WebSocket | null>(null);
   const cancelado = useRef(false);
   const limite = useRef<number | undefined>(undefined);
   const prazoErro = useRef<number | undefined>(undefined);
@@ -40,8 +47,60 @@ export function useVoz(aoTexto: (texto: string) => void) {
     prazoErro.current = window.setTimeout(() => definirErro(null), ERRO_MS);
   };
 
+  /** O servidor grava pelo microfone do Windows. 'sem-nativo': não tem (fora do
+   *  Windows, ou o microfone não abriu lá) — a janela grava pela dela. */
+  function noServidor(): Promise<'ouvindo' | 'sem-nativo'> {
+    return new Promise((resolver) => {
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(urlDitado());
+      } catch {
+        resolver('sem-nativo');
+        return;
+      }
+      let ouvindo = false;
+      let terminou = false;
+      const acabar = () => {
+        terminou = true;
+        window.clearTimeout(limite.current);
+        if (nativo.current === ws) nativo.current = null;
+        definirEstado('parado');
+      };
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data as string) as { tipo: string; texto?: string; estado?: string };
+        if (msg.tipo === 'sem_nativo') {
+          terminou = true;
+          resolver('sem-nativo');
+        } else if (msg.tipo === 'ouvindo') {
+          ouvindo = true;
+          nativo.current = ws;
+          definirEstado('ouvindo');
+          limite.current = window.setTimeout(parar, FALA_MAX_MS);
+          resolver('ouvindo');
+        } else if (msg.tipo === 'texto') {
+          acabar();
+          aoTextoAtual.current((msg.texto ?? '').trim());
+        } else if (msg.tipo === 'erro') {
+          acabar();
+          const chave = msg.estado as keyof typeof ERROS;
+          avisar(chave in ERROS ? chave : 'audio-ruim');
+        }
+      };
+      ws.onclose = () => {
+        if (!ouvindo) return resolver('sem-nativo');
+        // Caiu no meio (o servidor reiniciou): sem texto, e a caixa volta ao normal.
+        if (!terminou && !cancelado.current) {
+          acabar();
+          avisar('sem-servidor');
+        } else if (!terminou) acabar();
+      };
+    });
+  }
+
   async function comecar() {
     definirErro(null);
+    cancelado.current = false;
+    if ((await noServidor()) === 'ouvindo') return;
     let fluxo: MediaStream;
     try {
       // Sem o processamento de chamada, como na escuta (escuta.ts): com o
@@ -86,9 +145,26 @@ export function useVoz(aoTexto: (texto: string) => void) {
     limite.current = window.setTimeout(() => g.state === 'recording' && g.stop(), FALA_MAX_MS);
   }
 
-  const parar = () => gravador.current?.state === 'recording' && gravador.current.stop();
+  function parar() {
+    if (nativo.current) {
+      window.clearTimeout(limite.current);
+      nativo.current.send(JSON.stringify({ parar: true }));
+      definirEstado('transcrevendo');
+      return;
+    }
+    if (gravador.current?.state === 'recording') gravador.current.stop();
+  }
   const cancelar = () => {
     cancelado.current = true;
+    if (nativo.current) {
+      const ws = nativo.current;
+      nativo.current = null;
+      window.clearTimeout(limite.current);
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ cancelar: true }));
+      ws.close();
+      definirEstado('parado');
+      return;
+    }
     parar();
   };
 
