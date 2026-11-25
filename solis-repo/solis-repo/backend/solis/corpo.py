@@ -217,6 +217,49 @@ async def _jogos(args: dict) -> str:
         return f'Não consegui os jogos: {e}. Procure na web (WebFetch numa busca).'
 
 
+async def _vigiar_site(args: dict) -> str:
+    """O Vigia (vigia.py): passa a conferir o site a cada 5 minutos."""
+    from . import vigia
+    try:
+        s = vigia.adicionar(args.get('endereco') or '', args.get('nome'), args.get('palavra'))
+    except vigia.EnderecoInvalido as e:
+        return f'Não deu pra vigiar: {e}.'
+    agora = vigia._agora()
+    await vigia.registrar(s, await vigia.conferir_site(s), agora)
+    s = next(x for x in vigia.sites() if x['id'] == s['id'])
+    return (f'Vigiando. {vigia.descrever(s, agora)} Confiro a cada 5 minutos e aviso no Windows se cair (enquanto o '
+            'PC estiver ligado e o Solis aberto).')
+
+
+async def _sites_vigiados(args: dict) -> str:
+    from . import vigia
+    return vigia.resumo()
+
+
+async def _parar_de_vigiar(args: dict) -> str:
+    from . import vigia
+    s = vigia.remover(args.get('site') or '')
+    if s is None:
+        nomes = ', '.join(x['nome'] for x in vigia.sites()) or 'nenhum'
+        return f'Não achei esse site entre os vigiados (vigiados: {nomes}).'
+    return f'Parei de vigiar {s["nome"]}.'
+
+
+async def _novidades_da_semana(args: dict) -> str:
+    """O Atlas · Pesquisador (pesquisador.py): a da semana, se já rodou há pouco; senão, agora."""
+    import datetime as dt
+    from . import pesquisador
+    u = pesquisador.ultima()
+    if u and dt.datetime.now() - dt.datetime.fromisoformat(u['quando']) < dt.timedelta(hours=12):
+        msgs = banco.mensagens(u['conversa']) if banco.existe(u['conversa']) else []
+        if msgs:
+            return msgs[-1]['texto']
+    try:
+        return (await pesquisador.rodar(avisar=False))['texto']
+    except pesquisador.Falhou as e:
+        return f'Não consegui pesquisar agora: {e}.'
+
+
 async def _agendar_tarefa(args: dict) -> str:
     from . import agendadas
     try:
@@ -272,6 +315,21 @@ DO_SOLIS: list[Ferramenta] = [
     Ferramenta('ver_tarefas', 'As tarefas abertas do Matheus, com prazo e hora.', _objeto({}), _ver_tarefas),
     Ferramenta('buscar_memoria', 'Procura nas memórias que o Solis guarda sobre o Matheus.',
                _objeto({'busca': _TEXTO}), _buscar_memoria),
+    Ferramenta('vigiar_site', 'O Vigia: passa a conferir um site do Matheus a cada 5 minutos e avisa no Windows se ele '
+               'cair (e quando voltar), sem gastar cérebro. endereco: o site (ex.: "meusite.com.br"). nome: como '
+               'chamar (opcional). palavra: um texto que tem que aparecer na página, pra saber que ela não quebrou '
+               '(opcional). Já confere na hora e diz como está.',
+               _objeto({'endereco': _TEXTO, 'nome': _TEXTO, 'palavra': _TEXTO}, ['endereco']), _vigiar_site),
+    Ferramenta('sites_vigiados', 'Como estão os sites que o Vigia confere: no ar ou fora (desde quando e por quê), '
+               'o tempo de resposta, as quedas dos últimos 7 dias e o certificado perto de vencer.',
+               _objeto({}), _sites_vigiados),
+    Ferramenta('parar_de_vigiar', 'Para de vigiar um site (pelo endereço ou pelo nome).',
+               _objeto({'site': _TEXTO}), _parar_de_vigiar),
+    Ferramenta('novidades_da_semana', 'O Atlas, o pesquisador do Solis: as novidades de IA da semana que servem pro '
+               'Matheus e pro Solis (modelos, ferramentas, recursos novos), tiradas do Hacker News, do GitHub e do '
+               'Hugging Face, com o porquê e o link de cada uma. Roda sozinho toda segunda; use quando ele perguntar '
+               'o que tem de novo em IA. Repasse os links como vieram.',
+               _objeto({}), _novidades_da_semana),
     Ferramenta('cotacao', 'A cotação de agora em reais, direto da fonte (exata e na hora): dólar, euro, libra, '
                'bitcoin, ethereum, iene, peso argentino... Use SEMPRE pra cotação ou câmbio, em vez de ler um site. '
                'moedas: os nomes separados por vírgula (ex.: "dolar, euro").',
@@ -388,7 +446,9 @@ LEITURAS_VOZ = 2   # leituras de página por resposta falada (a busca conta como
 # tarefas agendadas, conectores) fica a um pedido, mais_ferramentas, como as
 # ferramentas guardadas do Claude Code. A hora já vai na mensagem ("Agora: ...").
 MAIS = SOLIS + 'mais_ferramentas'
-FORA_DA_VOZ = {'hora', 'agendar_tarefa'}
+# O Vigia fica fora do kit da voz (cada ferramenta pesa em todo pedido, e a Groq
+# grátis conta os tokens): chega pelo mais_ferramentas quando ele pede.
+FORA_DA_VOZ = {'hora', 'agendar_tarefa', 'vigiar_site', 'sites_vigiados', 'parar_de_vigiar', 'novidades_da_semana'}
 _WEBFETCH_SPEC = ('Lê o texto principal de uma página da internet pra você, sem abrir janela (devolve o título e o '
                   'texto, até 10 mil caracteres). Use pra ler uma fonte, um artigo, uma documentação. Pra abrir um '
                   'site pro Matheus ver, use o navegador.',
@@ -672,6 +732,8 @@ class Corpo:
         if self._abre_ajudante():
             coisas.append('ajudantes que fazem partes de uma tarefa grande')
         coisas.append('tarefas agendadas (o Solis faz sozinho num horário: todo dia, toda semana)')
+        coisas.append('o Vigia (vigiar um site, ver se os sites estão no ar, parar de vigiar)')
+        coisas.append('o Atlas (as novidades de IA da semana)')
         servidores = sorted({srv['nome'] for srv, _ in self._do_mcp().values()})
         if servidores:
             coisas.append('os conectores (' + ', '.join(servidores) + ')')

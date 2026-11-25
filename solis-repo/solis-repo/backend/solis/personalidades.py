@@ -139,7 +139,7 @@ _ASSUNTOS = {
         r'|python|typescript|javascript|react|tauri|fastapi|sql|banco de dados|api|endpoint|backend|frontend'
         r'|script|compil\w*|build|testes automatizados|rodar os testes|roda os testes|pytest|npm|docker'
         r'|claude code|codex|o claude|stack trace|refator\w*|site (?:esta |ta )?fora do ar|site caiu|servidor caiu|dominio|hospedagem|vercel|supabase'
-        r'|servidor mcp|o sistema que)\b'),
+        r'|servidor mcp|o sistema que|vigia\w*|monitora\w*|meus sites|novidades? (?:de|da|em) (?:ia|inteligencia artificial|tecnologia)|modelo novo|modelos novos)\b'),
 }
 # No empate (sem quem está falando entre as empatadas), o dono do assunto ganha
 # do Assessor: "o Claude Code travou no meio da tarefa" é do Jarvis — a

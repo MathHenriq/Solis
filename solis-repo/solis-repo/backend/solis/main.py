@@ -69,6 +69,12 @@ async def _vida(_app):
     leitura = asyncio.create_task(ocr.ler_se_livre())
     # E a vigiar a Agenda e as Tarefas: o aviso do Windows na hora.
     vigia = asyncio.create_task(avisos.vigiar())
+    # E os sites do Matheus (vigia.py): avisa quando um cai.
+    from . import vigia as vigia_sites
+    sites = asyncio.create_task(vigia_sites.vigiar())
+    # E o Atlas (pesquisador.py): as novidades de IA, toda segunda.
+    from . import pesquisador
+    atlas = asyncio.create_task(pesquisador.vigiar())
     # O Ollama, se estiver instalado e parado: o local responde a voz primeiro.
     ligando = asyncio.create_task(ollama.ligar_se_parado())
     # E as tarefas agendadas: o pedido ao Claude na hora marcada.
@@ -84,6 +90,8 @@ async def _vida(_app):
     indexacao.cancel()
     leitura.cancel()
     vigia.cancel()
+    sites.cancel()
+    atlas.cancel()
     relogio.cancel()
     ligando.cancel()
     ouvido.cancel()
