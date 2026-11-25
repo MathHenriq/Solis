@@ -96,12 +96,29 @@ def test_as_ferramentas_sao_do_solis_e_vao_ao_vivo():
 @pytest.mark.parametrize('frase, e_lancamento', [
     ('Gastei 50 no mercado.', True), ('Uber de 18 e 50.', True), ('Netflix, 55,90.', True),
     ('Solis, anota que paguei 120 de luz', True), ('Vendi meu monitor por 700.', True),
+    ('lança 45 de farmácia', True), ('anota 30 de uber', True), ('anota 50', False),
     ('quanto custa 50 reais em dólar?', False), ('me lembra de pagar 120 de luz amanhã', False),
     ('vou pagar 200 de aluguel', False), ('o jogo foi 2 a 1', False), ('o Flamengo ganhou de 3 a 0', False),
     ('minha senha é 1234', False), ('em 2025 eu gastei muito', False), ('comprei pão', False),
 ])
 def test_so_o_que_e_lancamento_vira_lancamento_na_hora(frase, e_lancamento):
     assert f.parece_lancamento(frase) is e_lancamento
+
+
+@pytest.mark.parametrize('frase', [
+    'recebi uma proposta de emprego em outra empresa', 'recebi um email do meu chefe', 'comprei um livro',
+    'ganhei uma camiseta', 'gastei um pouco hoje', 'paguei uma conta', 'comprei dois pães',
+])
+def test_numero_que_e_quantidade_nao_vira_lancamento(frase):
+    """25/11/2026: o "um" de "recebi um email" era lido como valor, e a frase virava
+    lançamento de R$ 1,00 sozinha."""
+    assert not f.parece_lancamento(frase)
+
+
+def test_a_quantidade_antes_do_valor_nao_e_o_valor():
+    assert f.interpretar('comprei 3 camisetas por 90', HOJE)['centavos'] == 9000
+    assert f.interpretar('paguei 2 parcelas de 150', HOJE)['centavos'] == 15000
+    assert f.interpretar('comprei um livro de sessenta reais', HOJE)['centavos'] == 6000
 
 
 def test_as_20_frases_da_medicao_sao_todas_pedido_rapido():

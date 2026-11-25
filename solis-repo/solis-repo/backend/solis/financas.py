@@ -58,10 +58,23 @@ def _palavras_em_numero(palavras: list[str]) -> int | None:
 _DIGITOS = re.compile(r'(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*(mil\b)?(?:\s*e\s*(\d+))?')
 
 
+# O que vem depois de um valor (25/11/2026): "50 no mercado", "18 e 50", "120 de
+# luz", "200 ontem", "por 700" no fim. Um número seguido de outra coisa é
+# quantidade, não valor: "recebi UM email do chefe" e "comprei UM livro" viravam
+# lançamento de R$ 1,00, e "comprei 3 camisetas por 90", de R$ 3,00.
+_DEPOIS_DO_VALOR = re.compile(
+    r'\s*(?:$|[,.;:!?)]|(?:reais|real|conto|contos|pila|mil|e|centavos?|de|do|da|dos|das|no|na|nos|nas|num|numa|em'
+    r'|pro|pra|para|com|por|pelo|pela|ao|hoje|ontem|anteontem|agora|via|pix|cartao|dinheiro)\b)')
+
+
+def _e_valor(t: str, fim: int, comeco: str = '') -> bool:
+    return comeco.startswith('r$') or bool(_DEPOIS_DO_VALOR.match(t, fim))
+
+
 def valor_de(texto: str) -> int | None:
     """Os centavos do primeiro valor no texto, ou None."""
     t = _simples(str(texto or '')).strip()
-    m = _DIGITOS.search(t)
+    m = next((x for x in _DIGITOS.finditer(t) if _e_valor(t, x.end(), x.group(0))), None)
     if m:
         bruto, mil, resto = m.group(1), m.group(2), m.group(3)
         if re.fullmatch(r'\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?', bruto):
@@ -77,18 +90,43 @@ def valor_de(texto: str) -> int | None:
             centavos += int(cents.group(1))
         return centavos if centavos > 0 else None
     # Por extenso: "cento e vinte", "mil e duzentos", "vinte e cinco reais e cinquenta centavos".
-    falado = re.findall(rf'\b{_NUMERO_FALADO}\b', t)
-    if not falado:
-        return None
-    partes = re.split(r'\breais?\b', t, maxsplit=1)
-    reais = _palavras_em_numero(re.findall(rf'\b{_NUMERO_FALADO}\b', partes[0]))
-    if reais is None:
-        return None
-    centavos = reais * 100
-    if len(partes) > 1 and 'centavo' in partes[1]:
-        c = _palavras_em_numero(re.findall(rf'\b{_NUMERO_FALADO}\b', partes[1].split('centavo')[0]))
-        centavos += c or 0
-    return centavos if centavos > 0 else None
+    # Cada sequência de palavras-número é um candidato; vale a primeira seguida
+    # do que vem depois de um valor (não "um livro", "uma proposta").
+    for palavras, fim in _sequencias_faladas(t):
+        if not _e_valor(t, fim):
+            continue
+        reais = _palavras_em_numero(palavras)
+        if reais is None:
+            continue
+        centavos = reais * 100
+        cents = re.match(r'\s*(?:reais?\s+)?e\s+([a-z\s]+?)\s*centavos?\b', t[fim:])
+        if cents:
+            centavos += _palavras_em_numero(cents.group(1).split()) or 0
+        return centavos if centavos > 0 else None
+    return None
+
+
+def _sequencias_faladas(t: str) -> list[tuple[list[str], int]]:
+    """As sequências de palavras-número ("cento e vinte", "um"), cada uma com onde
+    termina no texto. O "e" só liga dois números: no fim, fica de fora."""
+    seqs, atual, fim = [], [], 0
+    for m in re.finditer(r'[a-z]+', t):
+        p = m.group(0)
+        if p in _UNIDADES or p == 'mil' or (p == 'e' and atual):
+            atual.append(p)
+            if p != 'e':
+                fim = m.end()
+            continue
+        if atual:
+            while atual and atual[-1] == 'e':
+                atual.pop()
+            seqs.append((atual, fim))
+            atual = []
+    if atual:
+        while atual and atual[-1] == 'e':
+            atual.pop()
+        seqs.append((atual, fim))
+    return [(s, f) for s, f in seqs if s]
 
 
 def reais(centavos: int) -> str:
@@ -186,13 +224,17 @@ def parece_lancamento(frase: str) -> bool:
     um lembrete ("me lembra de pagar a luz") ou um plano ("vou pagar")?"""
     t = _simples(frase or '').strip().rstrip('.!')
     t = re.sub(r'^(solis|e?i solis|ei|oi)[,!.\s]+', '', t)
-    t = re.sub(r'^(anota|anote|lanca|lance|registra|registre)( ai)?( que)?\s+', '', t)
+    sem_pedido = re.sub(r'^(anota|anote|lanca|lance|registra|registre)( ai)?( que)?\s+', '', t)
+    pediu, t = sem_pedido != t, sem_pedido
     if not t or '?' in t or _PERGUNTA.match(t) or re.search(r'\blembr|\bvou\b|\bvamos\b|\bpreciso\b|\btenho que\b', t):
         return False
     # O ano não é valor ("em 2025 eu gastei muito").
     if valor_de(re.sub(r'\b(em|de|no ano de|desde)\s+(19|20)\d\d\b', ' ', t)) is None:
         return False
     if _GASTO.search(t) or _ENTRADA.search(t):
+        return True
+    # "lança 45 de farmácia": pedido de anotar, com o valor e um gasto conhecido (25/11/2026).
+    if pediu and categoria_de(t) != 'outros':
         return True
     # Sem o verbo, só bem curto, com o valor no fim e começando por um gasto
     # conhecido ("uber 18,50", "netflix 55,90"): "minha senha é 1234" não é.
