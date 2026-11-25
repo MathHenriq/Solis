@@ -247,7 +247,7 @@ code { font-family: var(--mono); font-size: 13px; }
           <li><s>Teste cego das vozes</s> — feito: a G (Gemini Flash TTS · Aoede), falando em pedaços (~1 s).</li>
           <li>Comparativo de tempo real — o Gemini medido (22/11): o 3.1 Flash Live, fala pra fala com as ferramentas do Solis, acertou 8 de 8 com o primeiro som em 1,9 s (1,2 s sem ferramenta; o caminho de hoje leva 2,75 s, e 3 a 5 s com pesquisa). OpenAI Realtime, ElevenLabs e Cartesia só com chave sua (preços já levantados).</li>
           <li><s>O vencedor vira o modo Pedido</s> — feito (22/11): o "Solis, ..." responde pela voz do Gemini Live, agindo pelas ferramentas do Solis; só o texto conferido vai pro Google, nunca o áudio. Do fim da fala ao primeiro som: 2,5 a 2,8 s nos pedidos com ferramenta (eram 3 a 4 s). Falta: testar com você (o "ouvir" medido não fica mais curto sem abrir mão do privado ou do entendimento).</li>
-          <li>Um dia de uso real, com o registro de cada chamada.</li>
+          <li>Um dia de uso real, com o registro de cada chamada — o registro está pronto (22/11): cada chamada anota quem ouviu, se o detector também ouviu, o caminho e os tempos (só números, nunca o que foi dito). Falta: o dia de uso, com você.</li>
         </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
@@ -279,6 +279,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <ul class="lista">
         <li><span class="d">22/11</span><span>O pedido ao vivo: o "Solis, ..." respondido pela voz do Gemini Live, com as ferramentas do Solis e o privado conferido no PC (só o texto vai pro Google). Com ferramenta, de 3–4 s pra 2,5–2,8 s.</span></li>
         <li><span class="d">22/11</span><span>Comparativo de tempo real: o Gemini 3.1 Flash Live com as ferramentas do Solis, 8 de 8 e primeiro som em 1,9 s; preços do OpenAI Realtime, ElevenLabs e Cartesia levantados.</span></li>
+        <li><span class="d">22/11</span><span>O registro de cada chamada pela voz: chamadas, quem ouviu, alarmes do detector, caminho e tempo do primeiro som, prontos pra medir um dia de uso.</span></li>
         <li><span class="d">22/11</span><span>Achado e corrigido: os testes automáticos gravavam sons sintéticos na pasta das suas chamadas ao vivo (53 arquivos, movidos pra _dos-testes). O retreino feito com eles foi desfeito; o detector de antes voltou.</span></li>
         <li><span class="d">22/11</span><span>"Deixa eu ver." quando o Solis vai pesquisar (na mesma voz da resposta), a conta com datas exata e o ditado pelo microfone do Windows, online primeiro.</span></li>
         <li><span class="d">21/11</span><span>Pesquisa pela voz de 18–24 s pra 3–5 s, respondendo pelo que as páginas dizem (não pelo trechinho da busca, que pode ser velho). Pela voz, 14 de 15 certas.</span></li>
