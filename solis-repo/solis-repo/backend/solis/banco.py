@@ -452,6 +452,16 @@ MIGRACOES = [
     );
     CREATE INDEX lancamentos_dia ON lancamentos (dia);
     """,
+    # 24 — as personalidades (personalidades.py, 25/11/2026): quem está falando
+    # em cada conversa (continua até outra ser chamada), quem respondeu cada
+    # mensagem e a área de cada memória (IDEIAS.md: "uma memória única, com uma
+    # área por personalidade: todos leem, cada um escreve na sua"). Vazio = o
+    # Solis de sempre.
+    """
+    ALTER TABLE conversas ADD COLUMN personalidade TEXT;
+    ALTER TABLE mensagens ADD COLUMN personalidade TEXT;
+    ALTER TABLE memorias ADD COLUMN area TEXT;
+    """,
 ]
 
 
@@ -770,7 +780,7 @@ def existe(conversa: int) -> bool:
 
 def mensagens(conversa: int, depois_de: int = 0) -> list[dict]:
     linhas = _con().execute(
-        'SELECT id, papel, texto, criada, privada, cerebro, etapas, '
+        'SELECT id, papel, texto, criada, privada, cerebro, personalidade, etapas, '
         "(SELECT voto FROM usos u WHERE u.mensagem = mensagens.id AND u.funcao LIKE 'cerebro:%' AND u.ok = 1 "
         'ORDER BY u.id DESC LIMIT 1) AS voto FROM mensagens '
         'WHERE conversa = ? AND id > ? ORDER BY id',
@@ -891,19 +901,33 @@ def guardar_resumo(conversa: int, texto: str, ate: int) -> None:
 
 
 def adicionar(conversa: int, papel: str, texto: str, privada: bool = False, cerebro: str | None = None,
-              criada: str | None = None) -> int:
+              criada: str | None = None, personalidade: str | None = None) -> int:
     with _con() as c:
         return c.execute(
-            'INSERT INTO mensagens (conversa, papel, texto, criada, privada, cerebro) VALUES (?, ?, ?, ?, ?, ?)',
-            (conversa, papel, cofre.selar(texto) if privada else texto, criada or _agora(), int(privada), cerebro),
+            'INSERT INTO mensagens (conversa, papel, texto, criada, privada, cerebro, personalidade) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (conversa, papel, cofre.selar(texto) if privada else texto, criada or _agora(), int(privada), cerebro,
+             personalidade if personalidade and personalidade != 'solis' else None),
         ).lastrowid
+
+
+def personalidade_da_conversa(conversa: int) -> str | None:
+    """Quem está falando na conversa (personalidades.py); None = o Solis."""
+    l = _con().execute('SELECT personalidade FROM conversas WHERE id = ?', (conversa,)).fetchone()
+    return l['personalidade'] if l else None
+
+
+def guardar_personalidade(conversa: int, personalidade: str | None) -> None:
+    with _con() as c:
+        c.execute('UPDATE conversas SET personalidade = ? WHERE id = ?',
+                  (personalidade if personalidade and personalidade != 'solis' else None, conversa))
 
 
 def memorias() -> list[dict]:
     """As que valem — as substituídas ficam de fora. Da mais nova pra mais
     antiga, que é a ordem da tela e a do prompt."""
     linhas = _con().execute(
-        'SELECT id, texto, tema, pedido, privada, criada FROM memorias '
+        'SELECT id, texto, tema, pedido, privada, criada, area FROM memorias '
         'WHERE substituida_por IS NULL ORDER BY id DESC'
     )
     return [_memoria(l) for l in linhas]
@@ -931,7 +955,7 @@ def buscar_memorias(busca: str, limite: int = 200) -> list[dict]:
     # * no fim: "synge" acha "Syngenta". Separadas por espaço = todas precisam.
     consulta = ' '.join(f'"{p}"*' for p in palavras)
     linhas = _con().execute(
-        'SELECT m.id, m.texto, m.tema, m.pedido, m.privada, m.criada '
+        'SELECT m.id, m.texto, m.tema, m.pedido, m.privada, m.criada, m.area '
         'FROM memorias_fts JOIN memorias m ON m.id = memorias_fts.rowid '
         'WHERE memorias_fts MATCH ? AND m.substituida_por IS NULL '
         'ORDER BY bm25(memorias_fts) LIMIT ?',
@@ -948,12 +972,15 @@ def buscar_memorias(busca: str, limite: int = 200) -> list[dict]:
 
 
 def adicionar_memoria(
-    texto: str, tema: str, pedido: bool, conversa: int | None, privada: bool = False, substitui: int | None = None
+    texto: str, tema: str, pedido: bool, conversa: int | None, privada: bool = False, substitui: int | None = None,
+    area: str | None = None,
 ) -> int:
+    """`area`: a personalidade que aprendeu (personalidades.py); None = a do Solis."""
     with _con() as c:
         nova = c.execute(
-            'INSERT INTO memorias (texto, tema, pedido, privada, conversa, criada) VALUES (?, ?, ?, ?, ?, ?)',
-            (cofre.selar(texto) if privada else texto, tema, int(pedido), int(privada), conversa, _agora()),
+            'INSERT INTO memorias (texto, tema, pedido, privada, conversa, criada, area) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (cofre.selar(texto) if privada else texto, tema, int(pedido), int(privada), conversa, _agora(),
+             area if area and area != 'solis' else None),
         ).lastrowid
         if substitui is not None:
             c.execute(

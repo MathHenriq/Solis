@@ -148,7 +148,7 @@ def test_pela_conversa_o_lancamento_sai_na_hora_sem_cerebro(monkeypatch):
     linhas = [json.loads(l) for l in r.text.splitlines() if l]
     texto = ''.join(l.get('texto', '') for l in linhas)
     assert texto.startswith('Anotado: gasto de R$ 50,00 em mercado, hoje. No mês, mercado soma R$ 50,00')
-    assert [l['etapa'] for l in linhas if 'etapa' in l] == ['guardada', 'rapida', 'fim']
+    assert [l['etapa'] for l in linhas if 'etapa' in l] == ['guardada', 'personalidade', 'rapida', 'fim']
     [l] = banco.lancamentos('2000-01-01', '2999-12-31')
     assert (l['centavos'], l['categoria'], l['conversa']) == (5000, 'mercado', conversa)
     assert banco.tarefas_abertas(5) == []  # lançamento não vira tarefa

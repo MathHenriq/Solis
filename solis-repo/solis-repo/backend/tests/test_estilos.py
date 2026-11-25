@@ -37,8 +37,10 @@ def test_os_seus():
 def test_a_nota_vai_pro_cerebro_e_nao_fica_na_conversa(monkeypatch):
     recebido = {}
 
-    async def responder(ordem, modelo, conversa, historico, memorias, trechos, resumo, mensagem, *_, **__):
-        recebido['mensagem'] = mensagem
+    async def responder(ordem, modelo, conversa, historico, memorias, trechos, resumo, mensagem, *_, notas='', **__):
+        # A nota vai em `notas` (pro roteador pôr no fim da mensagem dos de nuvem
+        # e no sistema do local), junto com a da personalidade.
+        recebido['mensagem'] = mensagem + notas
 
         async def fluxo():
             yield 'Ok.'

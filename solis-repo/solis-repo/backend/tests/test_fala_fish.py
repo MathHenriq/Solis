@@ -158,7 +158,7 @@ def test_fish_que_falha_antes_do_primeiro_pedaco_cai_pra_cadeia(monkeypatch):
     transporte, _ = _transporte(lambda req: httpx.Response(429, json={'message': 'busy', 'status': 429}))
     monkeypatch.setattr(fala, '_transporte_fish', transporte)
 
-    async def falar_falso(texto, conversa=None, voz=None):
+    async def falar_falso(texto, conversa=None, voz=None, quem=None):
         return b'RIFFwav', 'audio/wav', 'gemini'
     monkeypatch.setattr(fala, 'falar', falar_falso)
 
@@ -177,7 +177,7 @@ def test_privado_nao_vai_pra_fish(monkeypatch):
     transporte, pedidos = _transporte(lambda req: httpx.Response(200, content=b'x'))
     monkeypatch.setattr(fala, '_transporte_fish', transporte)
 
-    async def falar_falso(texto, conversa=None, voz=None):
+    async def falar_falso(texto, conversa=None, voz=None, quem=None):
         return b'local', 'audio/wav', 'kokoro'
     monkeypatch.setattr(fala, 'falar', falar_falso)
 
@@ -191,7 +191,7 @@ def test_rota_do_fluxo(monkeypatch):
     from fastapi.testclient import TestClient
     from solis import main
 
-    async def aos_pedacos(texto, conversa=None):
+    async def aos_pedacos(texto, conversa=None, quem=None):
         async def g():
             yield b'ID3'
             yield b'zz'

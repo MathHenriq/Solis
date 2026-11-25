@@ -84,15 +84,18 @@ def ferramentas(c: corpo.Corpo, specs: list[dict]) -> list[dict]:
     return livres
 
 
-def sistema(conversa: int | None) -> str:
-    """Quem ele é, a hora, o que o Solis sabe do Matheus e o fim da conversa (só o que não é privado)."""
+def sistema(conversa: int | None, quem: str = 'solis', entrou: bool = False) -> str:
+    """Quem ele é (e a personalidade que responde, personalidades.py), a hora, o
+    que o Solis sabe do Matheus e o fim da conversa (só o que não é privado)."""
+    from . import personalidades
     memorias = [m for m in banco.memorias() if not m.get('privada')]
-    partes = [SISTEMA, 'Agora: ' + time.strftime('%A, %d/%m/%Y, %H:%M') + '.', ollama.contexto(memorias)]
+    partes = [SISTEMA + personalidades.nota(personalidades.de(quem), entrou),
+              'Agora: ' + time.strftime('%A, %d/%m/%Y, %H:%M') + '.', ollama.contexto(memorias)]
     if conversa is not None:
         msgs = [m for m in banco.mensagens(conversa) if not m.get('privada')][-HISTORICO:]
         if msgs:
             partes.append('A conversa até agora:\n' + '\n'.join(
-                f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in msgs))
+                f'{personalidades.quem_disse(m)}: {m["texto"]}' for m in msgs))
     return '\n\n'.join(p for p in partes if p)
 
 
@@ -117,8 +120,10 @@ class Sessao:
     "Solis" (`abrir`, em segundo plano: enquanto ele fala, ela conecta) e usada
     quando o pedido acaba (`responder`). `fechar` sempre."""
 
-    def __init__(self, conversa: int | None, voz: str, etapas=MUDA):
-        self.conversa, self.voz = conversa, voz
+    def __init__(self, conversa: int | None, voz: str, etapas=MUDA, quem: str = 'solis', entrou: bool = False):
+        # `quem`: a personalidade que responde (a voz dela é `voz`); `entrou`: é a
+        # primeira resposta dela agora (ela se apresenta).
+        self.conversa, self.voz, self.quem, self.entrou = conversa, voz, quem, entrou
         self.corpo = corpo.Corpo(conversa, etapas, navegar=False, cerebro='gemini-live')
         self.corpo.voz = True
         self._pilha = contextlib.AsyncExitStack()
@@ -138,7 +143,7 @@ class Sessao:
             output_audio_transcription=types.AudioTranscriptionConfig(),
             speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=self.voz))),
-            system_instruction=sistema(self.conversa),
+            system_instruction=sistema(self.conversa, self.quem, self.entrou),
             tools=[types.Tool(function_declarations=[types.FunctionDeclaration(
                 name=s['function']['name'], description=s['function']['description'],
                 parameters_json_schema=s['function']['parameters']) for s in specs])],

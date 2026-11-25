@@ -581,6 +581,11 @@ def nota_anexos(anexos: list[dict] | None) -> str:
     ) + ']'
 
 
+def _quem_disse(m: dict) -> str:
+    from .personalidades import quem_disse
+    return quem_disse(m)
+
+
 def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = False,
                  rotulo: str = 'Conversa até agora') -> str:
     """Tudo num texto só: os CLIs recebem um prompt, não uma lista de mensagens."""
@@ -590,7 +595,7 @@ def prompt_nuvem(memorias, trechos, resumo, historico, mensagem, voz: bool = Fal
     anteriores = historico[:-1]  # a última é a própria mensagem nova
     if anteriores:
         linhas = '\n\n'.join(
-            f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}{nota_anexos(m.get("anexos"))}'
+            f'{_quem_disse(m)}: {m["texto"]}{nota_anexos(m.get("anexos"))}'
             for m in anteriores
         )
         partes.append(f'{rotulo}:\n\n{linhas}')
@@ -638,9 +643,18 @@ async def responder(
     mensagem: str,
     etapas=MUDA,
     voz: bool = False,
+    notas: str = '',
 ) -> tuple[AsyncIterator[str], str]:
     """(texto em pedaços, quem está respondendo). Tenta na ordem até alguém
-    começar a responder."""
+    começar a responder.
+
+    `notas`: o que vale pra esta resposta, de qualquer cérebro (o estilo de
+    resposta, a personalidade que responde). Vai no fim da mensagem pros de
+    nuvem e no sistema do local — o local recebe o histórico, não a mensagem
+    com as notas (antes, o estilo nunca chegava nele)."""
+    # As regras abaixo (pergunta de arquivo, servidor citado, pesquisa) leem só o
+    # que ele escreveu; as notas vão junto só no pedido pro cérebro.
+    com_notas = mensagem + notas
     erros: dict[str, Exception] = {}
     fila = list(ordem)
     # As ferramentas vão só quando o pedido precisa (medido em 18/11/2026: com
@@ -708,7 +722,7 @@ async def responder(
                 fluxo = await _primeira_palavra(
                     await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
-                        conversa=conversa, voz=voz, projeto=nota_projeto(conversa, le_arquivos=False),
+                        conversa=conversa, voz=voz, projeto=nota_projeto(conversa, le_arquivos=False) + notas,
                         o_corpo=o_corpo, **modo,
                     ),
                     etapas,
@@ -748,12 +762,12 @@ async def responder(
                         [m for m in historico if not m['privada']],
                         # A pesquisa do Claude fala dos ajudantes dele; a dos
                         # outros, das ferramentas do corpo (o navegador, o WebFetch).
-                        mensagem.replace(NOTA_PESQUISA, NOTA_PESQUISA_CORPO if navegar else NOTA_PESQUISA_SEM_BUSCA)
-                        if nome != 'claude' else mensagem,
+                        com_notas.replace(NOTA_PESQUISA, NOTA_PESQUISA_CORPO if navegar else NOTA_PESQUISA_SEM_BUSCA)
+                        if nome != 'claude' else com_notas,
                         voz=voz,
                     ),
                     etapas,
-                    sessao=sessao_claude(conversa, historico, memorias, trechos, mensagem, voz)
+                    sessao=sessao_claude(conversa, historico, memorias, trechos, com_notas, voz)
                     if nome == 'claude' else None,
                     **({'rapido': True} if voz else {}),
                     **({'corpo': proprio} if proprio is not None else {}),

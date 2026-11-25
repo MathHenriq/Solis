@@ -33,6 +33,8 @@ export type Turno = {
   falha?: boolean;
   /** Quem respondeu: uma chave de NOMES_CEREBRO ('local', 'claude', 'groq'...). */
   cerebro?: string | null;
+  /** A personalidade que respondeu ('jarvis', 'eva', 'ed', 'assessor'); vazio = o Solis. */
+  personalidade?: string | null;
   /** O que o servidor fez pra responder, em ordem, com os tempos. */
   etapas?: EtapaRecebida[];
   /** Fala da pessoa: o id dela no banco, pra editar ou refazer. Chega com a
@@ -80,6 +82,7 @@ const turnosDe = (mensagens: Mensagem[]): Turno[] =>
     texto: m.texto,
     hora: hora(new Date(m.criada)),
     cerebro: m.cerebro,
+    personalidade: m.personalidade ?? null,
     etapas: m.etapas ?? undefined,
     mensagem: m.papel === 'pessoa' ? m.id : undefined,
     resposta: m.papel === 'solis' ? m.id : undefined,
@@ -175,6 +178,7 @@ export function useConversa() {
             ...t,
             etapas: [...(t.etapas ?? []), { ...etapa, recebida: Date.now() }],
             cerebro: etapa.etapa === 'primeira_palavra' ? etapa.cerebro : t.cerebro,
+            personalidade: etapa.etapa === 'personalidade' ? etapa.quem : t.personalidade,
             digitando: etapa.etapa === 'fim' ? false : t.digitando,
             resposta: etapa.etapa === 'fim' && etapa.mensagem ? etapa.mensagem : t.resposta,
             // Parou antes da primeira palavra: no lugar da resposta, o aviso

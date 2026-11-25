@@ -63,6 +63,8 @@ TODAS_ATE = 30
 # acabou de ser dito costuma importar mesmo sem parecer com a pergunta).
 MEMORIAS_PARECIDAS = 12
 MEMORIAS_RECENTES = 5
+# As da área de quem responde (personalidades.py) que vão sempre, as mais ligadas à mensagem.
+MEMORIAS_DA_AREA = 6
 # Trechos de conversas antigas, e só os que passam do piso de similaridade.
 # Alto demais e nada antigo aparece; baixo demais e entra ruído.
 TRECHOS = 5
@@ -209,7 +211,8 @@ async def memorias_parecidas(texto: str, quantas: int) -> list[dict]:
     return (ordenadas + [m for m in ativas if m['id'] not in vistas])[:quantas]
 
 
-async def contexto(mensagem: str, conversa: int, desde: int = 0) -> tuple[list[dict], list[dict]]:
+async def contexto(mensagem: str, conversa: int, desde: int = 0,
+                   area: str | None = None) -> tuple[list[dict], list[dict]]:
     """(memórias, trechos) que vão no pedido desta mensagem. Os trechos são de
     conversas antigas e, marcados com `arquivo`, dos arquivos do Conhecimento —
     numa lista só porque o caminho deles é o mesmo, inclusive o filtro do que é
@@ -219,15 +222,21 @@ async def contexto(mensagem: str, conversa: int, desde: int = 0) -> tuple[list[d
     já vão inteiras no histórico. As de antes viraram resumo, e um trecho exato
     delas ainda pode ser o que a pergunta precisa."""
     todas = banco.memorias()
+    # A área de quem responde (personalidades.py): o Ed vê primeiro o que ele
+    # mesmo aprendeu (o peso, o treino), além das parecidas e das recentes.
+    da_area = [x for x in todas if area and area != 'solis' and x.get('area') == area]
     q = await _consulta_com_prazo(mensagem)
     if q is None:
-        return todas[: TODAS_ATE + MEMORIAS_RECENTES], []
+        primeiras = {x['id'] for x in todas[: TODAS_ATE + MEMORIAS_RECENTES]} | {x['id'] for x in da_area[:MEMORIAS_DA_AREA]}
+        return [x for x in todas if x['id'] in primeiras], []
 
     if len(todas) <= TODAS_ATE:
         memorias = todas
     else:
         escolhidas = {x['id'] for x in _ordenar(q, todas)[:MEMORIAS_PARECIDAS]}
         escolhidas |= {x['id'] for x in todas[:MEMORIAS_RECENTES]}
+        if da_area:
+            escolhidas |= {x['id'] for x in _ordenar(q, da_area)[:MEMORIAS_DA_AREA]}
         memorias = [x for x in todas if x['id'] in escolhidas]
 
     ids, m = _matriz(banco.vetores('mensagem'))

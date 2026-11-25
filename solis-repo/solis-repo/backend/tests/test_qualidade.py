@@ -95,6 +95,10 @@ def test_o_historico_entra_uma_vez_quando_o_registro_nasce(tmp_path):
     mid = banco.adicionar(cid, 'solis', 'oi', cerebro='claude')
     banco.guardar_etapas(mid, [{'etapa': 'ferramenta', 'ferramenta': 'Bash', 'ok': False},
                                {'etapa': 'fim', 'cerebro': 'claude'}])
+    # As colunas das personalidades (migração 24) ainda não existiam na versão 20.
+    banco._con().execute('ALTER TABLE conversas DROP COLUMN personalidade')
+    banco._con().execute('ALTER TABLE mensagens DROP COLUMN personalidade')
+    banco._con().execute('ALTER TABLE memorias DROP COLUMN area')
     con.commit()
     banco.usar(caminho)
     banco.usar(caminho)

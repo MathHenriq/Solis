@@ -43,15 +43,18 @@ SISTEMA = (
 
 
 def sistema(conversa: int | None) -> str:
-    """O que o Gemini sabe: quem ele é, o que o Solis sabe do Matheus (só o que
-    não é privado) e o fim da conversa aberta (só o que não é privado)."""
+    """O que o Gemini sabe: quem ele é (e a personalidade que está falando na
+    conversa), o que o Solis sabe do Matheus (só o que não é privado) e o fim
+    da conversa aberta (só o que não é privado)."""
+    from . import personalidades
     memorias = [m for m in banco.memorias() if not m.get('privada')]
-    partes = [SISTEMA, ollama.contexto(memorias)]
+    partes = [SISTEMA + personalidades.nota(personalidades.de(personalidades.da_conversa(conversa))),
+              ollama.contexto(memorias)]
     if conversa is not None:
         msgs = [m for m in banco.mensagens(conversa) if not m.get('privada')][-HISTORICO:]
         if msgs:
             partes.append('A conversa até agora:\n' + '\n'.join(
-                f'{"Matheus" if m["papel"] == "pessoa" else "Solis"}: {m["texto"]}' for m in msgs))
+                f'{personalidades.quem_disse(m)}: {m["texto"]}' for m in msgs))
     return '\n\n'.join(p for p in partes if p)
 
 
@@ -161,14 +164,18 @@ async def conduzir(
     return motivo['v'] or 'erro'
 
 
-def salvar_turno(conversa: int, fala: str, resposta: str, cerebro: str = 'gemini-live') -> tuple[int | None, int | None]:
+def salvar_turno(conversa: int, fala: str, resposta: str, cerebro: str = 'gemini-live',
+                 personalidade: str | None = None) -> tuple[int | None, int | None]:
     """A troca vira mensagens na conversa, como no modo Pedido (decisão do Matheus).
-    `cerebro`: quem respondeu ('gemini-live', ou 'groq'/'local' pela reserva)."""
+    `cerebro`: quem respondeu ('gemini-live', ou 'groq'/'local' pela reserva).
+    `personalidade`: quem falou (personalidades.py); sem ela, quem está na conversa."""
+    from . import personalidades
     ids = (None, None)
     if fala:
         ids = (banco.adicionar(conversa, 'pessoa', fala, privada=memoria.eh_privado(fala)), None)
     if resposta:
-        ids = (ids[0], banco.adicionar(conversa, 'solis', resposta, cerebro=cerebro))
+        ids = (ids[0], banco.adicionar(conversa, 'solis', resposta, cerebro=cerebro,
+                                       personalidade=personalidade or personalidades.da_conversa(conversa)))
     return ids
 
 

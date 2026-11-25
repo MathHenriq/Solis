@@ -27,6 +27,7 @@ import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
 import {
   NOMES_CEREBRO,
+  NOMES_PERSONALIDADE,
   abrirArquivo,
   enviarAnexo,
   imagemDoAnexo,
@@ -441,6 +442,10 @@ function RespostaSolis({
               da máquina, e o Matheus precisa saber disso. O local é o padrão
               silencioso — não precisa de etiqueta. */}
           <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>
+            {/* PROVISÓRIO (refação do visual): o nome da personalidade que respondeu. */}
+            {t.personalidade && NOMES_PERSONALIDADE[t.personalidade] && (
+              <span className="text-text-primary">{NOMES_PERSONALIDADE[t.personalidade]} · </span>
+            )}
             {t.hora}
             {/* Só quem não é o local: o local é o normal, não precisa de nome. */}
             {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}

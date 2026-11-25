@@ -200,6 +200,15 @@ def autor(trecho: dict) -> str:
     return 'Matheus' if trecho['papel'] == 'pessoa' else AUTORES.get(trecho.get('origem'), 'Solis')
 
 
+_AREAS = {'jarvis', 'eva', 'ed', 'assessor'}
+
+
+def _por(area: str) -> str:
+    from .personalidades import de
+    p = de(area)
+    return f'{"pelo" if p.artigo == "o" else "pela"} {p.nome}'
+
+
 def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: str | None = None) -> str:
     """O que o Solis sabe que importa pra esta mensagem — o mesmo bloco serve o
     prompt do modelo local e o que vai pros cérebros de nuvem."""
@@ -208,7 +217,10 @@ def contexto(memorias: list[dict], trechos: list[dict] | None = None, resumo: st
     agora = datetime.now()
     partes = [f'Agora: {DIAS[agora.weekday()]}, {agora:%d/%m/%Y}, {agora:%H:%M}.']
     if memorias:
-        partes.append('Memórias sobre o Matheus:\n' + '\n'.join(f'- {m["texto"]}' for m in memorias))
+        # A área de quem anotou (personalidades.py): "- Treina 4x por semana (anotada pelo Ed)".
+        partes.append('Memórias sobre o Matheus:\n' + '\n'.join(
+            f'- {m["texto"]}' + (f' (anotada {_por(m["area"])})' if m.get('area') in _AREAS else '')
+            for m in memorias))
     else:
         partes.append('Ainda não há memórias guardadas.')
     if resumo:

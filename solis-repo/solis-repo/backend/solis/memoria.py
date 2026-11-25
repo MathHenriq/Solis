@@ -393,9 +393,9 @@ def _fala_de(memoria: str, mensagem: str) -> bool:
     return bool(_palavras(memoria) & _palavras(mensagem))
 
 
-def guardar_pedido_cru(texto: str, conversa: int | None) -> None:
+def guardar_pedido_cru(texto: str, conversa: int | None, area: str | None = None) -> None:
     """O pedido sem modelo nenhum: guarda a própria mensagem. Feio, mas fica."""
-    banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa, privada=eh_privado(texto))
+    banco.adicionar_memoria(texto.strip(), TEMA_PEDIDO, True, conversa, privada=eh_privado(texto), area=area)
 
 
 # O aprendizado na nuvem, com o Ollama fora: a Groq, no gpt-oss-20b — o limite
@@ -474,6 +474,7 @@ async def aprender(
     tarefas: list[dict] | None = None,
     agora: dt.datetime | None = None,
     compromissos: list[dict] | None = None,
+    area: str | None = None,
 ) -> list[str]:
     """Extrai e guarda o que houver de novo na `mensagem`; devolve o texto das
     memórias que guardou (a tela mostra cada uma). Nunca levanta: roda depois
@@ -556,6 +557,8 @@ async def aprender(
             # Sigilo não se perde numa atualização: o que era privado continua.
             privada=privado or bool(m.get('privada')) or bool(antiga and antiga['privada']),
             substitui=antiga['id'] if antiga else None,
+            # A área de quem respondeu (personalidades.py): todos leem, cada um escreve na sua.
+            area=area,
         )
         vistas.add(_normal(conteudo))
         guardou = True
@@ -563,7 +566,7 @@ async def aprender(
         saiu_privada = saiu_privada or bool(m.get('privada'))
 
     if pedido and not guardou:
-        guardar_pedido_cru(mensagem, conversa)
+        guardar_pedido_cru(mensagem, conversa, area)
         guardadas_agora.append(mensagem.strip())
 
     # O sigilo das memórias desta mensagem vale pras tarefas dela; o de uma

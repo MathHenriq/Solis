@@ -90,6 +90,15 @@ export const NOMES_CEREBRO: Record<string, string> = {
   openrouter: 'OpenRouter',
 };
 
+/** As personalidades (backend/solis/personalidades.py): quem respondeu, no
+ *  topo da resposta. O Solis de sempre não leva nome — é o normal. */
+export const NOMES_PERSONALIDADE: Record<string, string> = {
+  jarvis: 'Jarvis',
+  eva: 'Eva',
+  ed: 'Ed',
+  assessor: 'Assessor',
+};
+
 /** Um cérebro em Configurações → Cérebros, na ordem em que é tentado.
  *  `pausa.ate` é epoch em segundos: depois de falhar (cota, login, limite
  *  grátis), o cérebro fica de lado até lá. O local nunca desliga nem pausa.
@@ -205,6 +214,10 @@ export type Etapa = {
   ok?: boolean;
   /** Etapa `rapida`: o que foi respondido em código (hora, data, agenda...). */
   tipo?: string;
+  /** Etapa `personalidade`: quem responde ('ed'), o nome ('Ed') e se acabou de entrar na conversa. */
+  quem?: string;
+  nome?: string;
+  entrou?: boolean;
   /** Etapas `aprovacao` e `aprovacao_resposta` (backend/solis/agente.py): o
    *  pedido do Claude pra escrever, editar, rodar ou ler fora das pastas, o
    *  resumo dele em português, e o que o Matheus respondeu. */
@@ -263,6 +276,8 @@ export type Mensagem = {
   texto: string;
   criada: string;
   cerebro: string | null;
+  /** A personalidade que respondeu (backend/solis/personalidades.py); null = o Solis. */
+  personalidade?: string | null;
   etapas: Etapa[] | null;
   /** O voto do Matheus na resposta (1, -1), ou null. */
   voto?: Voto;
@@ -1063,8 +1078,9 @@ export async function transcreverAudio(audio: Blob): Promise<ResultadoVoz> {
 /** A resposta em pedaços pra falar: o primeiro é curto, pra começar logo. */
 /** Uma frase fixa do Solis (a narração: "Vou passar pro Claude, um instante."),
  *  gravada uma vez no servidor com a voz escolhida. */
-export function urlFrase(nome: string): string {
-  return `${BASE}/fala/frase/${encodeURIComponent(nome)}`;
+/** A frase fixa na voz de quem está falando na conversa (a personalidade dela). */
+export function urlFrase(nome: string, conversa?: number | null): string {
+  return `${BASE}/fala/frase/${encodeURIComponent(nome)}${conversa != null ? `?conversa=${conversa}` : ''}`;
 }
 
 export async function partesDaFala(texto: string): Promise<string[] | null> {

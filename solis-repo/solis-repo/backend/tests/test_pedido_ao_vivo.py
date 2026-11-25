@@ -17,8 +17,9 @@ class GeminiFalso:
     criadas: list = []
     resultado = None
 
-    def __init__(self, conversa, voz, etapas=None):
+    def __init__(self, conversa, voz, etapas=None, quem='solis', entrou=False):
         self.conversa, self.fechada, self.abriu, self.texto = conversa, False, False, None
+        self.voz, self.quem, self.entrou = voz, quem, entrou
         GeminiFalso.criadas.append(self)
 
     def abrir(self):
@@ -69,11 +70,12 @@ def test_o_pedido_vai_ao_vivo_a_voz_dele_chega_e_a_troca_fica_na_conversa(monkey
         assert ws.receive_json() == {'tipo': 'pronta'}
         ws.send_text(json.dumps({'conversa': conversa, 'falar': True}))
         _chamar(ws)
-        assert ws.receive_json() == {'tipo': 'ao_vivo', 'pedido': 'qual é a cotação do dólar'}
+        assert ws.receive_json() == {'tipo': 'ao_vivo', 'pedido': 'qual é a cotação do dólar', 'quem': 'solis'}
         assert ws.receive_json() == {'tipo': 'ao_vivo_texto', 'disse': 'O dólar está R$ 5,95.'}
         assert ws.receive_bytes() == VOZ_DELE
         assert ws.receive_json() == {'tipo': 'ao_vivo_fim', 'conversa': conversa,
-                                     'pedido': 'qual é a cotação do dólar', 'disse': 'O dólar está R$ 5,95.'}
+                                     'pedido': 'qual é a cotação do dólar', 'disse': 'O dólar está R$ 5,95.',
+                                     'quem': 'solis'}
     [g] = GeminiFalso.criadas
     # A sessão abriu já no "Solis" (conecta enquanto ele fala), e fechou no fim.
     assert g.abriu and g.fechada and g.conversa == conversa and g.texto == 'qual é a cotação do dólar'
@@ -100,7 +102,7 @@ def test_o_que_precisa_de_cartao_segue_pelo_caminho_de_hoje(monkeypatch):
         ws.receive_json()
         ws.send_text(json.dumps({'falar': True}))
         _chamar(ws)
-        assert ws.receive_json() == {'tipo': 'ao_vivo', 'pedido': 'abre o spotify'}
+        assert ws.receive_json() == {'tipo': 'ao_vivo', 'pedido': 'abre o spotify', 'quem': 'solis'}
         assert ws.receive_json() == {'tipo': 'texto', 'texto': 'abre o spotify'}
 
 

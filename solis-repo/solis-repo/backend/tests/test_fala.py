@@ -212,15 +212,16 @@ def test_motivo_com_quebra_de_linha_nao_derruba_a_resposta(vozes):
     assert '\n' not in r.headers['x-solis-antes'] and 'API key not valid' in r.headers['x-solis-antes']
 
 
-def _falando(audio, tipo, quem, geradas=None):
-    """A voz das respostas simulada (falar_aos_pedacos): o áudio num pedaço só."""
-    async def falar_aos_pedacos(texto, conversa=None):
+def _falando(audio, tipo, falou, geradas=None):
+    """A voz das respostas simulada (falar_aos_pedacos): o áudio num pedaço só.
+    `falou`: qual voz falou; `quem` (do falar_aos_pedacos) é a personalidade."""
+    async def falar_aos_pedacos(texto, conversa=None, quem=None):
         if geradas is not None:
             geradas.append(texto)
 
         async def pedacos():
             yield audio
-        return pedacos(), tipo, quem
+        return pedacos(), tipo, falou
     return falar_aos_pedacos
 
 

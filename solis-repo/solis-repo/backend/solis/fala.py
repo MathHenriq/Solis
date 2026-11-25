@@ -312,12 +312,13 @@ def nome_voz_fish() -> str | None:
     return banco.ajuste('voz_fish_nome')
 
 
-async def ava(texto: str, lingua_: str) -> bytes:
+async def ava(texto: str, lingua_: str, voz: str | None = None) -> bytes:
+    """A reserva grátis do Edge. `voz`: a da personalidade (personalidades.py)."""
     import edge_tts
     audio = bytearray()
 
     async def ler():
-        async for p in edge_tts.Communicate(texto, AVA).stream():
+        async for p in edge_tts.Communicate(texto, voz or AVA).stream():
             if p['type'] == 'audio':
                 audio.extend(p['data'])
     try:
@@ -334,7 +335,7 @@ _kokoro_uso = 0.0
 _kokoro_trava = threading.Lock()
 
 
-def _kokoro_agora(texto: str, lingua_: str) -> bytes:
+def _kokoro_agora(texto: str, lingua_: str, voz_: tuple[str, float] | None = None) -> bytes:
     global _kokoro, _kokoro_uso
     import numpy as np
     with _kokoro_trava:
@@ -346,7 +347,11 @@ def _kokoro_agora(texto: str, lingua_: str) -> bytes:
             from kokoro_onnx import Kokoro
             _kokoro = Kokoro(str(modelo), str(vozes))
         voz, codigo = KOKORO_VOZ[lingua_]
-        amostras, taxa = _kokoro.create(texto, voice=voz, speed=1.0, lang=codigo)
+        velocidade = 1.0
+        # A voz da personalidade é das de português: em inglês, a padrão.
+        if voz_ and lingua_ == 'pt':
+            voz, velocidade = voz_
+        amostras, taxa = _kokoro.create(texto, voice=voz, speed=velocidade, lang=codigo)
         _kokoro_uso = time.monotonic()
     saida = io.BytesIO()
     with wave.open(saida, 'wb') as w:
@@ -357,8 +362,8 @@ def _kokoro_agora(texto: str, lingua_: str) -> bytes:
     return saida.getvalue()
 
 
-async def kokoro(texto: str, lingua_: str) -> bytes:
-    return await asyncio.to_thread(_kokoro_agora, texto, lingua_)
+async def kokoro(texto: str, lingua_: str, voz: tuple[str, float] | None = None) -> bytes:
+    return await asyncio.to_thread(_kokoro_agora, texto, lingua_, voz)
 
 
 # Nome, tipo do áudio, função. A ordem é a cadeia.
@@ -373,19 +378,38 @@ _cache: OrderedDict = OrderedDict()
 ultimos_motivos: list[str] = []
 
 
-async def falar(texto: str, conversa: int | None = None, voz: str | None = None) -> tuple[bytes, str, str]:
+def _personalidade(conversa: int | None, quem: str | None):
+    from . import personalidades
+    return personalidades.de(quem or personalidades.da_conversa(conversa))
+
+
+def _vozes_de(p, voz: str | None = None) -> dict:
+    """A voz de cada camada pra personalidade `p` (o Solis: as escolhidas)."""
+    if p.id == 'solis':
+        return {'gemini': voz}
+    return {'gemini': voz or p.gemini, 'ava': p.edge, 'kokoro': p.kokoro}
+
+
+async def falar(texto: str, conversa: int | None = None, voz: str | None = None,
+                quem: str | None = None) -> tuple[bytes, str, str]:
     """(áudio, tipo, quem falou) de um pedaço de texto. SemVoz se ninguém.
-    `voz`: uma voz do Gemini no lugar da escolhida (pra ouvir antes de escolher)."""
+    `voz`: uma voz do Gemini no lugar da escolhida (pra ouvir antes de escolher).
+    `quem`: a personalidade que fala (personalidades.py); sem ela, a de quem
+    está falando na conversa."""
     texto = limpar(texto)
     if not texto:
         raise SemVoz('nada pra falar')
     lingua_ = lingua(texto)
+    p = _personalidade(conversa, quem)
+    vozes = _vozes_de(p, voz)
     cadeia = LOCAL if privado(texto, conversa) else NUVEM + LOCAL
-    if voz:
+    if voz or p.id != 'solis':
         # Ouvir uma voz do Gemini antes de escolher: quem fala é o Gemini, não
-        # a Fish que viria antes dele na cadeia.
+        # a Fish que viria antes dele na cadeia. E as personalidades não falam
+        # pela Fish: a voz escolhida nela é a do Solis, e com ela as quatro
+        # soariam iguais quando a cota do Gemini acaba.
         cadeia = [c for c in cadeia if c[0] != 'fish']
-    chave = (texto, voz or voz_gemini(), voz_fish(), tuple(n for n, _, _ in cadeia))
+    chave = (texto, voz or voz_gemini(), voz_fish(), tuple(n for n, _, _ in cadeia), p.id)
     if chave in _cache:
         _cache.move_to_end(chave)
         return _cache[chave]
@@ -396,7 +420,8 @@ async def falar(texto: str, conversa: int | None = None, voz: str | None = None)
             motivos.append(f'{nome}: descansando')
             continue
         try:
-            audio = await (funcao(texto, lingua_, voz=voz) if nome == 'gemini' and voz else funcao(texto, lingua_))
+            kw = {'voz': vozes[nome]} if vozes.get(nome) else {}
+            audio = await funcao(texto, lingua_, **kw)
         except SemVoz as e:
             motivos.append(f'{nome}: {e}')
             # Chave recusada ou limite: a voz descansa em vez de ser tentada (e
@@ -435,7 +460,7 @@ def _anotar_demora(t0: float, quem: str, texto: str) -> None:
         log.info('fala: primeiro som em %.1f s por %s (%d caracteres)', demora, quem, len(texto))
 
 
-async def falar_aos_pedacos(texto: str, conversa: int | None = None):
+async def falar_aos_pedacos(texto: str, conversa: int | None = None, quem: str | None = None):
     """(áudio em pedaços, tipo, quem falou): como falar(), mas a Fish manda o
     áudio enquanto gera — medido com a chave do Matheus (11/11/2026): o
     primeiro pedaço em 0,7–0,8 s, contra ~3 s do áudio inteiro. Se a Fish
@@ -445,13 +470,15 @@ async def falar_aos_pedacos(texto: str, conversa: int | None = None):
     if not limpo:
         raise SemVoz('nada pra falar')
     lingua_ = lingua(limpo)
-    chave_cache = (limpo, voz_gemini(), voz_fish(), tuple(n for n, _, _ in NUVEM + LOCAL))
+    p = _personalidade(conversa, quem)
+    voz_g = p.gemini if p.id != 'solis' else voz_gemini()
+    chave_cache = (limpo, voz_g, voz_fish(), tuple(n for n, _, _ in NUVEM + LOCAL), p.id)
     nuvem = not privado(limpo, conversa)
     t0 = time.monotonic()
     # A voz G primeiro (o teste cego de 21/11/2026), depois a Fish (a segunda).
     if nuvem and chave_cache not in _cache and _fora_ate.get('gemini-flash', 0) <= time.time():
         try:
-            pedacos = await _gemini_aos_pedacos(limpo, chave_cache)
+            pedacos = await _gemini_aos_pedacos(limpo, chave_cache, voz_g)
             _anotar_demora(t0, 'gemini-flash', limpo)
             return pedacos, 'audio/mpeg', 'gemini-flash'
         except SemVoz as e:
@@ -461,7 +488,8 @@ async def falar_aos_pedacos(texto: str, conversa: int | None = None):
                 _fora_ate['gemini-flash'] = time.time() + (_espera(str(e)) or 600)
         except httpx.HTTPError as e:
             log.info('gemini flash aos pedaços caiu (%s): segue pra Fish', type(e).__name__)
-    if nuvem and chave_cache not in _cache and chave_fish() and _fora_ate.get('fish', 0) <= time.time():
+    if (nuvem and p.id == 'solis' and chave_cache not in _cache and chave_fish()
+            and _fora_ate.get('fish', 0) <= time.time()):
         try:
             pedacos = await _fish_aos_pedacos(limpo, lingua_, chave_cache)
             _anotar_demora(t0, 'fish', limpo)
@@ -472,12 +500,12 @@ async def falar_aos_pedacos(texto: str, conversa: int | None = None):
                 _fora_ate['fish'] = time.time() + 600
         except httpx.HTTPError as e:
             log.info('fish aos pedaços caiu (%s): segue a cadeia', type(e).__name__)
-    audio, tipo, quem = await falar(texto, conversa)
-    _anotar_demora(t0, quem, limpo)
+    audio, tipo, quem_falou = await falar(texto, conversa, quem=p.id)
+    _anotar_demora(t0, quem_falou, limpo)
 
     async def inteiro():
         yield audio
-    return inteiro(), tipo, quem
+    return inteiro(), tipo, quem_falou
 
 
 async def _fish_aos_pedacos(texto: str, lingua_: str, chave_cache) -> 'AsyncIterator[bytes]':
@@ -587,7 +615,7 @@ class _PcmEmMp3:
         return saida + self._sair(None)
 
 
-async def _gemini_aos_pedacos(texto: str, chave_cache) -> 'AsyncIterator[bytes]':
+async def _gemini_aos_pedacos(texto: str, chave_cache, voz: str | None = None) -> 'AsyncIterator[bytes]':
     """Abre o pedido no Gemini Flash TTS e espera o PRIMEIRO pedaço de áudio
     aqui — é onde a falha (limite do grátis, chave) aparece, e ainda dá pra cair
     pra Fish."""
@@ -599,7 +627,7 @@ async def _gemini_aos_pedacos(texto: str, chave_cache) -> 'AsyncIterator[bytes]'
         raise SemVoz('sem chave do Gemini')
     corpo = {'contents': [{'role': 'user', 'parts': [{'text': texto}]}],
              'generationConfig': {'responseModalities': ['AUDIO'], 'speechConfig': {
-                 'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': voz_gemini()}}}}}
+                 'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': voz or voz_gemini()}}}}}
     cliente = httpx.AsyncClient(transport=_transporte_gemini, timeout=TEMPO_NUVEM)
     try:
         r = await cliente.send(cliente.build_request(
@@ -689,38 +717,47 @@ FRASES = {
 PASTA_FRASES = PASTA / 'frases'
 
 
-def _arquivo_da_frase(nome: str, ext: str) -> Path:
+def _arquivo_da_frase(nome: str, ext: str, quem: str = 'solis') -> Path:
     import hashlib
+    from . import personalidades
     # A voz escolhida entra na chave: trocou a voz, a frase é gravada de novo.
-    marca = hashlib.sha1(f'{FRASES[nome]}|{voz_fish()}|{voz_gemini()}|{FISH_MODELO}|{GEMINI_FLUXO_MODELO}'
+    # A de cada personalidade é outra frase gravada (na voz dela).
+    p = personalidades.de(quem)
+    vozes = f'{voz_fish()}|{voz_gemini()}' if p.id == 'solis' else f'{p.id}|{p.gemini}|{p.edge}'
+    marca = hashlib.sha1(f'{FRASES[nome]}|{vozes}|{FISH_MODELO}|{GEMINI_FLUXO_MODELO}'
                          .encode()).hexdigest()[:12]
     return PASTA_FRASES / f'{nome}-{marca}.{ext}'
 
 
-def _a_escolhida() -> str | None:
+def _a_escolhida(quem: str = 'solis') -> str | None:
     """A voz das respostas: a G (o Gemini Flash TTS, a escolhida no teste cego de
-    21/11/2026) se tem a chave do Gemini, senão a Fish."""
+    21/11/2026) se tem a chave do Gemini, senão a Fish (só a do Solis: as
+    personalidades não falam pela Fish)."""
     from . import apis
-    return 'gemini-flash' if apis.tem_chave('gemini') else 'fish' if chave_fish() else None
+    if apis.tem_chave('gemini'):
+        return 'gemini-flash'
+    return 'fish' if chave_fish() and quem == 'solis' else None
 
 
-async def frase(nome: str) -> tuple[bytes, str, str]:
+async def frase(nome: str, quem: str = 'solis') -> tuple[bytes, str, str]:
     """(áudio, tipo, quem) de uma frase fixa: do disco, ou gerada agora e guardada.
     KeyError se a frase não existe. Na mesma voz das respostas (falar_aos_pedacos):
     antes era a Fish, e a narração falava com uma voz e a resposta com outra."""
+    from . import personalidades
+    quem = personalidades.de(quem).id
     texto = FRASES[nome]
     for ext, tipo in (('mp3', 'audio/mpeg'), ('wav', 'audio/wav')):
-        arquivo = _arquivo_da_frase(nome, ext)
+        arquivo = _arquivo_da_frase(nome, ext, quem)
         if arquivo.is_file():
             return arquivo.read_bytes(), tipo, 'gravada'
-    pedacos, tipo, quem = await falar_aos_pedacos(texto)
+    pedacos, tipo, falou = await falar_aos_pedacos(texto, quem=quem)
     audio = b''.join([p async for p in pedacos]) if not isinstance(pedacos, (bytes, bytearray)) else bytes(pedacos)
     # Só fica gravada na voz escolhida: a reserva que falou porque a escolhida
     # caiu (o limite do dia) não vira a frase pra sempre.
-    if audio and quem == _a_escolhida():
+    if audio and falou == _a_escolhida(quem):
         PASTA_FRASES.mkdir(parents=True, exist_ok=True)
-        _arquivo_da_frase(nome, 'mp3' if tipo == 'audio/mpeg' else 'wav').write_bytes(audio)
-    return audio, tipo, quem
+        _arquivo_da_frase(nome, 'mp3' if tipo == 'audio/mpeg' else 'wav', quem).write_bytes(audio)
+    return audio, tipo, falou
 
 
 async def gravar_frases() -> None:

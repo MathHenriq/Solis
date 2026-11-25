@@ -30,7 +30,7 @@ from collections import deque
 
 import numpy as np
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, rapidas, registro_voz, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, personalidades, rapidas, registro_voz, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -1476,6 +1476,10 @@ async def _responder(
             _paradas.pop(conversa, None)
 
     try:
+        # Quem responde (personalidades.py): o chamado pelo nome, o dono do
+        # assunto ou quem já estava falando. A tela e a voz sabem por esta etapa.
+        quem, entrou = personalidades.escolher(conversa, texto)
+        etapas.marcar('personalidade', quem=quem.id, nome=quem.nome, entrou=entrou)
         # O básico (hora, data, lembrete, agenda, tarefas) sai em código, antes
         # de tudo: sem busca na memória e sem modelo (rapidas.py). Comando na
         # frente ("/claude que horas são") manda no lugar disso.
@@ -1492,7 +1496,8 @@ async def _responder(
                 rapida['texto'] = financas.confirmacao(l, lid)
             etapas.marcar('rapida', tipo=rapida['tipo'])
             etapas.texto(rapida['texto'])
-            resposta_id = banco.adicionar(conversa, 'solis', rapida['texto'], privada=rapida['privada'], cerebro='solis')
+            resposta_id = banco.adicionar(conversa, 'solis', rapida['texto'], privada=rapida['privada'], cerebro='solis',
+                                          personalidade=quem.id)
             fim(cerebro='solis', mensagem=resposta_id)
             if t:
                 # A mesma etapa do aprendizado: a tela mostra "Tarefa anotada".
@@ -1502,7 +1507,7 @@ async def _responder(
         # Só o fim da conversa vai inteiro; o começo vai como resumo. O que ficou
         # de fora não se perde: está no banco, e a busca traz de volta o trecho.
         resumido, historico, desde = resumo.para_o_modelo(conversa)
-        memorias, trechos = await busca.contexto(texto, conversa, desde)
+        memorias, trechos = await busca.contexto(texto, conversa, desde, area=quem.id)
         arquivos = sum(1 for t in trechos if t.get('arquivo'))
         etapas.marcar('memoria', memorias=len(memorias), trechos=len(trechos) - arquivos, arquivos=arquivos)
         # As tarefas abertas vão no pedido, na mesma lista dos trechos (o filtro
@@ -1516,8 +1521,8 @@ async def _responder(
             aberto, parada = await _ate_parar(
                 roteador.responder(ordem, modelo, conversa, historico, memorias, trechos, resumido,
                                    texto + roteador.nota_anexos(anexos) + (roteador.NOTA_PESQUISA if pesquisa else '')
-                                   + roteador.nota_agendada(agendada) + estilos.nota(),
-                                   etapas, voz=voz),
+                                   + roteador.nota_agendada(agendada),
+                                   etapas, voz=voz, notas=estilos.nota() + personalidades.nota(quem, entrou)),
                 parar,
             )
             if parada:
@@ -1550,12 +1555,13 @@ async def _responder(
                     await fluxo.aclose()
             # finally: nem o servidor desligando no meio perde o que já chegou.
             if resposta:
-                resposta_id = banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro)
+                resposta_id = banco.adicionar(conversa, 'solis', ''.join(resposta), cerebro=cerebro,
+                                              personalidade=quem.id)
         fim(cerebro=cerebro, **({'mensagem': resposta_id} if resposta_id else {}),
             **({'cortada': True} if cortada else {}), **({'parada': True} if parada else {}))
 
         try:
-            await _depois(etapas, modelo, conversa, texto, historico, mensagem_id, ''.join(resposta))
+            await _depois(etapas, modelo, conversa, texto, historico, mensagem_id, ''.join(resposta), area=quem.id)
         except Exception:
             # Sem evento de erro: a resposta já está na tela, inteira, e um
             # aviso agora a trocaria pelo erro de uma etapa de fundo.
@@ -1577,7 +1583,7 @@ async def _responder(
 
 
 async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, historico: list[dict], mensagem_id: int,
-                  resposta: str = ''):
+                  resposta: str = '', area: str | None = None):
     """Depois que a resposta terminou de chegar, nesta ordem: dar título (se a
     conversa ainda não tem — é rápido, e a lista do painel troca a primeira
     fala por ele), aprender (extrair memórias da mensagem), indexar (vetorizar
@@ -1605,7 +1611,7 @@ async def _depois(etapas: Etapas, modelo: str, conversa: int, texto: str, histor
         novas = []
     else:
         novas = await memoria.aprender(
-            modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas, compromissos=marcados
+            modelo, conversa, texto, historico[-3:-1], mensagem_id, tarefas=criadas, compromissos=marcados, area=area
         )
     etapas.marcar(
         'aprendizado', novas=len(novas or []), textos=novas or [], tarefas=criadas, compromissos=marcados, modelo=modelo
@@ -1895,6 +1901,8 @@ class TextoFala(BaseModel):
     conversa: int | None = None
     # Uma voz do Gemini pra ouvir antes de escolher; sem ela, a escolhida.
     voz: str | None = None
+    # A personalidade que fala (personalidades.py); sem ela, quem está falando na conversa.
+    quem: str | None = None
 
 
 class AjustesFala(BaseModel):
@@ -1931,7 +1939,7 @@ async def falar(corpo: TextoFala):
     vem no cabeçalho X-Solis-Voz. A conversa decide se pode ir pra nuvem: com
     algo privado nela, só a voz local."""
     try:
-        audio, tipo, quem = await fala.falar(corpo.texto, corpo.conversa, corpo.voz)
+        audio, tipo, quem = await fala.falar(corpo.texto, corpo.conversa, corpo.voz, corpo.quem)
     except fala.SemVoz as e:
         return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
     cabecalhos = {'X-Solis-Voz': quem, 'Access-Control-Expose-Headers': 'X-Solis-Voz, X-Solis-Antes'}
@@ -1950,30 +1958,32 @@ async def falar(corpo: TextoFala):
 # guarda o pedido aqui (POST, o texto no corpo — nunca na URL, que vai pro log)
 # e o <audio> busca pelo id.
 
-_fluxos: dict[str, tuple[str, int | None, float]] = {}
+_fluxos: dict[str, tuple[str, int | None, float, str | None]] = {}
 
 
 @app.post('/fala/fluxo')
 async def preparar_fluxo(corpo: TextoFala):
     import time
     agora = time.time()
-    for id_, (_, _, quando) in list(_fluxos.items()):
+    for id_, (_, _, quando, _) in list(_fluxos.items()):
         if agora - quando > 120:
             _fluxos.pop(id_, None)
     id_ = uuid.uuid4().hex
-    _fluxos[id_] = (corpo.texto, corpo.conversa, agora)
+    # Quem fala é decidido agora (a personalidade da conversa), não quando o
+    # áudio for buscado: no meio, outra pode ter entrado.
+    _fluxos[id_] = (corpo.texto, corpo.conversa, agora, corpo.quem or personalidades.da_conversa(corpo.conversa))
     return {'id': id_}
 
 
 @app.get('/fala/frase/{nome}')
-async def falar_frase(nome: str):
+async def falar_frase(nome: str, conversa: int | None = None):
     """Uma frase fixa do Solis (fala.FRASES): gravada uma vez com a voz
     escolhida, depois sai do disco. É o que a tela fala enquanto o Claude
-    trabalha num pedido de voz."""
+    trabalha num pedido de voz. Na voz de quem está falando na `conversa`."""
     if nome not in fala.FRASES:
         return JSONResponse({'erro': 'frase_inexistente'}, status_code=404)
     try:
-        audio, tipo, quem = await fala.frase(nome)
+        audio, tipo, quem = await fala.frase(nome, personalidades.da_conversa(conversa))
     except fala.SemVoz as e:
         return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
     return Response(audio, media_type=tipo, headers={'X-Solis-Voz': quem, 'Cache-Control': 'no-store'})
@@ -1984,9 +1994,9 @@ async def tocar_fluxo(id_: str):
     pedido = _fluxos.pop(id_, None)
     if pedido is None:
         return JSONResponse({'erro': 'fluxo_inexistente'}, status_code=404)
-    texto, conversa, _ = pedido
+    texto, conversa, _, personalidade = pedido
     try:
-        pedacos, tipo, quem = await fala.falar_aos_pedacos(texto, conversa)
+        pedacos, tipo, quem = await fala.falar_aos_pedacos(texto, conversa, personalidade)
     except fala.SemVoz as e:
         return JSONResponse({'erro': 'sem_voz', 'motivo': str(e)}, status_code=503)
     return StreamingResponse(pedacos, media_type=tipo, headers={'X-Solis-Voz': quem, 'Cache-Control': 'no-store'})
@@ -2352,7 +2362,10 @@ async def escuta(ws: WebSocket):
         if not ao_vivo['falar'] or not pedido_ao_vivo.disponivel():
             return
         largar_ao_vivo()
-        sessao_viva = pedido_ao_vivo.Sessao(ao_vivo['conversa'], fala.voz_gemini())
+        # Na voz de quem está falando na conversa (personalidades.py): se o
+        # pedido chamar outra, a sessão é aberta de novo com a voz dela.
+        atual = personalidades.da_conversa(ao_vivo['conversa'])
+        sessao_viva = pedido_ao_vivo.Sessao(ao_vivo['conversa'], personalidades.voz_gemini(atual), quem=atual)
         sessao_viva.abrir()
 
     def largar_ao_vivo() -> None:
@@ -2378,7 +2391,15 @@ async def escuta(ws: WebSocket):
             largar_ao_vivo()
             registro_voz.anotar('pedido', caminho=caminho, texto_s=texto_s)
             return False
-        sessao = sessao_viva or pedido_ao_vivo.Sessao(ao_vivo['conversa'], fala.voz_gemini())
+        atual = personalidades.da_conversa(ao_vivo['conversa'])
+        agora = personalidades.quem(texto, atual)
+        sessao = sessao_viva
+        if sessao is None or sessao.quem != agora:
+            # Outra personalidade: a voz é da sessão, então abre outra (medido: ~0,3 s).
+            if sessao is not None:
+                asyncio.ensure_future(sessao.fechar())
+            sessao = pedido_ao_vivo.Sessao(ao_vivo['conversa'], personalidades.voz_gemini(agora), quem=agora,
+                                           entrou=agora != atual)
         sessao_viva = None
         # Enquanto o Solis responde, a escuta não ouve (senão a voz dele nas caixas
         # entraria na fila do microfone); a tela tira a pausa quando a voz acabar.
@@ -2391,7 +2412,7 @@ async def escuta(ws: WebSocket):
         from . import conversa_voz, pedido_ao_vivo
         enviou = False
         try:
-            await ws.send_json({'tipo': 'ao_vivo', 'pedido': texto})
+            await ws.send_json({'tipo': 'ao_vivo', 'pedido': texto, 'quem': sessao.quem})
 
             async def enviar_audio(pedaco: bytes) -> None:
                 nonlocal enviou
@@ -2418,12 +2439,14 @@ async def escuta(ws: WebSocket):
                 await ws.send_json({'tipo': 'texto', 'texto': texto})
                 return
             conversa = ao_vivo['conversa'] or banco.nova_conversa()
-            conversa_voz.salvar_turno(conversa, texto, r.disse)
+            banco.guardar_personalidade(conversa, sessao.quem)
+            conversa_voz.salvar_turno(conversa, texto, r.disse, personalidade=sessao.quem)
             log.info('pedido ao vivo: primeiro som em %s s (%s)', r.primeiro_som,
                      ', '.join(r.ferramentas) or 'sem ferramenta')
             registro_voz.anotar('pedido', caminho='ao_vivo', texto_s=texto_s, primeiro_som_s=r.primeiro_som,
                                 ferramentas=r.ferramentas or None)
-            await ws.send_json({'tipo': 'ao_vivo_fim', 'conversa': conversa, 'pedido': texto, 'disse': r.disse})
+            await ws.send_json({'tipo': 'ao_vivo_fim', 'conversa': conversa, 'pedido': texto, 'disse': r.disse,
+                                'quem': sessao.quem})
         except (WebSocketDisconnect, RuntimeError):
             pass
         finally:
@@ -2653,7 +2676,7 @@ async def conversa_por_voz(ws: WebSocket):
     sessao_cm = None
     if not conversa_voz.gemini_descansando():
         try:
-            sessao_cm = conversa_voz.abrir(conversa, fala.voz_gemini())
+            sessao_cm = conversa_voz.abrir(conversa, personalidades.voz_gemini(personalidades.da_conversa(conversa)))
         except conversa_voz.SemChave as e:
             if not reserva:
                 await ws.send_json({'tipo': 'erro', 'motivo': str(e)})

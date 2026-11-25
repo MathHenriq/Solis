@@ -158,8 +158,11 @@ def test_etapas_da_resposta_inteira_em_ordem(monkeypatch):
     etapas = [e['etapa'] for e in lista if 'etapa' in e]
     # Antes da resposta, a resposta, e depois dela — as de depois chegam pelo
     # mesmo stream, que só fecha quando o aprendizado e o resumo terminam.
-    assert etapas == ['guardada', 'memoria', 'cerebro', 'primeira_palavra', 'fim', 'aprendizado', 'indexacao', 'resumo']
-    assert lista[1] == {'etapa': 'memoria', 't': lista[1]['t'], 'memorias': 0, 'trechos': 0, 'arquivos': 0}
+    # Quem responde (personalidades.py) vem antes de tudo: a tela e a voz sabem por ela.
+    assert etapas == ['guardada', 'personalidade', 'memoria', 'cerebro', 'primeira_palavra', 'fim', 'aprendizado',
+                      'indexacao', 'resumo']
+    assert lista[1] == {'etapa': 'personalidade', 't': lista[1]['t'], 'quem': 'solis', 'nome': 'Solis', 'entrou': False}
+    assert lista[2] == {'etapa': 'memoria', 't': lista[2]['t'], 'memorias': 0, 'trechos': 0, 'arquivos': 0}
     tempos = [e['t'] for e in lista if 't' in e]
     assert tempos == sorted(tempos)
     # O texto chega entre a primeira palavra e o fim.

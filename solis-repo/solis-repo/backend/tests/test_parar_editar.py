@@ -154,7 +154,7 @@ def test_a_conversa_libera_no_fim_e_nao_depois_do_aprendizado(monkeypatch):
     monkeypatch.setattr(roteador, 'responder', responder)
     durante = []
 
-    async def depois(etapas, modelo, conversa, *_):
+    async def depois(etapas, modelo, conversa, *_, **__):
         durante.append(conversa in main._paradas)
     monkeypatch.setattr(main, '_depois', depois)
     c = banco.nova_conversa()

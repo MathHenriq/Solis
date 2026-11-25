@@ -185,7 +185,7 @@ export function useFala(conversa: number | null) {
    *  servidor, avisa o que está acontecendo. Não toca por cima de outra fala. */
   function narrar(nome: string) {
     if (narracao.current || audio.current) return;
-    const el = new PedacoDeFala(urlFrase(nome));
+    const el = new PedacoDeFala(urlFrase(nome, conversa));
     definirFalando(NARRANDO);
     const fim = el
       .tocar(() => {})

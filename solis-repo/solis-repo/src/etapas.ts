@@ -57,6 +57,8 @@ const RAPIDA: Record<string, string> = {
   agenda: 'Li a sua agenda',
   tarefas: 'Li as suas tarefas',
   lembrete: 'Anotei o lembrete',
+  lancamento: 'Anotei o lançamento',
+  gastos: 'Somei os lançamentos',
 };
 
 /** Uma ferramenta usada, em uma frase: as do PC no modelo local (pc.py) e as
