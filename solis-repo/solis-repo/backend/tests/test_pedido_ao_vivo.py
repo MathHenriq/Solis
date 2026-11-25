@@ -141,3 +141,77 @@ def test_vamos_conversar_vai_pro_modo_conversa_e_nao_ao_vivo(monkeypatch):
         ws.send_text(json.dumps({'falar': True}))
         _chamar(ws)
         assert ws.receive_json() == {'tipo': 'texto', 'texto': 'vamos conversar'}
+
+
+# --- o registro de cada chamada (registro_voz.py) ------------------------------
+
+def _ate(ws, tipo):
+    """Lê (texto e a voz em binário) até a mensagem `tipo`."""
+    while True:
+        m = ws.receive()
+        if m.get('text') and json.loads(m['text'])['tipo'] == tipo:
+            return
+
+def test_cada_pedido_fica_no_registro_so_com_numeros_e_o_caminho(monkeypatch):
+    from solis import registro_voz
+    _escuta(monkeypatch)
+    with TestClient(main.app).websocket_connect('/escuta') as ws:
+        ws.receive_json()
+        ws.send_text(json.dumps({'falar': True}))
+        _chamar(ws)
+        _ate(ws, 'ao_vivo_fim')
+    eventos = registro_voz.ler()
+    assert [e['evento'] for e in eventos] == ['acordou', 'pedido']
+    acordou, pedido = eventos
+    assert acordou['por'] == 'motor'
+    assert pedido['caminho'] == 'ao_vivo' and pedido['primeiro_som_s'] == 0.9 and 'texto_s' in pedido
+    # Nunca o que foi dito.
+    assert 'dólar' not in registro_voz.arquivo().read_text(encoding='utf-8')
+    # O arquivo é o do banco do teste, não o dos dados do Matheus.
+    assert registro_voz.arquivo().parent == banco.arquivo().parent
+
+
+def test_o_registro_anota_o_privado_a_falha_e_o_que_passou(monkeypatch):
+    from solis import registro_voz
+    casos = [('qual é a minha senha do banco', None, 'privado'),
+             ('qual é a cotação do dólar', lambda t: pedido_ao_vivo.Falhou('não começou a responder a tempo'), 'falhou'),
+             ('abre o spotify', lambda t: pedido_ao_vivo.Resultado(fala=t, passar=t), 'passou')]
+    monkeypatch.setattr(memoria, 'eh_privado', lambda t: 'senha' in t)
+    _escuta(monkeypatch)
+    atual = {}
+
+    async def transcrever(audio, **_):
+        return {'texto': atual['texto']}
+    monkeypatch.setattr(voz, 'transcrever', transcrever)
+    GeminiFalso.resultado = lambda t: atual['resultado'](t)
+    for texto, resultado, _ in casos:
+        atual.update(texto=texto, resultado=resultado)
+        with TestClient(main.app).websocket_connect('/escuta') as ws:
+            ws.receive_json()
+            ws.send_text(json.dumps({'falar': True}))
+            _chamar(ws)
+            _ate(ws, 'texto')
+    pedidos = [e for e in registro_voz.ler() if e['evento'] == 'pedido']
+    assert [p['caminho'] for p in pedidos] == [c for _, _, c in casos]
+    assert pedidos[1]['motivo'] == 'demorou'
+
+
+def test_o_resumo_mede_o_pronto_quando_da_voz():
+    from solis import registro_voz
+    registro_voz.anotar('sombra', nota=0.97)          # junto de uma chamada: não conta como falso
+    registro_voz.anotar('acordou', por='whisper', sombra=True, decisao_s=0.8)
+    registro_voz.anotar('pedido', caminho='ao_vivo', texto_s=1.0, primeiro_som_s=1.4)
+    registro_voz.anotar('acordou', por='whisper', sombra=False, decisao_s=1.2)
+    registro_voz.anotar('pedido', caminho='texto', texto_s=1.2)
+    r = registro_voz.resumo()
+    assert r['chamadas'] == 2 and r['detector_tambem_ouviu'] == '1 de 2'
+    assert r['detector_disparos_sem_chamada'] == 0
+    assert r['caminhos'] == {'ao_vivo': 1, 'texto': 1} and r['ao_vivo_primeiro_som_s'] == 1.4
+    assert TestClient(main.app).get('/voz/chamadas').json()['chamadas'] == 2
+
+
+def test_o_motivo_da_falha_nao_leva_a_mensagem_do_gemini():
+    from solis import registro_voz
+    assert registro_voz.motivo_da_falha('ClientError: 429 RESOURCE_EXHAUSTED quota') == 'limite'
+    assert registro_voz.motivo_da_falha('não começou a responder a tempo') == 'demorou'
+    assert registro_voz.motivo_da_falha('não abriu (ConnectionError: ...)') == 'nao_abriu'

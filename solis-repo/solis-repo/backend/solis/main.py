@@ -30,7 +30,7 @@ from collections import deque
 
 import numpy as np
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, rapidas, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, rapidas, registro_voz, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -1797,6 +1797,13 @@ async def transcrever_voz(request: Request):
         return JSONResponse({'erro': 'audio_ruim', 'motivo': str(e)}, status_code=400)
 
 
+@app.get('/voz/chamadas')
+async def chamadas_pela_voz(horas: float = 24):
+    """O resumo do registro da voz (registro_voz.py): quantas chamadas, quem
+    ouviu, os disparos do detector sem chamada, os caminhos e os tempos."""
+    return registro_voz.resumo(horas)
+
+
 # O ditado (o microfone da caixa de texto) pelo microfone direto do Windows
 # (22/11/2026), como a escuta: aberto na janela, o microfone estragava o som do
 # Discord. E online primeiro (transcricao.escuta): o privado conferido aqui pelo
@@ -2348,24 +2355,29 @@ async def escuta(ws: WebSocket):
             asyncio.ensure_future(sessao_viva.fechar())
             sessao_viva = None
 
-    def responder_ao_vivo(texto: str) -> bool:
+    def responder_ao_vivo(texto: str, texto_s: float | None = None) -> bool:
         """O pedido vai ao vivo (True) ou pelo caminho de hoje (False: privado, sem
-        fala, sem o Gemini, ou a resposta não é falada)."""
+        fala, sem o Gemini, ou a resposta não é falada). Anota o caminho no
+        registro da voz (registro_voz.py), com quanto o texto levou."""
         nonlocal sessao_viva, tarefa_viva, pausada
         from . import pedido_ao_vivo
-        if (not ao_vivo['falar'] or not pedido_ao_vivo.disponivel() or not ativacao.tem_fala(texto)
-                or pedido_ao_vivo.privado(texto) or pedido_ao_vivo.pede_conversa(texto)):
+        caminho = ('nada' if not ativacao.tem_fala(texto) else 'privado' if pedido_ao_vivo.privado(texto)
+                   else 'conversa' if pedido_ao_vivo.pede_conversa(texto)
+                   else 'texto' if not ao_vivo['falar'] else 'texto_sem_gemini' if not pedido_ao_vivo.disponivel()
+                   else None)
+        if caminho is not None:
             largar_ao_vivo()
+            registro_voz.anotar('pedido', caminho=caminho, texto_s=texto_s)
             return False
         sessao = sessao_viva or pedido_ao_vivo.Sessao(ao_vivo['conversa'], fala.voz_gemini())
         sessao_viva = None
         # Enquanto o Solis responde, a escuta não ouve (senão a voz dele nas caixas
         # entraria na fila do microfone); a tela tira a pausa quando a voz acabar.
         pausada = True
-        tarefa_viva = asyncio.ensure_future(_ao_vivo(sessao, texto))
+        tarefa_viva = asyncio.ensure_future(_ao_vivo(sessao, texto, texto_s))
         return True
 
-    async def _ao_vivo(sessao, texto: str) -> None:
+    async def _ao_vivo(sessao, texto: str, texto_s: float | None = None) -> None:
         nonlocal pausada
         from . import conversa_voz, pedido_ao_vivo
         enviou = False
@@ -2382,6 +2394,8 @@ async def escuta(ws: WebSocket):
                 r = await sessao.responder(texto, enviar_audio, enviar_texto)
             except pedido_ao_vivo.Falhou as e:
                 log.info('pedido ao vivo: %s; segue pelo caminho de hoje', e)
+                registro_voz.anotar('pedido', caminho='falhou', motivo=registro_voz.motivo_da_falha(str(e)),
+                                    texto_s=texto_s)
                 if any(x in str(e) for x in ('429', 'quota', 'RESOURCE_EXHAUSTED', 'chave', '403')):
                     conversa_voz.deixar_gemini(str(e))
                 pausada = False
@@ -2390,6 +2404,7 @@ async def escuta(ws: WebSocket):
             if r.passar is not None:
                 # Precisa de cartão (abrir programa, arquivo, skill...): o caminho de hoje.
                 log.info('pedido ao vivo: passou pro caminho completo')
+                registro_voz.anotar('pedido', caminho='passou', texto_s=texto_s)
                 pausada = False
                 await ws.send_json({'tipo': 'texto', 'texto': texto})
                 return
@@ -2397,6 +2412,8 @@ async def escuta(ws: WebSocket):
             conversa_voz.salvar_turno(conversa, texto, r.disse)
             log.info('pedido ao vivo: primeiro som em %s s (%s)', r.primeiro_som,
                      ', '.join(r.ferramentas) or 'sem ferramenta')
+            registro_voz.anotar('pedido', caminho='ao_vivo', texto_s=texto_s, primeiro_som_s=r.primeiro_som,
+                                ferramentas=r.ferramentas or None)
             await ws.send_json({'tipo': 'ao_vivo_fim', 'conversa': conversa, 'pedido': texto, 'disse': r.disse})
         except (WebSocketDisconnect, RuntimeError):
             pass
@@ -2494,6 +2511,7 @@ async def escuta(ws: WebSocket):
                 pausada = agora_pausada
                 # A fala dele acabou numa pergunta: ouve a resposta sem o "Solis".
                 if pedido.get('seguir') and not pausada and escutando.seguir():
+                    registro_voz.anotar('acordou', por='seguir')
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
                     preparar_ao_vivo()
@@ -2515,11 +2533,13 @@ async def escuta(ws: WebSocket):
                     if sombra_seguidas >= palavra.PACIENCIA and sombra_ultimo - sombra_disparo > 1.5:
                         sombra_disparo = sombra_ultimo
                         log.info('escuta: a palavra treinada acordaria (nota %.2f)', sombra_pico)
+                        registro_voz.anotar('sombra', nota=round(float(sombra_pico), 2))
                         # Os últimos 3 s (o que ela achou que era "Solis"): pros alarmes falsos.
                         _guardar_amostra_viva('palavra', np.array(recente, dtype=np.int16), sombra_pico)
             # Gerador: cada decisão (confirmar/descartar) vale já pro quadro seguinte.
             for tipo, audio in escutando.alimentar(msg['bytes']):
                 if tipo == 'ativou':
+                    registro_voz.anotar('acordou', por='motor')
                     await ws.send_json({'tipo': 'ativou'})
                     _aquecer()
                     preparar_ao_vivo()
@@ -2543,12 +2563,14 @@ async def escuta(ws: WebSocket):
                     # Só o pedaço que valeu como "Solis", nunca o resto do que foi
                     # dito: pra achar a próxima ativação sem chamada (19/11/2026).
                     log.info('escuta: ativou com %r', ativacao.como_chamou(ouvido))
+                    ouviu = None
                     if sombra is not None:
                         ouviu = sombra_ultimo - sombra_disparo < 4
                         log.info('escuta: a palavra treinada %s', 'também ouviu' if ouviu else 'NÃO ouviu')
                         # O trecho que o Whisper ouviu (com o "Solis"): o positivo ao vivo.
                         _guardar_amostra_viva('whisper', np.frombuffer(audio[44:], dtype=np.int16),
                                               1.0 if ouviu else 0.0)
+                    registro_voz.anotar('acordou', por='whisper', sombra=ouviu, decisao_s=round(demora, 2))
                     # "Solis, ." (o ruído virou ponto): vale como só "Solis".
                     resto = resto if ativacao.tem_fala(resto) else ''
                     await ws.send_json({'tipo': 'ativou'})
@@ -2557,7 +2579,7 @@ async def escuta(ws: WebSocket):
                     pronto = escutando.confirmar(atraso=demora, resto=resto if tipo == 'frase' else '')
                     if pronto:
                         # "Solis, que horas são?" de uma vez, e acabou: já é o comando.
-                        if not responder_ao_vivo(pronto):
+                        if not responder_ao_vivo(pronto, round(demora, 2)):
                             await ws.send_json({'tipo': 'texto', 'texto': pronto})
                 elif tipo == 'rascunho':
                     # A cascata: calado há pouco, o texto adianta; vale se ele não voltar a falar.
@@ -2565,15 +2587,17 @@ async def escuta(ws: WebSocket):
                     escutando.guardar_rascunho(texto)
                 elif audio is None:
                     largar_ao_vivo()
+                    registro_voz.anotar('pedido', caminho='nada')
                     await ws.send_json({'tipo': 'nada'})
                 else:
                     # Com o rascunho valendo, o texto já está pronto; senão, o Whisper agora.
                     # O comando pode trazer a própria palavra no começo (veio do trecho).
+                    t_fim = time.monotonic()  # o fim da fala, confirmado pelo silêncio
                     texto = escutando.pronto
                     if texto is None:
                         _, texto = ativacao.palavra_no_inicio(await _transcrever_escuta(tipo, audio))
                     # O texto conferido vai ao vivo (pedido_ao_vivo.py), ou como sempre.
-                    if responder_ao_vivo(texto):
+                    if responder_ao_vivo(texto, round(time.monotonic() - t_fim, 2)):
                         continue
                     # Sem palavra nenhuma (o "." do ruído), não vira mensagem.
                     await ws.send_json({'tipo': 'texto', 'texto': texto} if ativacao.tem_fala(texto) else {'tipo': 'nada'})
