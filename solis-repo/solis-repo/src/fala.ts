@@ -199,10 +199,10 @@ export function useFala(conversa: number | null) {
 
   /** Toca os pedaços da fila em ordem, carregando o seguinte enquanto o atual
    *  toca. A fila pode ainda estar recebendo (a resposta chegando). */
-  async function tocarFila(id: number, fila: FilaDeFala, minha: number) {
+  async function tocarFila(id: number, fila: FilaDeFala, minha: number, quem?: string) {
     const carregar = async (texto: string | null) => {
       if (texto === null) return null;
-      const url = await prepararFala(texto, conversa);
+      const url = await prepararFala(texto, conversa, quem);
       return url ? new PedacoDeFala(url) : ('falhou' as const);
     };
     const falhar = () => {
@@ -254,13 +254,15 @@ export function useFala(conversa: number | null) {
     return minha;
   }
 
-  async function ouvir(id: number, texto: string) {
+  /** Ouvir uma resposta: na voz de `quem` a disse (a personalidade dela), não
+   *  na de quem está falando na conversa agora. */
+  async function ouvir(id: number, texto: string, quem?: string) {
     acompanhando.current = null;
     const fila = new FilaDeFala();
     const minha = await comecar(id);
     fila.por((await partesDaFala(texto)) ?? []);
     fila.fechar();
-    await tocarFila(id, fila, minha);
+    await tocarFila(id, fila, minha, quem);
   }
 
   // A resposta que está sendo falada enquanto chega: até onde do texto já foi

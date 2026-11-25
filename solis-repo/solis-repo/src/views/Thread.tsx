@@ -686,7 +686,8 @@ export function Thread({
                   falando: fala.falando === t.id,
                   preparando: fala.falando === t.id && fala.preparando,
                   falhou: fala.falhou === t.id,
-                  aoOuvir: () => fala.ouvir(t.id, t.texto),
+                  // A resposta sem personalidade é do Solis de sempre.
+                  aoOuvir: () => fala.ouvir(t.id, t.texto, t.personalidade ?? 'solis'),
                   aoParar: fala.parar,
                 }}
               />

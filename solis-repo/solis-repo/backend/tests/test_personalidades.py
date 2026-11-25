@@ -274,3 +274,24 @@ def test_ao_vivo_o_sistema_leva_o_jeito_dela():
     s = pedido_ao_vivo.sistema(None, 'eva', entrou=True)
     assert 'Quem responde agora é a Eva' in s and 'Aqui é a Eva' in s
     assert 'Quem responde' not in pedido_ao_vivo.sistema(None)
+
+
+def test_ouvir_de_novo_sai_na_voz_de_quem_disse(monkeypatch):
+    """Uma resposta antiga do Ed, ouvida com a Eva falando agora: na voz do Ed."""
+    quem_falou = []
+
+    async def aos_pedacos(texto, conversa=None, quem=None):
+        quem_falou.append(quem)
+
+        async def pedacos():
+            yield b'mp3'
+        return pedacos(), 'audio/mpeg', 'gemini-flash'
+    monkeypatch.setattr(fala, 'falar_aos_pedacos', aos_pedacos)
+    conversa = banco.nova_conversa()
+    banco.guardar_personalidade(conversa, 'eva')
+    c = TestClient(main.app)
+    for corpo in ({'texto': 'Bora treinar.', 'conversa': conversa, 'quem': 'ed'},
+                  {'texto': 'Te entendo.', 'conversa': conversa}):
+        id_ = c.post('/fala/fluxo', json=corpo).json()['id']
+        assert c.get(f'/fala/fluxo/{id_}').status_code == 200
+    assert quem_falou == ['ed', 'eva']

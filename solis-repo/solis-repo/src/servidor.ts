@@ -1099,12 +1099,14 @@ export async function partesDaFala(texto: string): Promise<string[] | null> {
 /** O endereço de onde um <audio> toca o pedaço enquanto ele chega (a Fish
  *  manda aos pedaços; as outras vozes, inteiro). O texto vai no corpo do
  *  POST, nunca na URL. null: servidor fora. */
-export async function prepararFala(texto: string, conversa: number | null): Promise<string | null> {
+export async function prepararFala(texto: string, conversa: number | null, quem?: string): Promise<string | null> {
   try {
     const r = await fetch(`${BASE}/fala/fluxo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto, conversa }),
+      // `quem`: a personalidade que disse (ouvir de novo uma resposta antiga);
+      // sem ela, o servidor usa quem está falando na conversa agora.
+      body: JSON.stringify({ texto, conversa, quem }),
     });
     return r.ok ? `${BASE}/fala/fluxo/${((await r.json()) as { id: string }).id}` : null;
   } catch {
