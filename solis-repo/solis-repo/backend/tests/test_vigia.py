@@ -132,3 +132,14 @@ def test_vigiar_site_e_assunto_do_jarvis():
     assert personalidades.quem('vigia o site loja.com.br', None) == 'jarvis'
     assert personalidades.quem('meus sites estão no ar?', None) == 'jarvis'
     assert personalidades.quem('abre o site da Netflix', None) == 'solis'
+
+
+@pytest.mark.parametrize('status', [429, 401])
+def test_limitando_ou_pedindo_login_esta_no_ar(site, status):
+    """25/11/2026: o Mercado Livre respondeu 429 sendo conferido a cada minuto. É o
+    site no ar limitando acessos: avisar que caiu seria alarme falso."""
+    vigia.adicionar('loja.com.br')
+    site['status'] = status
+    for minutos in (0, 5, 10):
+        assert _volta(AGORA + dt.timedelta(minutes=minutos)) == []
+    assert vigia.sites()[0]['estado'] == 'no_ar' and site['avisados'] == []

@@ -127,7 +127,9 @@ def remover(endereco_ou_nome: str) -> dict | None:
 
 # — conferir um site ————————————————————————————————————————————————————————————————
 
-_SIGNIFICADO = {400: 'pedido recusado', 401: 'pede login', 403: 'acesso negado', 404: 'página não encontrada',
+_SIGNIFICADO = {400: 'pedido recusado', 401: 'pede login',
+                403: 'acesso negado; pode ser o site bloqueando robôs, abra no navegador pra ver',
+                404: 'página não encontrada',
                 429: 'limite de acessos', 500: 'erro no servidor', 502: 'o servidor por trás não respondeu',
                 503: 'fora do ar ou sobrecarregado', 504: 'o servidor por trás demorou demais'}
 
@@ -155,6 +157,11 @@ async def conferir_site(s: dict) -> dict:
     except Exception as e:  # noqa: BLE001 — qualquer falha de rede é o site fora, com o motivo
         return {'ok': False, 'status': None, 'ms': None, 'motivo': _motivo_da_queda(e), 'lento': False}
     ms = round((time.perf_counter() - t0) * 1000)
+    # 429 é o site no ar limitando acessos, não fora (medido em 25/11/2026: o
+    # Mercado Livre respondeu 429 conferido a cada minuto). E 401 é o site pedindo login.
+    if r.status_code in (401, 429):
+        return {'ok': True, 'status': r.status_code, 'ms': ms, 'motivo': None, 'lento': ms > LENTO_MS,
+                'nota': _SIGNIFICADO[r.status_code]}
     if r.status_code >= 400:
         return {'ok': False, 'status': r.status_code, 'ms': ms, 'lento': False,
                 'motivo': f'erro {r.status_code} ({_SIGNIFICADO.get(r.status_code, "o site respondeu com erro")})'}
