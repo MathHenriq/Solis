@@ -131,7 +131,7 @@ code { font-family: var(--mono); font-size: 13px; }
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">Atualizado em 21/11/2026</div>
+    <div class="eyebrow">Atualizado em 25/11/2026</div>
     <h1>Progresso do Solis</h1>
     <p class="lead"><strong>A base está pronta; o que faz o Solis valer a pena, ainda não.</strong>
       Quase tudo o que o Claude Code faz já funciona dentro do Solis, com qualquer cérebro. Mas é exatamente
@@ -156,11 +156,11 @@ code { font-family: var(--mono); font-size: 13px; }
       </div>
       <div class="frente">
         <div class="nome">Assessor de rotina e finanças</div><div><span class="pill mid">Começou</span></div>
-        <div class="det">Os gastos e o resumo do mês prontos (22/11): 20 de 20 frases viram o lançamento certo, na hora e no PC. Falta o WhatsApp (precisa da sua conta na Meta) e uma tela.</div>
+        <div class="det">Os gastos e o resumo do mês prontos (22/11): 20 de 20 frases viram o lançamento certo, na hora, lidas em código. Online primeiro (sua decisão de 25/11). Falta o WhatsApp (precisa da sua conta na Meta) e uma tela.</div>
       </div>
       <div class="frente">
-        <div class="nome">Personalidades</div><div><span class="pill no">Não começou</span></div>
-        <div class="det">Jarvis, Eva, Ed e o Assessor, cada um com voz, jeito e área própria na memória.</div>
+        <div class="nome">Personalidades</div><div><span class="pill mid">Começou</span></div>
+        <div class="det">Jarvis, Eva, Ed e o Assessor respondem (25/11): quem você chamar pelo nome ou o dono do assunto, cada um com voz, jeito e área própria na memória, com qualquer cérebro. Falta: o seu teste cego das vozes e o uso real.</div>
       </div>
       <div class="frente">
         <div class="nome">Agentes</div><div><span class="pill no">Não começou</span></div>
@@ -254,14 +254,20 @@ code { font-family: var(--mono); font-size: 13px; }
         <div class="cab"><h3>Assessor de rotina e finanças</h3><span class="pill mid">Começou</span></div>
         <p class="pronto"><b>Pronto quando</b>"gastei 50 no mercado", por voz ou WhatsApp, vira o lançamento certo 19 de 20 vezes, e o resumo do mês bate com a conta.</p>
         <ul class="passos">
-          <li><s>Voz e texto</s> — feito (22/11): 20 frases como você falaria ("Uber de 18 e 50", "deixei 2 mil e 500 na oficina") viram o lançamento certo 20 de 20 vezes, lidas em código, na hora (a Groq acertava 15; o Gemini, 19). "Quanto gastei esse mês?" soma e separa por categoria.</li>
+          <li><s>Voz e texto</s> — feito (22/11): 20 frases como você falaria ("Uber de 18 e 50", "deixei 2 mil e 500 na oficina") viram o lançamento certo 20 de 20 vezes, lidas em código, na hora (a Groq acertava 15; o Gemini, 19). "Quanto gastei esse mês?" soma e separa por categoria. Consertado em 25/11: "recebi um email do chefe" virava lançamento de R$ 1,00 (o "um" era lido como valor).</li>
           <li>WhatsApp: só pela API oficial da Meta (precisa de cadastro seu).</li>
           <li>Uma tela das finanças, na refação do visual.</li>
         </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
-        <div class="cab"><h3>Personalidades</h3><span class="pill no">Depois</span></div>
+        <div class="cab"><h3>Personalidades</h3><span class="pill mid">Começou</span></div>
         <p class="pronto"><b>Pronto quando</b>Jarvis, Eva, Ed e o Assessor têm voz, jeito e memória próprios, e você reconhece quem está falando sem olhar a tela.</p>
+        <ul class="passos">
+          <li><s>Quem responde</s> — feito (25/11): quem você chamar pelo nome ("Ed, ...", "chama a Eva"), senão o dono do assunto, senão quem já estava falando; o Solis de sempre fica com o geral. Em frases nunca vistas, 90% na primeira vez (72 de 80); quase todo erro cai no Solis geral, não em outra. Depois dos consertos, 99 de 100. Usar o significado (embedding) foi medido e ficou de fora: não acertava mais e somava 0,4 s.</li>
+          <li><s>Voz, jeito e memória de cada um</s> — feito (25/11): uma voz diferente por personalidade no Gemini, no Edge e no PC (nenhuma repetida); o jeito vale pra qualquer cérebro, até o local; o que cada um aprende fica na área dele.</li>
+          <li>Escolher as vozes — falta você: 3 vozes por personalidade, num teste cego.</li>
+          <li>Reconhecer quem fala sem olhar a tela — falta o uso real, com você.</li>
+        </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
         <div class="cab"><h3>Agentes</h3><span class="pill no">Depois</span></div>
@@ -282,9 +288,11 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-feito">
       <h2 id="t-feito">Feito nos últimos dias</h2>
       <ul class="lista">
+        <li><span class="d">25/11</span><span>As personalidades: Jarvis, Eva, Ed e o Assessor respondem pelo nome ou pelo assunto, cada um com a sua voz, o seu jeito e a sua área na memória, com qualquer cérebro (o pedido ao vivo também).</span></li>
+        <li><span class="d">25/11</span><span>Consertado nas finanças: "recebi um email" e "comprei um livro" viravam lançamento de R$ 1,00, e "comprei 3 camisetas por 90", de R$ 3,00.</span></li>
         <li><span class="d">22/11</span><span>O pedido ao vivo: o "Solis, ..." respondido pela voz do Gemini Live, com as ferramentas do Solis e o privado conferido no PC (só o texto vai pro Google). Com ferramenta, de 3–4 s pra 2,5–2,8 s.</span></li>
         <li><span class="d">22/11</span><span>Comparativo de tempo real: o Gemini 3.1 Flash Live com as ferramentas do Solis, 8 de 8 e primeiro som em 1,9 s; preços do OpenAI Realtime, ElevenLabs e Cartesia levantados.</span></li>
-        <li><span class="d">22/11</span><span>As finanças do Assessor: "gastei 50 no mercado" vira o lançamento certo (20 de 20, na hora, sem o dinheiro sair do PC), e "quanto gastei esse mês?" bate com a conta.</span></li>
+        <li><span class="d">22/11</span><span>As finanças do Assessor: "gastei 50 no mercado" vira o lançamento certo (20 de 20, na hora, lido em código), e "quanto gastei esse mês?" bate com a conta.</span></li>
         <li><span class="d">22/11</span><span>O registro de cada chamada pela voz: chamadas, quem ouviu, alarmes do detector, caminho e tempo do primeiro som, prontos pra medir um dia de uso.</span></li>
         <li><span class="d">22/11</span><span>Achado e corrigido: os testes automáticos gravavam sons sintéticos na pasta das suas chamadas ao vivo (53 arquivos, movidos pra _dos-testes). O retreino feito com eles foi desfeito; o detector de antes voltou.</span></li>
         <li><span class="d">22/11</span><span>"Deixa eu ver." quando o Solis vai pesquisar (na mesma voz da resposta), a conta com datas exata e o ditado pelo microfone do Windows, online primeiro.</span></li>
@@ -307,6 +315,7 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-voce">
       <h2 id="t-voce">Esperando você</h2>
       <ul class="lista voce">
+        <li><div><strong>Escolher as vozes das personalidades</strong><br><span>Em design/personalidades/_vozes: pra cada uma (Jarvis, Eva, Ed, Assessor), 3 vozes lendo a mesma fala, com letras (A, B, C). Diga a letra de que mais gostou em cada uma.</span></div></li>
         <li><div><strong>Testar o pedido ao vivo</strong><br><span>Com "Responder falando" ligado, chame "Solis, ..." normalmente: a resposta vem pela voz do Gemini Live. Feche e abra o Solis antes (carrega o novo e o detector treinado).</span></div></li>
         <li><div><strong>Usar o Solis em casa, até no Discord</strong><br><span>Chamando normalmente: cada "Solis" fica guardado no PC pra treinar o detector com a sua voz ao vivo.</span></div></li>
         <li><div><strong>Pagar ou não a voz G</strong><br><span>De graça ela dá 10 respostas por dia e depois cai pra Fish. Paga: uns US$ 4 a 6 por mês (ligar o faturamento na chave do Google AI Studio).</span></div></li>

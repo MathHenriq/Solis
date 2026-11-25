@@ -487,7 +487,9 @@ dos servidores MCP também, desde 17/11/2026 (ver o item 5 abaixo). Uma exceçã
 de busca guarda o texto legível da memória privada (anotado em `banco.py`).
 
 **Memória** — a busca por significado e a memória visível em Conhecimento existem (`busca.py`,
-o grafo). Falta a área por personalidade.
+o grafo). A área por personalidade existe desde 25/11/2026 (`personalidades.py`): o que é
+aprendido numa resposta fica na área de quem respondeu, todos leem tudo, e quem responde vê
+primeiro o que é da área dele.
 
 **Agentes** — os ajudantes (subagentes) do Claude aparecem trabalhando na barra do projeto, com o
 que fazem agora. É o embrião do escritório visual. Os agentes deste documento (Pesquisador,
