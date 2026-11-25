@@ -287,7 +287,7 @@ def relatorio(escolhidas: list[dict], candidatas: list[dict], contagem: dict, ag
                       + (f' O que fazer: {x["o_que_fazer"]}' if x['o_que_fazer'] else ''))
         linhas.append(f'   {x["url"]}')
     linhas += ['', f'Escolhi entre {len(candidatas)} novidades de IA da semana ({fontes}). Os links vêm direto das '
-               'fontes. Se alguma não serviu, diga: o Atlas aprende com o seu voto.']
+               'fontes. Se não serviu, o 👎 aqui embaixo fica registrado.']
     return '\n'.join(linhas)
 
 
