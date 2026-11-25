@@ -299,9 +299,9 @@ def resumo(de: date, ate: date) -> dict:
 
 def resumo_em_texto(r: dict, nome: str) -> str:
     if not r['lancamentos']:
-        return f'Nenhum lançamento em {nome}.'
-    partes = [f'{nome}: gastos de {reais(r["gastos"])}' + (f', entradas de {reais(r["entradas"])}, saldo de '
-                                                           f'{reais(r["saldo"])}' if r['entradas'] else '') + '.']
+        return f'Nenhum lançamento {nome if nome in ("hoje", "ontem", "esta semana") else "em " + nome}.'
+    partes = [f'{nome[:1].upper() + nome[1:]}: gastos de {reais(r["gastos"])}' + (
+        f', entradas de {reais(r["entradas"])}, saldo de {reais(r["saldo"])}' if r['entradas'] else '') + '.']
     if r['por_categoria']:
         partes.append('Por categoria: ' + '; '.join(f'{c} {reais(v)}' for c, v in r['por_categoria'].items()) + '.')
     ultimos = r['itens'][-5:]

@@ -32,6 +32,15 @@ AGENDA = re.compile(
     r'^(?:o que (?:eu )?tenho(?: marcado| na (?:minha )?agenda)?|o que tem na (?:minha )?agenda|qual (?:e )?(?:a )?minha agenda'
     r'|tenho (?:algum )?(?:compromisso|coisa marcada|algo marcado))' + _DIA + r'$'
 )
+# "Quanto gastei esse mês?", "meus gastos de outubro", "quanto recebi no mês passado".
+_PERIODO = (r'(?:\s+(?:(?:esse|este|nesse|neste|no|do|deste|desse) mes|hoje|ontem|(?:essa|esta|nessa|nesta) semana'
+            r'|(?:no |do )?mes passado|(?:em|de|no|do) (?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto'
+            r'|setembro|outubro|novembro|dezembro)))?')
+GASTOS = re.compile(
+    r'^(?:quanto (?:eu )?(?:ja )?(?:gastei|recebi)|quais (?:foram )?(?:os )?meus gastos|(?:os )?meus gastos'
+    r'|como (?:estao|tao|esta|ta) (?:as )?minhas financas|resumo (?:dos gastos|das financas)|gastos)'
+    + _PERIODO + r'(?:\s+(?:ate agora|ate hoje))?$'
+)
 TAREFAS = re.compile(
     r'^(?:quais (?:sao )?(?:as )?minhas tarefas|o que (?:eu )?tenho (?:que|pra|para) fazer|minhas tarefas)' + _DIA + r'$'
 )
@@ -123,6 +132,11 @@ def responder(texto: str, agora: dt.datetime) -> dict | None:
     if financas.parece_lancamento(texto) and (lanc := financas.interpretar(texto, agora.date())):
         return {'tipo': 'lancamento', 'texto': None, 'tarefa': None, 'lancamento': lanc,
                 'privada': memoria.eh_privado(texto) or bool(memoria.SENSIVEL.search(texto))}
+    # "Quanto gastei esse mês?": a soma do banco, sem cérebro (bate com a conta).
+    if GASTOS.match(limpo):
+        de, ate, nome = financas.periodo_de(limpo, agora.date())
+        return {'tipo': 'gastos', 'texto': financas.resumo_em_texto(financas.resumo(de, ate), nome),
+                'tarefa': None, 'privada': False}
 
     # Lembrete com hora: anotado aqui, antes de qualquer resposta.
     if not texto.rstrip().endswith('?') and (t := memoria.lembrete_rapido(texto, agora)):

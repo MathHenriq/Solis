@@ -151,3 +151,30 @@ def test_ao_vivo_o_lancamento_vai_pelo_caminho_rapido(monkeypatch):
         assert ws.receive_json() == {'tipo': 'texto', 'texto': 'gastei 50 no mercado'}
     assert all(g.texto is None for g in GeminiFalso.criadas)
     assert [e['caminho'] for e in registro_voz.ler() if e['evento'] == 'pedido'] == ['rapida']
+
+
+@pytest.mark.parametrize('pergunta, nome', [
+    ('Quanto gastei esse mês?', 'Novembro até hoje'), ('Solis, quanto eu gastei hoje?', 'Hoje'),
+    ('Meus gastos de outubro', 'Outubro de 2026'), ('Quanto recebi no mês passado?', 'Outubro de 2026'),
+    ('Como estão minhas finanças?', 'Novembro até hoje'), ('quanto gastei essa semana', 'Esta semana'),
+])
+def test_quanto_gastei_sai_na_hora_e_bate_com_a_conta(pergunta, nome):
+    import datetime as dt
+    from solis import rapidas
+    banco.adicionar_lancamento('2026-11-25', 5000, 'gasto', 'mercado', 'mercado')
+    banco.adicionar_lancamento('2026-11-24', 1850, 'gasto', 'transporte', 'uber')
+    banco.adicionar_lancamento('2026-10-10', 200000, 'entrada', 'salário', 'salário')
+    r = rapidas.responder(pergunta, dt.datetime(2026, 11, 25, 10, 0))
+    assert r['tipo'] == 'gastos' and r['texto'].startswith(f'{nome}: ')
+    if nome == 'Hoje':
+        assert 'gastos de R$ 50,00' in r['texto']
+    if nome == 'Novembro até hoje':
+        assert 'gastos de R$ 68,50' in r['texto'] and 'mercado R$ 50,00; transporte R$ 18,50' in r['texto']
+
+
+def test_pergunta_de_gasto_que_o_codigo_nao_sabe_vai_pro_cerebro():
+    import datetime as dt
+    from solis import rapidas
+    assert rapidas.responder('quanto gastei com uber?', dt.datetime(2026, 11, 25)) is None
+    assert rapidas.responder('quanto custa um ps5?', dt.datetime(2026, 11, 25)) is None
+    assert 'Nenhum lançamento hoje.' == f.resumo_em_texto(f.resumo(HOJE, HOJE), 'hoje')
