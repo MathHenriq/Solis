@@ -101,6 +101,43 @@ def _hoje():
     return date.today()
 
 
+def _financas():
+    from . import financas
+    return financas
+
+
+async def _lancar(args: dict) -> str:
+    f = _financas()
+    centavos = f.valor_de(str(args.get('valor') or ''))
+    if not centavos:
+        return f'Não entendi o valor "{args.get("valor")}": mande como 50, 12,90 ou 2 mil.'
+    tipo = 'entrada' if str(args.get('tipo') or '').lower().startswith('entr') else 'gasto'
+    descricao = ' '.join(str(args.get('descricao') or '').split()) or 'sem descrição'
+    categoria = f.categoria_de(descricao, tipo, str(args.get('categoria') or ''))
+    dia = f.dia_de(str(args.get('data') or ''), _hoje())
+    forma = ' '.join(str(args.get('forma') or '').split()) or None
+    id_ = banco.adicionar_lancamento(dia.isoformat(), centavos, tipo, categoria, descricao, forma)
+    return f.confirmacao({'dia': dia.isoformat(), 'centavos': centavos, 'tipo': tipo, 'categoria': categoria,
+                          'descricao': descricao, 'forma': forma}, id_, _hoje())
+
+
+async def _gastos(args: dict) -> str:
+    f = _financas()
+    de, ate, nome = f.periodo_de(str(args.get('periodo') or ''), _hoje())
+    return f.resumo_em_texto(f.resumo(de, ate), nome)
+
+
+async def _apagar_lancamento(args: dict) -> str:
+    f = _financas()
+    n = str(args.get('numero') or '').strip().lstrip('#')
+    alvo = banco.ultimo_lancamento() if not n.isdigit() else {'id': int(n)}
+    if not alvo or not banco.apagar_lancamento(alvo['id']):
+        return 'Não achei esse lançamento.'
+    feito = alvo if 'centavos' in alvo else None
+    return f'Apagado o lançamento #{alvo["id"]}' + (
+        f' ({f.reais(feito["centavos"])}, {feito["descricao"]}).' if feito else '.')
+
+
 async def _datas(args: dict) -> str:
     from datetime import timedelta
     hoje = _hoje()
@@ -204,8 +241,29 @@ DO_SOLIS: list[Ferramenta] = [
                                                                   '(vazio se não for o caso).'},
                         'dias': {'type': 'string', 'description': 'Quantos dias somar a hoje, ex.: 45 ou -10 '
                                                                   '(vazio se não for o caso).'}}, []), _datas),
+    Ferramenta('lancar', 'Anota um gasto ou uma entrada de dinheiro do Matheus (as finanças dele): "gastei 50 no '
+               'mercado", "paguei 120 de luz", "uber 18,50", "recebi 2 mil de salário". Use SEMPRE que ele disser '
+               'que gastou, pagou, comprou ou recebeu dinheiro (não é lembrete).',
+               _objeto({'valor': {'type': 'string', 'description': 'O valor inteiro como ele disse, numa chamada só: '
+                                                                   '50, 12,90, 2 mil ("25 e 50" é R$ 25,50).'},
+                        'descricao': {'type': 'string', 'description': 'Em que foi, curto: mercado, luz, uber.'},
+                        'tipo': {'type': 'string', 'enum': ['gasto', 'entrada'],
+                                 'description': 'gasto: gastou, pagou, comprou, deixou; entrada: recebeu, ganhou, '
+                                                'vendeu.'},
+                        'categoria': {'type': 'string', 'description': 'Uma de: ' + ', '.join(
+                            _financas().CATEGORIAS + _financas().CATEGORIAS_ENTRADA) + '.'},
+                        'data': {'type': 'string', 'description': 'hoje, ontem ou dd/mm (vazio = hoje).'},
+                        'forma': {'type': 'string', 'description': 'pix, cartão, dinheiro (vazio se ele não disse).'}},
+                       ['valor', 'descricao', 'tipo']), _lancar),
+    Ferramenta('gastos', 'Os gastos e as entradas do Matheus num período, somados e por categoria, com os '
+               'últimos lançamentos (e o número de cada um).',
+               _objeto({'periodo': {'type': 'string', 'description': 'este mês, mês passado, hoje, ontem, semana '
+                                                                     'ou o nome do mês.'}}), _gastos),
+    Ferramenta('apagar_lancamento', 'Apaga um lançamento das finanças (quando ele disser que errou): o número '
+               'dele, ou "ultimo".', _objeto({'numero': _TEXTO}), _apagar_lancamento),
     Ferramenta('criar_lembrete', 'Anota uma tarefa (com dia e hora opcionais) na tela Tarefas; com hora, o '
-               'Solis avisa no Windows na hora. Use quando o Matheus pedir pra lembrar, anotar ou avisar.',
+               'Solis avisa no Windows na hora. Use quando o Matheus pedir pra lembrar, anotar ou avisar (dinheiro '
+               'gasto ou recebido vai em lancar).',
                _objeto({'texto': _TEXTO, 'dia': _TEXTO, 'hora': _TEXTO}), _criar_lembrete),
     Ferramenta('marcar_compromisso', 'Põe um compromisso na Agenda do Matheus. dia em AAAA-MM-DD, hora em HH:MM.',
                _objeto({'titulo': _TEXTO, 'dia': _TEXTO, 'hora': _TEXTO, 'onde': _TEXTO}), _marcar_compromisso),

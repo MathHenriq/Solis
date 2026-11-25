@@ -432,6 +432,26 @@ MIGRACOES = [
     );
     CREATE INDEX copias_volta_conversa ON copias_volta (conversa, mensagem);
     """,
+    # 23 — as finanças do Assessor (financas.py, 22/11/2026): "gastei 50 no
+    # mercado" vira um lançamento. O valor em centavos (sempre positivo; o tipo
+    # diz se saiu ou entrou) e a categoria ficam abertos, pra somar o mês; a
+    # descrição vai selada pelo cofre (IDEIAS.md: "saúde e finanças numa área
+    # protegida"). Apagar é marcar `apagado` (dá pra desfazer).
+    """
+    CREATE TABLE lancamentos (
+        id        INTEGER PRIMARY KEY,
+        dia       TEXT NOT NULL,
+        centavos  INTEGER NOT NULL,
+        tipo      TEXT NOT NULL,
+        categoria TEXT NOT NULL,
+        descricao TEXT NOT NULL,
+        forma     TEXT,
+        conversa  INTEGER REFERENCES conversas(id) ON DELETE SET NULL,
+        criado    TEXT NOT NULL,
+        apagado   TEXT
+    );
+    CREATE INDEX lancamentos_dia ON lancamentos (dia);
+    """,
 ]
 
 
@@ -1188,6 +1208,42 @@ def adicionar_tarefa(
             'INSERT INTO tarefas (texto, prazo, hora, conversa, privada, criada) VALUES (?, ?, ?, ?, ?, ?)',
             (cofre.selar(texto) if privada else texto, prazo, hora if prazo else None, conversa, int(privada), _agora()),
         ).lastrowid
+
+
+def adicionar_lancamento(dia: str, centavos: int, tipo: str, categoria: str, descricao: str,
+                         forma: str | None = None, conversa: int | None = None) -> int:
+    """Um gasto ou uma entrada (financas.py). A descrição vai selada."""
+    with _con() as c:
+        return c.execute(
+            'INSERT INTO lancamentos (dia, centavos, tipo, categoria, descricao, forma, conversa, criado) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (dia, int(centavos), tipo, categoria, cofre.selar(descricao), forma, conversa, _agora()),
+        ).lastrowid
+
+
+def _lancamento(l) -> dict:
+    descricao = cofre.abrir(l['descricao'])
+    return {'id': l['id'], 'dia': l['dia'], 'centavos': l['centavos'], 'tipo': l['tipo'], 'categoria': l['categoria'],
+            'descricao': '' if descricao == cofre.ILEGIVEL else descricao, 'forma': l['forma'],
+            'conversa': l['conversa'], 'criado': l['criado']}
+
+
+def lancamentos(de: str, ate: str) -> list[dict]:
+    """Os lançamentos de `de` a `ate` (AAAA-MM-DD, os dois inclusos), sem os apagados."""
+    linhas = _con().execute(
+        'SELECT * FROM lancamentos WHERE apagado IS NULL AND dia >= ? AND dia <= ? ORDER BY dia, id', (de, ate))
+    return [_lancamento(l) for l in linhas]
+
+
+def ultimo_lancamento() -> dict | None:
+    l = _con().execute('SELECT * FROM lancamentos WHERE apagado IS NULL ORDER BY id DESC LIMIT 1').fetchone()
+    return _lancamento(l) if l else None
+
+
+def apagar_lancamento(id_: int) -> bool:
+    with _con() as c:
+        return c.execute('UPDATE lancamentos SET apagado = ? WHERE id = ? AND apagado IS NULL',
+                         (_agora(), id_)).rowcount > 0
 
 
 def tarefa(id_: int) -> dict | None:

@@ -1484,6 +1484,12 @@ async def _responder(
             t = rapida['tarefa']
             if t:
                 banco.adicionar_tarefa(t['texto'], t['prazo'], t['hora'], conversa, privada=rapida['privada'])
+            if rapida.get('lancamento'):
+                from . import financas
+                l = rapida['lancamento']
+                lid = banco.adicionar_lancamento(l['dia'], l['centavos'], l['tipo'], l['categoria'], l['descricao'],
+                                                 l['forma'], conversa)
+                rapida['texto'] = financas.confirmacao(l, lid)
             etapas.marcar('rapida', tipo=rapida['tipo'])
             etapas.texto(rapida['texto'])
             resposta_id = banco.adicionar(conversa, 'solis', rapida['texto'], privada=rapida['privada'], cerebro='solis')
@@ -2361,7 +2367,10 @@ async def escuta(ws: WebSocket):
         registro da voz (registro_voz.py), com quanto o texto levou."""
         nonlocal sessao_viva, tarefa_viva, pausada
         from . import pedido_ao_vivo
+        # Os pedidos rápidos (hora, agenda, lembrete, lançamento: rapidas.py) saem em
+        # código, na hora, pelo caminho de hoje — sem gastar o Gemini.
         caminho = ('nada' if not ativacao.tem_fala(texto) else 'privado' if pedido_ao_vivo.privado(texto)
+                   else 'rapida' if rapidas.responder(texto, datetime.now()) is not None
                    else 'conversa' if pedido_ao_vivo.pede_conversa(texto)
                    else 'texto' if not ao_vivo['falar'] else 'texto_sem_gemini' if not pedido_ao_vivo.disponivel()
                    else None)

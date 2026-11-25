@@ -115,6 +115,15 @@ def responder(texto: str, agora: dt.datetime) -> dict | None:
         return {'tipo': 'tarefas', 'texto': f'{cabeca.capitalize()}: {_lista(nomes)}{mais}.', 'tarefa': None,
                 'privada': any(t.get('privada') for t in abertas[:5])}
 
+    # O lançamento das finanças (financas.py, 22/11/2026): "gastei 50 no mercado"
+    # lido em código acertou 20 de 20 (a Groq, 15; o Gemini, 19), na hora, com
+    # qualquer cérebro e sem o dinheiro dele sair do PC. Quem anota é quem chama
+    # (main): aqui só se reconhece.
+    from . import financas
+    if financas.parece_lancamento(texto) and (lanc := financas.interpretar(texto, agora.date())):
+        return {'tipo': 'lancamento', 'texto': None, 'tarefa': None, 'lancamento': lanc,
+                'privada': memoria.eh_privado(texto) or bool(memoria.SENSIVEL.search(texto))}
+
     # Lembrete com hora: anotado aqui, antes de qualquer resposta.
     if not texto.rstrip().endswith('?') and (t := memoria.lembrete_rapido(texto, agora)):
         privada = memoria.eh_privado(texto) or bool(memoria.SENSIVEL.search(t['texto']))
