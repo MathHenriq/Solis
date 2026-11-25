@@ -155,8 +155,8 @@ code { font-family: var(--mono); font-size: 13px; }
         <div class="det">Claude, GPT, Groq, Gemini, OpenRouter e o local usam as mesmas funções. O local (qwen3:8b) edita arquivo, lê a internet, usa skills e ajudantes: 17 de 17 na medição de 20/11.</div>
       </div>
       <div class="frente">
-        <div class="nome">Assessor de rotina e finanças</div><div><span class="pill no">Não começou</span></div>
-        <div class="det">As peças existem (agenda, tarefas, lembretes). Faltam os gastos, o resumo do mês e o WhatsApp.</div>
+        <div class="nome">Assessor de rotina e finanças</div><div><span class="pill mid">Começou</span></div>
+        <div class="det">Os gastos e o resumo do mês prontos (22/11): 20 de 20 frases viram o lançamento certo, na hora e no PC. Falta o WhatsApp (precisa da sua conta na Meta) e uma tela.</div>
       </div>
       <div class="frente">
         <div class="nome">Personalidades</div><div><span class="pill no">Não começou</span></div>
@@ -251,8 +251,13 @@ code { font-family: var(--mono); font-size: 13px; }
         </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
-        <div class="cab"><h3>Assessor de rotina e finanças</h3><span class="pill no">Depois</span></div>
+        <div class="cab"><h3>Assessor de rotina e finanças</h3><span class="pill mid">Começou</span></div>
         <p class="pronto"><b>Pronto quando</b>"gastei 50 no mercado", por voz ou WhatsApp, vira o lançamento certo 19 de 20 vezes, e o resumo do mês bate com a conta.</p>
+        <ul class="passos">
+          <li><s>Voz e texto</s> — feito (22/11): 20 frases como você falaria ("Uber de 18 e 50", "deixei 2 mil e 500 na oficina") viram o lançamento certo 20 de 20 vezes, lidas em código, na hora (a Groq acertava 15; o Gemini, 19). "Quanto gastei esse mês?" soma e separa por categoria.</li>
+          <li>WhatsApp: só pela API oficial da Meta (precisa de cadastro seu).</li>
+          <li>Uma tela das finanças, na refação do visual.</li>
+        </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
         <div class="cab"><h3>Personalidades</h3><span class="pill no">Depois</span></div>
@@ -279,6 +284,7 @@ code { font-family: var(--mono); font-size: 13px; }
       <ul class="lista">
         <li><span class="d">22/11</span><span>O pedido ao vivo: o "Solis, ..." respondido pela voz do Gemini Live, com as ferramentas do Solis e o privado conferido no PC (só o texto vai pro Google). Com ferramenta, de 3–4 s pra 2,5–2,8 s.</span></li>
         <li><span class="d">22/11</span><span>Comparativo de tempo real: o Gemini 3.1 Flash Live com as ferramentas do Solis, 8 de 8 e primeiro som em 1,9 s; preços do OpenAI Realtime, ElevenLabs e Cartesia levantados.</span></li>
+        <li><span class="d">22/11</span><span>As finanças do Assessor: "gastei 50 no mercado" vira o lançamento certo (20 de 20, na hora, sem o dinheiro sair do PC), e "quanto gastei esse mês?" bate com a conta.</span></li>
         <li><span class="d">22/11</span><span>O registro de cada chamada pela voz: chamadas, quem ouviu, alarmes do detector, caminho e tempo do primeiro som, prontos pra medir um dia de uso.</span></li>
         <li><span class="d">22/11</span><span>Achado e corrigido: os testes automáticos gravavam sons sintéticos na pasta das suas chamadas ao vivo (53 arquivos, movidos pra _dos-testes). O retreino feito com eles foi desfeito; o detector de antes voltou.</span></li>
         <li><span class="d">22/11</span><span>"Deixa eu ver." quando o Solis vai pesquisar (na mesma voz da resposta), a conta com datas exata e o ditado pelo microfone do Windows, online primeiro.</span></li>
