@@ -163,8 +163,8 @@ code { font-family: var(--mono); font-size: 13px; }
         <div class="det">Jarvis, Eva, Ed e o Assessor respondem (25/11): quem você chamar pelo nome ou o dono do assunto, cada um com voz, jeito e área própria na memória, com qualquer cérebro. Falta: o seu teste cego das vozes e o uso real.</div>
       </div>
       <div class="frente">
-        <div class="nome">Agentes</div><div><span class="pill no">Não começou</span></div>
-        <div class="det">Pesquisador, Vigia de projetos, Segurança, Validador de ideias. Os ajudantes técnicos (que leem e fazem partes do trabalho) já existem.</div>
+        <div class="nome">Agentes</div><div><span class="pill mid">Começou</span></div>
+        <div class="det">O Vigia e o Atlas · Pesquisador funcionam (25/11), com qualquer cérebro: o Vigia confere seus sites a cada 5 min, em código, e avisa no Windows; o Atlas traz toda segunda as novidades de IA que servem pra você, lidas das fontes, sem link inventado. Falta: os seus sites e o seu voto nas novidades. Segurança e o Gerente vêm depois.</div>
       </div>
       <div class="frente">
         <div class="nome">Cérebro na nuvem e celular</div><div><span class="pill no">Não começou</span></div>
@@ -270,8 +270,15 @@ code { font-family: var(--mono); font-size: 13px; }
         </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
-        <div class="cab"><h3>Agentes</h3><span class="pill no">Depois</span></div>
+        <div class="cab"><h3>Agentes</h3><span class="pill mid">Começou</span></div>
         <p class="pronto"><b>Pronto quando</b>o Pesquisador traz uma novidade útil por semana e o Vigia avisa um site fora do ar antes de você notar.</p>
+        <ul class="passos">
+          <li><s>O Vigia</s> — feito (25/11): "vigia o site X" e ele confere a cada 5 min (se respondeu, o erro, uma palavra da página, o certificado), em código, sem cérebro. Só avisa depois de duas falhas seguidas, e avisa de novo quando volta. Medido com um site de verdade caindo: aviso em 9 a 18 s na escala de teste; com os tempos reais, em até 6 min (3 min em média). Alarme falso: 8 sites públicos por 30 min, 227 olhadas, 3 tropeços únicos (a segunda olhada viu o site no ar) e 0 avisos falsos.</li>
+          <li><s>O Atlas · Pesquisador</s> — feito (25/11): toda segunda, as novidades de IA da semana (Hacker News, GitHub, Hugging Face). O cérebro escolhe pelo número da lista e escreve o porquê lendo a página de cada uma: nenhum link inventado, e a limitação (só pra pesquisa, licença) aparece. No ensaio: 55 novidades de IA, 5 escolhidas em ~9 s, pela Groq grátis.</li>
+          <li>Os seus sites — falta você dizer quais vigiar.</li>
+          <li>"Útil" — falta o seu voto nas novidades (a primeira chega quando o Solis abrir).</li>
+          <li>Só com o PC ligado e o Solis aberto, até o cérebro na nuvem.</li>
+        </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
         <div class="cab"><h3>Cérebro na nuvem e celular</h3><span class="pill no">Depois</span></div>
@@ -288,6 +295,8 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-feito">
       <h2 id="t-feito">Feito nos últimos dias</h2>
       <ul class="lista">
+        <li><span class="d">25/11</span><span>O Vigia: confere os seus sites a cada 5 min, sem cérebro, e avisa no Windows quando um cai e quando volta (pela voz do Jarvis).</span></li>
+        <li><span class="d">25/11</span><span>O Atlas · Pesquisador: as novidades de IA da semana que servem pra você, das fontes de verdade, com o porquê lido na página de cada uma.</span></li>
         <li><span class="d">25/11</span><span>As personalidades: Jarvis, Eva, Ed e o Assessor respondem pelo nome ou pelo assunto, cada um com a sua voz, o seu jeito e a sua área na memória, com qualquer cérebro (o pedido ao vivo também).</span></li>
         <li><span class="d">25/11</span><span>Consertado nas finanças: "recebi um email" e "comprei um livro" viravam lançamento de R$ 1,00, e "comprei 3 camisetas por 90", de R$ 3,00.</span></li>
         <li><span class="d">22/11</span><span>O pedido ao vivo: o "Solis, ..." respondido pela voz do Gemini Live, com as ferramentas do Solis e o privado conferido no PC (só o texto vai pro Google). Com ferramenta, de 3–4 s pra 2,5–2,8 s.</span></li>
@@ -315,6 +324,8 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-voce">
       <h2 id="t-voce">Esperando você</h2>
       <ul class="lista voce">
+        <li><div><strong>Dizer quais sites vigiar</strong><br><span>"Solis, vigia o site meusite.com.br" (pode pôr uma palavra que tem que aparecer na página, pra pegar página quebrada). "Como estão os sites?" mostra tudo.</span></div></li>
+        <li><div><strong>Votar nas novidades do Atlas</strong><br><span>A primeira chega quando você abrir o Solis (nos Recentes: "Novidades da semana · Atlas"); depois, toda segunda. O 👍/👎 diz se serviu.</span></div></li>
         <li><div><strong>Escolher as vozes das personalidades</strong><br><span>Em design/personalidades/_vozes: pra cada uma (Jarvis, Eva, Ed, Assessor), 3 vozes lendo a mesma fala, com letras (A, B, C). Diga a letra de que mais gostou em cada uma.</span></div></li>
         <li><div><strong>Testar o pedido ao vivo</strong><br><span>Com "Responder falando" ligado, chame "Solis, ..." normalmente: a resposta vem pela voz do Gemini Live. Feche e abra o Solis antes (carrega o novo e o detector treinado).</span></div></li>
         <li><div><strong>Usar o Solis em casa, até no Discord</strong><br><span>Chamando normalmente: cada "Solis" fica guardado no PC pra treinar o detector com a sua voz ao vivo.</span></div></li>

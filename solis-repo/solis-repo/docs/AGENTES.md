@@ -56,6 +56,22 @@ o Solis já mostra trabalhando (os ajudantes na barra do projeto). O que falta e
 que é do Solis: o nome e o cargo na tela, o histórico de execuções de cada um, o Gerente e o
 escritório.
 
+**Superado pela regra de 18/11/2026** ("as funções são do Solis, não do Claude"): os agentes são
+do Solis e funcionam com qualquer cérebro, não como subagentes do Claude Code. Os dois primeiros
+nasceram assim em 25/11/2026:
+
+- **Vigia** (`backend/solis/vigia.py`; o nome próprio, a definir): confere os sites do Matheus a
+  cada 5 minutos, em código, sem cérebro, e avisa no Windows quando um cai (depois de duas falhas
+  seguidas) e quando volta. Também a palavra que tem que aparecer na página e o certificado.
+  Pelas ferramentas `vigiar_site`, `sites_vigiados` e `parar_de_vigiar`.
+- **Atlas · Pesquisador** (`backend/solis/pesquisador.py`): toda segunda, as novidades de IA da
+  semana (Hacker News, GitHub, Hugging Face). O cérebro escolhe pelo número da lista e escreve o
+  porquê lendo a página de cada uma; o link vem sempre da fonte. Pela ferramenta
+  `novidades_da_semana`.
+
+Os dois dão a voz pelo Jarvis (a personalidade técnica) e rodam dentro do servidor do Solis: só
+com o PC ligado, até o cérebro na nuvem.
+
 ---
 
 ## 1. Visão do produto
