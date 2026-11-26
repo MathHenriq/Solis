@@ -180,10 +180,13 @@ def _lista_pro_cerebro(candidatas: list[dict]) -> str:
 
 def _cerebros() -> list[str]:
     """Os que respondem em JSON, na ordem dele: os de API primeiro, o local por
-    último (online primeiro, a regra do Matheus; o local é a reserva sem internet)."""
-    from . import apis, roteador
+    último (online primeiro, a regra do Matheus; o local é a reserva sem internet).
+    Como servidor (nuvem.py) não há modelo local: no GitHub, sem chave, o erro
+    saía "local: " vazio, como se ele existisse."""
+    from . import apis, nuvem, roteador
     ligados = [p['nome'] for p in roteador.preferencia() if p['ligado']]
-    return [n for n in ligados if n in apis.PROVEDORES and apis.tem_chave(n)] + (['local'] if 'local' in ligados else [])
+    local = ['local'] if 'local' in ligados and not nuvem.ligado() else []
+    return [n for n in ligados if n in apis.PROVEDORES and apis.tem_chave(n)] + local
 
 
 # A segunda passada (25/11/2026): no ensaio, o "por que" saía só do título e de
