@@ -168,7 +168,7 @@ code { font-family: var(--mono); font-size: 13px; }
       </div>
       <div class="frente">
         <div class="nome">Cérebro na nuvem e celular</div><div><span class="pill no">Não começou</span></div>
-        <div class="det">O Solis já sobe como servidor no Linux (26/11), com senha (token) e cofre, testado num Linux de verdade a cada mudança. As quatro opções de servidor estão medidas, de R$ 0 a R$ 43 por mês; a escolha fica pra quando você quiser. Falta: o celular abrir o Solis.</div>
+        <div class="det">O Solis já sobe como servidor no Linux (26/11), com senha (token) e cofre, testado num Linux de verdade a cada mudança. O celular já abre o Solis pelo endereço do servidor, com login (26/11). As quatro opções de servidor estão medidas, de R$ 0 a R$ 43 por mês; a escolha fica pra quando você quiser. Falta: os avisos chegarem no celular e a voz pelo celular.</div>
       </div>
       <div class="frente">
         <div class="nome">Visual</div><div><span class="pill bad">Provisório</span></div>
@@ -286,7 +286,9 @@ code { font-family: var(--mono); font-size: 13px; }
         <ul class="passos">
           <li><s>Levantar os servidores</s> — feito (26/11). O Solis carregado ocupa ~67 MB, sem modelo local, e o banco 0,9 MB: qualquer servidor de 1 GB roda o núcleo. Do seu PC, o Brasil fica a 31–38 ms e os EUA a 132–162 ms. As opções: Oracle grátis em Vinhedo (2 processadores, 12 GB, mas recolhe máquina parada), Google grátis nos EUA (1 GB), Hostinger no Brasil por R$ 29,99/mês (4 GB, 24 meses) e AWS em São Paulo por ~R$ 43/mês (1 GB).</li>
           <li><s>O Solis como servidor</s> — feito (26/11): no Linux, sem o app do PC na frente. Todo acesso precisa da senha (token), e as chaves das APIs ficam criptografadas, com a chave longe do banco. A cada mudança, o GitHub roda os testes num Linux de verdade: 1040 passam, e os 17 pulados são do corpo do PC (terminal e tela), que no servidor não existem; sobe o servidor e confere que sem senha não entra.</li>
-          <li>O celular abrir o Solis, com login — agora.</li>
+          <li><s>O celular abrir o Solis, com login</s> — feito (26/11): o servidor entrega a própria tela. No primeiro acesso, você cola a senha uma vez e ela fica guardada no aparelho por um ano. Na tela de celular entram a barra de ícones embaixo e a caixa de escrever em duas linhas (provisório até o visual novo). Testado num navegador do tamanho de um celular: senha errada barrada, a certa entra, e "que horas são?" e "que dia é hoje?" voltam na hora.</li>
+          <li>Os avisos (compromisso, tarefa, site fora do ar, novidades) chegarem no celular — no servidor não há o aviso do Windows.</li>
+          <li>A voz pelo celular: o microfone do navegador só abre em https, que vem com o servidor de verdade.</li>
           <li>Escolher o servidor — quando você quiser (a conta e o pagamento são seus; a instalação é comigo).</li>
           <li>O privado fica só no PC, como hoje (a proposta).</li>
         </ul>
