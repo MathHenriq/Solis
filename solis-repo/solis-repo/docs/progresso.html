@@ -131,7 +131,7 @@ code { font-family: var(--mono); font-size: 13px; }
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">Atualizado em 25/11/2026</div>
+    <div class="eyebrow">Atualizado em 26/11/2026</div>
     <h1>Progresso do Solis</h1>
     <p class="lead"><strong>A base está pronta; o que faz o Solis valer a pena, ainda não.</strong>
       Quase tudo o que o Claude Code faz já funciona dentro do Solis, com qualquer cérebro. Mas é exatamente
@@ -168,7 +168,7 @@ code { font-family: var(--mono); font-size: 13px; }
       </div>
       <div class="frente">
         <div class="nome">Cérebro na nuvem e celular</div><div><span class="pill no">Não começou</span></div>
-        <div class="det">Hoje tudo roda no PC. A decisão de servidor e custo está em aberto.</div>
+        <div class="det">Hoje tudo roda no PC. As quatro opções de servidor estão levantadas e medidas (26/11), de R$ 0 a R$ 43 por mês. Falta a sua escolha.</div>
       </div>
       <div class="frente">
         <div class="nome">Visual</div><div><span class="pill bad">Provisório</span></div>
@@ -283,6 +283,11 @@ code { font-family: var(--mono); font-size: 13px; }
       <div class="fase"><div class="n"></div><div class="corpo">
         <div class="cab"><h3>Cérebro na nuvem e celular</h3><span class="pill no">Depois</span></div>
         <p class="pronto"><b>Pronto quando</b>o Solis responde pelo celular com o PC desligado.</p>
+        <ul class="passos">
+          <li><s>Levantar os servidores</s> — feito (26/11). O Solis carregado ocupa ~67 MB, sem modelo local, e o banco 0,9 MB: qualquer servidor de 1 GB roda o núcleo. Do seu PC, o Brasil fica a 31–38 ms e os EUA a 132–162 ms. As opções: Oracle grátis em Vinhedo (2 processadores, 12 GB, mas recolhe máquina parada), Google grátis nos EUA (1 GB), Hostinger no Brasil por R$ 29,99/mês (4 GB, 24 meses) e AWS em São Paulo por ~R$ 43/mês (1 GB).</li>
+          <li>Escolher o servidor — falta você (a conta e o pagamento são seus; a instalação é comigo).</li>
+          <li>O privado fica só no PC, como hoje (a proposta).</li>
+        </ul>
       </div></div>
       <div class="fase"><div class="n"></div><div class="corpo">
         <div class="cab"><h3>O visual novo</h3><span class="pill no">No fim</span></div>
@@ -324,6 +329,7 @@ code { font-family: var(--mono); font-size: 13px; }
     <section aria-labelledby="t-voce">
       <h2 id="t-voce">Esperando você</h2>
       <ul class="lista voce">
+        <li><div><strong>Escolher o servidor do cérebro na nuvem</strong><br><span>Oracle grátis (no Brasil, mas pode recolher a máquina parada), Google grátis (nos EUA, 1 GB), Hostinger por R$ 29,99/mês (no Brasil, 4 GB, contrato de 24 meses) ou AWS por ~R$ 43/mês (São Paulo, 1 GB, sem contrato). Os detalhes estão no docs/IDEIAS.md.</span></div></li>
         <li><div><strong>Dizer quais sites vigiar</strong><br><span>"Solis, vigia o site meusite.com.br" (pode pôr uma palavra que tem que aparecer na página, pra pegar página quebrada). "Como estão os sites?" mostra tudo.</span></div></li>
         <li><div><strong>Votar nas novidades do Atlas</strong><br><span>A primeira chega quando você abrir o Solis (nos Recentes: "Novidades da semana · Atlas"); depois, toda segunda. O 👍/👎 diz se serviu.</span></div></li>
         <li><div><strong>Escolher as vozes das personalidades</strong><br><span>Em design/personalidades/_vozes: pra cada uma (Jarvis, Eva, Ed, Assessor), 3 vozes lendo a mesma fala, com letras (A, B, C). Diga a letra de que mais gostou em cada uma.</span></div></li>

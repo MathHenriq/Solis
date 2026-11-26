@@ -106,6 +106,48 @@ navegador, arquivos, terminal, controle de tela) + conectores prontos via MCP + 
 agendadas. A IA combina as peças a partir do pedido em texto. Quando falta uma peça, entra a
 autoexpansão: o Solis pede ao Claude Code para criar, testa, pede aprovação e adiciona.
 
+### O servidor do cérebro na nuvem (levantado em 26/11/2026)
+
+O que foi medido antes de escolher (os scripts estão em `design/nuvem/`):
+
+- **Tamanho.** O servidor do Solis carregado, sem nenhum modelo local, ocupa ~67 MB de RAM: o
+  Whisper e o Kokoro só carregam quando são usados, e na nuvem não rodam. O banco inteiro tem
+  0,9 MB. Um servidor de 1 GB roda o núcleo; com 4 GB sobra folga pro Claude Code (o CLI) e pra
+  busca por significado no próprio servidor.
+- **Distância.** Ida e volta do PC do Matheus, mediana de 7 conexões: Brasil 31–38 ms (Oracle em
+  Vinhedo e São Paulo, AWS e Vultr em São Paulo), EUA 132–162 ms, Alemanha 205 ms. No Brasil, cada
+  ida e volta entre o celular e o servidor fica ~100 ms mais curta. O trecho do servidor até os
+  cérebros não dá pra medir sem um servidor lá: as APIs atendem perto (23–36 ms), mas pensam onde a
+  empresa quiser.
+
+As quatro opções (dólar a R$ 5,88 pela PTAX do Banco Central de 25/11; com os 3,5% de IOF do
+cartão, R$ 6,09):
+
+| | Opção | Onde | Máquina | Custo por mês | O porém |
+| --- | --- | --- | --- | --- | --- |
+| Grátis boa | Oracle Always Free | Vinhedo ou São Paulo (31–34 ms) | 2 processadores Arm, 12 GB, 200 GB | R$ 0 | Pede cartão. "Sem máquina disponível" é comum. Recolhe a máquina parada por 7 dias (CPU, rede e memória abaixo de 20%), e é assim que o Solis fica a maior parte do tempo. Em 2026 cortou o grátis pela metade (eram 4 processadores e 24 GB) |
+| Grátis média | Google Cloud e2-micro | EUA (132–153 ms) | 1 GB, 30 GB | R$ 0 | Pede cartão. 1 GB dá só pro núcleo, e a saída de dados é de 1 GB por mês |
+| Paga boa | Hostinger KVM 1 | Brasil (15 ms, medido pelo site dela) | 1 vCPU, 4 GB, 50 GB NVMe, backup semanal | R$ 29,99 em reais, contrato de 24 meses (R$ 719,76, ou em 12 parcelas); renova a R$ 59,99 | Preço de Black Friday. Mês a mês: R$ 36,99 no primeiro mês e R$ 87,99 depois. Reembolso em 30 dias |
+| Paga média | AWS Lightsail | São Paulo (38 ms) | 2 vCPU, 1 GB, 40 GB | US$ 7 ≈ R$ 43 (com 2 GB, US$ 12 ≈ R$ 73) | Sem contrato e na AWS, mas em dólar e com menos memória pelo dobro do preço |
+
+Ficaram de fora:
+
+- Hetzner: só EUA e Europa, os preços subiram em 2026 e falta máquina pra contratar.
+- Vultr em São Paulo: o preço da região só aparece no painel; listas de terceiros dão US$ 9–15.
+- Magalu Cloud: não publica o preço, só tem simulador.
+- Render, Koyeb e Hugging Face: o grátis dorme e não guarda arquivo, então o Vigia pararia.
+
+Também entram:
+
+- Um domínio (~R$ 40 por ano no registro.br), quando o WhatsApp precisar de endereço público. A
+  Hostinger dá um domínio grátis no primeiro ano.
+- O celular pode falar com o servidor por uma rede privada (Tailscale, grátis no uso pessoal),
+  sem nada exposto.
+
+O privado: a proposta é que o que está marcado como privado continue só no PC, como hoje. Com o PC
+desligado, o Solis do celular não vê esse conteúdo. Quando o WhatsApp entrar, as finanças pelo
+celular vão precisar morar no servidor, e aí o Matheus decide.
+
 ## Personalidades
 
 Cada personalidade é um agente com nicho, jeito de falar e de pensar próprios, e uma área própria
@@ -420,7 +462,9 @@ problema real, se o Claude Code já faz, e como medir.
 
 - [ ] Qual é a frase de resultado do Solis?
 - [ ] Eva cuida também de análise de soluções, ou isso vira outra personalidade?
-- [ ] Qual servidor usar para o cérebro na nuvem, e quanto custa por mês?
+- [ ] Qual servidor usar para o cérebro na nuvem, e quanto custa por mês? *26/11/2026: as quatro
+      opções, medidas e com o custo, estão em "O servidor do cérebro na nuvem" (Arquitetura);
+      falta a escolha do Matheus.*
 - [ ] Quais partes do que já existe no repositório (MCP, Whisper, Fish Audio, temas) ficam, mudam
       ou saem com a nova arquitetura?
 - [ ] A regra da OpenAI permite usar a cota do ChatGPT/Codex dentro do Solis?
