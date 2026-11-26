@@ -31,7 +31,7 @@ from collections import deque
 
 import numpy as np
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, rapidas, registro_voz, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, push, rapidas, registro_voz, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -162,6 +162,45 @@ async def sair():
     resposta = RedirectResponse('/entrar', status_code=303)
     resposta.delete_cookie(nuvem.COOKIE)
     return resposta
+
+
+# — Avisos no celular: o Web Push do navegador (push.py) ————————————————————————
+
+@app.get('/avisos/push')
+async def push_estado():
+    """A chave pública do servidor (pro navegador se inscrever) e os aparelhos ligados."""
+    return {'chave': push.chave_publica(), 'aparelhos': [push.publica(i) for i in push.inscricoes()]}
+
+
+class InscricaoPush(BaseModel):
+    endpoint: str
+    keys: dict[str, str]
+
+
+@app.post('/avisos/push')
+async def push_inscrever(corpo: InscricaoPush, request: Request):
+    try:
+        aparelho = push.inscrever(corpo.model_dump(), request.headers.get('user-agent', ''))
+    except push.InscricaoInvalida as e:
+        return JSONResponse({'erro': 'inscricao_invalida', 'motivo': str(e)}, status_code=400)
+    return {'aparelho': aparelho}
+
+
+class QualAparelho(BaseModel):
+    quem: str  # o id da lista, ou o endpoint (o próprio aparelho se desligando)
+
+
+@app.post('/avisos/push/remover')
+async def push_remover(corpo: QualAparelho):
+    if not push.remover(corpo.quem):
+        return JSONResponse({'erro': 'aparelho_inexistente'}, status_code=404)
+    return {'ok': True}
+
+
+@app.post('/avisos/push/testar')
+async def push_testar():
+    entregues = await push.enviar('Solis', 'Os avisos chegam aqui: compromisso, tarefa, site fora do ar.', 'solis-teste')
+    return {'entregues': entregues, 'aparelhos': len(push.inscricoes())}
 
 
 @app.get('/modelos')
@@ -3053,4 +3092,4 @@ async def tela_do_solis(caminho: str):
     # O index.html nunca fica guardado no aparelho (aponta pros arquivos da
     # versão nova); os de assets/ têm o nome com o hash: podem ficar.
     guardar = 'public, max-age=31536000, immutable' if '/assets/' in arquivo.as_posix() else 'no-cache'
-    return FileResponse(arquivo, headers={'Cache-Control': guardar})
+    return FileResponse(arquivo, media_type=nuvem.tipo_do_arquivo(arquivo), headers={'Cache-Control': guardar})

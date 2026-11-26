@@ -148,6 +148,8 @@ def test_entrar_guarda_o_cookie_e_a_tela_abre(servidor, front):
     assert servidor.get('/conversa/12').text.startswith('<!doctype html>')  # rota da tela → index.html
     js = servidor.get('/assets/app-abc123.js')
     assert js.status_code == 200 and 'immutable' in js.headers['cache-control']
+    # O tipo certo, fixo (o service worker é recusado se vier como texto).
+    assert js.headers['content-type'].startswith('text/javascript')
     assert servidor.get('/').headers['cache-control'] == 'no-cache'
     assert servidor.get('/conversas').status_code == 200
     assert servidor.get('/assets/nao-existe.js').status_code == 404
@@ -182,3 +184,16 @@ def test_tela_nao_construida_diz_onde_procurou(servidor, monkeypatch, tmp_path):
     servidor.cookies.set('solis_token', TOKEN)
     r = servidor.get('/')
     assert r.status_code == 404 and r.json()['erro'] == 'tela_nao_construida'
+
+
+def test_o_que_o_celular_busca_sem_cookie_e_livre(servidor, front):
+    """O navegador busca o manifesto sem credencial, e o iPhone o ícone, ao pôr
+    o Solis na Tela de Início: sem isso, nem nome nem ícone."""
+    (front / 'manifest.webmanifest').write_text('{"name": "Solis"}', encoding='utf-8')
+    (front / 'sw.js').write_text('// avisos', encoding='utf-8')
+    manifesto = servidor.get('/manifest.webmanifest')
+    assert manifesto.status_code == 200 and manifesto.headers['content-type'] == 'application/manifest+json'
+    sw = servidor.get('/sw.js')
+    assert sw.status_code == 200 and sw.headers['content-type'].startswith('text/javascript')
+    # O resto continua pedindo a senha.
+    assert servidor.get('/assets/app-abc123.js').status_code == 401

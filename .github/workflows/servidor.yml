@@ -88,6 +88,10 @@ jobs:
           test "$(codigo -c /tmp/biscoito -d "token=$SOLIS_TOKEN" http://127.0.0.1:8765/entrar)" = 303
           curl -sf -b /tmp/biscoito http://127.0.0.1:8765/ | grep -q '<div id="root">'
           test "$(codigo -b /tmp/biscoito http://127.0.0.1:8765/conversas)" = 200
+          # Os avisos no celular: o manifesto e o service worker abrem sem cookie, com o tipo certo.
+          curl -s -o /dev/null -w '%{http_code} %{content_type}' http://127.0.0.1:8765/manifest.webmanifest | grep -q '^200 application/manifest+json'
+          curl -s -o /dev/null -w '%{http_code} %{content_type}' http://127.0.0.1:8765/sw.js | grep -q '^200 text/javascript'
+          test "$(codigo -b /tmp/biscoito http://127.0.0.1:8765/avisos/push)" = 200
           # O cofre de arquivo: a chave fica fora da pasta do banco, só do usuário.
           python -c "from solis import cofre; s = cofre.selar('chave-de-teste'); assert s.startswith('cofre:v2:') and cofre.abrir(s) == 'chave-de-teste'"
           test "$(stat -c %a /tmp/solis-config/cofre.chave)" = 600

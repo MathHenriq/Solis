@@ -1936,3 +1936,60 @@ export async function rodarAgendada(id: number): Promise<number | null> {
     return null;
   }
 }
+
+// — Avisos no celular (backend/solis/push.py) —————————————————————————————————————
+
+/** Um aparelho que recebe os avisos (o navegador que ligou em Configurações). */
+export type AparelhoPush = { id: string; aparelho: string; criada: string };
+/** `chave`: a pública do servidor, que o navegador usa pra se inscrever. */
+export type EstadoPush = { chave: string; aparelhos: AparelhoPush[] };
+
+/** null: servidor desligado. */
+export async function lerPush(): Promise<EstadoPush | null> {
+  try {
+    const r = await fetch(`${BASE}/avisos/push`);
+    return r.ok ? ((await r.json()) as EstadoPush) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Guarda a inscrição deste navegador. Devolve o motivo se o servidor recusou. */
+export async function inscreverPush(inscricao: PushSubscriptionJSON): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  try {
+    const r = await fetch(`${BASE}/avisos/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(inscricao),
+    });
+    if (r.ok) return { ok: true };
+    const corpo = (await r.json().catch(() => ({}))) as { motivo?: string };
+    return { ok: false, motivo: corpo.motivo ?? `o servidor respondeu ${r.status}` };
+  } catch {
+    return { ok: false, motivo: 'o servidor do Solis não respondeu' };
+  }
+}
+
+/** `quem`: o id de um aparelho da lista, ou o endpoint deste navegador. */
+export async function removerPush(quem: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/avisos/push/remover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quem }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Manda um aviso de teste pra todos. null: servidor desligado. */
+export async function testarPush(): Promise<{ entregues: number; aparelhos: number } | null> {
+  try {
+    const r = await fetch(`${BASE}/avisos/push/testar`, { method: 'POST' });
+    return r.ok ? ((await r.json()) as { entregues: number; aparelhos: number }) : null;
+  } catch {
+    return null;
+  }
+}

@@ -44,7 +44,13 @@ from . import banco
 log = logging.getLogger('solis.nuvem')
 
 MINIMO = 24  # caracteres de um token aceito
-LIVRES = {'/saude', '/entrar'}
+LIVRES = {
+    '/saude', '/entrar',
+    # O que o celular busca SEM o cookie (o navegador não manda credencial pro
+    # manifesto, e o iPhone busca o ícone ao pôr na Tela de Início). Nada privado:
+    # o nome, o ícone e o service worker dos avisos.
+    '/manifest.webmanifest', '/icone-192.png', '/icone-512.png', '/favicon.svg', '/favicon.ico', '/sw.js',
+}
 COOKIE = 'solis_token'
 COOKIE_DURA = 365 * 24 * 3600
 
@@ -161,6 +167,21 @@ def arquivo_do_front(caminho: str) -> Path | None:
     if alvo.is_file():
         return alvo
     return indice if '.' not in Path(caminho).name else None
+
+
+# O tipo de cada arquivo da tela, fixo: o mimetypes do Python lê o registro do
+# Windows, onde .js às vezes é text/plain — e o navegador recusa o service
+# worker (sw.js) servido assim. O .webmanifest nem existe na lista dele.
+TIPOS = {
+    '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.map': 'application/json',
+    '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png',
+    '.webp': 'image/webp', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
+}
+
+
+def tipo_do_arquivo(arquivo: Path) -> str | None:
+    return TIPOS.get(arquivo.suffix.lower())
 
 
 def https(cabecalhos, esquema: str) -> bool:

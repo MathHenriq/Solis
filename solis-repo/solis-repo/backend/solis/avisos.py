@@ -26,7 +26,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from . import banco
+from . import banco, push
 
 log = logging.getLogger('solis.avisos')
 
@@ -104,11 +104,23 @@ def pendentes(agora: dt.datetime) -> list[dict]:
 
 
 async def mostrar(titulo: str, texto: str, tag: str) -> bool:
-    """A notificação do Windows. False se não deu (fora do Windows, ou o
-    PowerShell falhou) — aí o aviso não é marcado e a próxima volta tenta."""
+    """O aviso: a notificação do Windows (no PC) e o push nos aparelhos ligados
+    (push.py — o celular; no servidor, é o único caminho). False se não chegou
+    a lugar nenhum — aí o aviso não é marcado e a próxima volta tenta."""
+    try:
+        no_celular = await push.enviar(titulo, texto, tag)
+    except Exception:
+        log.exception('o push do aviso falhou')
+        no_celular = 0
     if os.name != 'nt':
-        log.info('aviso (sem Windows): %s — %s', titulo, texto)
-        return False
+        if not no_celular:
+            log.info('aviso (sem Windows e sem aparelho ligado): %s — %s', titulo, texto)
+        return no_celular > 0
+    return await _windows(titulo, texto, tag) or no_celular > 0
+
+
+async def _windows(titulo: str, texto: str, tag: str) -> bool:
+    """A notificação do Windows. False se o PowerShell falhou."""
     corpo = json.dumps({'titulo': titulo, 'texto': texto, 'tag': tag[-64:]}, ensure_ascii=False).encode('utf-8')
     # subprocess numa thread, e não asyncio.create_subprocess_exec: com o
     # --reload do `npm run backend`, o uvicorn no Windows roda num laço que não
