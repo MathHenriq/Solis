@@ -41,6 +41,7 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt pytest-timeout==2.4.0 2>&1 | tee /tmp/instala.txt
 
       - name: Testes
+        id: testes
         timeout-minutes: 20
         run: |
           set -o pipefail
@@ -49,6 +50,8 @@ jobs:
           python -m pytest -v -p no:cacheprovider --timeout=60 -rfE 2>&1 | tee /tmp/testes.txt
 
       - name: Sobe como servidor e confere o token
+        # Roda mesmo com teste falhando: são coisas diferentes.
+        if: success() || steps.testes.outcome == 'failure'
         timeout-minutes: 3
         env:
           SOLIS_SERVIDOR: '1'
@@ -78,8 +81,10 @@ jobs:
           fi
           if [ -f /tmp/testes.txt ]; then
             echo "::notice title=Testes::$(tail -1 /tmp/testes.txt)"
-            grep -E '^(FAILED|ERROR) ' /tmp/testes.txt | head -40 | sed 's/^/::error title=Falhou::/'
-            grep -E 'Timeout|Failed: Timeout' /tmp/testes.txt | head -10 | sed 's/^/::error title=Travou::/'
+            # A página mostra até 10 avisos por passo: as falhas vão todas num só,
+            # uma por linha (%0A), só o nome do teste e o começo do motivo.
+            falhas=$(grep -E '^(FAILED|ERROR) ' /tmp/testes.txt | cut -c1-230 | head -60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            [ -n "$falhas" ] && echo "::error title=Falharam::$falhas"
           fi
           if [ -f /tmp/solis.log ]; then
             grep -iE 'error|traceback|exception' /tmp/solis.log | head -10 | sed 's/^/::warning title=Log do servidor::/'
