@@ -109,3 +109,76 @@ def test_cofre_de_arquivo_sem_a_chave_certa_nao_abre(cofre_de_arquivo, monkeypat
 
 def test_cofre_de_arquivo_nao_finge_abrir_o_do_windows(cofre_de_arquivo):
     assert cofre.abrir(cofre.PREFIXO_WINDOWS + 'QUJD') == cofre.ILEGIVEL
+
+
+# O celular (26/11/2026): o servidor entrega a tela do Solis no mesmo endereço,
+# com a página de entrar.
+
+@pytest.fixture
+def front(monkeypatch, tmp_path):
+    dist = tmp_path / 'dist'
+    (dist / 'assets').mkdir(parents=True)
+    (dist / 'index.html').write_text('<!doctype html><title>Solis</title>', encoding='utf-8')
+    (dist / 'assets' / 'app-abc123.js').write_text('console.log(1)', encoding='utf-8')
+    (tmp_path / 'segredo.txt').write_text('não sai', encoding='utf-8')
+    monkeypatch.setenv('SOLIS_FRONT', str(dist))
+    return dist
+
+
+def test_o_navegador_sem_senha_vai_pra_pagina_de_entrar(servidor, front):
+    r = servidor.get('/', headers={'Accept': 'text/html'}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers['location'] == '/entrar'
+    pagina = servidor.get('/entrar')
+    assert pagina.status_code == 200 and 'name="token"' in pagina.text and 'Cole a senha' in pagina.text
+    # A tela pedindo dados (sem pedir página) continua levando 401, não a página.
+    assert servidor.get('/conversas').status_code == 401
+
+
+def test_entrar_guarda_o_cookie_e_a_tela_abre(servidor, front):
+    errado = servidor.post('/entrar', content='token=nao-e-esse', headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    assert errado.status_code == 401 and 'não é a do servidor' in errado.text
+    r = servidor.post('/entrar', content=f'token={TOKEN}', headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                      follow_redirects=False)
+    assert r.status_code == 303 and r.headers['location'] == '/'
+    biscoito = r.headers['set-cookie']
+    assert f'solis_token={TOKEN}' in biscoito and 'HttpOnly' in biscoito and 'samesite=lax' in biscoito.lower()
+    assert 'Secure' not in biscoito  # http puro (teste): o navegador não guardaria um Secure
+    # Com o cookie: a tela, os arquivos dela e os dados.
+    assert servidor.get('/').text.startswith('<!doctype html>')
+    assert servidor.get('/conversa/12').text.startswith('<!doctype html>')  # rota da tela → index.html
+    js = servidor.get('/assets/app-abc123.js')
+    assert js.status_code == 200 and 'immutable' in js.headers['cache-control']
+    assert servidor.get('/').headers['cache-control'] == 'no-cache'
+    assert servidor.get('/conversas').status_code == 200
+    assert servidor.get('/assets/nao-existe.js').status_code == 404
+    # Sair apaga o cookie.
+    saiu = servidor.post('/sair', follow_redirects=False)
+    assert saiu.status_code == 303 and 'solis_token=""' in saiu.headers['set-cookie']
+
+
+def test_pelo_tunel_https_o_cookie_e_secure(servidor, front):
+    r = servidor.post('/entrar', content=f'token={TOKEN}', follow_redirects=False,
+                      headers={'Content-Type': 'application/x-www-form-urlencoded', 'X-Forwarded-Proto': 'https'})
+    assert 'Secure' in r.headers['set-cookie']
+
+
+def test_nao_sai_da_pasta_da_tela(servidor, front):
+    servidor.cookies.set('solis_token', TOKEN)
+    for caminho in ('/../segredo.txt', '/%2e%2e/segredo.txt', '/assets/../../segredo.txt'):
+        r = servidor.get(caminho)
+        assert 'não sai' not in r.text
+    assert nuvem.arquivo_do_front('../segredo.txt') is None
+
+
+def test_no_pc_nao_tem_pagina_de_entrar_nem_tela(front):
+    c = TestClient(main.app)
+    assert c.get('/entrar').status_code == 404
+    assert c.get('/').status_code == 404
+    assert c.get('/qualquer/coisa').status_code == 404
+
+
+def test_tela_nao_construida_diz_onde_procurou(servidor, monkeypatch, tmp_path):
+    monkeypatch.setenv('SOLIS_FRONT', str(tmp_path / 'sem-dist'))
+    servidor.cookies.set('solis_token', TOKEN)
+    r = servidor.get('/')
+    assert r.status_code == 404 and r.json()['erro'] == 'tela_nao_construida'

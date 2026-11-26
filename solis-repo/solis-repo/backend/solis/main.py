@@ -14,6 +14,7 @@ import mimetypes
 import re
 import time
 import uuid
+from urllib.parse import parse_qs
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
@@ -23,7 +24,7 @@ from logging.handlers import RotatingFileHandler
 import httpx
 from fastapi import BackgroundTasks, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from collections import deque
@@ -127,6 +128,40 @@ app.add_middleware(nuvem.Porteiro)
 @app.get('/saude')
 async def saude():
     return {'ok': True}
+
+
+# — Como servidor: entrar pelo navegador (o celular) — nuvem.py ———————————————————
+
+def _so_servidor() -> JSONResponse | None:
+    return None if nuvem.ligado() else JSONResponse({'detail': 'Not Found'}, status_code=404)
+
+
+@app.get('/entrar', include_in_schema=False)
+async def pagina_entrar():
+    return _so_servidor() or HTMLResponse(nuvem.pagina_entrar())
+
+
+@app.post('/entrar', include_in_schema=False)
+async def entrar(request: Request):
+    if fora := _so_servidor():
+        return fora
+    dado = parse_qs((await request.body()).decode('utf-8', 'replace')).get('token', [''])[0].strip()
+    if not nuvem.confere(dado):
+        log.warning('entrar: senha errada')
+        return HTMLResponse(nuvem.pagina_entrar(errou=True), status_code=401)
+    resposta = RedirectResponse('/', status_code=303)
+    resposta.set_cookie(nuvem.COOKIE, dado, max_age=nuvem.COOKIE_DURA, httponly=True, samesite='lax',
+                        secure=nuvem.https(request.headers, request.url.scheme))
+    return resposta
+
+
+@app.post('/sair', include_in_schema=False)
+async def sair():
+    if fora := _so_servidor():
+        return fora
+    resposta = RedirectResponse('/entrar', status_code=303)
+    resposta.delete_cookie(nuvem.COOKIE)
+    return resposta
 
 
 @app.get('/modelos')
@@ -3000,3 +3035,22 @@ async def apagar_conhecimento(id_: int):
     if not banco.apagar_documento(id_):
         return JSONResponse({'erro': 'documento_inexistente'}, status_code=404)
     return {'ok': True}
+
+
+# — Como servidor: a tela do Solis no mesmo endereço (o celular) — nuvem.py ——————
+# POR ÚLTIMO de propósito: só pega o GET que nenhuma rota acima pegou. No PC (sem
+# SOLIS_SERVIDOR) continua 404, como antes: quem mostra a tela é o app.
+
+@app.get('/{caminho:path}', include_in_schema=False)
+async def tela_do_solis(caminho: str):
+    if fora := _so_servidor():
+        return fora
+    arquivo = nuvem.arquivo_do_front(caminho)
+    if arquivo is None:
+        if not (nuvem.pasta_do_front() / 'index.html').is_file():
+            return JSONResponse({'erro': 'tela_nao_construida', 'pasta': str(nuvem.pasta_do_front())}, status_code=404)
+        return JSONResponse({'detail': 'Not Found'}, status_code=404)
+    # O index.html nunca fica guardado no aparelho (aponta pros arquivos da
+    # versão nova); os de assets/ têm o nome com o hash: podem ficar.
+    guardar = 'public, max-age=31536000, immutable' if '/assets/' in arquivo.as_posix() else 'no-cache'
+    return FileResponse(arquivo, headers={'Cache-Control': guardar})

@@ -93,7 +93,7 @@ export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: str
             próprio canvas, então não opaca a foto atrás; e o focus-within troca
             pelo véu forte, que é como o resto do sistema marca "estou aqui". */}
         <form
-          className="flex items-center border border-divider rounded-composer
+          className="composer-solis flex items-center border border-divider rounded-composer
                      bg-[var(--mem-hover)] focus-within:bg-[var(--mem-hover-forte)]"
           style={{ marginTop: 'var(--conversa-campo)', width: '100%', height: 'var(--composer-height)' }}
           onSubmit={(e) => {

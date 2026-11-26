@@ -13,6 +13,7 @@ import { noApp, useIlhaNoApp } from './tauri';
 import { useConversa } from './conversa';
 import { useEscuta } from './escuta';
 import { falaAutomatica, marcarRespostaFalada } from './fala';
+import { aplicarNav } from './theme/theme';
 import { useTheme } from './theme/useTheme';
 import { Agenda } from './views/Agenda';
 import { Conhecimento } from './views/Conhecimento';
@@ -129,7 +130,15 @@ export default function App() {
 
   // 'icones' SUBSTITUI a sidebar — não convive com ela. Neste modo o conteúdo
   // ocupa a janela inteira e a cápsula flutua por cima, no rodapé.
-  const comSidebar = nav === 'sidebar';
+  // No celular (o Solis aberto pelo servidor, 26/11/2026) a sidebar comia mais da
+  // metade dos 375 px e espremia a conversa: em tela estreita vale o modo ícones,
+  // qualquer que seja a escolha das Configurações (que continua valendo no PC).
+  // PROVISÓRIO: o visual do celular é desenhado na refação do visual.
+  const estreita = useEstreita();
+  const comSidebar = nav === 'sidebar' && !estreita;
+  // O modo valendo vai pro DOM (o CSS reserva o espaço da barra por ele). Depois
+  // do useTheme, que põe o escolhido: em tela estreita, este ganha.
+  useEffect(() => aplicarNav(comSidebar ? 'sidebar' : 'icones'), [comSidebar, nav]);
   const [gaveta, definirGaveta] = useState(false);
 
   // A lista de conversas aparece em qualquer tela (na sidebar, ou na gaveta do
@@ -208,4 +217,18 @@ export default function App() {
       )}
     </div>
   );
+}
+
+/** Tela estreita (celular): abaixo de 768 px, o ponto em que o tablet em pé começa. */
+const ESTREITA = '(max-width: 767px)';
+
+function useEstreita() {
+  const [estreita, definir] = useState(() => typeof window !== 'undefined' && window.matchMedia(ESTREITA).matches);
+  useEffect(() => {
+    const m = window.matchMedia(ESTREITA);
+    const mudou = () => definir(m.matches);
+    m.addEventListener('change', mudou);
+    return () => m.removeEventListener('change', mudou);
+  }, []);
+  return estreita;
 }

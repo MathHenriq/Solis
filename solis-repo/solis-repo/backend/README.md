@@ -53,6 +53,18 @@ SOLIS_SERVIDOR=1 python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765
   do PC já só existem no Windows.
 - **Endereço:** escuta só `127.0.0.1`. Quem põe na rede é um túnel (Cloudflare) ou a Tailscale, e
   por isso o servidor confia no token, nunca no endereço de quem pede.
+- **Pelo celular (ou qualquer navegador):** o servidor entrega a própria tela do Solis. Ela precisa
+  estar construída (`npm run build` na raiz do app, que gera o `dist/`; ou aponte `SOLIS_FRONT` pra
+  outra pasta).
+  - Quem abre o endereço sem cookie cai em `/entrar`, cola o token uma vez e recebe o cookie
+    `solis_token`: dura um ano, é HttpOnly, `SameSite=Lax`, e é `Secure` quando o acesso vem por
+    https, inclusive por um túnel que avise com `X-Forwarded-Proto`.
+  - Daí pra frente, a tela fala com o servidor pelo mesmo endereço (`src/servidor.ts`). `POST /sair`
+    apaga o cookie.
+  - Em tela estreita (menos de 768 px), o app usa a barra de ícones, e a caixa de escrever quebra em
+    duas linhas.
+  - No PC, sem `SOLIS_SERVIDOR`, nada disso existe: `/entrar` e endereço desconhecido dão 404, como
+    antes.
 - **Teste automático:** a cada mudança no backend, o GitHub roda todos os testes num Ubuntu e sobe o
   servidor assim (`.github/workflows/servidor.yml`, na raiz do repositório).
 

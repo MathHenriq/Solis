@@ -20,6 +20,13 @@ provar que vem do Matheus. Com SOLIS_SERVIDOR=1:
 Por trás de um proxy na mesma máquina (o túnel da Cloudflare, o `tailscale
 serve`), todo pedido chega de 127.0.0.1 — por isso o servidor nunca confia no
 endereço de quem pede, só no token.
+
+O celular (o corpo que não instala nada): o servidor entrega a própria tela do
+Solis (o front construído, `npm run build` → dist/) no endereço dele. Quem abre
+sem o cookie vai pra /entrar, cola o token uma vez, e o cookie fica no aparelho
+(um ano, HttpOnly: o JavaScript da página não lê). Daí pra frente a tela fala
+com o servidor pelo mesmo endereço, com o cookie indo sozinho, até nos
+WebSockets da voz.
 """
 import hmac
 import logging
@@ -29,7 +36,7 @@ from http.cookies import CookieError, SimpleCookie
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.websockets import WebSocketClose
 
 from . import banco
@@ -37,8 +44,9 @@ from . import banco
 log = logging.getLogger('solis.nuvem')
 
 MINIMO = 24  # caracteres de um token aceito
-LIVRES = {'/saude'}
+LIVRES = {'/saude', '/entrar'}
 COOKIE = 'solis_token'
+COOKIE_DURA = 365 * 24 * 3600
 
 
 class TokenFraco(RuntimeError):
@@ -115,9 +123,79 @@ def _do_pedido(scope) -> str | None:
     return None
 
 
-def autorizado(scope) -> bool:
-    dado = _do_pedido(scope)
+def confere(dado: str | None) -> bool:
     return bool(dado) and hmac.compare_digest(dado.encode(), token().encode())
+
+
+def autorizado(scope) -> bool:
+    return confere(_do_pedido(scope))
+
+
+def _quer_pagina(scope) -> bool:
+    """O navegador abrindo uma página (e não a tela pedindo dados): vai pro /entrar."""
+    if scope['type'] != 'http' or scope.get('method') != 'GET':
+        return False
+    for k, v in scope.get('headers', []):
+        if k.lower() == b'accept':
+            return b'text/html' in v
+    return False
+
+
+def pasta_do_front() -> Path:
+    """O front construído (`npm run build`): SOLIS_FRONT, senão o dist/ do repositório."""
+    if os.environ.get('SOLIS_FRONT'):
+        return Path(os.environ['SOLIS_FRONT'])
+    return Path(__file__).resolve().parents[2] / 'dist'
+
+
+def arquivo_do_front(caminho: str) -> Path | None:
+    """O arquivo pedido, só de dentro do dist/ (nada de ../); caminho sem
+    extensão é rota da tela → index.html. None: não existe (ou não foi construído)."""
+    pasta = pasta_do_front().resolve()
+    indice = pasta / 'index.html'
+    if not indice.is_file():
+        return None
+    alvo = (pasta / caminho).resolve()
+    if alvo != pasta and pasta not in alvo.parents:
+        return None
+    if alvo.is_file():
+        return alvo
+    return indice if '.' not in Path(caminho).name else None
+
+
+def https(cabecalhos, esquema: str) -> bool:
+    """O pedido veio por https (direto, ou pelo túnel/proxy que avisa no cabeçalho)."""
+    return esquema == 'https' or cabecalhos.get('x-forwarded-proto', '').split(',')[0].strip() == 'https'
+
+
+PAGINA_ENTRAR = """<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar no Solis</title>
+<style>
+  :root {{ color-scheme: light dark; --fundo: #f6f5f1; --texto: #1f1e1c; --borda: #d8d5cc; --botao: #1f1e1c; --botao-texto: #f6f5f1; --erro: #b3261e; }}
+  @media (prefers-color-scheme: dark) {{ :root {{ --fundo: #1c1b19; --texto: #ece9e2; --borda: #3a3833; --botao: #ece9e2; --botao-texto: #1c1b19; --erro: #f2b8b5; }} }}
+  body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fundo); color: var(--texto);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }}
+  form {{ width: min(360px, calc(100vw - 32px)); display: grid; gap: 12px; }}
+  h1 {{ font-size: 22px; font-weight: 600; margin: 0; }}
+  p {{ margin: 0; opacity: .75; font-size: 14px; }}
+  input {{ font: inherit; padding: 12px; border: 1px solid var(--borda); border-radius: 10px; background: transparent; color: inherit; }}
+  button {{ font: inherit; padding: 12px; border: 0; border-radius: 10px; background: var(--botao); color: var(--botao-texto); cursor: pointer; }}
+  .erro {{ color: var(--erro); opacity: 1; }}
+</style></head>
+<body><form method="post" action="/entrar">
+  <h1>Solis</h1>
+  <p>Cole a senha do servidor (o token). Ela fica guardada neste aparelho.</p>
+  {erro}
+  <input name="token" type="password" autocomplete="current-password" required autofocus aria-label="Senha do servidor">
+  <button type="submit">Entrar</button>
+</form></body></html>"""
+
+
+def pagina_entrar(errou: bool = False) -> str:
+    erro = '<p class="erro" role="alert">Essa senha não é a do servidor.</p>' if errou else ''
+    return PAGINA_ENTRAR.format(erro=erro)
 
 
 class Porteiro:
@@ -138,4 +216,6 @@ class Porteiro:
             return await self.app(scope, receive, send)
         if scope['type'] == 'websocket':
             return await WebSocketClose(code=1008)(scope, receive, send)
+        if _quer_pagina(scope):
+            return await RedirectResponse('/entrar', status_code=303)(scope, receive, send)
         return await JSONResponse({'erro': 'sem_token'}, status_code=401)(scope, receive, send)

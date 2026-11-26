@@ -195,6 +195,38 @@ main {
   padding-bottom: calc(var(--barra-h) + var(--barra-base) + 24px);
 }
 
+/* No celular (o Solis aberto pelo servidor, 26/11/2026): a cápsula de 620 px não
+   cabe em 375 e cortava os ícones das pontas. Aqui ela ocupa a largura da tela
+   menos 8 px de cada lado, mais baixa, e os 8 itens cabem (8 × 38 + respiro).
+   PROVISÓRIO: o visual do celular é desenhado na refação do visual. */
+@media (max-width: 767px) {
+  :root {
+    --barra-l: calc(100vw - 16px);
+    --barra-h: 60px;
+    --barra-base: 10px;
+    --barra-ativo: 38px;
+    --barra-icone: 20px;
+    --topo-h: 60px;
+  }
+  /* A caixa de escrever: numa linha só, os 6 controles (anexo, pesquisa, estilo,
+     cérebro, conversa, microfone) + o enviar não cabiam, e o enviar sumia pela
+     direita. Aqui o texto ganha a linha de cima inteira e os controles descem,
+     alinhados à direita. O espelho (que centraliza o texto no modo ícones)
+     dobrava a largura: some. */
+  .composer-solis {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    height: auto !important;
+    padding: 4px 6px 6px;
+  }
+  .composer-solis > input[aria-label="Fale com o Solis"] {
+    flex: 1 1 100%;
+    min-height: 46px;
+    padding-left: 10px !important;
+  }
+  .composer-solis .composer-espelho { display: none; }
+}
+
 /* O aviso de baixo (Memória esquecida, fonte removida, com Desfazer). Ele é
    absoluto no main, e no modo 'icones' o fim do main fica atrás da barra: o
    aviso sumia inteiro por baixo dela e o Desfazer não recebia o clique (visto

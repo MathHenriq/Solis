@@ -15,6 +15,9 @@ on:
     branches: [main]
     paths:
       - 'solis-repo/solis-repo/backend/**'
+      - 'solis-repo/solis-repo/src/**'
+      - 'solis-repo/solis-repo/index.html'
+      - 'solis-repo/solis-repo/package*.json'
       - '.github/workflows/servidor.yml'
   workflow_dispatch:
 
@@ -33,6 +36,18 @@ jobs:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: solis-repo/solis-repo/backend/requirements*.txt
+
+      # A tela do Solis, que o servidor entrega pro celular (nuvem.py).
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: solis-repo/solis-repo/package-lock.json
+
+      - name: Constrói a tela
+        timeout-minutes: 10
+        working-directory: solis-repo/solis-repo
+        run: npm ci && npm run build
 
       - name: Instala
         timeout-minutes: 10
@@ -68,6 +83,11 @@ jobs:
           test "$(codigo http://127.0.0.1:8765/conversas)" = 401
           test "$(codigo -H 'Authorization: Bearer errado-errado-errado-errado' http://127.0.0.1:8765/conversas)" = 401
           test "$(codigo -H "Authorization: Bearer $SOLIS_TOKEN" http://127.0.0.1:8765/conversas)" = 200
+          # O celular: sem cookie, o navegador vai pro /entrar; com a senha, o cookie e a tela.
+          test "$(codigo -H 'Accept: text/html' http://127.0.0.1:8765/)" = 303
+          test "$(codigo -c /tmp/biscoito -d "token=$SOLIS_TOKEN" http://127.0.0.1:8765/entrar)" = 303
+          curl -sf -b /tmp/biscoito http://127.0.0.1:8765/ | grep -q '<div id="root">'
+          test "$(codigo -b /tmp/biscoito http://127.0.0.1:8765/conversas)" = 200
           # O cofre de arquivo: a chave fica fora da pasta do banco, só do usuário.
           python -c "from solis import cofre; s = cofre.selar('chave-de-teste'); assert s.startswith('cofre:v2:') and cofre.abrir(s) == 'chave-de-teste'"
           test "$(stat -c %a /tmp/solis-config/cofre.chave)" = 600

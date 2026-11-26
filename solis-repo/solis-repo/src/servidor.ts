@@ -7,7 +7,17 @@
 
 import { escrever, ler } from './theme/config';
 
-const BASE = import.meta.env.VITE_SOLIS_SERVIDOR ?? 'http://127.0.0.1:8765';
+/** No app do PC (Tauri) e no Vite do dev (porta 1420), o servidor é o do próprio
+ *  PC. Aberta pelo endereço de um servidor (o celular abrindo o cérebro na nuvem,
+ *  backend/solis/nuvem.py), a tela fala com quem a entregou: o mesmo endereço, e
+ *  o cookie do login vai sozinho, até nos WebSockets. */
+const NO_PC = 'http://127.0.0.1:8765';
+const doServidor =
+  typeof window !== 'undefined' &&
+  window.location.protocol.startsWith('http') &&
+  window.location.port !== '1420' &&
+  window.location.hostname !== 'tauri.localhost';
+const BASE = import.meta.env.VITE_SOLIS_SERVIDOR ?? (doServidor ? window.location.origin : NO_PC);
 
 export type Modelo = {
   nome: string;

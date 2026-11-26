@@ -761,7 +761,7 @@ export function Thread({
           </div>
         </div>
         <form
-          className="flex items-center border border-divider rounded-composer"
+          className="composer-solis flex items-center border border-divider rounded-composer"
           style={{ height: 'var(--th-composer-h)', width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
           onSubmit={(e) => {
             e.preventDefault();
