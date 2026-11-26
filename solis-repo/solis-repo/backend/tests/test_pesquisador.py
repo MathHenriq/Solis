@@ -105,7 +105,10 @@ def test_rodar_entrega_na_conversa_e_avisa(fontes, monkeypatch):
     assert 'https://github.com/ana/voz-rapida' in m['texto']
     assert banco.titulo(feito['conversa']) == 'Novidades da semana · Atlas'
     assert avisados == [('Jarvis · Atlas', '1 novidade da semana que serve pra você. Está nos Recentes do Solis.')]
-    # A ferramenta, logo depois, devolve a mesma (não pesquisa de novo).
+    # A ferramenta, logo depois, devolve a mesma (não pesquisa de novo). "Logo
+    # depois" pelo relógio de verdade, que a ferramenta usa: com o AGORA fixo, o
+    # teste quebrou no dia seguinte (26/11/2026).
+    banco.guardar_ajuste('pesquisador_ultima', {**p.ultima(), 'quando': dt.datetime.now().isoformat()})
     monkeypatch.setattr(p, 'rodar', None)
     assert asyncio.run(corpo._novidades_da_semana({})) == m['texto']
 
