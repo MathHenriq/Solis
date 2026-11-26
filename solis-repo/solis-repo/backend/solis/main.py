@@ -1894,9 +1894,10 @@ async def estado_voz():
 @app.post('/voz')
 async def transcrever_voz(request: Request):
     """O áudio cru no corpo (o que o MediaRecorder do navegador grava: webm com
-    opus), e o texto de volta. Nada é guardado: o áudio só vive neste pedido."""
+    opus; mp4 no iPhone), e o texto de volta, online primeiro
+    (transcricao.apertar_pra_falar). Nada é guardado: o áudio só vive neste pedido."""
     try:
-        return await voz.transcrever(await request.body())
+        return await transcricao.apertar_pra_falar(await request.body())
     except voz.SemModelo as e:
         return JSONResponse({'erro': 'sem_modelo', 'motivo': str(e)}, status_code=503)
     except voz.AudioRuim as e:

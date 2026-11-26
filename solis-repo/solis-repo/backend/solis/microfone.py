@@ -38,7 +38,14 @@ CEDER = os.environ.get('SOLIS_CEDER_MICROFONE', '1') == '1'
 # vez da janela. Testado com o Matheus numa chamada do Discord (21/11/2026): o
 # Discord ficou normal dos dois lados e o Solis ouviu e respondeu. Nesse modo a
 # escuta não cede a ninguém. SOLIS_ESCUTA_NATIVA=0 volta pra janela.
-NATIVO = os.name == 'nt' and os.environ.get('SOLIS_ESCUTA_NATIVA', '1') == '1'
+# Como servidor (nuvem.py, 26/11/2026), nunca: quem fala está no celular, longe
+# da máquina — o microfone é o do aparelho, e a tela grava pelo dela.
+def _nativo() -> bool:
+    return (os.name == 'nt' and os.environ.get('SOLIS_ESCUTA_NATIVA', '1') == '1'
+            and os.environ.get('SOLIS_SERVIDOR') != '1')
+
+
+NATIVO = _nativo()
 
 
 class Vigia:

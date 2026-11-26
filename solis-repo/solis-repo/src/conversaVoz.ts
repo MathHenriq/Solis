@@ -63,6 +63,9 @@ export function useConversaVoz(aoTurno: (conversa: number) => void) {
     let fluxo: MediaStream | null = null;
     let entrada: AudioContext | null = null;
     const saida = new AudioContext({ sampleRate: 24000 });
+    // Ainda dentro do toque no botão: no iPhone o contexto pode nascer pausado,
+    // e só um resume() no gesto destrava o som da resposta (26/11/2026).
+    void saida.resume();
     let proximo = 0;
     const tocando = new Set<AudioBufferSourceNode>();
     let idConversa = conversa;

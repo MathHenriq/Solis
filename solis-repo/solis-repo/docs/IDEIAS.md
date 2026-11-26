@@ -114,6 +114,11 @@ O que foi medido antes de escolher (os scripts estão em `design/nuvem/`):
   Whisper e o Kokoro só carregam quando são usados, e na nuvem não rodam. O banco inteiro tem
   0,9 MB. Um servidor de 1 GB roda o núcleo; com 4 GB sobra folga pro Claude Code (o CLI) e pra
   busca por significado no próprio servidor.
+- **A voz pelo celular (medido em 26/11/2026).** Pra conferir o que é privado antes de mandar a fala
+  pra Groq, o servidor precisa do Whisper pequeno (464 MB no disco, perto de 1 GB de memória
+  rodando). Isso descarta os de 1 GB na prática. No processador, sem placa de vídeo, ele leva 2,1 s
+  com 2 núcleos e 3,2 s com 1 por fala, quase fixo, porque o Whisper sempre lê 30 s. São 2 a 3 s a
+  mais em cada fala do celular; no PC, com a placa, são 0,2 s. Decisão em aberto, com o Matheus.
 - **Distância.** Ida e volta do PC do Matheus, mediana de 7 conexões: Brasil 31–38 ms (Oracle em
   Vinhedo e São Paulo, AWS e Vultr em São Paulo), EUA 132–162 ms, Alemanha 205 ms. No Brasil, cada
   ida e volta entre o celular e o servidor fica ~100 ms mais curta. O trecho do servidor até os

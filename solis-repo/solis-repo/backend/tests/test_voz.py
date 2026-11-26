@@ -183,3 +183,58 @@ def test_aquecer_carrega_e_transcreve_silencio(monkeypatch):
     assert isinstance(voz._modelo, Falso) and transcritos == [16000]
     voz._aquecer_de_verdade()  # já quente: não transcreve de novo
     assert transcritos == [16000]
+
+
+# O apertar-pra-falar gravado pela tela, online primeiro (26/11/2026): o celular
+# pelo servidor, que não tem o turbo; e o PC quando o microfone do Windows não abre.
+
+def test_online_o_pequeno_confere_e_a_groq_transcreve(modelo, monkeypatch):
+    from solis import transcricao
+    pedidos = []
+
+    async def nuvem(audio):
+        pedidos.append(audio)
+        return 'Quanto gastei esse mês?'
+
+    async def pequeno(audio):
+        return 'quanto gastei esse mes'
+    monkeypatch.setattr(transcricao, 'online', lambda: True)
+    monkeypatch.setattr(transcricao, 'pequeno_disponivel', lambda: True)
+    monkeypatch.setattr(transcricao, 'palavra', pequeno)
+    monkeypatch.setattr(transcricao, 'nuvem', nuvem)
+    r = TestClient(main.app).post('/voz', content=wav(segundos=1.0))
+    assert r.status_code == 200 and r.json()['texto'] == 'Quanto gastei esse mês?'
+    assert abs(r.json()['duracao'] - 1.0) < 0.05
+    # Vai pra Groq um WAV mono de 16 kHz (o que o navegador gravou, convertido aqui).
+    with wave.open(io.BytesIO(pedidos[0])) as w:
+        assert (w.getnchannels(), w.getframerate(), w.getsampwidth()) == (1, 16000, 2)
+    assert modelo.recebido is None  # o turbo daqui nem foi chamado
+
+
+def test_online_o_privado_nao_sai_daqui(modelo, monkeypatch):
+    from solis import transcricao
+
+    async def nuvem(audio):
+        raise AssertionError('o privado foi pra nuvem')
+
+    async def pequeno(audio):
+        return 'isso é privado: minha senha é tal'
+    monkeypatch.setattr(transcricao, 'online', lambda: True)
+    monkeypatch.setattr(transcricao, 'pequeno_disponivel', lambda: True)
+    monkeypatch.setattr(transcricao, 'palavra', pequeno)
+    monkeypatch.setattr(transcricao, 'nuvem', nuvem)
+    r = TestClient(main.app).post('/voz', content=wav())
+    assert r.json()['texto'] == 'Me lembra de pagar a luz dia 15.'  # o daqui transcreveu
+
+
+def test_online_audio_quebrado_e_400(monkeypatch):
+    from solis import transcricao
+    monkeypatch.setattr(transcricao, 'online', lambda: True)
+    assert TestClient(main.app).post('/voz', content=b'isto nao e audio').json()['erro'] == 'audio_ruim'
+
+
+def test_como_servidor_o_microfone_do_pc_nunca_abre(monkeypatch):
+    """Quem fala pelo servidor está no celular: o ditado grava pela tela."""
+    from solis import microfone
+    monkeypatch.setenv('SOLIS_SERVIDOR', '1')
+    assert microfone._nativo() is False

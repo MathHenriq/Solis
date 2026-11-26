@@ -17,6 +17,39 @@
 const ABRIR_MAX_MS = 5000;
 const PARADO_MAX_MS = 15000;
 
+// No celular (o iPhone, sobretudo), o navegador só deixa um <audio> tocar sozinho
+// se ele já tocou uma vez dentro de um toque na tela — e cada pedaço da fala era
+// um <audio> novo, criado segundos depois do toque: no iPhone, nenhum tocaria.
+// Aqui os pedaços usam uma roda de <audio> destravados no primeiro toque (ou
+// tecla) na página, com um silêncio (26/11/2026). Tocam juntos no máximo três (a
+// narração, o pedaço atual e o seguinte, carregando): seis dão folga.
+const RODA = 6;
+const SILENCIO = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const roda: HTMLAudioElement[] = typeof window === 'undefined' ? [] : Array.from({ length: RODA }, () => new Audio());
+let vez = 0;
+
+function proximoAudio(): HTMLAudioElement {
+  return roda.length ? roda[vez++ % RODA] : new Audio();
+}
+
+if (typeof window !== 'undefined') {
+  const GESTOS = ['pointerdown', 'touchend', 'keydown'] as const;
+  const destravar = () => {
+    GESTOS.forEach((g) => window.removeEventListener(g, destravar, true));
+    for (const el of roda) {
+      if (el.src) continue; // já está tocando fala de verdade
+      el.src = SILENCIO;
+      el.play()
+        .then(() => el.pause())
+        .catch(() => {})
+        .finally(() => {
+          if (el.src === SILENCIO) el.removeAttribute('src');
+        });
+    }
+  };
+  GESTOS.forEach((g) => window.addEventListener(g, destravar, true));
+}
+
 export class PedacoDeFala {
   private pedacos: Uint8Array[] = [];
   private acabou = false;
@@ -25,7 +58,7 @@ export class PedacoDeFala {
   private corte = new AbortController();
   private tipo = '';
   private pronto: Promise<boolean>;
-  readonly el = new Audio();
+  readonly el = proximoAudio();
 
   constructor(url: string) {
     this.pronto = this.baixar(url);

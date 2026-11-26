@@ -269,6 +269,29 @@ async def escuta(tipo: str, audio: bytes) -> str:
                      max(0, len(audio) - 44) / 32000)
 
 
+async def apertar_pra_falar(audio: bytes) -> dict:
+    """O apertar-pra-falar gravado pela tela (o celular, pelo servidor; no PC,
+    quando o microfone do Windows não abre), 26/11/2026: online primeiro, como o
+    ditado pelo microfone do Windows — o pequeno daqui confere o privado e o resto
+    vai pro Whisper da Groq. Antes ia sempre pelo turbo daqui, que o servidor na
+    nuvem não tem. Sem a Groq (sem internet, sem a chave), o daqui, como antes.
+    `audio`: o que o navegador gravou (webm/opus no Chrome, mp4/aac no iPhone).
+    {texto, segundos, duracao}; voz.AudioRuim e voz.SemModelo como voz.transcrever."""
+    if not online():
+        return await voz.transcrever(audio)
+    import array
+    t0 = time.monotonic()
+    try:
+        som = await asyncio.to_thread(voz.decodificar, audio)
+    except Exception as e:  # noqa: BLE001 — o PyAV não abriu: não é áudio
+        raise voz.AudioRuim(f'não consegui ler o áudio: {e}') from e
+    if not len(som):
+        raise voz.AudioRuim('áudio vazio')
+    amostras = array.array('h', (som * 32767).clip(-32768, 32767).astype('int16').tobytes())
+    texto = await escuta('comando', ativacao._wav(amostras))
+    return {'texto': texto, 'segundos': round(time.monotonic() - t0, 2), 'duracao': round(len(som) / 16000, 2)}
+
+
 # O pequeno às vezes ouve a chamada torta: "Ei Solis, quanto é..." virou "É isso aí,
 # Solis" na gravação do Matheus (17/11/2026) — três palavras antes do nome, e a
 # regra (ativacao.palavra_no_inicio) aceita duas; afrouxar acordaria com "me passa
