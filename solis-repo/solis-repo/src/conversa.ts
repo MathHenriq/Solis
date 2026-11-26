@@ -58,6 +58,8 @@ function aviso(falha: Falha): string {
       return 'Nenhum modelo de conversa instalado. Baixar um em Modelos locais.';
     case 'sem-cerebro':
       return `O ${falha.cerebro} não respondeu. Verificar o login e a cota dele, ou mandar de novo sem o comando.`;
+    case 'privado-sem-local':
+      return 'O privado é respondido só pelo modelo do seu PC, que não fica no servidor. Conta, hora, lembrete, gasto e agenda eu faço por aqui; o resto, pergunte no PC.';
   }
 }
 
@@ -133,7 +135,7 @@ export function useConversa() {
   /** `desde`: editar ou refazer — a thread volta a antes da fala com esse id
    *  no banco (ela e tudo depois saem) e `texto` vai no lugar dela. */
   const enviar = useCallback(
-    async (texto: string, desde?: number, anexos?: Anexo[], pesquisa = false) => {
+    async (texto: string, desde?: number, anexos?: Anexo[], pesquisa = false, privada = false) => {
       // Só o anexo, sem texto, também vale (como no Claude).
       const limpo = texto.trim() || (anexos?.length ? 'Veja o que eu anexei.' : '');
       if (!limpo || respondendo) return;
@@ -198,7 +200,7 @@ export function useConversa() {
             definirRespondendo(false);
           }
         },
-      }, respostaFalada.proxima, desde, anexos?.map((a) => a.caminho), pesquisa);
+      }, respostaFalada.proxima, desde, anexos?.map((a) => a.caminho), pesquisa, privada);
 
       // Depois do `fim` a próxima mensagem já pode estar respondendo: liberar o
       // campo de novo aqui o soltaria no meio dela.

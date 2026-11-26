@@ -269,15 +269,23 @@ async def escuta(tipo: str, audio: bytes) -> str:
                      max(0, len(audio) - 44) / 32000)
 
 
-async def apertar_pra_falar(audio: bytes) -> dict:
+async def apertar_pra_falar(audio: bytes, privado: bool = False) -> dict:
     """O apertar-pra-falar gravado pela tela (o celular, pelo servidor; no PC,
     quando o microfone do Windows não abre), 26/11/2026: online primeiro, como o
-    ditado pelo microfone do Windows — o pequeno daqui confere o privado e o resto
-    vai pro Whisper da Groq. Antes ia sempre pelo turbo daqui, que o servidor na
-    nuvem não tem. Sem a Groq (sem internet, sem a chave), o daqui, como antes.
+    ditado pelo microfone do Windows. Antes ia sempre pelo turbo daqui, que o
+    servidor na nuvem não tem. Sem a Groq (sem internet, sem a chave), o daqui.
+
+    O privado (decisão do Matheus, 26/11/2026: o cadeado na tela):
+    - `privado` (o cadeado ligado): só daqui, nunca a nuvem;
+    - no PC: o pequeno confere pelas palavras ("isso é privado...") antes da Groq,
+      como sempre — na placa de vídeo custa 0,2 s;
+    - como servidor (sem placa): direto pra Groq, sem conferir — no processador a
+      conferida custava 2,1 a 3,2 s por fala (medido); quem quer sigilo liga o cadeado.
+
     `audio`: o que o navegador gravou (webm/opus no Chrome, mp4/aac no iPhone).
     {texto, segundos, duracao}; voz.AudioRuim e voz.SemModelo como voz.transcrever."""
-    if not online():
+    from . import nuvem as modo_servidor
+    if privado or not online():
         return await voz.transcrever(audio)
     import array
     t0 = time.monotonic()
@@ -288,7 +296,14 @@ async def apertar_pra_falar(audio: bytes) -> dict:
     if not len(som):
         raise voz.AudioRuim('áudio vazio')
     amostras = array.array('h', (som * 32767).clip(-32768, 32767).astype('int16').tobytes())
-    texto = await escuta('comando', ativacao._wav(amostras))
+    wav = ativacao._wav(amostras)
+    if modo_servidor.ligado():
+        try:
+            texto = await nuvem(wav)
+        except NuvemFalhou:
+            return await voz.transcrever(audio)  # a Groq caiu: o daqui, se houver
+    else:
+        texto = await escuta('comando', wav)
     return {'texto': texto, 'segundos': round(time.monotonic() - t0, 2), 'duracao': round(len(som) / 16000, 2)}
 
 

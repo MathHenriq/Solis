@@ -308,7 +308,7 @@ export async function votarResposta(mensagem: number, voto: Voto): Promise<boole
   }
 }
 export type Falha =
-  | { tipo: 'sem-servidor' | 'sem-ollama' | 'sem-modelo' }
+  | { tipo: 'sem-servidor' | 'sem-ollama' | 'sem-modelo' | 'privado-sem-local' }
   /** Um cérebro escolhido com /claude, /groq... não respondeu. */
   | { tipo: 'sem-cerebro'; cerebro: string };
 
@@ -760,6 +760,7 @@ function falhaDoStream(e: { erro: string; cerebro?: string }): Falha {
   if (e.erro === 'cerebro_indisponivel') return { tipo: 'sem-cerebro', cerebro: e.cerebro ?? 'cérebro' };
   if (e.erro === 'modelo_inexistente') return { tipo: 'sem-modelo' };
   if (e.erro === 'ollama_indisponivel') return { tipo: 'sem-ollama' };
+  if (e.erro === 'privado_sem_local') return { tipo: 'privado-sem-local' };
   return { tipo: 'sem-servidor' };
 }
 
@@ -787,6 +788,8 @@ export async function conversar(
   anexos: string[] = [],
   /** O botão Pesquisa: pesquisa longa, pelo Claude, com as fontes. */
   pesquisa = false,
+  /** O cadeado: a mensagem é privada (só o modelo local, guardada selada). */
+  privada = false,
 ): Promise<Falha | null> {
   const lista = await listarModelos();
   if (lista.estado === 'sem-servidor') return { tipo: 'sem-servidor' };
@@ -813,6 +816,7 @@ export async function conversar(
         anexos,
         ...(desde !== undefined ? { desde } : {}),
         ...(pesquisa ? { pesquisa } : {}),
+        ...(privada ? { privada } : {}),
       }),
     });
   } catch {
@@ -1070,9 +1074,10 @@ export type ResultadoVoz =
   | { estado: 'sem-modelo' | 'audio-ruim' | 'sem-servidor' };
 
 /** O áudio gravado (webm/opus) vira texto no servidor, com o Whisper local. */
-export async function transcreverAudio(audio: Blob): Promise<ResultadoVoz> {
+/** `privado`: o cadeado ligado — a fala é transcrita só no Solis, nunca na nuvem. */
+export async function transcreverAudio(audio: Blob, privado = false): Promise<ResultadoVoz> {
   try {
-    const r = await fetch(`${BASE}/voz`, { method: 'POST', body: audio });
+    const r = await fetch(`${BASE}/voz${privado ? '?privado=1' : ''}`, { method: 'POST', body: audio });
     if (r.status === 503) return { estado: 'sem-modelo' };
     if (r.status === 400) return { estado: 'audio-ruim' };
     if (!r.ok) return { estado: 'sem-servidor' };
@@ -1276,7 +1281,7 @@ export const urlConversaVoz = (conversa: number | null) =>
 
 export const urlEscuta = (rapida = true) => `${BASE.replace(/^http/, 'ws')}/escuta?segurar=${rapida ? 1 : 0}`;
 /** O ditado pelo microfone direto do Windows (backend: main.ditado). */
-export const urlDitado = () => `${BASE.replace(/^http/, 'ws')}/voz/ditado`;
+export const urlDitado = (privado = false) => `${BASE.replace(/^http/, 'ws')}/voz/ditado${privado ? '?privado=1' : ''}`;
 
 /** O teste da escuta (backend/solis/voz_teste.py). */
 export type PassoTeste = { i: number; tipo: 'chamada' | 'sem'; mostrar: string; esperado: string; inicio: number; fim: number };

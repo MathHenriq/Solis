@@ -65,6 +65,16 @@ SOLIS_SERVIDOR=1 python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765
     duas linhas.
   - No PC, sem `SOLIS_SERVIDOR`, nada disso existe: `/entrar` e endereço desconhecido dão 404, como
     antes.
+- **A voz pelo celular:** o navegador grava, e `POST /voz` transcreve.
+  - **Sem o cadeado:** vai direto pro Whisper da Groq. Como servidor, sem placa de vídeo, a
+    conferência do privado custaria 2,1 a 3,2 s por fala.
+  - **Com o cadeado (`?privado=1`):** a transcrição é feita só no servidor, por isso o servidor
+    precisa do Whisper pequeno em `~/Solis/whisper/faster-whisper-small`.
+  - A mensagem com o cadeado (`privada: true` no envio) é respondida só pelo modelo local. No
+    servidor, que não tem modelo local, a resposta é o erro `privado_sem_local`. As respostas em
+    código (hora, gasto, lembrete) continuam valendo.
+  - Uma resposta privada só é falada pela voz local (Kokoro). Sem ela no servidor, fica só escrita.
+  - Como servidor, o microfone da máquina nunca abre.
 - **Teste automático:** a cada mudança no backend, o GitHub roda todos os testes num Ubuntu e sobe o
   servidor assim (`.github/workflows/servidor.yml`, na raiz do repositório).
 

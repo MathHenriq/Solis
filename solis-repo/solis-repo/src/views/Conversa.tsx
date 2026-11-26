@@ -1,3 +1,4 @@
+import { BotaoCadeado } from '../components/BotaoCadeado';
 import { useRef, useState } from 'react';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
 import { BotaoConversa } from '../components/BotaoConversa';
@@ -28,9 +29,12 @@ function Acoes({
   interativo = false,
   voz = 'parado',
   aoFalar,
-}: { interativo?: boolean; voz?: EstadoVoz; aoFalar?: () => void } = {}) {
+  privado = false,
+  aoPrivado,
+}: { interativo?: boolean; voz?: EstadoVoz; aoFalar?: () => void; privado?: boolean; aoPrivado?: (v: boolean) => void } = {}) {
   return (
     <>
+      <BotaoCadeado ligado={privado} aoTrocar={aoPrivado} tamanho={19} interativo={interativo} />
       <BotaoConversa tamanho={19} interativo={interativo} />
       <BotaoMicrofone estado={voz} aoClicar={aoFalar} tamanho={19} interativo={interativo} />
       <button
@@ -47,17 +51,24 @@ function Acoes({
   );
 }
 
-export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: string) => void; ouvindo?: boolean } = {}) {
+export function Conversa({
+  aoEnviar,
+  ouvindo = false,
+}: { aoEnviar?: (texto: string, privada?: boolean) => void; ouvindo?: boolean } = {}) {
   const [rascunho, definirRascunho] = useState('');
   const campo = useRef<HTMLInputElement>(null);
   const ditado = useRef(false);
   // A fala transcrita entra na caixa (depois do que já estava escrito), e a
   // pessoa confere antes de enviar. Mensagem ditada tem a resposta falada.
+  // O cadeado (BotaoCadeado): a primeira mensagem também pode ser privada.
+  const [privado, definirPrivado] = useState(false);
+  const privadoAgora = useRef(false);
+  privadoAgora.current = privado;
   const voz = useVoz((texto) => {
     definirRascunho((r) => (r.trim() ? `${r.trimEnd()} ${texto}` : texto));
     ditado.current = true;
     campo.current?.focus();
-  });
+  }, () => privadoAgora.current);
   return (
     <main className="tela-conversa relative flex-1 overflow-y-auto" style={{ zIndex: 1 }}>
       {/* 191px da divisória da sidebar. O topo é 298 e não 295 porque a Playfair
@@ -102,7 +113,7 @@ export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: str
             // estado assim que a conversa deixa de estar vazia.
             if (!rascunho.trim()) return;
             marcarRespostaFalada(ditado.current && falaAutomatica());
-            aoEnviar?.(rascunho);
+            aoEnviar?.(rascunho, privado);
           }}
         >
           {/* Espelho do bloco de ações, à esquerda do campo.
@@ -118,7 +129,7 @@ export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: str
               none` justamente porque só o primeiro reserva o espaço.
               No modo sidebar o texto é alinhado à esquerda e o espelho some. */}
           <span className="composer-espelho" aria-hidden>
-            <Acoes />
+            <Acoes privado={privado} />
           </span>
           <input
             ref={campo}
@@ -129,7 +140,7 @@ export function Conversa({ aoEnviar, ouvindo = false }: { aoEnviar?: (texto: str
             placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
             aria-label="Fale com o Solis"
           />
-          <Acoes interativo voz={ouvindo ? 'ouvindo' : voz.estado} aoFalar={voz.alternar} />
+          <Acoes interativo voz={ouvindo ? 'ouvindo' : voz.estado} aoFalar={voz.alternar} privado={privado} aoPrivado={definirPrivado} />
         </form>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}

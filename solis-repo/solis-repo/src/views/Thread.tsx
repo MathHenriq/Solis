@@ -1,3 +1,4 @@
+import { BotaoCadeado } from '../components/BotaoCadeado';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArquivosCriados,
@@ -496,7 +497,7 @@ export function Thread({
   turnos: Turno[];
   respondendo: boolean;
   /** `desde`: editar — a fala com esse id no banco sai, e o que vinha depois. */
-  aoEnviar: (texto: string, desde?: number, anexos?: Anexo[], pesquisa?: boolean) => void;
+  aoEnviar: (texto: string, desde?: number, anexos?: Anexo[], pesquisa?: boolean, privada?: boolean) => void;
   /** Para a resposta em andamento. */
   aoParar?: () => void;
   /** Refaz a última resposta. */
@@ -537,11 +538,16 @@ export function Thread({
   const campo = useRef<HTMLInputElement>(null);
   // O rascunho veio da voz: a resposta desta mensagem é falada sozinha.
   const ditado = useRef(false);
+  // O cadeado (BotaoCadeado): a próxima mensagem é privada — a fala gravada
+  // com ele ligado também fica no Solis. Lido na hora de gravar e de enviar.
+  const [privado, definirPrivado] = useState(false);
+  const privadoAgora = useRef(false);
+  privadoAgora.current = privado;
   const voz = useVoz((texto) => {
     definirRascunho((r) => (r.trim() ? `${r.trimEnd()} ${texto}` : texto));
     ditado.current = true;
     campo.current?.focus();
-  });
+  }, () => privadoAgora.current);
   const fala = useFala(conversa);
   // Falou, ouve: a resposta de uma mensagem ditada é lida em voz alta ENQUANTO
   // chega (a cascata do IDEIAS.md) — cada frase completa já vai pra voz, e o
@@ -772,8 +778,9 @@ export function Thread({
             grudada.current = true;
             marcarRespostaFalada(ditado.current && falaAutomatica());
             ditado.current = false;
-            aoEnviar(rascunho, undefined, prontos, pesquisa);
+            aoEnviar(rascunho, undefined, prontos, pesquisa, privado);
             definirRascunho('');
+            definirPrivado(false); // vale pra uma mensagem: não fica ligado esquecido
             // A fala enviada mostra a imagem pelo servidor: a do arquivo já pode sair.
             pendentes.forEach((p) => p.previa && URL.revokeObjectURL(p.previa));
             definirPendentes([]);
@@ -839,6 +846,7 @@ export function Thread({
             <Icone nome="web" tamanho={20} />
             {pesquisa && 'Pesquisa'}
           </button>
+          <BotaoCadeado ligado={privado} aoTrocar={definirPrivado} />
           <EscolhaEstilo aoCriar={aoCriarEstilo} />
           <EscolhaClaude />
           <BotaoConversa tamanho={22} />

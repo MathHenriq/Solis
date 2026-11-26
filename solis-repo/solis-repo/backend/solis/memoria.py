@@ -491,7 +491,8 @@ async def aprender(
     `agora`: a hora local (fixa nos testes)."""
     agora = agora or dt.datetime.now()
     pedido = eh_pedido(mensagem) and antiga is None
-    privado = eh_privado(mensagem) and antiga is None
+    # Privada pelas palavras, ou pelo cadeado da tela (a mensagem guardada selada).
+    privado = (eh_privado(mensagem) or _mensagem_privada(mensagem_id)) and antiga is None
     guardadas = banco.memorias()
     candidatas = await busca.memorias_parecidas(mensagem, CANDIDATAS)
 

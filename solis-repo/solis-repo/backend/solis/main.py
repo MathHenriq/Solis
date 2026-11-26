@@ -409,6 +409,11 @@ class Envio(BaseModel):
     # Interno (o relógio das agendadas, não a tela): o nome da tarefa agendada
     # que mandou esta mensagem — vai uma nota pro cérebro, não pra conversa.
     agendada: str = ''
+    # O cadeado da caixa de escrever (26/11/2026, decisão do Matheus pra voz do
+    # celular): esta mensagem é privada — guardada selada, respondida só pelo
+    # modelo local, e o que ela ensinar vira memória privada. Sem ele, o privado
+    # continua valendo pelas palavras ("isso é privado...").
+    privada: bool = False
 # Referência forte às respostas em andamento: sem ela o coletor de lixo pode
 # levar uma tarefa no meio.
 _tarefas: set[asyncio.Task] = set()
@@ -441,6 +446,10 @@ async def enviar(conversa: int, envio: Envio):
 
     # "/claude ..." escolhe quem responde; o comando não faz parte do que foi dito.
     texto, ordem, forcado = roteador.escolher(envio.texto, voz=envio.voz)
+    if envio.privada:
+        # Com o cadeado, só o local (como o "isso é privado..." no roteador), nem
+        # com comando na frente: o que sai em código (hora, gasto) continua valendo.
+        ordem, forcado = ['local'], False
     if envio.pesquisa and not forcado:
         # Pesquisa longa: o Claude primeiro (ele busca, lê, usa ajudantes e
         # cita); sem ele (a cota acabou), os de API pelo corpo do Solis — o
@@ -473,7 +482,7 @@ async def enviar(conversa: int, envio: Envio):
     # A mensagem da pessoa é guardada antes de perguntar ao modelo: o que ela
     # disse aconteceu, mesmo que nenhum modelo responda. O aviso de erro não é
     # guardado — é estado do sistema naquele momento, não fala de ninguém.
-    mensagem_id = banco.adicionar(conversa, 'pessoa', texto, privada=memoria.eh_privado(texto))
+    mensagem_id = banco.adicionar(conversa, 'pessoa', texto, privada=envio.privada or memoria.eh_privado(texto))
     if anexos:
         banco.guardar_anexos(mensagem_id, anexos)
 
@@ -1579,6 +1588,8 @@ async def _responder(
         # frente ("/claude que horas são") manda no lugar disso.
         rapida = None if forcado or anexos else rapidas.responder(texto, datetime.now())
         if rapida:
+            # A mensagem com o cadeado (Envio.privada): a resposta e a tarefa também.
+            rapida['privada'] = rapida['privada'] or memoria._mensagem_privada(mensagem_id)
             t = rapida['tarefa']
             if t:
                 banco.adicionar_tarefa(t['texto'], t['prazo'], t['hora'], conversa, privada=rapida['privada'])
@@ -1745,6 +1756,11 @@ def _ninguem_respondeu(e: roteador.NinguemRespondeu, forcado: bool) -> dict:
         return {'erro': 'cerebro_indisponivel', 'cerebro': cerebros.NOMES[nome]}
     if isinstance(e.erros.get('local'), ollama.ModeloInexistente):
         return {'erro': 'modelo_inexistente'}
+    if e.ordem == ['local'] and nuvem.ligado():
+        # Como servidor não há modelo local: o privado (o cadeado, "isso é
+        # privado...") não tem quem responda aqui — e "o Ollama está fora" não
+        # faria sentido no celular.
+        return {'erro': 'privado_sem_local'}
     return {'erro': 'ollama_indisponivel'}
 
 
@@ -1897,7 +1913,9 @@ async def transcrever_voz(request: Request):
     opus; mp4 no iPhone), e o texto de volta, online primeiro
     (transcricao.apertar_pra_falar). Nada é guardado: o áudio só vive neste pedido."""
     try:
-        return await transcricao.apertar_pra_falar(await request.body())
+        # ?privado=1: o cadeado da tela ligado — a fala não sai daqui.
+        return await transcricao.apertar_pra_falar(await request.body(),
+                                                   privado=request.query_params.get('privado') == '1')
     except voz.SemModelo as e:
         return JSONResponse({'erro': 'sem_modelo', 'motivo': str(e)}, status_code=503)
     except voz.AudioRuim as e:
@@ -1978,7 +1996,11 @@ async def ditado(ws: WebSocket):
     amostras = array.array('h')
     amostras.frombytes(pcm[:len(pcm) // 2 * 2])
     try:
-        texto = await transcricao.escuta('comando', ativacao._wav(amostras))
+        if ws.query_params.get('privado') == '1':
+            # O cadeado da tela ligado: a fala não sai daqui (nem a conferida na nuvem).
+            texto = (await voz.transcrever(ativacao._wav(amostras)))['texto']
+        else:
+            texto = await transcricao.escuta('comando', ativacao._wav(amostras))
     except voz.SemModelo:
         await ws.send_json({'tipo': 'erro', 'estado': 'sem-modelo'})
         await ws.close()

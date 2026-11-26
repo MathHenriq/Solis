@@ -179,7 +179,7 @@ export default function App() {
           ouvindo={ouvindo}
         />
       ) : (
-        <Conversa aoEnviar={conversa.enviar} ouvindo={ouvindo} />
+        <Conversa aoEnviar={(texto, privada) => conversa.enviar(texto, undefined, undefined, false, privada)} ouvindo={ouvindo} />
       ),
     memoria: () => <Memoria />,
     modelos: () => <ModelosLocais />,

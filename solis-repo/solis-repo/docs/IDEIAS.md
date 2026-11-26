@@ -118,7 +118,14 @@ O que foi medido antes de escolher (os scripts estão em `design/nuvem/`):
   pra Groq, o servidor precisa do Whisper pequeno (464 MB no disco, perto de 1 GB de memória
   rodando). Isso descarta os de 1 GB na prática. No processador, sem placa de vídeo, ele leva 2,1 s
   com 2 núcleos e 3,2 s com 1 por fala, quase fixo, porque o Whisper sempre lê 30 s. São 2 a 3 s a
-  mais em cada fala do celular; no PC, com a placa, são 0,2 s. Decisão em aberto, com o Matheus.
+  mais em cada fala do celular; no PC, com a placa, são 0,2 s.
+  - **Decidido pelo Matheus (26/11/2026): o cadeado na tela.** Sem ele, a fala do celular vai
+    direto pra Groq. Com ele, a fala é transcrita no servidor, a mensagem fica selada e só o modelo
+    local responde; vale pra uma mensagem.
+  - **Consequências:** no servidor não há modelo local, então o privado que precisa de cérebro diz
+    que só o PC responde. As respostas em código (hora, gasto, lembrete) seguem funcionando. A
+    resposta privada só sai falada se o servidor tiver a voz local (Kokoro, grátis, no
+    processador).
 - **Distância.** Ida e volta do PC do Matheus, mediana de 7 conexões: Brasil 31–38 ms (Oracle em
   Vinhedo e São Paulo, AWS e Vultr em São Paulo), EUA 132–162 ms, Alemanha 205 ms. No Brasil, cada
   ida e volta entre o celular e o servidor fica ~100 ms mais curta. O trecho do servidor até os

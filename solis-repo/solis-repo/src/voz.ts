@@ -29,7 +29,8 @@ const ERROS = {
   vazio: 'Não ouvi nada. Tente de novo, mais perto do microfone.',
 } as const;
 
-export function useVoz(aoTexto: (texto: string) => void) {
+/** `privado`: lido na hora de gravar — o cadeado ligado, a fala fica no Solis. */
+export function useVoz(aoTexto: (texto: string) => void, privado: () => boolean = () => false) {
   const [estado, definirEstado] = useState<EstadoVoz>('parado');
   const [erro, definirErro] = useState<string | null>(null);
   const gravador = useRef<MediaRecorder | null>(null);
@@ -53,7 +54,7 @@ export function useVoz(aoTexto: (texto: string) => void) {
     return new Promise((resolver) => {
       let ws: WebSocket;
       try {
-        ws = new WebSocket(urlDitado());
+        ws = new WebSocket(urlDitado(privado()));
       } catch {
         resolver('sem-nativo');
         return;
@@ -132,7 +133,7 @@ export function useVoz(aoTexto: (texto: string) => void) {
         return;
       }
       definirEstado('transcrevendo');
-      const r = await transcreverAudio(new Blob(partes, { type: g.mimeType }));
+      const r = await transcreverAudio(new Blob(partes, { type: g.mimeType }), privado());
       definirEstado('parado');
       if (r.estado !== 'ok') return avisar(r.estado);
       if (!r.texto.trim()) return avisar('vazio');
