@@ -127,6 +127,7 @@ def test_gpu_que_falha_na_hora_de_transcrever_cai_pra_cpu(monkeypatch):
     import faster_whisper
     monkeypatch.setattr(faster_whisper, 'WhisperModel', WhisperFalso)
     monkeypatch.setattr(voz, 'disponivel', lambda: True)
+    monkeypatch.setattr(voz, 'modelo_em_uso', lambda: voz.MODELO)  # "baixado", em qualquer máquina
     monkeypatch.setattr(voz, 'DISPOSITIVO', 'auto')
     monkeypatch.setattr(voz, '_modelo', None)
     monkeypatch.setattr(voz, '_sem_gpu', False)

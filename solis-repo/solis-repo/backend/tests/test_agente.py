@@ -1,6 +1,7 @@
 """O Claude pelo Agent SDK (agente.py), sem rede: o que é livre e o que pede o
 Matheus, o cartão de aprovação, a ponte entre a thread do SDK e o servidor."""
 import asyncio
+import os
 
 import pytest
 
@@ -9,6 +10,10 @@ pytest.importorskip('claude_agent_sdk')
 from claude_agent_sdk.types import PermissionResultAllow, PermissionResultDeny  # noqa: E402
 
 from solis import agente, banco, cerebros, pc  # noqa: E402
+
+# Um arquivo do sistema, fora das pastas autorizadas. No Linux (o Solis como
+# servidor), "C:/Windows/win.ini" é um caminho relativo — cairia na pasta de trabalho.
+FORA = 'C:/Windows/win.ini' if os.name == 'nt' else '/etc/hostname'
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +42,7 @@ def test_dentro_das_pastas_autorizadas(pastas, tmp_path):
     assert agente._dentro('relativo.txt')  # relativo: na pasta de trabalho
     assert agente._dentro(None)
     assert not agente._dentro(str(tmp_path / 'outra' / 'x.txt'))
-    assert not agente._dentro('C:/Windows/win.ini')
+    assert not agente._dentro(FORA)
     # ".." não escapa da pasta autorizada.
     assert not agente._dentro(str(docs / '..' / 'segredo.txt'))
 
@@ -73,10 +78,10 @@ def test_ler_dentro_e_livre_e_fora_pede(pastas):
     _, docs = pastas
     resultado, mandados = _decidir('Read', {'file_path': str(docs / 'a.txt')})
     assert isinstance(resultado, PermissionResultAllow) and mandados == []
-    resultado, mandados = _decidir('Read', {'file_path': 'C:/Windows/win.ini'}, responder=False)
+    resultado, mandados = _decidir('Read', {'file_path': FORA}, responder=False)
     assert isinstance(resultado, PermissionResultDeny)
     assert mandados[0][1][0] == 'aprovacao' and mandados[0][1][1]['ferramenta'] == 'Read'
-    assert mandados[0][1][1]['alvo'] == 'C:/Windows/win.ini'
+    assert mandados[0][1][1]['alvo'] == FORA
 
 
 def test_escrever_aprovado_e_registrado():

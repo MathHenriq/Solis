@@ -2,11 +2,16 @@
 livre, agir pede cartão com o print e o programa; nada cai no Solis. As funções
 do Windows são trocadas por falsas: nenhum teste mexe no mouse dele."""
 import asyncio
+import os
 
 import pytest
 from fastapi.testclient import TestClient
 
 from solis import agente, main, tela
+
+# Do corpo do PC: só existe no Windows (no servidor Linux, quem mexe no PC é o
+# próprio PC). 26/11/2026.
+so_no_windows = pytest.mark.skipif(os.name != 'nt', reason='corpo do PC: só no Windows')
 
 T = 'mcp__solis__'
 
@@ -109,6 +114,7 @@ def test_ver_e_livre_e_as_ferramentas_so_com_a_tela_ligada(monkeypatch):
     assert {'tela_ver', 'tela_clicar', 'tela_digitar', 'tela_tecla', 'tela_rolar', 'tela_mover'} <= nomes()
 
 
+@so_no_windows
 def test_acao_devolve_o_print_de_depois(monkeypatch):
     pytest.importorskip('claude_agent_sdk')
     import claude_agent_sdk

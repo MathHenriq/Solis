@@ -1,12 +1,17 @@
 """Hooks do Claude pela tela: lidos e gravados no ~/.claude/settings.json, só na
 chave "hooks", sem mexer no resto (o arquivo é do Claude Code)."""
 import json
+import os
 import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
 from solis import hooks, main
+
+# Do corpo do PC: só existe no Windows (no servidor Linux, quem mexe no PC é o
+# próprio PC). 26/11/2026.
+so_no_windows = pytest.mark.skipif(os.name != 'nt', reason='corpo do PC: só no Windows')
 
 
 @pytest.fixture
@@ -100,7 +105,7 @@ def test_testar_roda_como_o_claude_com_o_exemplo_na_entrada(tmp_path):
               "print(d['hook_event_name'], d['tool_name'], d['tool_input']['command'])\"")
     r = hooks.testar('PreToolUse', 'Bash', leitor, pasta=str(tmp_path))
     assert r['codigo'] == 0 and r['saida'].strip() == 'PreToolUse Bash echo teste do Solis'
-    assert r['shell'] == 'Git Bash' and r['efeito'].startswith('Deu certo')
+    assert r['shell'] == ('Git Bash' if os.name == 'nt' else 'sh') and r['efeito'].startswith('Deu certo')
     bloqueia = hooks.testar('PreToolUse', 'Write|Edit', 'echo "nao pode" >&2; exit 2', pasta=str(tmp_path))
     assert bloqueia['codigo'] == 2 and 'nao pode' in bloqueia['erros'] and 'a ferramenta não roda' in bloqueia['efeito']
     erro = hooks.testar('Stop', '', 'exit 1', pasta=str(tmp_path))
@@ -109,12 +114,14 @@ def test_testar_roda_como_o_claude_com_o_exemplo_na_entrada(tmp_path):
     assert pasta['saida'].strip().replace(chr(92), '/').endswith(tmp_path.name)
 
 
+@so_no_windows
 def test_testar_sem_git_bash_vai_pelo_powershell(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, '_git_bash', lambda: None)
     r = hooks.testar('UserPromptSubmit', '', 'exit 2', pasta=str(tmp_path))
     assert r['shell'] == 'PowerShell' and r['codigo'] == 2 and 'a mensagem não vai' in r['efeito']
 
 
+@so_no_windows
 def test_testar_que_passa_do_tempo_para(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, '_git_bash', lambda: None)
     r = hooks.testar('Stop', '', 'Start-Sleep -Seconds 5', tempo=1, pasta=str(tmp_path))

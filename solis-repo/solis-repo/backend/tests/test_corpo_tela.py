@@ -3,10 +3,15 @@ API), o texto da tela com a posição de cada linha, e as mesmas ações do Clau
 com o mesmo cartão. Numa tela inventada: nada aqui olha nem mexe na tela de
 verdade."""
 import asyncio
+import os
 
 import pytest
 
 from solis import agente, corpo, ocr, tela
+
+# Do corpo do PC: só existe no Windows (no servidor Linux, quem mexe no PC é o
+# próprio PC). 26/11/2026.
+so_no_windows = pytest.mark.skipif(os.name != 'nt', reason='corpo do PC: só no Windows')
 
 
 class Gravador:
@@ -41,6 +46,7 @@ def tela_falsa(monkeypatch):
     return feitas
 
 
+@so_no_windows
 def test_tela_ler_da_o_texto_com_o_centro_nas_coordenadas_do_print(tela_falsa):
     c = corpo.Corpo(1, Gravador(), navegar=False)
     texto = asyncio.run(c.rodar('mcp__solis__tela_ler', {}))
@@ -51,6 +57,7 @@ def test_tela_ler_da_o_texto_com_o_centro_nas_coordenadas_do_print(tela_falsa):
     assert not any(e == 'aprovacao' for e, _ in c.etapas.lista)  # ler é livre
 
 
+@so_no_windows
 def test_clicar_pede_o_mesmo_cartao_do_claude_e_volta_a_tela_de_depois(tela_falsa):
     g = Gravador()
     c = corpo.Corpo(5, g, navegar=False)
@@ -71,6 +78,7 @@ def test_clicar_pede_o_mesmo_cartao_do_claude_e_volta_a_tela_de_depois(tela_fals
     assert c.agiu
 
 
+@so_no_windows
 def test_recusado_nao_clica(tela_falsa):
     g = Gravador()
     c = corpo.Corpo(6, g, navegar=False)
@@ -86,6 +94,7 @@ def test_recusado_nao_clica(tela_falsa):
     assert tela_falsa == []
 
 
+@so_no_windows
 def test_na_janela_do_solis_nem_pede(tela_falsa, monkeypatch):
     monkeypatch.setattr(tela, 'programa_alvo', lambda acao, e: ('solis.exe', 'Solis'))
     g = Gravador()
@@ -102,6 +111,7 @@ def test_com_a_tela_desligada_nao_vai(monkeypatch):
     assert 'não existe' in asyncio.run(c.rodar('mcp__solis__tela_ler', {}))
 
 
+@so_no_windows
 def test_ligada_as_seis_vao_e_o_sistema_fala_da_tela(tela_falsa):
     from solis import roteador
     c = corpo.Corpo(1, Gravador(), navegar=False)

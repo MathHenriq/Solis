@@ -3,11 +3,18 @@ medido em 19/11/2026 — as do Solis e o terminal nos pedidos que não são de
 arquivo, só pros modelos que passaram (o qwen3:8b). Ollama simulado."""
 import asyncio
 import json
+import os
+from pathlib import Path
 
 import httpx
+import pytest
 
 from solis import banco, corpo, ollama, pc, roteador
 from solis.etapas import Etapas
+
+# Do corpo do PC: só existe no Windows (no servidor Linux, quem mexe no PC é o
+# próprio PC). 26/11/2026.
+so_no_windows = pytest.mark.skipif(os.name != 'nt', reason='corpo do PC: só no Windows')
 
 
 def _responder_local(monkeypatch, modelo, mensagem):
@@ -28,11 +35,13 @@ def _responder_local(monkeypatch, modelo, mensagem):
     return vistos
 
 
+@so_no_windows
 def test_o_qwen_recebe_o_corpo_com_navegador_e_tela_sem_arquivo_nem_mcp(monkeypatch):
     """Medido em 19/11/2026: 12/13 e 13/13 com o navegador e a tela, sem piorar o resto."""
     from solis import navegador, tela
     monkeypatch.setattr(tela, 'ligada', lambda: True)
     monkeypatch.setattr(navegador, 'escolhido', lambda: 'msedge')
+    monkeypatch.setattr(navegador, '_cli', lambda: Path(__file__))  # "instalado", em qualquer máquina
     v = _responder_local(monkeypatch, 'qwen3:8b', 'Roda o git --version pra mim.')
     c = v['o_corpo']
     assert isinstance(c, corpo.Corpo) and v['ferramentas'] is True
@@ -157,7 +166,8 @@ def test_o_laco_do_local_usa_o_corpo_e_aceita_o_nome_sem_prefixo():
     texto, lista = asyncio.run(rodar())
     assert texto == 'Anotei.'
     nomes = [t['function']['name'] for t in pedidos[0]['tools']]
-    assert 'mcp__solis__criar_lembrete' in nomes and 'PowerShell' in nomes and 'mcp__solis__ler_arquivo' not in nomes
+    assert 'mcp__solis__criar_lembrete' in nomes and 'mcp__solis__ler_arquivo' not in nomes
+    assert ('PowerShell' in nomes) == (os.name == 'nt')  # o terminal do PC é o do Windows
     assert 'ferramentas do Solis (mcp__solis__)' in pedidos[0]['messages'][0]['content']
     assert [t['texto'] for t in banco.tarefas_abertas(5)] == ['Comprar pão']
     assert [e['ferramenta'] for e in lista if e['etapa'] == 'ferramenta'] == ['mcp__solis__criar_lembrete']

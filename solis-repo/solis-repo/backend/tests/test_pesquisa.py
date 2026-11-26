@@ -1,6 +1,7 @@
 """Pesquisa longa (docs/PARIDADE.md): o botão Pesquisa manda pro Claude com a
 orientação, e as fontes (o que a busca achou e o que foi lido) ficam nas etapas."""
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -106,7 +107,10 @@ def test_sem_o_claude_a_pesquisa_vai_pros_de_api(capturado, monkeypatch):
 
 
 def test_no_roteador_o_de_api_ja_vai_com_o_corpo_e_a_nota_dele(monkeypatch):
-    from solis import cerebros, corpo
+    from solis import cerebros, corpo, navegador
+    # O navegador "instalado", em qualquer máquina: a nota manda buscar nele e ler com o WebFetch.
+    monkeypatch.setattr(navegador, 'escolhido', lambda: 'msedge')
+    monkeypatch.setattr(navegador, '_cli', lambda: Path(__file__))
     vistos = []
 
     async def abrir(nome, sistema, prompt, etapas=None, sessao=None, rapido=False, corpo=None):

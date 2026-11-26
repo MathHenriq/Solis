@@ -1,11 +1,16 @@
 """Mais de um monitor (tela.py, 19/11/2026): o print e as coordenadas são da
 tela escolhida (1 = a principal). Telas simuladas: nada olha a tela de verdade."""
 import asyncio
+import os
 
 import pytest
 from PIL import Image
 
 from solis import corpo, tela
+
+# Do corpo do PC: só existe no Windows (no servidor Linux, quem mexe no PC é o
+# próprio PC). 26/11/2026.
+so_no_windows = pytest.mark.skipif(os.name != 'nt', reason='corpo do PC: só no Windows')
 
 DUAS = [{'x': 0, 'y': 0, 'largura': 1920, 'altura': 1080, 'principal': True},
         {'x': 1920, 'y': 0, 'largura': 1920, 'altura': 1080, 'principal': False}]
@@ -53,6 +58,7 @@ def test_uma_tela_so_nao_fala_de_telas(monkeypatch):
     assert tela.descrever_telas() == ''
 
 
+@so_no_windows
 def test_os_outros_cerebros_escolhem_a_tela_no_tela_ler(duas_telas, monkeypatch):
     from solis import ocr
     monkeypatch.setattr(tela, 'ligada', lambda: True)

@@ -87,5 +87,9 @@ jobs:
             [ -n "$falhas" ] && echo "::error title=Falharam::$falhas"
           fi
           if [ -f /tmp/solis.log ]; then
-            grep -iE 'error|traceback|exception' /tmp/solis.log | head -10 | sed 's/^/::warning title=Log do servidor::/'
+            # Cada erro do log com as linhas seguintes (o traceback), num aviso só por erro.
+            grep -n -iE 'error|traceback|exception' /tmp/solis.log | cut -d: -f1 | head -4 | while read n; do
+              trecho=$(sed -n "$((n-1)),$((n+22))p" /tmp/solis.log | cut -c1-200 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+              echo "::warning title=Log do servidor (linha $n)::$trecho"
+            done
           fi

@@ -3,12 +3,17 @@ Decisão do Matheus (18/11/2026): o Solis é um corpo, o cérebro é que se troc
 Aqui, a Groq simulada pede ferramentas pelo chat/completions e o Solis roda —
 com os mesmos cartões do Claude. Nada sai pra rede."""
 import asyncio
+import os
 import json
 
 import httpx
 import pytest
 
 from solis import agente, apis, banco, cofre, corpo, navegador, roteador
+
+# Do corpo do PC: só existe no Windows (no servidor Linux, quem mexe no PC é o
+# próprio PC). 26/11/2026.
+so_no_windows = pytest.mark.skipif(os.name != 'nt', reason='corpo do PC: só no Windows')
 
 
 class Gravador:
@@ -451,6 +456,7 @@ def _ate_o_cartao(g, aprovar, sempre=False):
     return esperar()
 
 
+@so_no_windows
 def test_o_terminal_vai_com_o_mesmo_cartao_do_claude_e_roda_na_pasta_do_projeto(tmp_path):
     com_chave()
     conversa = banco.nova_conversa()
@@ -482,6 +488,7 @@ def test_o_terminal_vai_com_o_mesmo_cartao_do_claude_e_roda_na_pasta_do_projeto(
     assert passo['ok'] is True and 'olá' in passo['saida']
 
 
+@so_no_windows
 def test_terminal_recusado_nao_roda(tmp_path):
     com_chave()
     marca = tmp_path / 'nao-devia.txt'
@@ -505,6 +512,7 @@ def test_terminal_recusado_nao_roda(tmp_path):
     assert not marca.exists()
 
 
+@so_no_windows
 def test_sempre_este_comando_vale_so_pro_mesmo_comando():
     c = corpo.Corpo(42, Gravador(), navegar=False)
     g = c.etapas
@@ -584,6 +592,7 @@ def test_o_claude_traduz_a_decisao_pro_sdk(monkeypatch):
     assert isinstance(r, PermissionResultAllow) and r.updated_permissions[0].mode == 'default'
 
 
+@so_no_windows
 def test_a_saida_do_comando_vai_pra_tela_enquanto_ele_roda():
     """Como no Claude: a etapa `saida`, ao vivo, com o id do passo que fecha no fim."""
     class ComAoVivo(Gravador):

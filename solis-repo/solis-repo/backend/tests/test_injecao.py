@@ -3,6 +3,7 @@ modelo não vê a frase, e o próprio Solis avisa o Matheus no fim da resposta.
 Medido em 19/11/2026 com o qwen3:8b: a nota escondida no e-mail passou de 2 em
 12 pra 0. Nada sai pra rede."""
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -100,6 +101,7 @@ def test_o_local_le_a_pagina_e_o_solis_avisa_no_fim_da_resposta(monkeypatch):
     from solis import tela
     monkeypatch.setattr(tela, 'ligada', lambda: False)
     monkeypatch.setattr(navegador, 'escolhido', lambda: 'msedge')
+    monkeypatch.setattr(navegador, '_cli', lambda: Path(__file__))  # "instalado", em qualquer máquina
     monkeypatch.setattr(navegador, 'chamar', lambda acao, entrada: EMAIL)
     monkeypatch.setattr(navegador, 'segurar', lambda: None)
     vistos = []
