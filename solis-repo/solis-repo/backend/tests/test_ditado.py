@@ -1,6 +1,8 @@
 """O ditado pelo microfone direto do Windows (main.ditado, 22/11/2026): aberto na
 janela, o microfone estragava o som do Discord, como já tinha acontecido com a
 escuta. O microfone é simulado: nenhum teste abre o do PC."""
+import time
+
 import numpy as np
 from fastapi.testclient import TestClient
 
@@ -51,6 +53,11 @@ def test_desistir_fecha_o_microfone_sem_mandar_nada(monkeypatch):
     with TestClient(main.app).websocket_connect('/voz/ditado') as ws:
         assert ws.receive_json()['tipo'] == 'ouvindo'
         ws.send_json({'cancelar': True})
+    # Quem fecha o microfone é o servidor, logo depois da conexão: no Linux do
+    # GitHub (26/11/2026) o teste conferia antes de ele chegar lá. Espera até 2 s.
+    fim = time.monotonic() + 2
+    while not MicrofoneFalso.fechados and time.monotonic() < fim:
+        time.sleep(0.02)
     assert ouvidos == [] and len(MicrofoneFalso.fechados) == 1
 
 
