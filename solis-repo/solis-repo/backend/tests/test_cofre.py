@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from solis import banco, cofre, main
 
-com_dpapi = pytest.mark.skipif(not cofre.DISPONIVEL, reason='DPAPI só existe no Windows')
+com_dpapi = pytest.mark.skipif(not cofre.DISPONIVEL, reason='sem cofre neste sistema (falta a biblioteca cryptography)')
 
 
 def cru(sql: str, *args):

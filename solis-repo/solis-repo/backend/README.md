@@ -29,6 +29,33 @@ bibliotecas. Outra porta: `npm run backend -- --port 8766`.
 A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" é o
 `npm run backend`; "Ollama fora do ar" é o `ollama serve`.
 
+## Como servidor (o cérebro na nuvem)
+
+Num servidor Linux, sem o app do PC na frente (`solis/nuvem.py`, 26/11/2026):
+
+```sh
+cd backend
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+SOLIS_SERVIDOR=1 python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765
+```
+
+- **Token:** com `SOLIS_SERVIDOR=1`, todo pedido precisa dele, menos `/saude`. Ele vai em
+  `Authorization: Bearer <token>`, no cookie `solis_token` ou, só no WebSocket, em
+  `?token=<token>`.
+- **De onde vem o token:** de `SOLIS_TOKEN` (no mínimo 24 caracteres; mais curto, o servidor não
+  sobe). Sem essa variável, o Solis cria um forte na primeira subida e grava em
+  `~/.local/share/solis/token`, com permissão 600. O log diz onde está o arquivo, nunca o token.
+- **Cofre:** as chaves das APIs e o que é privado são criptografados com AES-GCM (`cofre:v2:`). A
+  chave fica em `~/.config/solis/cofre.chave`, longe do banco, então um backup do `solis.db` não
+  leva a chave junto. No Windows continua o DPAPI.
+- **O que não liga como servidor:** o Ollama e o OCR do Windows. A tela, o terminal e o microfone
+  do PC já só existem no Windows.
+- **Endereço:** escuta só `127.0.0.1`. Quem põe na rede é um túnel (Cloudflare) ou a Tailscale, e
+  por isso o servidor confia no token, nunca no endereço de quem pede.
+- **Teste automático:** a cada mudança no backend, o GitHub roda todos os testes num Ubuntu e sobe o
+  servidor assim (`.github/workflows/servidor.yml`, na raiz do repositório).
+
 ## Rotas
 
 | Rota | O que devolve |

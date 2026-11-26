@@ -1,0 +1,62 @@
+# O Solis como servidor, num Linux de verdade (26/11/2026).
+#
+# O cérebro na nuvem vai rodar num servidor Linux alugado. Aqui, a cada mudança
+# no backend, o GitHub (grátis no repositório público) roda todos os testes num
+# Ubuntu e sobe o Solis como servidor (SOLIS_SERVIDOR=1) pra conferir de fora:
+# /saude responde, sem token não entra, com token entra, e o cofre de arquivo
+# guarda uma chave de API criptografada.
+name: Solis como servidor (Linux)
+
+on:
+  push:
+    paths:
+      - 'solis-repo/solis-repo/backend/**'
+      - '.github/workflows/servidor.yml'
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: solis-repo/solis-repo/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: solis-repo/solis-repo/backend/requirements*.txt
+
+      - name: Instala
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Testes
+        run: python -m pytest -q -p no:cacheprovider
+
+      - name: Sobe como servidor e confere o token
+        env:
+          SOLIS_SERVIDOR: '1'
+          SOLIS_TOKEN: token-do-teste-no-github-bem-comprido-${{ github.run_id }}
+          SOLIS_BANCO: /tmp/solis/solis.db
+          SOLIS_COFRE_ARQUIVO: /tmp/solis-config/cofre.chave
+          SOLIS_AVISOS: '0'
+        run: |
+          python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765 > /tmp/solis.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8765/saude && break; sleep 1; done
+          echo
+          codigo() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+          test "$(codigo http://127.0.0.1:8765/saude)" = 200
+          test "$(codigo http://127.0.0.1:8765/conversas)" = 401
+          test "$(codigo -H 'Authorization: Bearer errado-errado-errado-errado' http://127.0.0.1:8765/conversas)" = 401
+          test "$(codigo -H "Authorization: Bearer $SOLIS_TOKEN" http://127.0.0.1:8765/conversas)" = 200
+          # O cofre de arquivo: a chave fica fora da pasta do banco, só do usuário.
+          python -c "from solis import cofre; s = cofre.selar('chave-de-teste'); assert s.startswith('cofre:v2:') and cofre.abrir(s) == 'chave-de-teste'"
+          test "$(stat -c %a /tmp/solis-config/cofre.chave)" = 600
+          echo "ok: servidor de pé, token conferido, cofre fechado"
+
+      - name: Log do servidor
+        if: always()
+        run: cat /tmp/solis.log || true

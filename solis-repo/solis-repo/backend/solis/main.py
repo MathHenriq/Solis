@@ -30,7 +30,7 @@ from collections import deque
 
 import numpy as np
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, ocr, ollama, palavra, pc, personalidades, rapidas, registro_voz, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, rapidas, registro_voz, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -57,16 +57,24 @@ def _ligar_log() -> None:
     raiz.propagate = False
 
 
+async def _nada() -> None:
+    return None
+
+
 @asynccontextmanager
 async def _vida(_app):
     # Na subida do servidor, e não na importação: os testes importam o app sem
     # subir, e não podem escrever log no %APPDATA% de verdade.
     _ligar_log()
+    # Como servidor, sem token forte não sobe (nuvem.py).
+    nuvem.conferir_na_subida()
+    servidor = nuvem.ligado()
     # Começa a indexar o que estiver pendente — inclusive refazer todos os
     # vetores, se o modelo de embeddings mudou (busca.conferir_modelo).
     indexacao = asyncio.create_task(busca.indexar_se_livre())
-    # E a ler as páginas escaneadas que ficaram na fila quando o servidor caiu.
-    leitura = asyncio.create_task(ocr.ler_se_livre())
+    # E a ler as páginas escaneadas que ficaram na fila quando o servidor caiu
+    # (o OCR é o do Windows: como servidor, no Linux, não tem).
+    leitura = asyncio.create_task(_nada() if servidor else ocr.ler_se_livre())
     # E a vigiar a Agenda e as Tarefas: o aviso do Windows na hora.
     vigia = asyncio.create_task(avisos.vigiar())
     # E os sites do Matheus (vigia.py): avisa quando um cai.
@@ -76,7 +84,8 @@ async def _vida(_app):
     from . import pesquisador
     atlas = asyncio.create_task(pesquisador.vigiar())
     # O Ollama, se estiver instalado e parado: o local responde a voz primeiro.
-    ligando = asyncio.create_task(ollama.ligar_se_parado())
+    # Como servidor, não: o cérebro na nuvem não roda modelo local.
+    ligando = asyncio.create_task(_nada() if servidor else ollama.ligar_se_parado())
     # E as tarefas agendadas: o pedido ao Claude na hora marcada.
     relogio = asyncio.create_task(_vigiar_agendadas())
     # E a tirar o Whisper da memória quando ninguém fala há um tempo.
@@ -110,6 +119,9 @@ app.add_middleware(
     allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allow_headers=['*'],
 )
+# Como servidor (SOLIS_SERVIDOR=1, nuvem.py), todo pedido precisa do token. No PC
+# não faz nada. Por último = por fora: confere antes de tudo.
+app.add_middleware(nuvem.Porteiro)
 
 
 @app.get('/saude')

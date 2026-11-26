@@ -10,6 +10,20 @@ def banco_temporario(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def cofre_e_servidor_de_teste(monkeypatch, tmp_path):
+    """A chave do cofre de arquivo (Linux) e o token do servidor ficam na pasta
+    do teste; e nenhum teste herda o modo servidor de quem rodou antes."""
+    from solis import nuvem
+    monkeypatch.setenv('SOLIS_COFRE_ARQUIVO', str(tmp_path / 'cofre.chave'))
+    monkeypatch.delenv('SOLIS_SERVIDOR', raising=False)
+    monkeypatch.delenv('SOLIS_TOKEN', raising=False)
+    monkeypatch.setattr(nuvem, 'arquivo_do_token', lambda: tmp_path / 'token')
+    nuvem.esquecer()
+    yield
+    nuvem.esquecer()
+
+
+@pytest.fixture(autouse=True)
 def sem_amostras_vivas_de_verdade(monkeypatch, tmp_path):
     """Nenhum teste grava na pasta das amostras ao vivo do "Solis" do Matheus
     (main._guardar_amostra_viva): 22/11/2026, os sons sintéticos da escuta dos
