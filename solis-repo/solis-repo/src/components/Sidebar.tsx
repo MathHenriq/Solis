@@ -1,16 +1,21 @@
-import { ITENS_NAV } from '../nav-items';
+import { ITENS_NAV, type ItemNav } from '../nav-items';
 import { Icone } from './icons';
 import { ListaConversas, type PropsLista } from './ListaConversas';
 import { SimboloDoLogo } from './SimboloDoLogo';
 
-/** Sidebar compacta da Fase 2.
+/** A barra lateral do visual novo.
  *
- *  Todas as medidas vêm de docs/MEDICOES_FASE2.md, normalizadas pra janela de
- *  1440px: 200px de largura (13,9%), ícone 17px, passo 55px entre itens,
- *  rótulo 14px, indicador ativo de 3px a 12px da borda.
+ *  PROVISÓRIO — desenho próprio (27/11/2026), a direção B que o Matheus escolheu
+ *  no canvas, com o Claude como base: o logo pequeno à esquerda, "Nova conversa"
+ *  numa caixa de borda logo embaixo, os itens em linhas de 36 sem indicador (o
+ *  ativo só ganha o véu), as conversas recentes, e Configurações e o perfil no
+ *  pé. Medidas em layout.visualNovo.sidebar; a largura (264) é a do Claude.
+ *
+ *  A lista de itens continua vindo de nav-items (a fonte única, regra 4 do
+ *  CLAUDE.md): Configurações só muda de lugar, pro pé da barra.
  *
  *  O fundo NÃO é uma superfície própria — nos 3 temas ele é o mesmo do canvas,
- *  e o que separa é a divisória de 1px. Por isso aqui não há bg. */
+ *  e o que separa é a divisória de 1px. */
 export function Sidebar({
   ativo = 'conversa',
   aoTrocar,
@@ -21,173 +26,132 @@ export function Sidebar({
   /** A lista de conversas, que vive aqui dentro como no Claude. */
   conversas?: PropsLista;
 }) {
+  const principais = ITENS_NAV.filter((i) => i.id !== 'configuracoes');
+  const configuracoes = ITENS_NAV.find((i) => i.id === 'configuracoes');
   return (
     <nav
       className="shrink-0 min-h-0 overflow-hidden border-r border-divider flex flex-col"
-      style={{ width: 'var(--sidebar-width)' }}
+      style={{ width: 'var(--sidebar-width)', padding: 'var(--vn-sb-topo) var(--vn-sb-px) 8px' }}
       aria-label="Navegação principal"
     >
-      {/* Logo — o símbolo herda a cor do texto porque o SVG usa currentColor.
-          A largura vem do token, e todo o resto do bloco (folga e wordmark) é
-          proporcional a ela: mexer no token reescala o bloco inteiro sem tocar em
-          mais nada. Ver solis-tokens.json → layout.sidebar._blocoDoLogo. */}
-      <div className="flex flex-col items-center" style={{ paddingTop: 'var(--sidebar-padding-top)' }}>
-        <SimboloDoLogo
-          className="text-text-primary opacity-90"
-          style={{
-            width: 'var(--sidebar-logo)',
-            // Deslocamento óptico medido na referência: o símbolo não fica no
-            // centro geométrico da coluna, fica um pouco à esquerda. Proporcional
-            // à largura pra não virar um valor solto quando o logo mudar.
-            marginLeft: 'calc(var(--sidebar-logo) * -0.0727)',
-          }}
-        />
-        {/* Wordmark em DM Sans 500 — a fonte escolhida na folha de candidatas. O
-            system-ui que estava aqui era substituto e saía pequeno: cap de 8px
-            contra os 10,3px medidos na referência, e 30% mais estreito.
-
-            O tamanho sai da PROPORÇÃO com o símbolo, não de um px absoluto: na
-            referência o cap do wordmark é 14,5% da largura do símbolo, e é isso
-            que mantém o bloco coerente com o símbolo no tamanho que o Matheus
-            escolheu. O paddingLeft compensa o letter-spacing, que o CSS aplica
-            também depois da última letra e descentraria o bloco. */}
+      {/* O logo: o símbolo (que ganha o brilho da voz enquanto o Solis ouve) e o
+          SOLIS lado a lado, pequenos, como o logo do Claude na barra dele. */}
+      <div className="flex items-center shrink-0" style={{ gap: 10, padding: '6px 8px 14px' }}>
+        <SimboloDoLogo className="text-text-primary opacity-90" style={{ width: 'var(--vn-sb-logo)' }} />
         <span
           className="font-wordmark text-text-primary"
-          style={{
-            marginTop: 'calc(var(--sidebar-logo) * 0.145)',
-            fontSize: 'calc(var(--sidebar-logo) * 0.200)',
-            letterSpacing: 'var(--wordmark-tracking)',
-            paddingLeft: 'var(--wordmark-tracking)',
-            lineHeight: 1,
-          }}
+          style={{ fontSize: 'var(--vn-sb-marca)', letterSpacing: 'var(--vn-sb-marca-espaco)', lineHeight: 1, fontWeight: 500 }}
         >
           SOLIS
         </span>
       </div>
 
-      {/* A tinta do primeiro rótulo cai em --sidebar-nav-ink, medido na referência.
-          Este respiro é o que sobra depois do bloco do logo, então ele é CALCULADO:
-          padding + 91,87% de --sidebar-logo (altura do símbolo 57,37% + folga 14,5%
-          + caixa do wordmark 20%), menos os 23px entre o topo da caixa do item e o
-          topo da tinta do rótulo (metade da folga do passo, mais a diferença entre a
-          caixa da fonte e a altura de caixa alta). Assim mexer no tamanho do logo
-          não desloca a navegação.
+      {conversas && (
+        <button
+          type="button"
+          onClick={conversas.aoNova}
+          className="flex items-center shrink-0 text-text-primary hover:bg-[var(--mem-hover)]"
+          style={{
+            height: 'var(--vn-sb-nova-h)',
+            borderRadius: 'var(--vn-sb-nova-raio)',
+            border: '1px solid var(--vn-caixa-borda)',
+            padding: '0 var(--vn-sb-item-px)',
+            gap: 10,
+            fontSize: 'var(--vn-sb-rotulo)',
+            fontWeight: 500,
+          }}
+        >
+          <Icone nome="adicionar" tamanho={18} className="text-accent" tracoFixo="2" />
+          Nova conversa
+        </button>
+      )}
 
-          Esses 23px viraram 40,35% do passo: o passo agora encolhe em janela
-          curta (ver layout.escalaVertical) e uma constante fixa aqui subiria o
-          primeiro rótulo. Em 930px de altura, 57 x 0,4035 = 23,0 — a medida da
-          referência, intacta. */}
-      {/* min-h-0 e overflow-y: a lista é a única parte da sidebar que pode rolar.
-          Sem isso, numa janela curta ela empurrava a coluna inteira e a PÁGINA
-          passava a rolar — foi o que apareceu no preview em 693px de altura. */}
-      <ul
-        className="min-h-0 overflow-y-auto"
-        style={{
-          marginTop:
-            'calc(var(--sidebar-nav-ink) - var(--sidebar-pitch) * 0.4035' +
-            ' - var(--sidebar-padding-top) - var(--sidebar-logo) * 0.9187)',
-        }}
-      >
-        {ITENS_NAV.map((item) => {
-          const ehAtivo = item.id === ativo;
-          return (
-            <li key={item.id}>
-              {/* Continua sendo <a> com href: o item é navegação de verdade, e
-                  trocar por <button> tiraria "abrir em nova aba" e o papel de
-                  link das tecnologias assistivas. O preventDefault existe só
-                  porque a troca é estado local e não navegação de documento. */}
-              <a
-                href={item.rota}
-                aria-current={ehAtivo ? 'page' : undefined}
-                onClick={(e) => {
-                  if (!aoTrocar) return;
-                  e.preventDefault();
-                  aoTrocar(item.id);
-                }}
-                className={`relative flex items-center ${
-                  ehAtivo ? 'text-accent' : 'text-text-primary'
-                }`}
-                style={{ height: 'var(--sidebar-pitch)' }}
-              >
-                {ehAtivo && (
-                  <span
-                    aria-hidden
-                    className="absolute bg-accent"
-                    style={{ left: 12, top: 14, bottom: 14, width: 3, borderRadius: 2 }}
-                  />
-                )}
-                <span className="absolute" style={{ left: 'var(--sidebar-icon-inset)' }}>
-                  <Icone nome={item.icone} tamanho="var(--sidebar-icon)" />
-                </span>
-                <span style={{ paddingLeft: 'var(--sidebar-label-inset)', fontSize: 'var(--sidebar-label)' }}>
-                  {item.rotulo}
-                </span>
-              </a>
-            </li>
-          );
-        })}
+      {/* min-h-0 e overflow-y: numa janela curta a navegação rola sozinha, em vez
+          de empurrar a coluna e fazer a página inteira rolar. */}
+      <ul className="min-h-0 overflow-y-auto flex flex-col" style={{ marginTop: 'var(--vn-sb-nav-topo)', gap: 1 }}>
+        {principais.map((item) => (
+          <li key={item.id}>
+            <ItemDaBarra item={item} ativo={item.id === ativo} aoTrocar={aoTrocar} />
+          </li>
+        ))}
       </ul>
 
-      {/* Nova conversa, busca e Recentes, abaixo da navegação — no Claude elas
-          moram na própria barra lateral, e foi o pedido do Matheus. Ocupam o
-          que sobra até o perfil e rolam sozinhas; numa janela curta, quem
-          encolhe primeiro são elas (base 0), até sobrarem só "Nova conversa"
-          e a busca; dali pra baixo quem rola é a navegação. Sem esse piso, a
-          lista vazava por cima do perfil numa janela de 693px (visto). */}
-      {conversas && (
+      {/* As conversas ocupam o que sobra até o pé e rolam sozinhas; numa janela
+          curta, quem encolhe primeiro são elas, até sobrar a busca. A lista tem
+          o recuo dela (o da gaveta do modo ícones): aqui ele sai pela margem,
+          pra que o texto caia na coluna dos ícones da barra. */}
+      {conversas ? (
         <div
           className="flex flex-col overflow-hidden"
-          style={{ flex: '1 1 0', minHeight: 'calc(var(--rc-linha-h) * 2)', marginTop: 'var(--rc-topo)' }}
+          style={{
+            flex: '1 1 0',
+            minHeight: 'calc(var(--rc-linha-h) * 2)',
+            marginTop: 'var(--rc-topo)',
+            marginInline: 'calc(-1 * var(--vn-sb-px))',
+          }}
         >
-          <ListaConversas {...conversas} />
+          <ListaConversas {...conversas} semNova />
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
+
+      {configuracoes && (
+        <div className="shrink-0" style={{ marginTop: 6 }}>
+          <ItemDaBarra item={configuracoes} ativo={configuracoes.id === ativo} aoTrocar={aoTrocar} />
         </div>
       )}
 
-      {/* Perfil. Todas as medidas vêm da referência espacial, normalizadas pela
-          LARGURA da janela e com o vertical contado a partir da BASE — a referência
-          tem 1020px de altura útil e o alvo tem 930, então normalizar y pelo topo
-          erra o bloco inteiro. Ver solis-tokens.json → layout.sidebar._profile.
-
-          O conteúdo fica no ALTO do bloco, não centrado: na referência sobram ~62px
-          de canvas vazio abaixo do avatar. */}
-      {/* shrink-0: o bloco tem altura medida, não é folga. Sem isso o flex o
-          espremia de 113 para 53px numa janela curta e o "Online" saía cortado —
-          exatamente o que apareceu no preview. */}
-      <div
-        className="mt-auto shrink-0 border-t border-divider flex items-start"
-        style={{
-          height: 'var(--perfil-altura)',
-          paddingLeft: 'var(--perfil-avatar-x)',
-          paddingTop: 'var(--perfil-avatar-y)',
-        }}
-      >
+      {/* O perfil: a inicial num círculo e o nome, sem caixa. */}
+      <div className="shrink-0 flex items-center" style={{ gap: 10, padding: '8px var(--vn-sb-item-px)' }}>
         <div
-          className="rounded-pill shrink-0 bg-divider"
-          style={{ width: 'var(--perfil-avatar)', height: 'var(--perfil-avatar)' }}
           aria-hidden
-        />
-        <div className="ml-md leading-tight">
-          <div className="text-text-primary" style={{ fontSize: 'var(--perfil-nome)' }}>Matheus</div>
-          <div
-            className="text-text-secondary flex items-center gap-xs"
-            style={{ fontSize: 'var(--perfil-status)', marginTop: 3 }}
-          >
-            <span
-              aria-hidden
-              style={{
-                width: 'var(--perfil-ponto)',
-                height: 'var(--perfil-ponto)',
-                borderRadius: 99,
-                background: '#8FBF6D',
-              }}
-            />
-            Online
-          </div>
+          className="shrink-0 flex items-center justify-center text-accent"
+          style={{
+            width: 'var(--vn-sb-avatar)',
+            height: 'var(--vn-sb-avatar)',
+            borderRadius: 999,
+            background: 'color-mix(in srgb, var(--accent) 16%, var(--canvas))',
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          M
         </div>
-        <span className="ml-auto mr-lg text-text-secondary" style={{ marginTop: 6 }}>
-          <Icone nome="chevron" tamanho={14} />
+        <span className="text-text-primary truncate" style={{ fontSize: 'var(--vn-sb-perfil)' }}>
+          Matheus
         </span>
       </div>
     </nav>
+  );
+}
+
+/** Um item da navegação. Continua sendo <a> com href: o item é navegação de
+ *  verdade, e trocar por <button> tiraria "abrir em nova aba" e o papel de link
+ *  das tecnologias assistivas. O preventDefault existe só porque a troca é
+ *  estado local e não navegação de documento. */
+function ItemDaBarra({ item, ativo, aoTrocar }: { item: ItemNav; ativo: boolean; aoTrocar?: (id: string) => void }) {
+  return (
+    <a
+      href={item.rota}
+      aria-current={ativo ? 'page' : undefined}
+      onClick={(e) => {
+        if (!aoTrocar) return;
+        e.preventDefault();
+        aoTrocar(item.id);
+      }}
+      className={`flex items-center ${ativo ? 'text-text-primary' : 'text-[var(--vn-inativo)] hover:text-text-primary hover:bg-[var(--mem-hover)]'}`}
+      style={{
+        height: 'var(--vn-sb-item-h)',
+        borderRadius: 'var(--vn-sb-item-raio)',
+        padding: '0 var(--vn-sb-item-px)',
+        gap: 'var(--vn-sb-icone-gap)',
+        fontSize: 'var(--vn-sb-rotulo)',
+        background: ativo ? 'var(--vn-ativo)' : undefined,
+      }}
+    >
+      <Icone nome={item.icone} tamanho="var(--vn-sb-icone)" className="shrink-0" />
+      <span className="truncate">{item.rotulo}</span>
+    </a>
   );
 }

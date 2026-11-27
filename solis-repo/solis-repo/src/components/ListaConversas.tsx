@@ -21,6 +21,8 @@ export type PropsLista = {
   aoNova: () => void;
   /** A conversa foi apagada (se era a aberta, o app vai pra uma nova). */
   aoApagada?: (id: number) => void;
+  /** Sem a linha "Nova conversa": a barra lateral nova tem o botão dela no topo. */
+  semNova?: boolean;
 };
 
 /** Uma linha: a caixa a --rc-recuo das bordas, o texto na coluna dos ícones
@@ -156,7 +158,9 @@ function LinhaConversa({
         onClick={aoAbrir}
         aria-current={ativa ? 'true' : undefined}
         title={c.titulo}
-        className={`${linha} ${ativa ? 'bg-[var(--rc-ativo)]' : 'hover:bg-[var(--mem-hover-forte)]'}`}
+        // Visual novo (27/11/2026): fora a aberta, o título no tom apagado da
+        // barra (--vn-inativo), como no Claude; o hover acende.
+        className={`${linha} ${ativa ? 'bg-[var(--rc-ativo)]' : '!text-[var(--vn-inativo)] hover:!text-text-primary hover:bg-[var(--mem-hover-forte)]'}`}
         style={{ ...estiloLinha, paddingRight: 'calc(var(--rc-px) + var(--rc-acoes))' }}
       >
         <span className="truncate">{c.titulo}</span>
@@ -225,7 +229,7 @@ function LinhaConversa({
   );
 }
 
-export function ListaConversas({ aberta, versao, aoAbrir, aoNova, aoApagada }: PropsLista) {
+export function ListaConversas({ aberta, versao, aoAbrir, aoNova, aoApagada, semNova = false }: PropsLista) {
   const [busca, definirBusca] = useState('');
   const [conversas, definirConversas] = useState<ResumoConversa[]>([]);
 
@@ -241,6 +245,7 @@ export function ListaConversas({ aberta, versao, aoAbrir, aoNova, aoApagada }: P
 
   return (
     <div className="flex flex-col min-h-0 flex-1" style={{ padding: '0 var(--rc-recuo)' }}>
+      {!semNova && (
       <button type="button" onClick={aoNova} className={`${linha} shrink-0 hover:bg-[var(--mem-hover-forte)]`} style={estiloLinha}>
         <ColunaIcone>
           {/* O + num círculo de accent cheio, como o "Novo chat" do Claude. */}
@@ -253,6 +258,7 @@ export function ListaConversas({ aberta, versao, aoAbrir, aoNova, aoApagada }: P
         </ColunaIcone>
         Nova conversa
       </button>
+      )}
 
       <label
         className={`${linha} shrink-0 hover:bg-[var(--mem-hover-forte)] focus-within:bg-[var(--mem-hover-forte)]`}
