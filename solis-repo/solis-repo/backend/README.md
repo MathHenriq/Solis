@@ -31,7 +31,26 @@ A tela de Modelos locais diz quem está faltando: "Servidor do Solis desligado" 
 
 ## Como servidor (o cérebro na nuvem)
 
-Num servidor Linux, sem o app do PC na frente (`solis/nuvem.py`, 26/11/2026):
+**Num servidor novo (Ubuntu ou Debian), um comando só** (`instalar_servidor.sh`, 26/11/2026):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MathHenriq/Solis/main/solis-repo/solis-repo/backend/instalar_servidor.sh | sudo bash
+```
+
+- **O que ele monta:**
+  - o usuário `solis`, sem login, com a casa em `/var/lib/solis`;
+  - o código, o Python 3.14 (pelo `uv`), as bibliotecas e a tela construída;
+  - o Whisper pequeno, que o cadeado usa;
+  - a voz local (Kokoro);
+  - o `solis.service`: só em `127.0.0.1`, só grava na casa dele, e volta sozinho se cair.
+- **No fim ele mostra** onde está a senha (`sudo cat …/token`) e os três comandos da Tailscale pro
+  https do celular.
+- **Atualizar** é rodar o mesmo comando de novo. Banco, senha e chaves ficam.
+- **Teste automático:** a cada mudança do instalador, o GitHub roda ele num Ubuntu limpo
+  (`.github/workflows/instalador.yml`) e confere o serviço, a senha, a fala com o cadeado e a voz
+  local, com os tempos.
+
+**À mão**, num Linux, sem o app do PC na frente (`solis/nuvem.py`):
 
 ```sh
 cd backend

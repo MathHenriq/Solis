@@ -168,7 +168,7 @@ code { font-family: var(--mono); font-size: 13px; }
       </div>
       <div class="frente">
         <div class="nome">Cérebro na nuvem e celular</div><div><span class="pill no">Não começou</span></div>
-        <div class="det">O Solis já sobe como servidor no Linux (26/11), com senha (token) e cofre, testado num Linux de verdade a cada mudança. O celular já abre o Solis pelo endereço do servidor, com login, e os avisos chegam nele como notificação (26/11). As quatro opções de servidor estão medidas, de R$ 0 a R$ 43 por mês; a escolha fica pra quando você quiser. Falta: a voz pelo celular.</div>
+        <div class="det">O Solis já sobe como servidor no Linux (26/11), com senha (token) e cofre, testado num Linux de verdade a cada mudança. O celular já abre o Solis pelo endereço do servidor, com login, e fala com ele pela voz (com o cadeado pro privado); os avisos chegam como notificação; e um comando instala tudo num servidor novo (26/11). A escolha do servidor fica pra quando você quiser. Falta: levar suas memórias e conversas pro servidor e o PC virar o corpo dele.</div>
       </div>
       <div class="frente">
         <div class="nome">Visual</div><div><span class="pill bad">Provisório</span></div>
@@ -290,7 +290,8 @@ code { font-family: var(--mono); font-size: 13px; }
           <li><s>Os avisos chegarem no celular</s> — feito (26/11): compromisso, tarefa, site fora do ar, novidades e tarefas agendadas viram notificação no celular, em Configurações → Avisos no celular. Vão pela notificação do próprio navegador (Web Push): grátis, sem app, criptografados de ponta a ponta. Testado de verdade num navegador: no Edge o aviso apareceu em 0,8 a 1,7 s; no Chrome, 1,3 s numa vez e 23 a 27 s em duas (perfil novo; no celular ainda não medido). No iPhone, só com o Solis na Tela de Início.</li>
           <li><s>A voz pelo celular</s> — feito (26/11): o microfone do celular grava pelo navegador e o servidor transcreve online primeiro, como no PC. Como servidor, ele nunca abre o microfone da máquina. A resposta volta falada, e no iPhone o som é liberado no primeiro toque. Testado de ponta a ponta num Chrome do tamanho de um celular, com microfone falso: "Que horas são?" transcrito certo e a resposta falada. Falta: testar num celular de verdade (precisa do https do servidor).</li>
           <li><s>O cadeado na tela</s> — feito (26/11), a sua escolha. Sem o cadeado, a fala do celular vai direto pra Groq, sem os 2 a 3 s da conferência. Com ele, vale pra uma mensagem: a fala é transcrita no Solis, a mensagem fica selada, só o modelo local responde e o que ela ensinar vira memória privada. No servidor, que não tem modelo local, a pergunta privada que precisa de cérebro recebe o aviso de que só o PC responde; hora, gasto e lembrete continuam. Testado no navegador de celular com e sem o cadeado.</li>
-          <li>Escolher o servidor — quando você quiser (a conta e o pagamento são seus; a instalação é comigo).</li>
+          <li><s>O instalador do servidor</s> — feito (26/11): num Ubuntu ou Debian novo, um comando monta tudo (o Solis, a tela, o Whisper pequeno do cadeado, a voz local e o serviço que liga sozinho), e rodar de novo atualiza. No fim ele mostra onde está a senha e os três comandos da Tailscale pro https. Testado num Ubuntu limpo do GitHub (4 núcleos): instalado em 85 s; a fala com o cadeado transcrita certa em 1,5 s; a resposta privada falada pela voz local em 0,9 s.</li>
+          <li>Escolher o servidor — quando você quiser (a conta e o pagamento são seus; daí é rodar o instalador).</li>
           <li>O privado fica só no PC, como hoje (a proposta).</li>
         </ul>
       </div></div>
