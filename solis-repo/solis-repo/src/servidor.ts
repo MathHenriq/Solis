@@ -52,7 +52,16 @@ export async function listarModelos(): Promise<Resultado<Modelo[]>> {
 
 /** `privada`: nunca sai da máquina — quando modelos de nuvem entrarem, ela fica
  *  de fora do que eles veem. */
-export type Memoria = { id: number; texto: string; tema: string; pedido: boolean; privada: boolean; criada: string };
+/** `area`: a personalidade que aprendeu (backend/solis/banco.py); sem ela, o Solis. */
+export type Memoria = {
+  id: number;
+  texto: string;
+  tema: string;
+  pedido: boolean;
+  privada: boolean;
+  criada: string;
+  area?: string | null;
+};
 
 /** `busca`: só as que batem — por palavra, por prefixo e sem diferença de
  *  acento (o índice FTS5 do servidor). */

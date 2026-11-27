@@ -329,7 +329,14 @@ main {
   }
   .caixa-escrever > .caixa-vazio,
   :root[data-nav="icones"] .conversa-coluna .caixa-escrever > .caixa-vazio { display: none; }
+  :root { --vn-tela-px: var(--vn-tela-px-celular); }
 }
+
+/* As linhas das telas de lista no visual novo (layout.visualNovo.tela): no
+   hover a linha vira um bloco arredondado que passa 16 da coluna, e as
+   divisórias de cima e de baixo somem, como na referência 09-memoria. */
+.vn-linha:hover > .vn-linha-corpo,
+.vn-linha:has(+ .vn-linha:hover) > .vn-linha-corpo { border-bottom-color: transparent; }
 
 /* Com a thread aberta o horizonte vira uma faixa baixa no rodapé, atrás da caixa
    de escrever (layout.visualNovo.cena); vazia, a Conversa mantém a faixa alta.

@@ -4,22 +4,26 @@ import { quando } from '../datas';
 import { Icone } from '../components/icons';
 import { EstadoVazio } from '../components/Tela';
 import {
+  CORES_PERSONALIDADE,
   corrigirMemoria,
   esquecerMemoria,
   listarMemorias,
+  NOMES_PERSONALIDADE,
   type Memoria as MemoriaGuardada,
   type Resultado,
 } from '../servidor';
 
 /** Tela de Memória — lista e busca.
  *
- *  Medidas de docs/solis-tokens.json → layout.memoria, tiradas de
+ *  Medidas de texto em docs/solis-tokens.json → layout.memoria, tiradas de
  *  referencias/telas/09-memoria.png.
  *
- *  TODO O x DESTA TELA É MEDIDO A PARTIR DA DIVISÓRIA DA SIDEBAR, não da borda
- *  da janela: a referência veio com sidebar de 267px e a do app tem 200px, que
- *  é o valor das 3 telas de tema já aprovadas. Medir da borda deslocaria a tela
- *  inteira em 67px.
+ *  PROVISÓRIO — visual novo (27/11/2026, layout.visualNovo.tela): a tela fica na
+ *  coluna da conversa (--vn-coluna), no centro, como a lista de conversas do
+ *  Claude; antes ia da divisória da barra até a borda da janela. O hover da linha
+ *  é um bloco arredondado que passa 16 da coluna, a busca tem o fundo e a borda
+ *  da caixa de escrever, e a memória que uma personalidade aprendeu leva o nome
+ *  dela, na cor dela (a mesma da resposta na thread).
  *
  *  Da referência foi adotado o LAYOUT. A paleta dela (canvas #0D1216, divisória
  *  #232629, sidebar com superfície própria) NÃO foi: canvas e divisória estavam
@@ -86,15 +90,31 @@ function ItemMemoria({
     definirFalhou(!ok);
   };
 
+  // Quem aprendeu, se foi uma personalidade: o nome na cor dela, misturada ao
+  // texto como na thread (--vn-persona-mix).
+  const nome = m.area ? NOMES_PERSONALIDADE[m.area] : undefined;
+  const cor = m.area ? CORES_PERSONALIDADE[m.area] : undefined;
+
   return (
     <li
-      className="group border-b border-divider [&:hover]:bg-[var(--mem-hover)]"
-      style={{ paddingTop: 'var(--mem-item-pad-y)', paddingBottom: 'var(--mem-item-pad-y)' }}
+      className="vn-linha group [&:hover]:bg-[var(--mem-hover)] [&:focus-within]:bg-[var(--mem-hover)]"
+      style={{
+        marginInline: 'calc(var(--vn-tela-sangria) * -1)',
+        paddingInline: 'var(--vn-tela-sangria)',
+        borderRadius: 'var(--vn-tela-linha-raio)',
+      }}
     >
+      {/* A divisória fica no corpo, na largura da coluna; o hover passa dela. */}
+      <div
+        className="vn-linha-corpo border-b border-divider"
+        style={{ paddingTop: 'var(--mem-item-pad-y)', paddingBottom: 'var(--mem-item-pad-y)' }}
+      >
       {/* A data é ancorada na borda direita do bloco, não colada no fim do
           texto: na referência ela forma uma coluna própria, alinhada entre
           todos os itens, independente do tamanho de cada texto. */}
-      <div className="flex items-start gap-lg">
+      {/* Fora da edição a data se alinha pela base da primeira linha do texto,
+          como na referência; o campo de corrigir não tem uma base confiável. */}
+      <div className={`flex gap-lg ${editando ? 'items-start' : 'items-baseline'}`}>
         {editando ? (
           <div className="flex-1" style={{ maxWidth: 'var(--mem-texto-max)' }}>
             <textarea
@@ -110,7 +130,7 @@ function ItemMemoria({
                 } else if (e.key === 'Escape') aoCancelar();
               }}
               aria-label="Corrigir a memória"
-              className="block w-full resize-none overflow-hidden bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+              className="block w-full resize-none overflow-hidden bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
               style={{
                 fontSize: 'var(--mem-item-texto)',
                 lineHeight: 'var(--mem-item-lh)',
@@ -144,11 +164,24 @@ function ItemMemoria({
             {m.texto}
           </p>
         )}
-        <div className="ml-auto shrink-0 flex items-center" style={{ gap: 'var(--mac-data-gap)' }}>
+        <div className="ml-auto shrink-0 relative">
           {/* As ações só aparecem no hover ou no foco do teclado: a lista é pra
-              ler, e dois ícones em todo item fariam ruído em cada linha. */}
+              ler, e dois ícones em todo item fariam ruído em cada linha. Elas
+              flutuam à esquerda da data, sem tomar lugar: escondidas, não
+              apertam o texto (no celular ele quebrava cedo). O fundo é o da
+              linha com o véu, pra cobrir o fim do texto onde a coluna é estreita. */}
           {!editando && !confirmando && (
-            <span className="flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            <span
+              className="absolute flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+              style={{
+                right: '100%',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                marginRight: 'var(--mac-data-gap)',
+                borderRadius: 'var(--mac-botao-raio)',
+                background: 'linear-gradient(var(--mem-hover), var(--mem-hover)), var(--canvas)',
+              }}
+            >
               {(
                 [
                   ['lapis', 'Corrigir', aoEditar],
@@ -200,9 +233,24 @@ function ItemMemoria({
               </>
             )}
             de: {m.tema}
+            {nome && (
+              <>
+                <span aria-hidden>·</span>
+                <span
+                  title={`Quem aprendeu: ${nome}`}
+                  style={{
+                    fontWeight: 500,
+                    color: cor ? `color-mix(in srgb, ${cor} var(--vn-persona-mix), var(--text-primary))` : undefined,
+                  }}
+                >
+                  {nome}
+                </span>
+              </>
+            )}
           </p>
         )
       )}
+      </div>
     </li>
   );
 }
@@ -309,65 +357,74 @@ export function Memoria() {
   // baixo desta tela.
   return (
     <main className="relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
+      {/* A mesma calha da rolagem da lista (dos dois lados), sem rolar: o título
+          e a lista ficam na mesma coluna em qualquer largura, com barra de
+          rolagem que ocupa lugar (a do app, 12) ou que flutua (a do celular). */}
       <div
         className="shrink-0"
         style={{
-          paddingLeft: 'var(--mem-pad-l)',
-          paddingRight: 'var(--mem-pad-r)',
+          paddingInline: 'var(--vn-tela-px)',
           paddingTop: 'var(--mem-titulo-top)',
+          overflow: 'hidden',
+          scrollbarGutter: 'stable both-edges',
         }}
       >
-        {/* O título é a única serifada da tela, como a saudação da Conversa. */}
-        <h1
-          className="font-display text-text-primary leading-none"
-          style={{ fontSize: 'var(--mem-titulo)' }}
-        >
-          Memória
-        </h1>
+        <div style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
+          {/* O título é a única serifada da tela, como a saudação da Conversa. */}
+          <h1 className="font-display text-text-primary leading-none" style={{ fontSize: 'var(--mem-titulo)' }}>
+            Memória
+          </h1>
 
-        <p
-          className="text-text-secondary"
-          style={{
-            fontSize: 'var(--mem-contagem)',
-            marginTop: 'var(--mem-contagem-gap)',
-          }}
-        >
-          {subtitulo}
-        </p>
+          <p
+            className="text-text-secondary"
+            style={{ fontSize: 'var(--mem-contagem)', marginTop: 'var(--vn-tela-contagem-gap)' }}
+          >
+            {subtitulo}
+          </p>
 
-        <div
-          className="flex items-center border border-divider"
-          style={{
-            marginTop: 'var(--mem-busca-gap)',
-            height: 'var(--mem-busca-h)',
-            borderRadius: 'var(--mem-busca-raio)',
-          }}
-        >
-          <span className="text-text-secondary shrink-0" style={{ paddingLeft: 22, paddingRight: 16 }}>
-            <Icone nome="buscar" tamanho={19} />
-          </span>
-          <input
-            className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
-            style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 22 }}
-            placeholder="Buscar nas memórias…"
-            aria-label="Buscar nas memórias"
-            value={busca}
-            onChange={(e) => definirBusca(e.target.value)}
-          />
+          {/* O fundo e a borda da caixa de escrever, sem a sombra (não flutua). */}
+          <div
+            className="flex items-center"
+            style={{
+              marginTop: 'var(--vn-tela-busca-top)',
+              height: 'var(--mem-busca-h)',
+              borderRadius: 'var(--mem-busca-raio)',
+              background: 'var(--vn-caixa-fundo)',
+              border: '1px solid var(--vn-caixa-borda)',
+            }}
+          >
+            <span
+              className="text-text-secondary shrink-0 flex"
+              style={{ paddingLeft: 'var(--vn-tela-busca-pl)', paddingRight: 'var(--vn-tela-busca-gap)' }}
+            >
+              <Icone nome="buscar" tamanho="var(--vn-tela-busca-icone)" />
+            </span>
+            <input
+              className="flex-1 min-w-0 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
+              style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 'var(--vn-tela-busca-pl)' }}
+              placeholder="Buscar nas memórias…"
+              aria-label="Buscar nas memórias"
+              value={busca}
+              onChange={(e) => definirBusca(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
       {/* A lista rola sozinha e sangra até a base da janela: na referência o
           sétimo item aparece cortado pela borda, e é esse corte que diz que há
-          mais coisa abaixo. Por isso a lista não tem padding inferior. */}
-      <ul
+          mais coisa abaixo. Por isso a lista não tem padding inferior. A
+          rolagem reserva a calha dos dois lados, pra coluna não sair do eixo
+          do título (o mesmo da Conversa). */}
+      <div
         className="flex-1 overflow-y-auto"
         style={{
-          marginTop: 'var(--mem-lista-gap)',
-          paddingLeft: 'var(--mem-pad-l)',
-          paddingRight: 'var(--mem-pad-r)',
+          marginTop: 'var(--vn-tela-lista-gap)',
+          paddingInline: 'var(--vn-tela-px)',
+          scrollbarGutter: 'stable both-edges',
         }}
       >
+      <ul style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
         {filtradas.map((m) => (
           <ItemMemoria
             key={m.id}
@@ -391,6 +448,7 @@ export function Memoria() {
           />
         ))}
       </ul>
+      </div>
 
       {/* Texto de referencias/telas/10-memoria-vazio.png. */}
       {resultado?.estado === 'ok' && todas.length === 0 && (
@@ -413,14 +471,17 @@ export function Memoria() {
       {esquecida && (
         <div
           role="status"
-          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary border border-divider bg-canvas"
+          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary"
           style={{
             height: 'var(--mac-aviso-h)',
             padding: '0 var(--mac-aviso-px)',
             borderRadius: 'var(--mac-aviso-raio)',
             gap: 'var(--mac-aviso-px)',
             fontSize: 'var(--mac-botao-texto)',
-            boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
+            // Flutua sobre a lista: o fundo, a borda e a sombra da caixa de escrever.
+            background: 'var(--vn-caixa-fundo)',
+            border: '1px solid var(--vn-caixa-borda)',
+            boxShadow: 'var(--vn-caixa-sombra)',
           }}
         >
           Memória esquecida
