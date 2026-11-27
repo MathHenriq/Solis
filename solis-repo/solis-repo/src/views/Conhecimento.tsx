@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Botao } from '../components/Controles';
 import { Icone, type NomeIcone } from '../components/icons';
-import { BotaoContorno, EstadoVazio, Tela } from '../components/Tela';
+import { EstadoVazio } from '../components/Tela';
+import { BotaoBorda, BuscaColuna, TelaColuna } from '../components/TelaNova';
 import { quando } from '../datas';
 import {
   adicionarDocumento,
@@ -29,7 +30,13 @@ import {
  *  Desenho próprio, aprovado pelo Matheus em 08/11/2026 (design/conhecimento-validacao.png,
  *  layout.conhecimento): o menu dos três pontos e
  *  o aviso de baixo. "Adicionar fonte" abre um menu: arquivo ou página da web (o
- *  campo de endereço é desenho próprio, PROVISÓRIO até o Matheus aprovar). */
+ *  campo de endereço é desenho próprio, PROVISÓRIO até o Matheus aprovar).
+ *
+ *  PROVISÓRIO — visual novo (27/11/2026, layout.visualNovo.tela): a moldura das
+ *  outras telas (a coluna da conversa, a busca da Memória), a grade em 2 colunas
+ *  (na coluna de 720 o cartão fica do tamanho do da referência, que tinha 3 numa
+ *  tela inteira), os cartões e os menus com a borda e o fundo da caixa de
+ *  escrever, o ⋯ só no hover, e o "Adicionar fonte" no botão do "Nova conversa". */
 
 const DESFAZER_MS = 6000;
 const ACOMPANHAR_MS = 1500;
@@ -78,13 +85,16 @@ function Caixa({ largura, aoFechar, children }: { largura?: string; aoFechar: ()
     <div
       ref={caixa}
       role="menu"
-      className="absolute right-0 z-10 border border-divider bg-canvas"
+      className="absolute right-0 z-10"
       style={{
         top: `calc(100% + var(--kn-menu-top))`,
         width: largura ?? 'var(--kn-menu-l)',
         padding: 'var(--kn-menu-pad)',
         borderRadius: 'var(--kn-menu-raio)',
-        boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
+        // Flutua: o fundo, a borda e a sombra da caixa de escrever.
+        background: 'var(--vn-caixa-fundo)',
+        border: '1px solid var(--vn-caixa-borda)',
+        boxShadow: 'var(--vn-caixa-sombra)',
       }}
     >
       {children}
@@ -184,7 +194,7 @@ function MenuAdicionar({
           onKeyDown={(e) => e.key === 'Enter' && enviar()}
           placeholder="Cole o endereço da página"
           aria-label="Endereço da página"
-          className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-placeholder border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+          className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-placeholder border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
           style={{
             fontSize: 'var(--mac-botao-texto)',
             borderRadius: 'var(--mac-campo-raio)',
@@ -245,8 +255,8 @@ function Cartao({
 
   return (
     <article
-      className="relative border border-divider hover:bg-[var(--mem-hover)]"
-      style={{ borderRadius: 'var(--cfg-card-raio)', padding: 24 }}
+      className="group relative hover:bg-[var(--mem-hover)] min-w-0"
+      style={{ borderRadius: 'var(--cfg-card-raio)', padding: 24, border: '1px solid var(--vn-caixa-borda)' }}
     >
       <div className="flex items-start justify-between">
         <span className="text-text-secondary">
@@ -254,9 +264,17 @@ function Cartao({
         </span>
         {doc && (
           <div className="relative">
+            {/* As opções só no hover, no foco do teclado ou com o menu aberto,
+                como as ações das outras listas. */}
             <button
               type="button"
-              className="text-text-secondary"
+              className={`flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-[var(--mem-hover-forte)] transition-opacity ${menuAberto ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+              style={{
+                width: 'var(--mac-alvo)',
+                height: 'var(--mac-alvo)',
+                borderRadius: 'var(--mac-botao-raio)',
+                margin: 'calc((var(--mac-alvo) - 18px) / -2)',
+              }}
               aria-label={`Opções de ${doc.nome}`}
               aria-haspopup="menu"
               aria-expanded={menuAberto}
@@ -435,9 +453,10 @@ export function Conhecimento() {
 
   const botao = (
     <div className="relative shrink-0">
-      <BotaoContorno onClick={() => definirAdicionando((a) => !a)}>
-        <span style={{ fontSize: 20, lineHeight: 1 }}>+</span> Adicionar fonte
-      </BotaoContorno>
+      <BotaoBorda onClick={() => definirAdicionando((a) => !a)}>
+        <Icone nome="adicionar" tamanho={18} className="text-accent" tracoFixo="2" />
+        Adicionar fonte
+      </BotaoBorda>
       {adicionando && (
         <MenuAdicionar
           aoArquivo={() => {
@@ -466,7 +485,7 @@ export function Conhecimento() {
 
   if (resultado?.estado === 'sem-servidor') {
     return (
-      <Tela
+      <TelaColuna
         titulo="Conhecimento"
         estado={
           <EstadoVazio
@@ -478,7 +497,7 @@ export function Conhecimento() {
       />
     );
   }
-  if (resultado === null) return <Tela titulo="Conhecimento" />;
+  if (resultado === null) return <TelaColuna titulo="Conhecimento" />;
 
   const visiveis = (achados ?? docs).filter((d) => d.id !== removido);
   const contados = docs.filter((d) => d.id !== removido);
@@ -491,10 +510,48 @@ export function Conhecimento() {
   const vazio = contados.length === 0 && lendo.length === 0;
 
   return (
-    <Tela
+    <TelaColuna
       titulo="Conhecimento"
       subtitulo={subtitulo}
       acao={botao}
+      topo={
+        !vazio && (
+          <BuscaColuna
+            valor={busca}
+            aoMudar={definirBusca}
+            placeholder="Buscar no conhecimento…"
+            rotulo="Buscar no conhecimento"
+          />
+        )
+      }
+      sobre={
+        aviso && (
+          <div
+            role="status"
+            className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary"
+            style={{
+              minHeight: 'var(--mac-aviso-h)',
+              maxWidth: 'calc(100% - var(--vn-tela-px) * 2)',
+              padding: '10px var(--mac-aviso-px)',
+              borderRadius: 'var(--mac-aviso-raio)',
+              gap: 'var(--mac-aviso-px)',
+              fontSize: 'var(--mac-botao-texto)',
+              // Flutua sobre a lista: o fundo, a borda e a sombra da caixa de escrever.
+              background: 'var(--vn-caixa-fundo)',
+              border: '1px solid var(--vn-caixa-borda)',
+              boxShadow: 'var(--vn-caixa-sombra)',
+              zIndex: 20,
+            }}
+          >
+            {aviso.texto}
+            {aviso.desfazer && (
+              <button type="button" onClick={aviso.desfazer} className="text-accent shrink-0" style={{ fontSize: 'var(--mac-botao-texto)' }}>
+                Desfazer
+              </button>
+            )}
+          </div>
+        )
+      }
       estado={
         vazio ? (
           <EstadoVazio
@@ -506,32 +563,25 @@ export function Conhecimento() {
       }
     >
       {entrada}
-      {!vazio && (
-        <div
-          className="flex items-center border border-divider"
-          style={{ height: 'var(--mem-busca-h)', borderRadius: 'var(--mem-busca-raio)', marginBottom: 'var(--mem-lista-gap)' }}
-        >
-          <span className="text-text-secondary shrink-0" style={{ paddingLeft: 22, paddingRight: 16 }}>
-            <Icone nome="buscar" tamanho={19} />
-          </span>
-          <input
-            className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
-            style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 22 }}
-            placeholder="Buscar no conhecimento…"
-            aria-label="Buscar no conhecimento"
-            value={busca}
-            onChange={(e) => definirBusca(e.target.value)}
-          />
-        </div>
-      )}
-
       {!vazio && achados && visiveis.length === 0 && (
-        <p className="text-text-secondary" style={{ fontSize: 'var(--mem-item-texto)' }}>
+        <p
+          className="text-text-secondary"
+          style={{ fontSize: 'var(--mem-item-texto)', paddingTop: 'calc(var(--vn-tela-grade-top) - var(--vn-tela-lista-gap))' }}
+        >
           Nenhuma fonte com “{busca.trim()}” no nome ou no texto.
         </p>
       )}
 
-      <div className="grid grid-cols-3" style={{ gap: 'var(--cfg-mini-gap)', paddingBottom: 'var(--cfg-mini-gap)' }}>
+      {/* 2 colunas na coluna da conversa (1 no celular); a grade começa à
+          distância medida da busca (--vn-tela-grade-top). */}
+      <div
+        className="grid grid-cols-1 md:grid-cols-2"
+        style={{
+          gap: 'var(--vn-tela-grade-gap)',
+          paddingTop: 'calc(var(--vn-tela-grade-top) - var(--vn-tela-lista-gap))',
+          paddingBottom: 'var(--vn-tela-grade-gap)',
+        }}
+      >
         {!achados && lendo.map((l) => <Cartao key={l.id} d={l} />)}
         {visiveis.map((d) => (
           <Cartao
@@ -545,30 +595,6 @@ export function Conhecimento() {
           />
         ))}
       </div>
-
-      {aviso && (
-        <div
-          role="status"
-          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary border border-divider bg-canvas"
-          style={{
-            minHeight: 'var(--mac-aviso-h)',
-            maxWidth: 'calc(100% - var(--mem-pad-l) - var(--mem-pad-r))',
-            padding: '10px var(--mac-aviso-px)',
-            borderRadius: 'var(--mac-aviso-raio)',
-            gap: 'var(--mac-aviso-px)',
-            fontSize: 'var(--mac-botao-texto)',
-            boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
-            zIndex: 20,
-          }}
-        >
-          {aviso.texto}
-          {aviso.desfazer && (
-            <button type="button" onClick={aviso.desfazer} className="text-accent shrink-0" style={{ fontSize: 'var(--mac-botao-texto)' }}>
-              Desfazer
-            </button>
-          )}
-        </div>
-      )}
-    </Tela>
+    </TelaColuna>
   );
 }
