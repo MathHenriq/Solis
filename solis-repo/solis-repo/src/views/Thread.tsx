@@ -13,7 +13,7 @@ import {
 } from '../components/EtapasResposta';
 import { PainelArtefato } from '../components/PainelArtefato';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
-import { BotaoConversa } from '../components/BotaoConversa';
+import { BotaoEnviar, CaixaEscrever, estiloBotaoCaixa } from '../components/CaixaEscrever';
 import { Botao } from '../components/Controles';
 import { BarraProjeto } from '../components/BarraProjeto';
 import { AvisoCota } from '../components/AvisoCota';
@@ -27,6 +27,7 @@ import { SolisSimbolo } from '../components/SolisSimbolo';
 import { VoltarAtras } from '../components/VoltarAtras';
 import type { Turno } from '../conversa';
 import {
+  CORES_PERSONALIDADE,
   NOMES_CEREBRO,
   NOMES_PERSONALIDADE,
   abrirArquivo,
@@ -302,13 +303,14 @@ function FalaPessoa({
   // que voltou.
   const [painel, definirPainel] = useState<NonNullable<typeof volta> | null>(null);
   const [texto, definirTexto] = useState(t.texto);
+  // PROVISÓRIO — o balão do visual novo (layout.visualNovo.thread, 27/11/2026).
   const caixa = {
-    maxWidth: 'var(--th-balao-max)',
-    background: 'var(--mem-hover)',
-    borderRadius: 'var(--th-balao-raio)',
-    padding: 'var(--th-balao-py) var(--th-balao-px)',
-    fontSize: 'var(--mem-item-texto)',
-    lineHeight: 'var(--mem-item-lh)',
+    maxWidth: 'var(--vn-balao-max)',
+    background: 'var(--vn-balao)',
+    borderRadius: 'var(--vn-balao-raio)',
+    padding: 'var(--vn-balao-py) var(--vn-balao-px)',
+    fontSize: 'var(--vn-balao-texto)',
+    lineHeight: 'var(--vn-balao-lh)',
   } as const;
   if (editando && aoEditar) {
     const mandar = () => {
@@ -317,7 +319,7 @@ function FalaPessoa({
       aoEditar(texto);
     };
     return (
-      <div className="flex flex-col items-end" style={{ marginTop: 'var(--th-turno-gap)' }}>
+      <div className="flex flex-col items-end" style={{ marginTop: 'var(--vn-turno-gap)' }}>
         <textarea
           autoFocus
           value={texto}
@@ -344,7 +346,7 @@ function FalaPessoa({
     );
   }
   return (
-    <div style={{ marginTop: 'var(--th-turno-gap)' }}>
+    <div style={{ marginTop: 'var(--vn-turno-gap)' }}>
       {t.anexos && (
         <div className="flex flex-wrap items-end justify-end" style={{ gap: 8, marginBottom: 8 }}>
           {t.anexos.map((a) => (
@@ -358,7 +360,8 @@ function FalaPessoa({
         </div>
       )}
       <div className="group flex items-start justify-end gap-lg">
-        <span className="text-text-secondary shrink-0 flex items-center" style={{ fontSize: 'var(--th-hora)', paddingTop: 18 }}>
+        {/* A hora e as ações só no hover, como no Claude: o balão fica sozinho. */}
+        <span className="text-text-secondary shrink-0 flex items-center" style={{ fontSize: 'var(--vn-meta)', paddingTop: 8 }}>
           {volta && (
             <BotaoAcao icone="desfazer" rotulo="Voltar atrás" aoClicar={() => definirPainel((p) => (p ? null : volta))} />
           )}
@@ -372,7 +375,12 @@ function FalaPessoa({
               }}
             />
           )}
-          <span style={{ marginLeft: aoEditar || volta ? 6 : 0 }}>{t.hora}</span>
+          <span
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ marginLeft: aoEditar || volta ? 6 : 0 }}
+          >
+            {t.hora}
+          </span>
         </span>
         <div className="text-text-primary whitespace-pre-wrap" style={{ ...caixa, overflowWrap: 'anywhere' }}>
           {t.texto}
@@ -409,60 +417,56 @@ function RespostaSolis({
   const etapas = t.etapas ?? [];
   const vivo = !!t.digitando;
   const pensando = vivo && !t.texto;
-  // Fora disto, a coluna do texto: avatar + respiro, a mesma da resposta.
-  const coluna = 'calc(var(--th-avatar) + var(--th-avatar-gap))';
+  // Fora disto, a coluna do texto: símbolo + respiro, a mesma da resposta.
+  const coluna = 'calc(var(--vn-simbolo) + var(--vn-simbolo-gap))';
+  // PROVISÓRIO (visual novo, 27/11/2026, da direção C): quem respondeu, na cor
+  // dela (personalidades.py) misturada ao texto — clareia no escuro, escurece
+  // nos claros. O Solis de sempre fica no accent e sem nome.
+  const cor = t.personalidade ? CORES_PERSONALIDADE[t.personalidade] : undefined;
+  const tinta = cor ? `color-mix(in srgb, ${cor} var(--vn-persona-mix), var(--text-primary))` : 'var(--accent)';
+  const nome = t.personalidade ? NOMES_PERSONALIDADE[t.personalidade] : undefined;
+  // O símbolo (16 de altura) no meio da primeira linha: a do nome (19) ou a do
+  // texto (15,5 × 1,65 = 25,6).
+  const alturaSimbolo = nome ? 2 : 5;
   return (
-    <div className="group" style={{ marginTop: 'var(--th-turno-gap)' }}>
+    <div className="group" style={{ marginTop: 'var(--vn-turno-gap)', ['--tinta' as string]: tinta }}>
       {!pensando && etapas.length > 0 && (
         <div style={{ paddingLeft: coluna }}>
           <DobraEtapas etapas={etapas} vivo={vivo} aberta={aberta} aoAlternar={() => definirAberta((a) => !a)} />
           {aberta && <ListaEtapas etapas={etapas} vivo={vivo} />}
         </div>
       )}
-      <div className="flex items-start" style={{ gap: 'var(--th-avatar-gap)' }}>
+      <div className="flex items-start" style={{ gap: 'var(--vn-simbolo-gap)' }}>
         {/* Só o símbolo, sem o wordmark: no tamanho de avatar a palavra SOLIS
             vira borrão, e wordmark ilegível é pior que nenhum. Ao vivo, o
             símbolo com glow no estado real (pensando, respondendo); pronto,
-            o símbolo parado — na cor validada da thread (accent), e não no
-            creme da referência 20. */}
+            o símbolo parado — na cor de quem fala (--tinta). */}
         {vivo ? (
           <SolisEstado
             estado={pensando ? 'thinking' : 'responding'}
             halo="avatar"
-            className="shrink-0 [&_.solis-arte]:text-accent"
-            style={{ width: 'var(--th-avatar)', marginTop: 6 }}
+            className="shrink-0 [&_.solis-arte]:text-[var(--tinta)]"
+            style={{ width: 'var(--vn-simbolo)', marginTop: alturaSimbolo }}
           />
         ) : (
-          <SolisSimbolo className="text-accent shrink-0" style={{ width: 'var(--th-avatar)', height: 'auto', marginTop: 6 }} />
+          <SolisSimbolo
+            className="shrink-0"
+            style={{ width: 'var(--vn-simbolo)', height: 'auto', marginTop: alturaSimbolo, color: 'var(--tinta)' }}
+          />
         )}
         {/* min-w-0: sem ele, um conteúdo largo (o caminho no cartão de
             aprovação, uma linha longa de código) esticava a coluna da resposta
             pra fora da conversa — visto no print do diff, 12/11/2026. */}
         <div className="flex-1 min-w-0">
-          {/* Quem respondeu, quando foi um modelo de nuvem: o que foi dito saiu
-              da máquina, e o Matheus precisa saber disso. O local é o padrão
-              silencioso — não precisa de etiqueta. */}
-          <div className="text-text-secondary" style={{ fontSize: 'var(--th-hora)' }}>
-            {/* PROVISÓRIO (refação do visual): o nome da personalidade que respondeu. */}
-            {t.personalidade && NOMES_PERSONALIDADE[t.personalidade] && (
-              <span className="text-text-primary">{NOMES_PERSONALIDADE[t.personalidade]} · </span>
-            )}
-            {t.hora}
-            {/* Só quem não é o local: o local é o normal, não precisa de nome. */}
-            {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
-            {ouvir && !vivo && !t.falha && t.texto && <BotaoOuvir {...ouvir} />}
-            {!vivo && !t.falha && t.texto && <BotaoCopiar texto={t.texto} />}
-            {!vivo && !t.falha && t.resposta !== undefined && (
-              <BotoesVoto key={t.resposta} resposta={t.resposta} inicial={t.voto ?? null} />
-            )}
-            {!vivo && aoRefazer && <BotaoAcao icone="refazer" rotulo="Refazer a resposta" aoClicar={aoRefazer} />}
-          </div>
+          {nome && (
+            <div style={{ fontSize: 'var(--vn-nome)', fontWeight: 500, color: 'var(--tinta)', marginBottom: 6 }}>{nome}</div>
+          )}
           {pensando ? (
-            <div style={{ marginTop: 'var(--et-cabecalho)' }}>
+            <div style={{ marginTop: nome ? 0 : 'var(--et-cabecalho)' }}>
               <ListaEtapas etapas={etapas} vivo />
             </div>
           ) : (
-            <div className="text-text-primary" style={{ fontSize: 'var(--mem-item-texto)', lineHeight: 'var(--mem-item-lh)' }}>
+            <div className="vn-resposta text-text-primary" style={{ fontSize: 'var(--vn-resposta)', lineHeight: 'var(--vn-resposta-lh)' }}>
               {/* Aviso de erro em texto secundário: é o Solis falando do
                   sistema, não respondendo à pergunta. */}
               <div className={t.falha ? 'text-text-secondary' : undefined} style={{ maxWidth: 'var(--th-texto-max)' }}>
@@ -476,6 +480,24 @@ function RespostaSolis({
           {!vivo && <FontesResposta etapas={etapas} />}
           <ArquivosCriados etapas={etapas} aoVer={aoVer} />
           <AvisosDepois etapas={etapas} />
+          {/* A hora, quem respondeu e as ações embaixo, como no Claude. O
+              cérebro só quando não é o local: o que foi dito saiu da máquina, e
+              o Matheus precisa saber disso; o local é o padrão silencioso. */}
+          {!pensando && (
+            <div
+              className="text-text-secondary flex items-center flex-wrap"
+              style={{ fontSize: 'var(--vn-meta)', marginTop: 4, minHeight: 'var(--mac-alvo)' }}
+            >
+              {t.hora}
+              {t.cerebro && t.cerebro !== 'local' && NOMES_CEREBRO[t.cerebro] && ` · ${NOMES_CEREBRO[t.cerebro]}`}
+              {ouvir && !vivo && !t.falha && t.texto && <BotaoOuvir {...ouvir} />}
+              {!vivo && !t.falha && t.texto && <BotaoCopiar texto={t.texto} />}
+              {!vivo && !t.falha && t.resposta !== undefined && (
+                <BotoesVoto key={t.resposta} resposta={t.resposta} inicial={t.voto ?? null} />
+              )}
+              {!vivo && aoRefazer && <BotaoAcao icone="refazer" rotulo="Refazer a resposta" aoClicar={aoRefazer} />}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -620,6 +642,15 @@ export function Thread({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fimDaUltima?.id, fimDaUltima?.digitando]);
 
+  // Com a thread aberta o horizonte vira a faixa baixa do rodapé (visual novo,
+  // .cena-camada em index.css); ao sair dela (conversa nova, outra tela), volta.
+  useEffect(() => {
+    document.documentElement.dataset.conversa = 'thread';
+    return () => {
+      delete document.documentElement.dataset.conversa;
+    };
+  }, []);
+
   const rolagem = useRef<HTMLDivElement>(null);
   // A thread segue o texto que chega SÓ se a pessoa está no fim dela. Quem rolou
   // pra cima pra reler não pode ser puxado de volta a cada pedaço.
@@ -633,7 +664,8 @@ export function Thread({
   return (
     <>
     <main
-      className="relative flex-1 flex flex-col overflow-hidden bg-canvas min-w-0"
+      // Sem fundo próprio: o horizonte do rodapé aparece atrás da caixa (o body já é o canvas).
+      className="relative flex-1 flex flex-col overflow-hidden min-w-0"
       style={{ zIndex: 1 }}
       // Arrastar arquivo pra conversa anexa, como no Claude.
       onDragOver={(e) => {
@@ -654,9 +686,16 @@ export function Thread({
           grudada.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
         className="flex-1 overflow-y-auto"
-        style={{ paddingLeft: 'var(--mem-pad-l)', paddingRight: 'var(--mem-pad-r)', paddingTop: 'var(--th-turno-gap)' }}
+        // A barra de rolagem come a largura de um lado só e tirava a coluna 6 px
+        // do eixo da caixa de escrever (medido): a calha dos dois lados devolve.
+        style={{
+          paddingLeft: 'var(--mem-pad-l)',
+          paddingRight: 'var(--mem-pad-r)',
+          paddingTop: 'var(--vn-turno-gap)',
+          scrollbarGutter: 'stable both-edges',
+        }}
       >
-        <div style={{ maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}>
+        <div style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
           {turnos.map((t, i) =>
             t.de === 'pessoa' ? (
               <FalaPessoa
@@ -717,11 +756,11 @@ export function Thread({
           {/* Um ajudante pediu aprovação depois que a resposta acabou: o cartão
               vem pela leitura do segundo plano, embaixo de tudo. */}
           {!fundo.resposta && !!fundo.aprovacoes?.length && (
-            <div style={{ paddingLeft: 'calc(var(--th-avatar) + var(--th-avatar-gap))' }}>
+            <div style={{ paddingLeft: 'calc(var(--vn-simbolo) + var(--vn-simbolo-gap))' }}>
               <CartoesAprovacao etapas={fundo.aprovacoes} />
             </div>
           )}
-          <div style={{ height: 'var(--th-turno-gap)' }} />
+          <div style={{ height: 'var(--vn-turno-gap)' }} />
         </div>
       </div>
 
@@ -730,46 +769,42 @@ export function Thread({
         style={{
           paddingLeft: 'var(--mem-pad-l)',
           paddingRight: 'var(--mem-pad-r)',
-          paddingBottom: 'var(--th-composer-base)',
+          paddingBottom: 'var(--vn-caixa-base)',
         }}
       >
-        {pendentes.length > 0 && (
-          <div
-            className="flex flex-wrap items-end"
-            style={{ gap: 8, marginBottom: 8, width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
-          >
-            {pendentes.map((p) => (
-              <FichaAnexo
-                key={p.id}
-                nome={p.nome}
-                estado={p.estado === 'pronto' ? undefined : p.estado}
-                imagem={p.previa}
-                aoAbrir={p.anexo ? () => void abrirArquivo(p.anexo!.caminho) : undefined}
-                aoRemover={() => {
-                  if (p.previa) URL.revokeObjectURL(p.previa);
-                  definirPendentes((ps) => ps.filter((x) => x.id !== p.id));
-                }}
-              />
-            ))}
-          </div>
-        )}
-        <div
-          className="flex items-start justify-between"
-          style={{ width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto', gap: 16 }}
-        >
-          <BarraProjeto conversa={conversa} respondendo={respondendo} />
-          <div className="ml-auto flex items-center" style={{ marginBottom: 6, paddingRight: 12, gap: 16 }}>
-            <AvisoCota
-              respondendo={respondendo}
-              ultimoCerebro={[...turnos].reverse().find((t) => t.de === 'solis')?.cerebro}
-            />
-            <ComandosFundo conversa={conversa} comandos={fundo.comandos} />
-          </div>
-        </div>
-        <form
-          className="composer-solis flex items-center border border-divider rounded-composer"
-          style={{ height: 'var(--th-composer-h)', width: '100%', maxWidth: 'var(--th-coluna)', marginInline: 'auto' }}
-          onSubmit={(e) => {
+        <CaixaEscrever
+          acima={
+            <>
+              {pendentes.length > 0 && (
+                <div className="flex flex-wrap items-end" style={{ gap: 8, marginBottom: 8 }}>
+                  {pendentes.map((p) => (
+                    <FichaAnexo
+                      key={p.id}
+                      nome={p.nome}
+                      estado={p.estado === 'pronto' ? undefined : p.estado}
+                      imagem={p.previa}
+                      aoAbrir={p.anexo ? () => void abrirArquivo(p.anexo!.caminho) : undefined}
+                      aoRemover={() => {
+                        if (p.previa) URL.revokeObjectURL(p.previa);
+                        definirPendentes((ps) => ps.filter((x) => x.id !== p.id));
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="flex items-start justify-between" style={{ gap: 16 }}>
+                <BarraProjeto conversa={conversa} respondendo={respondendo} />
+                <div className="ml-auto flex items-center" style={{ marginBottom: 6, paddingRight: 12, gap: 16 }}>
+                  <AvisoCota
+                    respondendo={respondendo}
+                    ultimoCerebro={[...turnos].reverse().find((t) => t.de === 'solis')?.cerebro}
+                  />
+                  <ComandosFundo conversa={conversa} comandos={fundo.comandos} />
+                </div>
+              </div>
+            </>
+          }
+          aoEnviar={(e) => {
             e.preventDefault();
             // O rascunho continua editável enquanto o Solis responde; só o
             // envio espera — duas perguntas cruzadas embaralhariam a thread.
@@ -785,92 +820,86 @@ export function Thread({
             pendentes.forEach((p) => p.previa && URL.revokeObjectURL(p.previa));
             definirPendentes([]);
           }}
-        >
-          <input
-            ref={campo}
-            autoFocus
-            value={rascunho}
-            onChange={(e) => definirRascunho(e.target.value)}
-            // Colar imagem (um print) anexa, como no Claude.
-            onPaste={(e) => {
-              if (!e.clipboardData.files.length) return;
-              e.preventDefault();
-              anexar(e.clipboardData.files);
-            }}
-            className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
-            style={{ paddingLeft: 29, fontSize: 'var(--mem-item-texto)' }}
-            placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
-            aria-label="Fale com o Solis"
-          />
-          <input
-            ref={seletor}
-            type="file"
-            multiple
-            hidden
-            onChange={(e) => {
-              if (e.target.files) anexar(e.target.files);
-              e.target.value = '';
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => seletor.current?.click()}
-            aria-label="Anexar arquivo"
-            title="Anexar arquivo (ou arraste, ou cole uma imagem)"
-            className="flex items-center justify-center text-text-secondary hover:text-text-primary shrink-0"
-            style={{ width: 'var(--mac-alvo)', height: 'var(--mac-alvo)', borderRadius: 'var(--mac-botao-raio)' }}
-          >
-            <Icone nome="adicionar" tamanho={22} />
-          </button>
-          {/* Aprovado pelo Matheus em 15/11/2026 — desenho próprio, base no Research do
-              claude.ai: ligado, a pílula em accent com o nome; desligado, só o
-              ícone, como os outros (layout.thread.etapas._sources). */}
-          <button
-            type="button"
-            onClick={() => definirPesquisa((p) => !p)}
-            aria-pressed={pesquisa}
-            aria-label="Pesquisa longa"
-            title="Pesquisa longa: o Claude busca e lê várias fontes e responde com citações"
-            className={`flex items-center justify-center shrink-0 ${pesquisa ? 'text-accent' : 'text-text-secondary hover:text-text-primary'}`}
-            style={{
-              height: 'var(--mac-alvo)',
-              minWidth: 'var(--mac-alvo)',
-              padding: pesquisa ? '0 12px 0 10px' : 0,
-              gap: 6,
-              borderRadius: 999,
-              fontSize: 'var(--et-dobra-texto)',
-              background: pesquisa ? 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)' : undefined,
-              border: pesquisa ? '1px solid color-mix(in srgb, var(--accent) var(--et-chip-borda), transparent)' : '1px solid transparent',
-            }}
-          >
-            <Icone nome="web" tamanho={20} />
-            {pesquisa && 'Pesquisa'}
-          </button>
-          <BotaoCadeado ligado={privado} aoTrocar={definirPrivado} />
-          <EscolhaEstilo aoCriar={aoCriarEstilo} />
-          <EscolhaClaude />
-          <BotaoConversa tamanho={22} />
-          <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={22} />
-          {/* Respondendo, o enviar vira o parar (como no Claude): o mesmo
-              círculo, o quadrado no lugar do avião. */}
-          <button
-            type={respondendo && aoParar ? 'button' : 'submit'}
-            onClick={respondendo && aoParar ? aoParar : undefined}
-            className="bg-accent text-canvas flex items-center justify-center shrink-0"
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 999,
-              marginLeft: 10,
-              marginRight: 18,
-              opacity: respondendo && !aoParar ? 0.4 : 1,
-            }}
-            aria-label={respondendo && aoParar ? 'Parar a resposta' : 'Enviar'}
-            aria-disabled={respondendo && !aoParar}
-          >
-            <Icone nome={respondendo && aoParar ? 'parar' : 'enviar'} tamanho={22} />
-          </button>
-        </form>
+          campo={
+            <>
+              <input
+                ref={campo}
+                autoFocus
+                value={rascunho}
+                onChange={(e) => definirRascunho(e.target.value)}
+                // Colar imagem (um print) anexa, como no Claude.
+                onPaste={(e) => {
+                  if (!e.clipboardData.files.length) return;
+                  e.preventDefault();
+                  anexar(e.clipboardData.files);
+                }}
+                className={`w-full bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
+                style={{ fontSize: 'var(--vn-caixa-texto)', padding: '4px 0' }}
+                placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
+                aria-label="Fale com o Solis"
+              />
+              <input
+                ref={seletor}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  if (e.target.files) anexar(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </>
+          }
+          esquerda={
+            <>
+              <button
+                type="button"
+                onClick={() => seletor.current?.click()}
+                aria-label="Anexar arquivo"
+                title="Anexar arquivo (ou arraste, ou cole uma imagem)"
+                className="flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-[var(--mem-hover)] shrink-0"
+                style={estiloBotaoCaixa}
+              >
+                <Icone nome="adicionar" tamanho="var(--vn-caixa-icone)" />
+              </button>
+              {/* Aprovado pelo Matheus em 15/11/2026 — desenho próprio, base no Research do
+                  claude.ai: ligado, a pílula em accent com o nome; desligado, só o
+                  ícone, como os outros (layout.thread.etapas._sources). */}
+              <button
+                type="button"
+                onClick={() => definirPesquisa((p) => !p)}
+                aria-pressed={pesquisa}
+                aria-label="Pesquisa longa"
+                title="Pesquisa longa: o Claude busca e lê várias fontes e responde com citações"
+                className={`flex items-center justify-center shrink-0 ${pesquisa ? 'text-accent' : 'text-text-secondary hover:text-text-primary hover:bg-[var(--mem-hover)]'}`}
+                style={{
+                  height: 'var(--vn-caixa-alvo)',
+                  minWidth: 'var(--vn-caixa-alvo)',
+                  padding: pesquisa ? '0 12px 0 10px' : 0,
+                  gap: 6,
+                  borderRadius: 999,
+                  fontSize: 'var(--et-dobra-texto)',
+                  background: pesquisa ? 'color-mix(in srgb, var(--accent) var(--et-chip-fundo), transparent)' : undefined,
+                  border: pesquisa ? '1px solid color-mix(in srgb, var(--accent) var(--et-chip-borda), transparent)' : '1px solid transparent',
+                }}
+              >
+                <Icone nome="web" tamanho="var(--vn-caixa-icone)" />
+                {pesquisa && 'Pesquisa'}
+              </button>
+              <BotaoCadeado ligado={privado} aoTrocar={definirPrivado} tamanho={18} />
+              <EscolhaEstilo aoCriar={aoCriarEstilo} />
+            </>
+          }
+          direita={
+            <>
+              <EscolhaClaude />
+              <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={18} />
+              {/* Respondendo, a seta vira o parar (como no Claude): o mesmo
+                  círculo, o quadrado no lugar da seta. */}
+              <BotaoEnviar parar={respondendo && !!aoParar} desligado={respondendo && !aoParar} aoParar={aoParar} />
+            </>
+          }
+        />
       </div>
     </main>
     {artefato && <PainelArtefato caminho={artefato} versao={versaoArtefato} aoFechar={() => definirArtefato(null)} />}

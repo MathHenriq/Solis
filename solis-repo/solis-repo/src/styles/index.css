@@ -208,23 +208,6 @@ main {
     --barra-icone: 20px;
     --topo-h: 60px;
   }
-  /* A caixa de escrever: numa linha só, os 6 controles (anexo, pesquisa, estilo,
-     cérebro, conversa, microfone) + o enviar não cabiam, e o enviar sumia pela
-     direita. Aqui o texto ganha a linha de cima inteira e os controles descem,
-     alinhados à direita. O espelho (que centraliza o texto no modo ícones)
-     dobrava a largura: some. */
-  .composer-solis {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    height: auto !important;
-    padding: 4px 6px 6px;
-  }
-  .composer-solis > input[aria-label="Fale com o Solis"] {
-    flex: 1 1 100%;
-    min-height: 46px;
-    padding-left: 10px !important;
-  }
-  .composer-solis .composer-espelho { display: none; }
 }
 
 /* O aviso de baixo (Memória esquecida, fonte removida, com Desfazer). Ele é
@@ -291,29 +274,74 @@ main {
   margin-inline: auto;
   text-align: center;
 }
-:root[data-nav="icones"] .conversa-coluna form,
 :root[data-nav="icones"] .conversa-coluna > div:last-child {
   justify-content: center;
 }
-:root[data-nav="icones"] .conversa-coluna input { text-align: center; }
 
-/* O recuo de 29px do texto no campo. Mora aqui e não num style inline porque o
-   modo 'icones' precisa zerá-lo: lá o texto é centralizado, e 29px de padding
-   deslocariam o centro em 14,5px. */
-.conversa-coluna input { padding-left: 29px; }
-:root[data-nav="icones"] .conversa-coluna input { padding-left: 0; }
-
-/* O espelho do bloco de ações. Ver o comentário no form em Conversa.tsx: ele
-   existe só pra devolver ao lado esquerdo a largura que o microfone e a seta
-   tomam do direito, pra que o texto centralizado caia no eixo do form e não no
-   da caixa do input. `visibility: hidden` reserva o espaço; `display: none`
-   não reservaria, e é justamente o espaço que interessa. */
-.composer-espelho { display: none; }
-:root[data-nav="icones"] .composer-espelho {
-  display: flex;
+/* A caixa de escrever do visual novo (CaixaEscrever.tsx) — PROVISÓRIO, desenho
+   próprio de 27/11/2026 (layout.visualNovo). Três células: uma vazia da largura
+   do botão da voz, a caixa e o botão. A vazia é o que mantém a caixa no eixo da
+   conversa — sem ela o botão à direita empurrava a caixa 39 px pra esquerda do
+   centro das mensagens. O texto é sempre à esquerda, como no Claude (a coluna
+   do modo ícones centraliza o resto com text-align). */
+/* O que vai acima da caixa (os anexos, a barra do projeto) fica numa linha só
+   dele, na coluna da caixa: assim o botão da voz centra na CAIXA, e não na caixa
+   mais essa linha (o que o punha 16 px acima do meio dela, medido). */
+.caixa-escrever {
+  display: grid;
+  grid-template-columns: var(--vn-voz) minmax(0, var(--vn-caixa)) var(--vn-voz);
+  grid-template-areas: ". acima ." "vazio caixa voz";
+  justify-content: center;
   align-items: center;
-  visibility: hidden;
+  column-gap: var(--vn-voz-gap);
+  text-align: left;
 }
+.caixa-escrever > .caixa-vazio { grid-area: vazio; }
+.caixa-escrever > .caixa-acima { grid-area: acima; min-width: 0; }
+.caixa-escrever > form { grid-area: caixa; }
+.caixa-escrever > .caixa-voz { grid-area: voz; }
+/* Na Conversa vazia com a barra lateral a coluna é encostada à esquerda (a
+   saudação começa na borda dela): a caixa também, e a célula vazia sai. */
+.conversa-coluna .caixa-escrever {
+  grid-template-columns: minmax(0, 1fr) var(--vn-voz);
+  grid-template-areas: "acima ." "caixa voz";
+}
+.conversa-coluna .caixa-escrever > .caixa-vazio { display: none; }
+:root[data-nav="icones"] .conversa-coluna .caixa-escrever {
+  grid-template-columns: var(--vn-voz) minmax(0, 1fr) var(--vn-voz);
+  grid-template-areas: ". acima ." "vazio caixa voz";
+}
+:root[data-nav="icones"] .conversa-coluna .caixa-escrever > .caixa-vazio { display: block; }
+/* No celular: sem a célula vazia da esquerda, que só existe pra centrar a caixa
+   no eixo da conversa, e o botão da voz menor — em 375 px os 64 + o respiro dos
+   dois lados tomavam um terço da linha. Depois das regras de cima de propósito:
+   mesma especificidade, quem vem por último ganha (antes, a célula vazia ficava). */
+@media (max-width: 767px) {
+  :root {
+    --vn-voz: 52px;
+    --vn-voz-gap: 10px;
+    --vn-voz-icone: 22px;
+  }
+  .caixa-escrever,
+  :root[data-nav="icones"] .conversa-coluna .caixa-escrever {
+    grid-template-columns: minmax(0, 1fr) var(--vn-voz);
+    grid-template-areas: "acima ." "caixa voz";
+  }
+  .caixa-escrever > .caixa-vazio,
+  :root[data-nav="icones"] .conversa-coluna .caixa-escrever > .caixa-vazio { display: none; }
+}
+
+/* Com a thread aberta o horizonte vira uma faixa baixa no rodapé, atrás da caixa
+   de escrever (layout.visualNovo.cena); vazia, a Conversa mantém a faixa alta.
+   Quem marca é a própria Thread, no elemento raiz. Sem transição: a troca é de
+   estado, não um movimento (docs/PERFORMANCE.md). */
+:root[data-conversa="thread"] .cena-camada { height: var(--vn-cena-thread); }
+:root[data-conversa="thread"] .cena { background-position-y: var(--vn-cena-thread-y); }
+
+/* A resposta começa colada no nome (ou no topo, na altura do símbolo): o respiro
+   de parágrafo (--th-par-gap) é ENTRE blocos, e no primeiro ele empurrava o
+   texto 18 px pra baixo do símbolo. Inline no Markdown, daí o !important. */
+.vn-resposta .solis-md > :first-child { margin-top: 0 !important; }
 
 .cena-camada {
   left: var(--sidebar-width);

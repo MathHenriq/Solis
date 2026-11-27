@@ -1,10 +1,10 @@
 import { BotaoCadeado } from '../components/BotaoCadeado';
 import { useRef, useState } from 'react';
 import { BotaoMicrofone } from '../components/BotaoMicrofone';
-import { BotaoConversa } from '../components/BotaoConversa';
+import { BotaoEnviar, CaixaEscrever } from '../components/CaixaEscrever';
 import { Icone, type NomeIcone } from '../components/icons';
 import { falaAutomatica, marcarRespostaFalada } from '../fala';
-import { useVoz, type EstadoVoz } from '../voz';
+import { useVoz } from '../voz';
 
 /** Tela de Conversa — estado de abertura.
  *
@@ -22,34 +22,6 @@ const ATALHOS: { rotulo: string; icone: NomeIcone }[] = [
   { rotulo: 'Resumir', icone: 'resumir' },
   { rotulo: 'Analisar', icone: 'analisar' },
 ];
-
-/** Microfone e envio. Renderizado duas vezes: uma de verdade à direita do campo
- *  e uma invisível à esquerda, como espelho — ver o comentário no form. */
-function Acoes({
-  interativo = false,
-  voz = 'parado',
-  aoFalar,
-  privado = false,
-  aoPrivado,
-}: { interativo?: boolean; voz?: EstadoVoz; aoFalar?: () => void; privado?: boolean; aoPrivado?: (v: boolean) => void } = {}) {
-  return (
-    <>
-      <BotaoCadeado ligado={privado} aoTrocar={aoPrivado} tamanho={19} interativo={interativo} />
-      <BotaoConversa tamanho={19} interativo={interativo} />
-      <BotaoMicrofone estado={voz} aoClicar={aoFalar} tamanho={19} interativo={interativo} />
-      <button
-        type={interativo ? 'submit' : 'button'}
-        className="text-accent p-sm"
-        style={{ marginRight: 18 }}
-        aria-label={interativo ? 'Enviar' : undefined}
-        aria-hidden={!interativo}
-        tabIndex={interativo ? undefined : -1}
-      >
-        <Icone nome="enviar" tamanho={19} />
-      </button>
-    </>
-  );
-}
 
 export function Conversa({
   aoEnviar,
@@ -97,51 +69,40 @@ export function Conversa({
           Como posso te ajudar hoje?
         </p>
 
-        {/* composer a 422px do topo, 802×79, raio 13 */}
-        {/* Mesma superfície dos atalhos logo abaixo. Transparente, sobre a foto do
-            horizonte, o contorno fino sozinho não fechava o retângulo e o campo
-            flutuava — o mesmo defeito que os chips já tinham tido. O véu é o do
-            próprio canvas, então não opaca a foto atrás; e o focus-within troca
-            pelo véu forte, que é como o resto do sistema marca "estou aqui". */}
-        <form
-          className="composer-solis flex items-center border border-divider rounded-composer
-                     bg-[var(--mem-hover)] focus-within:bg-[var(--mem-hover-forte)]"
-          style={{ marginTop: 'var(--conversa-campo)', width: '100%', height: 'var(--composer-height)' }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            // A primeira mensagem é o que abre a thread — o shell troca de
-            // estado assim que a conversa deixa de estar vazia.
-            if (!rascunho.trim()) return;
-            marcarRespostaFalada(ditado.current && falaAutomatica());
-            aoEnviar?.(rascunho, privado);
-          }}
-        >
-          {/* Espelho do bloco de ações, à esquerda do campo.
-              No modo 'icones' o texto do campo é centralizado, e centralizado
-              DENTRO DA CAIXA DO INPUT — que é 89px mais curta que o form, porque
-              o microfone e a seta ocupam a direita. O texto caía 30px à esquerda
-              do eixo (−44,5 da meia-caixa, +14,5 do padding), e era isso o torto:
-              tudo o mais na tela passava pelo eixo, menos o placeholder.
-
-              O espelho carrega os controles DE VERDADE, invisíveis: assim a
-              largura dos dois lados é a mesma por construção e não pode divergir
-              se um ícone mudar de tamanho. `visibility: hidden` e não `display:
-              none` justamente porque só o primeiro reserva o espaço.
-              No modo sidebar o texto é alinhado à esquerda e o espelho some. */}
-          <span className="composer-espelho" aria-hidden>
-            <Acoes privado={privado} />
-          </span>
-          <input
-            ref={campo}
-            value={rascunho}
-            onChange={(e) => definirRascunho(e.target.value)}
-            className={`flex-1 bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
-            style={{ fontSize: 16 }}
-            placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
-            aria-label="Fale com o Solis"
+        {/* A caixa de escrever do visual novo (CaixaEscrever.tsx, PROVISÓRIO
+            27/11/2026): a mesma da thread, com o botão grande da voz ao lado.
+            Aqui só o privado à esquerda e o ditado e a seta à direita — anexo,
+            pesquisa e o cérebro entram quando a conversa já está aberta. */}
+        <div style={{ marginTop: 'var(--conversa-campo)' }}>
+          <CaixaEscrever
+            aoEnviar={(e) => {
+              e.preventDefault();
+              // A primeira mensagem é o que abre a thread — o shell troca de
+              // estado assim que a conversa deixa de estar vazia.
+              if (!rascunho.trim()) return;
+              marcarRespostaFalada(ditado.current && falaAutomatica());
+              aoEnviar?.(rascunho, privado);
+            }}
+            campo={
+              <input
+                ref={campo}
+                value={rascunho}
+                onChange={(e) => definirRascunho(e.target.value)}
+                className={`w-full bg-transparent outline-none text-text-primary ${voz.erro ? 'placeholder:text-[var(--erro)]' : 'placeholder:text-text-placeholder'}`}
+                style={{ fontSize: 'var(--vn-caixa-texto)', padding: '4px 0' }}
+                placeholder={ouvindo ? 'Ouvindo… pode falar' : voz.dica ?? 'Fale com o Solis…'}
+                aria-label="Fale com o Solis"
+              />
+            }
+            esquerda={<BotaoCadeado ligado={privado} aoTrocar={definirPrivado} tamanho={18} />}
+            direita={
+              <>
+                <BotaoMicrofone estado={ouvindo ? 'ouvindo' : voz.estado} aoClicar={voz.alternar} tamanho={18} />
+                <BotaoEnviar desligado={!rascunho.trim()} />
+              </>
+            }
           />
-          <Acoes interativo voz={ouvindo ? 'ouvindo' : voz.estado} aoFalar={voz.alternar} privado={privado} aoPrivado={definirPrivado} />
-        </form>
+        </div>
 
         {/* chips 34px abaixo do composer, altura 56, vão de 22 */}
         <div className="flex" style={{ marginTop: 'var(--conversa-chips)', gap: 18 }}>

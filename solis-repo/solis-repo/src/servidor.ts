@@ -111,6 +111,17 @@ export const NOMES_PERSONALIDADE: Record<string, string> = {
   assessor: 'Assessor',
 };
 
+/** A cor de cada uma, a mesma do campo `cor` em backend/solis/personalidades.py
+ *  (a esfera da voz): o nome e o símbolo de quem respondeu saem nela, misturada
+ *  ao texto (--vn-persona-mix). O teste test_personalidades confere que as duas
+ *  listas batem. */
+export const CORES_PERSONALIDADE: Record<string, string> = {
+  jarvis: '#5B8DEF',
+  eva: '#C77DFF',
+  ed: '#3DDC97',
+  assessor: '#F25F5C',
+};
+
 /** Um cérebro em Configurações → Cérebros, na ordem em que é tentado.
  *  `pausa.ate` é epoch em segundos: depois de falhar (cota, login, limite
  *  grátis), o cérebro fica de lado até lá. O local nunca desliga nem pausa.

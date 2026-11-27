@@ -295,3 +295,20 @@ def test_ouvir_de_novo_sai_na_voz_de_quem_disse(monkeypatch):
         id_ = c.post('/fala/fluxo', json=corpo).json()['id']
         assert c.get(f'/fala/fluxo/{id_}').status_code == 200
     assert quem_falou == ['ed', 'eva']
+
+
+def test_a_tela_tem_o_nome_e_a_cor_de_cada_uma():
+    """A thread mostra quem respondeu no nome e na cor dela (src/servidor.ts,
+    NOMES_PERSONALIDADE e CORES_PERSONALIDADE): as duas listas do front têm que
+    bater com as daqui, ou uma personalidade nova sairia sem nome ou na cor errada."""
+    import re
+    from pathlib import Path
+    fonte = (Path(__file__).resolve().parents[2] / 'src' / 'servidor.ts').read_text(encoding='utf-8')
+
+    def lista(nome):
+        bloco = re.search(r'export const %s: Record<string, string> = \{(.*?)\};' % nome, fonte, re.S).group(1)
+        return dict(re.findall(r"(\w+): '([^']+)'", bloco))
+
+    outras = {k: v for k, v in p.TODAS.items() if k != 'solis'}
+    assert lista('NOMES_PERSONALIDADE') == {k: v.nome for k, v in outras.items()}
+    assert lista('CORES_PERSONALIDADE') == {k: v.cor for k, v in outras.items()}
