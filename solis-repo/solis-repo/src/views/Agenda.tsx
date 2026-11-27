@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { Botao } from '../components/Controles';
 import { Icone } from '../components/icons';
-import { BotaoContorno, EstadoVazio, Tela } from '../components/Tela';
+import { EstadoVazio } from '../components/Tela';
+import { BotaoBorda, TelaColuna } from '../components/TelaNova';
 import { diaLocal, diaPorExtenso, duracaoCurta, somarDias } from '../datas';
 import {
   apagarCompromisso,
@@ -26,13 +27,21 @@ import {
  *
  *  Desenho próprio, aprovado pelo Matheus em 09/11/2026 (design/agenda-validacao.png), no padrão de Tarefas: Novo compromisso,
  *  editar e apagar no hover, a edição no próprio item, apagar com Desfazer, o dia
- *  vazio, e "dia todo" na coluna da hora. */
+ *  vazio, e "dia todo" na coluna da hora.
+ *
+ *  PROVISÓRIO — visual novo (27/11/2026, layout.visualNovo.tela): a moldura das
+ *  outras telas (a coluna da conversa), os botões do cabeçalho no botão do "Nova
+ *  conversa" (no celular o Novo compromisso fica só com o +, e a fileira desce
+ *  pra baixo do título), e o hover de cada linha no formato do cartão da vez
+ *  (os mesmos 28 à esquerda e 12 à direita, e o raio dele), com as divisórias
+ *  em volta sumindo, como nas outras listas. As ações flutuam à direita sem
+ *  apertar o texto. */
 
 const DESFAZER_MS = 6000;
 const DURACOES = [15, 30, 45, 60, 90, 120, 180, 240];
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 /** Hora em minutos desde a meia-noite. */
 const minutos = (hora: string) => {
@@ -188,9 +197,23 @@ function Linha({
     : { paddingTop: 'var(--ag-pad-cima)', paddingBottom: 'var(--ag-pad-baixo)' };
   return (
     <li
-      className={`group relative ${divisoria ? 'border-b border-divider' : ''} ${vez ? '' : '[&:hover]:bg-[var(--mem-hover)]'}`}
+      className={`ag-linha group relative ${divisoria ? 'border-b border-divider' : ''} ${vez ? 'ag-vez' : ''}`}
       style={{ ...estilo, paddingLeft: `calc(var(--ag-titulo-x) + ${desloc})` }}
     >
+      {/* O véu do hover no formato do cartão da vez (sai 28 à esquerda e 12 à
+          direita, com o raio dele), por baixo do texto e da linha do tempo. */}
+      {!vez && (
+        <span
+          aria-hidden
+          className="absolute opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 pointer-events-none"
+          style={{
+            inset: '0 calc(var(--ag-cartao-dir) * -1) 0 calc(var(--ag-cartao-esq) * -1)',
+            borderRadius: 'var(--ag-cartao-raio)',
+            background: 'var(--mem-hover)',
+            zIndex: -1,
+          }}
+        />
+      )}
       {/* A hora na linha do título: mesma entrelinha, o topo das letras alinha. */}
       <span
         className="absolute text-text-secondary whitespace-nowrap"
@@ -233,8 +256,17 @@ function Linha({
               </p>
             )}
           </div>
-          {/* As ações só no hover ou no foco, como em Tarefas. */}
-          <span className="ml-auto flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+          {/* As ações só no hover ou no foco, como em Tarefas. Flutuam na ponta
+              direita, na altura do título, sem tomar lugar do texto. */}
+          <span
+            className="absolute flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+            style={{
+              right: vez ? 'var(--ag-cartao-dir)' : 0,
+              top: `calc(${vez ? 'var(--ag-cartao-py)' : 'var(--ag-pad-cima)'} + (var(--mem-item-texto) * var(--mem-item-lh) - var(--mac-alvo)) / 2)`,
+              borderRadius: 'var(--mac-botao-raio)',
+              background: 'linear-gradient(var(--mem-hover), var(--mem-hover)), var(--canvas)',
+            }}
+          >
             {(
               [
                 ['lapis', 'Editar', aoEditar],
@@ -329,33 +361,52 @@ export function Agenda() {
   const itens = (resultado?.estado === 'ok' ? resultado.dados : []).filter((c) => c.id !== apagado?.id);
   const vez = dia === hoje ? daVez(itens, agora) : null;
 
-  const seta: CSSProperties = { width: 'var(--ag-seta-l)', height: 'var(--mem-acao-h)' };
   return (
-    <Tela
+    <TelaColuna
       titulo="Agenda"
       subtitulo={diaPorExtenso(dia)}
       acao={
-        <div className="flex items-center shrink-0" style={{ gap: 'var(--ag-botoes-gap)' }}>
+        <div className="flex items-center shrink-0" style={{ gap: 'var(--mac-botao-gap)' }}>
           {resultado?.estado === 'ok' && (
-            <BotaoContorno onClick={() => definirEditando('novo')}>
-              <Icone nome="adicionar" tamanho={16} />
-              Novo compromisso
-            </BotaoContorno>
+            <BotaoBorda onClick={() => definirEditando('novo')} rotulo="Novo compromisso">
+              <Icone nome="adicionar" tamanho={18} className="text-accent" tracoFixo="2" />
+              {/* No celular a fileira não cabe: fica só o +. */}
+              <span className="hidden md:inline">Novo compromisso</span>
+            </BotaoBorda>
           )}
-          <button type="button" onClick={() => definirDia(somarDias(dia, -1))} aria-label="Dia anterior"
-                  className="border border-divider rounded-md text-text-primary flex items-center justify-center" style={seta}>
-            <Icone nome="anterior" tamanho={20} />
-          </button>
-          <button type="button" onClick={() => definirDia(somarDias(dia, 1))} aria-label="Próximo dia"
-                  className="border border-divider rounded-md text-text-primary flex items-center justify-center" style={seta}>
-            <Icone nome="proximo" tamanho={20} />
-          </button>
-          <button type="button" onClick={() => definirDia(hoje)}
-                  className="border border-divider rounded-md text-text-primary"
-                  style={{ width: 'var(--ag-hoje-l)', height: 'var(--mem-acao-h)', fontSize: 'var(--cfg-rotulo)' }}>
-            Hoje
-          </button>
+          <BotaoBorda quadrado onClick={() => definirDia(somarDias(dia, -1))} rotulo="Dia anterior">
+            <Icone nome="anterior" tamanho={18} />
+          </BotaoBorda>
+          <BotaoBorda quadrado onClick={() => definirDia(somarDias(dia, 1))} rotulo="Próximo dia">
+            <Icone nome="proximo" tamanho={18} />
+          </BotaoBorda>
+          <BotaoBorda onClick={() => definirDia(hoje)}>Hoje</BotaoBorda>
         </div>
+      }
+      sobre={
+        apagado && (
+          <div
+            role="status"
+            className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary"
+            style={{
+              height: 'var(--mac-aviso-h)',
+              padding: '0 var(--mac-aviso-px)',
+              borderRadius: 'var(--mac-aviso-raio)',
+              gap: 'var(--mac-aviso-px)',
+              fontSize: 'var(--mac-botao-texto)',
+              // Flutua sobre a lista: o fundo, a borda e a sombra da caixa de escrever.
+              background: 'var(--vn-caixa-fundo)',
+              border: '1px solid var(--vn-caixa-borda)',
+              boxShadow: 'var(--vn-caixa-sombra)',
+              zIndex: 3,
+            }}
+          >
+            Compromisso apagado
+            <button type="button" onClick={desfazer} className="text-accent" style={{ fontSize: 'var(--mac-botao-texto)' }}>
+              Desfazer
+            </button>
+          </div>
+        )
       }
       estado={
         resultado?.estado === 'sem-servidor' ? (
@@ -405,27 +456,6 @@ export function Agenda() {
           ))}
         </ol>
       )}
-
-      {apagado && (
-        <div
-          role="status"
-          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary border border-divider bg-canvas"
-          style={{
-            height: 'var(--mac-aviso-h)',
-            padding: '0 var(--mac-aviso-px)',
-            borderRadius: 'var(--mac-aviso-raio)',
-            gap: 'var(--mac-aviso-px)',
-            fontSize: 'var(--mac-botao-texto)',
-            boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
-            zIndex: 3,
-          }}
-        >
-          Compromisso apagado
-          <button type="button" onClick={desfazer} className="text-accent" style={{ fontSize: 'var(--mac-botao-texto)' }}>
-            Desfazer
-          </button>
-        </div>
-      )}
-    </Tela>
+    </TelaColuna>
   );
 }
