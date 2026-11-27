@@ -3,6 +3,7 @@ import { Botao } from '../components/Controles';
 import { quando } from '../datas';
 import { Icone } from '../components/icons';
 import { EstadoVazio } from '../components/Tela';
+import { TelaColuna } from '../components/TelaNova';
 import {
   CORES_PERSONALIDADE,
   corrigirMemoria,
@@ -96,19 +97,10 @@ function ItemMemoria({
   const cor = m.area ? CORES_PERSONALIDADE[m.area] : undefined;
 
   return (
-    <li
-      className="vn-linha group [&:hover]:bg-[var(--mem-hover)] [&:focus-within]:bg-[var(--mem-hover)]"
-      style={{
-        marginInline: 'calc(var(--vn-tela-sangria) * -1)',
-        paddingInline: 'var(--vn-tela-sangria)',
-        borderRadius: 'var(--vn-tela-linha-raio)',
-      }}
-    >
-      {/* A divisória fica no corpo, na largura da coluna; o hover passa dela. */}
-      <div
-        className="vn-linha-corpo border-b border-divider"
-        style={{ paddingTop: 'var(--mem-item-pad-y)', paddingBottom: 'var(--mem-item-pad-y)' }}
-      >
+    // A linha das telas de lista (.vn-linha no index.css, a mesma da LinhaColuna):
+    // a divisória fica no corpo, na largura da coluna; o hover passa dela.
+    <li className="vn-linha group">
+      <div className="vn-linha-corpo">
       {/* A data é ancorada na borda direita do bloco, não colada no fim do
           texto: na referência ela forma uma coluna própria, alinhada entre
           todos os itens, independente do tamanho de cada texto. */}
@@ -350,81 +342,85 @@ export function Memoria() {
         ? 'Nenhuma memória ainda'
         : `${todas.length} ${todas.length === 1 ? 'memória' : 'memórias'}`;
 
-  // bg-canvas, e não fundo transparente como a Conversa: esta lista sangra até a
-  // base da janela, e sobre a foto do horizonte o texto perderia o contraste que
-  // a ancoragem da cena devolveu. A referência mostra fundo liso. O Horizonte
-  // continua montado no shell — a Camada 1 não remonta —, só não aparece por
-  // baixo desta tela.
   return (
-    <main className="relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
-      {/* A mesma calha da rolagem da lista (dos dois lados), sem rolar: o título
-          e a lista ficam na mesma coluna em qualquer largura, com barra de
-          rolagem que ocupa lugar (a do app, 12) ou que flutua (a do celular). */}
-      <div
-        className="shrink-0"
-        style={{
-          paddingInline: 'var(--vn-tela-px)',
-          paddingTop: 'var(--mem-titulo-top)',
-          overflow: 'hidden',
-          scrollbarGutter: 'stable both-edges',
-        }}
-      >
-        <div style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
-          {/* O título é a única serifada da tela, como a saudação da Conversa. */}
-          <h1 className="font-display text-text-primary leading-none" style={{ fontSize: 'var(--mem-titulo)' }}>
-            Memória
-          </h1>
-
-          <p
-            className="text-text-secondary"
-            style={{ fontSize: 'var(--mem-contagem)', marginTop: 'var(--vn-tela-contagem-gap)' }}
+    <TelaColuna
+      titulo="Memória"
+      subtitulo={subtitulo}
+      topo={
+        /* O fundo e a borda da caixa de escrever, sem a sombra (não flutua). */
+        <div
+          className="flex items-center"
+          style={{
+            marginTop: 'var(--vn-tela-busca-top)',
+            height: 'var(--mem-busca-h)',
+            borderRadius: 'var(--mem-busca-raio)',
+            background: 'var(--vn-caixa-fundo)',
+            border: '1px solid var(--vn-caixa-borda)',
+          }}
+        >
+          <span
+            className="text-text-secondary shrink-0 flex"
+            style={{ paddingLeft: 'var(--vn-tela-busca-pl)', paddingRight: 'var(--vn-tela-busca-gap)' }}
           >
-            {subtitulo}
-          </p>
-
-          {/* O fundo e a borda da caixa de escrever, sem a sombra (não flutua). */}
+            <Icone nome="buscar" tamanho="var(--vn-tela-busca-icone)" />
+          </span>
+          <input
+            className="flex-1 min-w-0 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
+            style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 'var(--vn-tela-busca-pl)' }}
+            placeholder="Buscar nas memórias…"
+            aria-label="Buscar nas memórias"
+            value={busca}
+            onChange={(e) => definirBusca(e.target.value)}
+          />
+        </div>
+      }
+      estado={
+        <>
+          {/* Texto de referencias/telas/10-memoria-vazio.png. */}
+          {resultado?.estado === 'ok' && todas.length === 0 && (
+            <EstadoVazio
+              icone="memoria"
+              titulo="Ainda não há nada guardado"
+              corpo={'O Solis guarda o que importa das suas conversas.\nO que ele lembrar vai aparecer aqui.'}
+            />
+          )}
+          {resultado?.estado === 'sem-servidor' && (
+            <EstadoVazio
+              icone="memoria"
+              titulo="Servidor do Solis desligado"
+              corpo={'Sem ele, o Solis não alcança as memórias guardadas.\nIniciar com npm run backend.'}
+            />
+          )}
+        </>
+      }
+      sobre={
+        /* O aviso do esquecer, com Desfazer: esquecer é rápido de propósito (um
+           clique de confirmação), e o Desfazer é a rede de segurança. */
+        esquecida && (
           <div
-            className="flex items-center"
+            role="status"
+            className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary"
             style={{
-              marginTop: 'var(--vn-tela-busca-top)',
-              height: 'var(--mem-busca-h)',
-              borderRadius: 'var(--mem-busca-raio)',
+              height: 'var(--mac-aviso-h)',
+              padding: '0 var(--mac-aviso-px)',
+              borderRadius: 'var(--mac-aviso-raio)',
+              gap: 'var(--mac-aviso-px)',
+              fontSize: 'var(--mac-botao-texto)',
+              // Flutua sobre a lista: o fundo, a borda e a sombra da caixa de escrever.
               background: 'var(--vn-caixa-fundo)',
               border: '1px solid var(--vn-caixa-borda)',
+              boxShadow: 'var(--vn-caixa-sombra)',
             }}
           >
-            <span
-              className="text-text-secondary shrink-0 flex"
-              style={{ paddingLeft: 'var(--vn-tela-busca-pl)', paddingRight: 'var(--vn-tela-busca-gap)' }}
-            >
-              <Icone nome="buscar" tamanho="var(--vn-tela-busca-icone)" />
-            </span>
-            <input
-              className="flex-1 min-w-0 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
-              style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 'var(--vn-tela-busca-pl)' }}
-              placeholder="Buscar nas memórias…"
-              aria-label="Buscar nas memórias"
-              value={busca}
-              onChange={(e) => definirBusca(e.target.value)}
-            />
+            Memória esquecida
+            <button type="button" onClick={desfazer} className="text-accent" style={{ fontSize: 'var(--mac-botao-texto)' }}>
+              Desfazer
+            </button>
           </div>
-        </div>
-      </div>
-
-      {/* A lista rola sozinha e sangra até a base da janela: na referência o
-          sétimo item aparece cortado pela borda, e é esse corte que diz que há
-          mais coisa abaixo. Por isso a lista não tem padding inferior. A
-          rolagem reserva a calha dos dois lados, pra coluna não sair do eixo
-          do título (o mesmo da Conversa). */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{
-          marginTop: 'var(--vn-tela-lista-gap)',
-          paddingInline: 'var(--vn-tela-px)',
-          scrollbarGutter: 'stable both-edges',
-        }}
-      >
-      <ul style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
+        )
+      }
+    >
+      <ul>
         {filtradas.map((m) => (
           <ItemMemoria
             key={m.id}
@@ -448,48 +444,6 @@ export function Memoria() {
           />
         ))}
       </ul>
-      </div>
-
-      {/* Texto de referencias/telas/10-memoria-vazio.png. */}
-      {resultado?.estado === 'ok' && todas.length === 0 && (
-        <EstadoVazio
-          icone="memoria"
-          titulo="Ainda não há nada guardado"
-          corpo={'O Solis guarda o que importa das suas conversas.\nO que ele lembrar vai aparecer aqui.'}
-        />
-      )}
-      {resultado?.estado === 'sem-servidor' && (
-        <EstadoVazio
-          icone="memoria"
-          titulo="Servidor do Solis desligado"
-          corpo={'Sem ele, o Solis não alcança as memórias guardadas.\nIniciar com npm run backend.'}
-        />
-      )}
-
-      {/* O aviso do esquecer, com Desfazer: esquecer é rápido de propósito (um
-          clique de confirmação), e o Desfazer é a rede de segurança. */}
-      {esquecida && (
-        <div
-          role="status"
-          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary"
-          style={{
-            height: 'var(--mac-aviso-h)',
-            padding: '0 var(--mac-aviso-px)',
-            borderRadius: 'var(--mac-aviso-raio)',
-            gap: 'var(--mac-aviso-px)',
-            fontSize: 'var(--mac-botao-texto)',
-            // Flutua sobre a lista: o fundo, a borda e a sombra da caixa de escrever.
-            background: 'var(--vn-caixa-fundo)',
-            border: '1px solid var(--vn-caixa-borda)',
-            boxShadow: 'var(--vn-caixa-sombra)',
-          }}
-        >
-          Memória esquecida
-          <button type="button" onClick={desfazer} className="text-accent" style={{ fontSize: 'var(--mac-botao-texto)' }}>
-            Desfazer
-          </button>
-        </div>
-      )}
-    </main>
+    </TelaColuna>
   );
 }

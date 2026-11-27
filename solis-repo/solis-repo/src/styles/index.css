@@ -332,9 +332,22 @@ main {
   :root { --vn-tela-px: var(--vn-tela-px-celular); }
 }
 
-/* As linhas das telas de lista no visual novo (layout.visualNovo.tela): no
-   hover a linha vira um bloco arredondado que passa 16 da coluna, e as
+/* As linhas das telas de lista no visual novo (layout.visualNovo.tela): a
+   divisória fica no corpo, na largura da coluna; no hover (ou no foco do
+   teclado) a linha vira um bloco arredondado que passa 16 da coluna, e as
    divisórias de cima e de baixo somem, como na referência 09-memoria. */
+.vn-linha {
+  margin-inline: calc(var(--vn-tela-sangria) * -1);
+  padding-inline: var(--vn-tela-sangria);
+  border-radius: var(--vn-tela-linha-raio);
+}
+.vn-linha:hover,
+.vn-linha:focus-visible,
+.vn-linha:has(:focus-visible) { background: var(--mem-hover); }
+.vn-linha-corpo {
+  border-bottom: 1px solid var(--divider);
+  padding-block: var(--mem-item-pad-y);
+}
 .vn-linha:hover > .vn-linha-corpo,
 .vn-linha:has(+ .vn-linha:hover) > .vn-linha-corpo { border-bottom-color: transparent; }
 
