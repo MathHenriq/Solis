@@ -4,8 +4,8 @@ import { Icone } from './icons';
 /** A moldura das telas de lista no visual novo (layout.visualNovo.tela).
  *
  *  PROVISÓRIO — desenho próprio (27/11/2026): nasceu na Memória, aprovada pelos
- *  prints, e cada tela passa pra cá na vez dela (uma por vez, CLAUDE.md); a
- *  moldura antiga (Tela.tsx) sai quando a última passar. A tela fica na coluna
+ *  prints, e as telas passaram pra cá uma por vez (CLAUDE.md), até Configurações;
+ *  a moldura antiga saiu. Do Tela.tsx fica só o EstadoVazio. A tela fica na coluna
  *  da conversa (--vn-coluna), no centro, como a lista de conversas do Claude.
  *
  *  `bg-canvas`, e não fundo transparente: a lista sangra até a base da janela,
