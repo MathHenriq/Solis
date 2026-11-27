@@ -355,6 +355,13 @@
   --vn-voz-icone: 26px;
   --vn-cena-thread: 330px;
   --vn-cena-thread-y: 82%;
+  --vn-cfg-abas-top: 24px;
+  --vn-cfg-aba-px: 12px;
+  --vn-cfg-aba-gap: 4px;
+  --vn-cfg-primeira: 24px;
+  --vn-cfg-seg-pad: 3px;
+  --vn-cfg-seg-px: 16px;
+  --vn-cfg-campo-l: 240px;
   --vn-tela-px: 24px;
   --vn-tela-px-celular: 16px;
   --vn-tela-sangria: 16px;

@@ -754,6 +754,21 @@
         "_threadPositionY": "Na faixa de 330 a foto (2880x1800, cover pela largura) sobra 405px na vertical; com os 66% da faixa alta o arco caia 5px abaixo da base da caixa de escrever e sumia atras dela. Em 82% ele passa atras do terco de cima da caixa (y 778 numa janela de 900, medido no print do dark), e o brilho aparece dos dois lados dela, como no mockup B.",
         "_cena": "Com a thread aberta o horizonte vira uma faixa de 330 no rodape, atras da caixa de escrever (direcao B); vazia, a Conversa continua com a faixa alta de sempre (--solis-cena-altura)."
       },
+      "config": {
+        "_status": "PROVISÓRIO — desenho próprio (27/11/2026), a última tela do visual novo. Com o Claude como base: as configurações dele separam o assunto em abas; aqui eram 16 cartões numa coluna só, e na coluna de 720 a página ficava comprida demais pra achar alguma coisa. Seis abas: Geral (a aparência), Cérebros (cérebros, estilos, uso e taxa de acerto), Voz, Ferramentas (conectores, MCP, skills, hooks, navegador, tela e documentos), Agendadas e Celular e servidor. Cada cartão vira uma seção sem caixa, separada da próxima por uma divisória.",
+        "tabsTop": "24px",
+        "_tabsTop": "Do título às abas. Sem contagem embaixo do título (a Memória tem), as abas descem 24 dele: a mesma folga que separa as abas do conteúdo, pra o título não ficar colado nelas.",
+        "tabPadX": "12px",
+        "tabGap": "4px",
+        "_tab": "A aba é a linha da barra lateral deitada (sidebar.itemHeight 36, itemRadius 9, labelSize 14, a ativa com o véu --vn-ativo e as outras no tom --vn-inativo), com 12 dos lados e 4 entre uma e outra.",
+        "firstTop": "24px",
+        "_firstTop": "Das abas à primeira seção: 35, como da busca aos cartões do Conhecimento (gridTop), contando os 11 da lista. Entre as seções, a folga de antes entre os cartões (--cer-cartao-gap, 30) dos dois lados da divisória.",
+        "fieldWidth": "240px",
+        "_fieldWidth": "Os campos de ajuste que usavam a largura do segmentado antigo (387: a voz do Gemini, a chave da Fish): 240, que deixa o rótulo e a dica respirarem ao lado na coluna de 720.",
+        "segPad": "3px",
+        "segPadX": "16px",
+        "_seg": "O segmentado da Navegação na altura do botão de borda (38, raio 10, a borda da caixa de escrever), com 3 de folga por dentro e 16 dos lados de cada opção; a escolhida com o véu, como no Claude, sem o dourado. O de antes tinha 387 x 62 e não cabia no celular. As miniaturas dos temas dividem a coluna em 3 (a folga da grade do Conhecimento, 24), em vez de 279 cada, que somavam 891 e passavam dos 720."
+      },
       "tela": {
         "_status": "PROVISÓRIO — desenho próprio (27/11/2026), a Memória no visual novo, depois da Conversa aprovada. É a moldura das telas de lista daqui pra frente (uma tela por vez).",
         "_coluna": "As telas de lista usam a coluna da conversa (thread.column, 720, a variável --vn-coluna): o mesmo eixo em todas as telas, como a lista de conversas do Claude, numa coluna central. Antes a Memória ia da divisória da barra até a borda da janela, com o texto preso a 540 e a data na outra ponta. Da referência 09-memoria fica a estrutura (título, contagem, busca, lista com a data à direita) e as medidas de texto (layout.memoria).",
