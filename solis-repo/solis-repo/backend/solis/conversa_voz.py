@@ -234,9 +234,10 @@ def pcm24(audio: bytes) -> bytes:
 
 
 async def _responder_nuvem(conversa: int | None, texto: str) -> str:
-    from . import apis
+    from . import apis, marcacao
     pedacos = [p async for p in apis.responder('groq', sistema(conversa), texto, rapido=True)]
-    return ''.join(pedacos).strip()
+    # A chamada de ferramenta escrita como texto não vira fala (marcacao.py).
+    return marcacao.limpar(''.join(pedacos)).strip()
 
 
 class Mp3EmPcm:

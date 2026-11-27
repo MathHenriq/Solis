@@ -36,7 +36,7 @@ import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from . import aprovacoes, banco, corpo, documentos, navegador, pc, skills, tela
+from . import aprovacoes, banco, corpo, documentos, marcacao, navegador, pc, skills, tela
 from .aprovacoes import (  # noqa: F401 — a aprovação mora em aprovacoes.py; os nomes seguem aqui
     EDICAO, LEITURA, LIVRES, PLANO, SOLIS_LIVRES, SOLIS_PEDEM, TELA_PEDEM, TERMINAL, _alvo, _diff,
     _normalizar_servidor, _pendentes, _regra, _sempre, conector_de, resumo,
@@ -289,7 +289,17 @@ class _Resposta:
         self.usadas: dict[str, tuple[str, dict]] = {}
         self.seguindo: dict[str, tuple[str, asyncio.Task]] = {}  # tarefa do CLI → (tool_use_id, leitura)
         self.pensou = False
+        # A chamada de ferramenta escrita como texto sai do que vai pra tela e
+        # pro banco (marcacao.py). Limpa por bloco de texto: uma tentativa que o
+        # CLI descarta (chamada malformada, e ele pede de novo) termina no fim
+        # do bloco dela, mesmo com a marca aberta, e não engole a seguinte.
+        self.filtro = marcacao.Filtro()
         self.feito: asyncio.Future = asyncio.get_running_loop().create_future()
+
+    def _soltar(self) -> None:
+        """O fim de um bloco de texto: o que o filtro segurava sai (ou some, se era marca)."""
+        if resto := self.filtro.fechar():
+            self.por('texto', resto)
 
     def _parar_de_seguir(self, tool_use_id: str | None = None) -> None:
         for tarefa, (id_, leitura) in list(self.seguindo.items()):
@@ -300,6 +310,9 @@ class _Resposta:
     def acabar(self, erro: Exception | None = None) -> None:
         self._parar_de_seguir()
         if not self.feito.done():
+            self._soltar()
+            if self.filtro.tiradas:
+                log.info('claude (agente): tirei %d marca(s) de chamada de ferramenta do texto', self.filtro.tiradas)
             if erro is None:
                 self.feito.set_result(None)
             else:
@@ -313,9 +326,12 @@ class _Resposta:
         viva, por, conversa = self.viva, self.por, self.viva.conversa
         if isinstance(m, StreamEvent):
             delta = m.event.get('delta') or {}
-            if m.event.get('type') == 'content_block_delta' and m.parent_tool_use_id is None:
+            if m.event.get('type') in ('message_start', 'content_block_stop') and m.parent_tool_use_id is None:
+                self._soltar()
+            elif m.event.get('type') == 'content_block_delta' and m.parent_tool_use_id is None:
                 if delta.get('type') == 'text_delta' and delta.get('text'):
-                    por('texto', delta['text'])
+                    if limpo := self.filtro.passar(delta['text']):
+                        por('texto', limpo)
                 elif delta.get('type') == 'thinking_delta' and not self.pensou:
                     por('etapa', ('pensando', {'cerebro': 'claude'}))
                     self.pensou = True

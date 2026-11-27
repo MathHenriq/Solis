@@ -27,7 +27,7 @@ import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from . import banco
+from . import banco, marcacao
 from .etapas import MUDA
 
 log = logging.getLogger('solis.cerebros')
@@ -349,6 +349,9 @@ async def abrir(
         # `corpo`: as ferramentas do Solis (corpo.py), as mesmas pra todo cérebro.
         fluxo = apis.responder(nome, sistema, prompt, etapas, **({'rapido': True} if rapido else {}),
                                **({'corpo': corpo} if corpo is not None else {}))
+    # A chamada de ferramenta escrita como texto não vai pra tela nem pro banco,
+    # de cérebro nenhum (marcacao.py); a primeira palavra é a de verdade.
+    fluxo = marcacao.sem_marcacao(fluxo)
     try:
         # Sem prazo aqui: quem decide que o CLI travou é o _linhas, pela
         # primeira linha e pelo silêncio — uma resposta longa que está saindo

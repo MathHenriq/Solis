@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 from collections.abc import AsyncIterator
 
-from . import banco, cerebros, corpo, injecao, memoria, navegador, ollama, pc
+from . import banco, cerebros, corpo, injecao, marcacao, memoria, navegador, ollama, pc
 from .etapas import MUDA
 
 # Preferência do Matheus: os modelos mais fortes primeiro; o local quando a cota
@@ -719,12 +719,14 @@ async def responder(
                     # ajudante à toa nos pedidos simples.
                     o_corpo.modelo = modelo_local
                     o_corpo.sistema = nota_projeto(conversa, le_arquivos=False)
+                # Sem a chamada de ferramenta escrita como texto, como os outros
+                # cérebros (cerebros.abrir); a primeira palavra é a de verdade.
                 fluxo = await _primeira_palavra(
-                    await ollama.conversar(
+                    marcacao.sem_marcacao(await ollama.conversar(
                         modelo_local, historico, memorias, trechos, resumo, etapas=etapas,
                         conversa=conversa, voz=voz, projeto=nota_projeto(conversa, le_arquivos=False) + notas,
                         o_corpo=o_corpo, **modo,
-                    ),
+                    )),
                     etapas,
                 )
                 if o_corpo is not None:
