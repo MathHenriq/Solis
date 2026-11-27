@@ -339,6 +339,7 @@ for grupo, pares in [
               ('sectionTop','--vn-tela-secao-top'), ('sectionBottom','--vn-tela-secao-base'),
               ('badgeHeight','--vn-tela-etiqueta-h'), ('badgePadX','--vn-tela-etiqueta-px'),
               ('badgeRadius','--vn-tela-etiqueta-raio'), ('buttonPadX','--vn-tela-botao-px'),
+              ('switchWidth','--vn-tela-sw-l'), ('switchHeight','--vn-tela-sw-h'),
               ('searchIcon','--vn-tela-busca-icone'), ('searchPadLeft','--vn-tela-busca-pl'),
               ('searchIconGap','--vn-tela-busca-gap')]),
 ]:
