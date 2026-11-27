@@ -48,16 +48,18 @@ export function TelaColuna({
         }}
       >
         <div style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
-          {/* A ação fica ao lado só do título, numa caixa da altura dele (o botão
-              passa 4 pra baixo, dentro da folga da contagem): a contagem embaixo
-              usa a largura toda e não quebra no celular. */}
-          <div className="flex items-start justify-between gap-lg">
+          {/* A ação fica ao lado só do título e conta como da altura dele (o
+              botão de 38 passa 4 pra baixo, dentro da folga da contagem): a
+              contagem embaixo usa a largura toda e não quebra no celular. Se não
+              couber ao lado do título (a Agenda, no celular), desce pra uma linha
+              própria, sem cobrir a contagem. */}
+          <div className="flex flex-wrap items-start justify-between" style={{ columnGap: 'var(--space-lg, 24px)', rowGap: 12 }}>
             {/* O título é a única serifada do cabeçalho, como a saudação da Conversa. */}
             <h1 className="font-display text-text-primary leading-none min-w-0" style={{ fontSize: 'var(--mem-titulo)' }}>
               {titulo}
             </h1>
             {acao && (
-              <div className="shrink-0" style={{ height: 'var(--mem-titulo)' }}>
+              <div className="shrink-0" style={{ marginBottom: 'calc(var(--mem-titulo) - var(--vn-sb-nova-h))' }}>
                 {acao}
               </div>
             )}
@@ -173,9 +175,15 @@ export function GrupoColuna({ children, primeiro = false }: { children: ReactNod
 export function BotaoBorda({
   children,
   onClick,
+  rotulo,
+  quadrado = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
+  /** Nome acessível, quando o texto some (só o ícone, no celular). */
+  rotulo?: string;
+  /** Só um ícone (as setas da Agenda): 38 x 38. */
+  quadrado?: boolean;
 }) {
   return (
     <button
@@ -185,12 +193,15 @@ export function BotaoBorda({
         e.stopPropagation();
         onClick?.();
       }}
-      className="flex items-center shrink-0 text-text-primary hover:bg-[var(--mem-hover-forte)]"
+      aria-label={rotulo}
+      title={rotulo}
+      className="flex items-center justify-center shrink-0 text-text-primary hover:bg-[var(--mem-hover-forte)]"
       style={{
         height: 'var(--vn-sb-nova-h)',
+        width: quadrado ? 'var(--vn-sb-nova-h)' : undefined,
         borderRadius: 'var(--vn-sb-nova-raio)',
         border: '1px solid var(--vn-caixa-borda)',
-        padding: '0 var(--vn-tela-botao-px)',
+        padding: quadrado ? 0 : '0 var(--vn-tela-botao-px)',
         gap: 8,
         fontSize: 'var(--vn-sb-rotulo)',
         fontWeight: 500,

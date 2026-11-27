@@ -361,6 +361,11 @@ main {
 .vn-linha-topo:not(.vn-linha-fixa):hover > .vn-linha-corpo,
 .vn-linha-topo:not(.vn-linha-fixa):hover + .vn-linha-topo > .vn-linha-corpo { border-top-color: transparent; }
 
+/* A linha da Agenda: no hover (o véu no formato do cartão da vez) somem a
+   divisória dela e a de cima, como nas outras listas. */
+.ag-linha:not(.ag-vez):hover,
+.ag-linha:has(+ .ag-linha:not(.ag-vez):hover) { border-bottom-color: transparent; }
+
 /* O interruptor nas telas que já passaram pra moldura nova (64 x 32, medido na
    14-ferramentas); as outras continuam com o de antes até a vez delas. */
 .vn-tela {
