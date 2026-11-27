@@ -14,7 +14,7 @@ import { apagarSkill, lerSkill, ligarSkill, listarSkills, salvarSkill, type Skil
  *  interruptor da Aparência. Medidas novas em layout.configuracoes.skills. */
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 type Para = SkillInteira['para'];
 const PARA: [string, Para, string][] = [
@@ -189,15 +189,7 @@ export function CartaoSkills() {
   const suas = lista?.filter((s) => s.origem === 'solis') ?? [];
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Skills</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         Roteiros que o Claude ou o GPT seguem quando o pedido pede: escreva uma vez como você quer algo feito. As

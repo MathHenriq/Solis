@@ -24,7 +24,7 @@ import {
  *  layout.configuracoes.agendadas. */
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 const FREQUENCIAS: [Frequencia, string][] = [
   ['diaria', 'Todo dia'],
@@ -251,15 +251,7 @@ export function CartaoAgendadas({ aoAbrirConversa }: { aoAbrirConversa?: (id: nu
   const linha = { marginTop: 'var(--cer-linha-pad)', paddingTop: 'var(--cer-linha-pad)' } as const;
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Tarefas agendadas</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         O Solis faz um pedido sozinho no horário marcado: abre uma conversa com o nome da tarefa e avisa no

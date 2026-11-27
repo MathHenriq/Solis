@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Botao, Interruptor } from '../components/Controles';
+import { Botao, Interruptor, Segmentado } from '../components/Controles';
 import { Icone } from '../components/icons';
 import { definirEscutaLigada, definirEscutaRapida, escutaLigada, escutaRapida } from '../escuta';
 import { TesteEscuta } from './TesteEscuta';
@@ -210,7 +210,7 @@ function VozDaFish() {
               }}
               placeholder="Cole a chave da Fish"
               aria-label="Chave da Fish Audio"
-              className="bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+              className="bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
               style={{
                 width: 'var(--cfg-seg-l)',
                 fontSize: 'var(--cfg-dica)',
@@ -326,10 +326,7 @@ export function CartaoVoz() {
   }
 
   return (
-    <section
-      className="border border-divider"
-      style={{ marginBottom: 'var(--cer-cartao-gap)', borderRadius: 'var(--cfg-card-raio)', padding: 'var(--cfg-card-pad)' }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Voz</h2>
       <p
         className="text-text-secondary"
@@ -374,7 +371,7 @@ export function CartaoVoz() {
                 value={ajustes.voz}
                 onChange={(e) => trocar({ voz: e.target.value })}
                 aria-label="Voz do Gemini"
-                className="solis-data bg-canvas text-text-primary border border-divider outline-none focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                className="solis-data bg-canvas text-text-primary border border-[var(--vn-caixa-borda)] outline-none focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
                 style={{
                   width: 'var(--cfg-seg-l)',
                   height: 'var(--cfg-seg-h)',
@@ -394,25 +391,12 @@ export function CartaoVoz() {
             rotulo="Modelo"
             dica="Flash-Lite: cota grátis maior. Flash: um pouco mais natural, mas 10 pedidos por dia no plano grátis."
           >
-            <div
-              className="flex overflow-hidden border border-divider shrink-0"
-              style={{ width: 'var(--cfg-seg-l)', height: 'var(--cfg-seg-h)', borderRadius: 'var(--cfg-seg-raio)' }}
-              role="group"
-              aria-label="Modelo de voz do Gemini"
-            >
-              {ajustes.modelos.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => trocar({ modelo: m })}
-                  aria-pressed={ajustes.modelo === m}
-                  className={`flex-1 ${ajustes.modelo === m ? 'bg-accent text-canvas' : 'text-text-secondary'}`}
-                  style={{ fontSize: 'var(--cfg-rotulo)' }}
-                >
-                  {NOME_MODELO[m] ?? m}
-                </button>
-              ))}
-            </div>
+            <Segmentado
+              opcoes={ajustes.modelos.map((m) => [m, NOME_MODELO[m] ?? m] as const)}
+              valor={ajustes.modelo}
+              aoTrocar={(m) => trocar({ modelo: m })}
+              rotulo="Modelo de voz do Gemini"
+            />
           </Linha>
 
           <PalavraAtivacao />

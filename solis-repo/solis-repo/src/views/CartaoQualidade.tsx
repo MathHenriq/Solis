@@ -157,15 +157,7 @@ export function CartaoQualidade() {
   const ferramentas = q ? agrupar(q.funcoes.filter((f) => f.tipo !== 'cerebro')) : [];
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <div className="flex items-start justify-between" style={{ gap: 'var(--cer-controles-gap)' }}>
         <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Taxa de acerto</h2>
         <button

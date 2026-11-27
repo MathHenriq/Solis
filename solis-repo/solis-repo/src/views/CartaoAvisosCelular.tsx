@@ -66,15 +66,7 @@ export function CartaoAvisosCelular() {
   const linha = { marginTop: 'var(--cer-linha-pad)', paddingTop: 'var(--cer-linha-pad)' } as const;
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Avisos no celular</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         Compromissos, tarefas, site fora do ar e as novidades da semana chegam como notificação, mesmo com o Solis
@@ -121,7 +113,7 @@ export function CartaoAvisosCelular() {
           <button
             type="button"
             onClick={() => void testar()}
-            className="border border-divider text-text-primary hover:bg-[var(--mem-hover)]"
+            className="border border-[var(--vn-caixa-borda)] text-text-primary hover:bg-[var(--mem-hover)]"
             style={{ marginTop: 'var(--cfg-dica-top)', padding: '8px 14px', borderRadius: 10, fontSize: 'var(--cfg-dica)' }}
           >
             Mandar um aviso de teste

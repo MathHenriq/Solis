@@ -32,15 +32,7 @@ export function CartaoDocumentos() {
   const dica = { fontSize: 'var(--cfg-dica)', marginTop: 'var(--cfg-dica-top)', maxWidth: 'var(--cer-texto-max)' } as const;
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Documentos</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         O Claude cria Word, Excel, PowerPoint e PDF de verdade, com as skills da sua conta do claude.ai. O arquivo

@@ -86,15 +86,7 @@ export function CartaoServidor() {
   const botao = { padding: '8px 14px', borderRadius: 10, fontSize: 'var(--cfg-dica)' } as const;
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Servidor</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         O Solis na nuvem, que responde pelo celular com o PC desligado. Juntar leva daqui as conversas, as memórias, as
@@ -108,7 +100,7 @@ export function CartaoServidor() {
       {estado && (
         <div className="border-t border-divider" style={{ ...linha, display: 'grid', gap: 10 }}>
           <input
-            className="border border-divider text-text-primary"
+            className="border border-[var(--vn-caixa-borda)] text-text-primary"
             style={campo}
             value={endereco}
             onChange={(e) => definirEndereco(e.target.value)}
@@ -116,7 +108,7 @@ export function CartaoServidor() {
             aria-label="Endereço do servidor"
           />
           <input
-            className="border border-divider text-text-primary"
+            className="border border-[var(--vn-caixa-borda)] text-text-primary"
             style={campo}
             type="password"
             value={senha}
@@ -126,14 +118,14 @@ export function CartaoServidor() {
             autoComplete="off"
           />
           <div className="flex items-center" style={{ gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => void guardar()} className="border border-divider text-text-primary hover:bg-[var(--mem-hover)]" style={botao}>
+            <button type="button" onClick={() => void guardar()} className="border border-[var(--vn-caixa-borda)] text-text-primary hover:bg-[var(--mem-hover)]" style={botao}>
               Guardar
             </button>
             <button
               type="button"
               onClick={() => void juntar()}
               disabled={ocupado || !estado.endereco || !estado.tem_senha}
-              className="border border-divider text-text-primary hover:bg-[var(--mem-hover)] disabled:opacity-50"
+              className="border border-[var(--vn-caixa-borda)] text-text-primary hover:bg-[var(--mem-hover)] disabled:opacity-50"
               style={botao}
             >
               {ocupado ? 'Juntando…' : 'Juntar agora'}

@@ -119,7 +119,7 @@ function CampoChave({
         }}
         placeholder={`Cole a chave do ${c.rotulo}`}
         aria-label={`Chave do ${c.rotulo}`}
-        className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+        className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
         style={{
           fontSize: 'var(--cfg-dica)',
           borderRadius: 'var(--mac-campo-raio)',
@@ -185,15 +185,7 @@ export function CartaoCerebros() {
   }
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Cérebros</h2>
       <p
         className="text-text-secondary"

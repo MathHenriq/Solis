@@ -13,7 +13,7 @@ import { apagarEstilo, escolherEstilo, listarEstilos, salvarEstilo, type Estilo,
  *  layout.thread.estilo. */
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 function Acao({ children, onClick, perigo }: { children: string; onClick: () => void; perigo?: boolean }) {
   return (
@@ -136,15 +136,7 @@ export function CartaoEstilos() {
   );
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Estilos de resposta</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         Como o Solis escreve, com qualquer cérebro: curto, explicando com calma, formal, ou um jeito seu. Vale pra toda

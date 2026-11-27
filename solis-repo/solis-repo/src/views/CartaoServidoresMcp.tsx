@@ -28,7 +28,7 @@ import {
  *  layout.configuracoes.mcp. */
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 type Para = ServidorMcpInteiro['para'];
 const PARA: [string, Para, string][] = [
@@ -286,15 +286,7 @@ export function CartaoServidoresMcp() {
   const seus = lista?.filter((s) => s.origem === 'seu') ?? [];
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Servidores MCP</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         Ferramentas de fora, como um servidor do Notion, do GitHub ou um seu, pro Claude, o GPT e os cérebros por API

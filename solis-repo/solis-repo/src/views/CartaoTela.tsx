@@ -31,15 +31,7 @@ export function CartaoTela() {
   const linha = { marginTop: 'var(--cer-linha-pad)', paddingTop: 'var(--cer-linha-pad)' } as const;
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Controle da tela</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         O Solis vê a tela e clica, digita e aperta teclas em qualquer programa, pra o que não tem outro jeito. Cada

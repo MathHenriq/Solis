@@ -24,7 +24,7 @@ import {
  *  campo de colar a chave são os mesmos deste cartão e do de Cérebros. */
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 export function CartaoNavegador() {
   // undefined = lendo; null = servidor fora.
@@ -77,15 +77,7 @@ export function CartaoNavegador() {
   };
 
   return (
-    <section
-      className="border border-divider"
-      style={{
-        marginTop: 'var(--cer-cartao-gap)',
-        marginBottom: 'var(--cer-cartao-gap)',
-        borderRadius: 'var(--cfg-card-raio)',
-        padding: 'var(--cfg-card-pad)',
-      }}
-    >
+    <section className="cfg-cartao">
       <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>Navegador</h2>
       <p className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
         O Claude abre, lê e preenche páginas numa janela do navegador que você vê: uma só do Solis, ou o seu
@@ -304,7 +296,7 @@ function LinhaChave({ nav, guardar }: { nav: Navegador; guardar: (chave: string)
             }}
             placeholder="Cole a chave da extensão"
             aria-label="Chave da extensão"
-            className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+            className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
             style={{
               fontSize: 'var(--cfg-dica)',
               borderRadius: 'var(--mac-campo-raio)',

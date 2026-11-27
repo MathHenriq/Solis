@@ -17,7 +17,7 @@ import { aplicarNav } from './theme/theme';
 import { useTheme } from './theme/useTheme';
 import { Agenda } from './views/Agenda';
 import { Conhecimento } from './views/Conhecimento';
-import { Configuracoes } from './views/Configuracoes';
+import { abrirAbaConfiguracoes, Configuracoes } from './views/Configuracoes';
 import { Conversa } from './views/Conversa';
 import { Ferramentas } from './views/Ferramentas';
 import { Memoria } from './views/Memoria';
@@ -174,7 +174,10 @@ export default function App() {
           aoRecarregar={() => {
             if (conversa.conversa !== null) void conversa.abrir(conversa.conversa);
           }}
-          aoCriarEstilo={() => definirTela('configuracoes')}
+          aoCriarEstilo={() => {
+            abrirAbaConfiguracoes('cerebros');
+            definirTela('configuracoes');
+          }}
           conversa={conversa.conversa}
           ouvindo={ouvindo}
         />

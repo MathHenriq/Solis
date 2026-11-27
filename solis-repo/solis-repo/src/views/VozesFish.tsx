@@ -114,7 +114,7 @@ export function VozesFish({ emUso, aoUsar }: { emUso: string | null; aoUsar: (vo
           onChange={(e) => definirBusca(e.target.value)}
           placeholder="Buscar voz pelo nome (assistente, narrador, calma…)"
           aria-label="Buscar voz da Fish"
-          className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+          className="flex-1 bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
           style={{
             minWidth: 240,
             fontSize: 'var(--cfg-dica)',
@@ -135,7 +135,7 @@ export function VozesFish({ emUso, aoUsar }: { emUso: string | null; aoUsar: (vo
           value={ordem}
           onChange={(e) => definirOrdem(e.target.value)}
           aria-label="Ordem das vozes"
-          className="solis-data bg-canvas text-text-secondary border border-divider outline-none"
+          className="solis-data bg-canvas text-text-secondary border border-[var(--vn-caixa-borda)] outline-none"
           style={{ height: 'var(--mac-botao-h)', padding: '0 var(--mac-campo-px)', borderRadius: 'var(--mac-botao-raio)', fontSize: 'var(--mac-botao-texto)' }}
         >
           {ORDENS.map(([v, r]) => (
