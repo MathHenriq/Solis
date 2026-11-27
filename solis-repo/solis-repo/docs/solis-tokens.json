@@ -753,6 +753,28 @@
         "threadPositionY": "82%",
         "_threadPositionY": "Na faixa de 330 a foto (2880x1800, cover pela largura) sobra 405px na vertical; com os 66% da faixa alta o arco caia 5px abaixo da base da caixa de escrever e sumia atras dela. Em 82% ele passa atras do terco de cima da caixa (y 778 numa janela de 900, medido no print do dark), e o brilho aparece dos dois lados dela, como no mockup B.",
         "_cena": "Com a thread aberta o horizonte vira uma faixa de 330 no rodape, atras da caixa de escrever (direcao B); vazia, a Conversa continua com a faixa alta de sempre (--solis-cena-altura)."
+      },
+      "tela": {
+        "_status": "PROVISÓRIO — desenho próprio (27/11/2026), a Memória no visual novo, depois da Conversa aprovada. É a moldura das telas de lista daqui pra frente (uma tela por vez).",
+        "_coluna": "As telas de lista usam a coluna da conversa (thread.column, 720, a variável --vn-coluna): o mesmo eixo em todas as telas, como a lista de conversas do Claude, numa coluna central. Antes a Memória ia da divisória da barra até a borda da janela, com o texto preso a 540 e a data na outra ponta. Da referência 09-memoria fica a estrutura (título, contagem, busca, lista com a data à direita) e as medidas de texto (layout.memoria).",
+        "padX": "24px",
+        "_padX": "A margem dos lados quando a janela fica mais estreita que a coluna: a mesma da Conversa no celular vezes 1,5, e 16 no celular (padXPhone), a mesma da caixa de escrever.",
+        "padXPhone": "16px",
+        "bleed": "16px",
+        "_bleed": "Medido na 09-memoria: o véu do hover passa 16px da divisória à esquerda (x 349 contra 365) e 18 à direita, na janela de 1536; 15 e 17 em 1440. Fica 16 dos dois lados, e no hover as divisórias de cima e de baixo somem, como na referência.",
+        "rowRadius": "9px",
+        "_rowRadius": "O da linha da barra lateral (sidebar.itemRadius): o mesmo hover de linha no app todo. Na referência o raio é de uns 6.",
+        "countGap": "16px",
+        "_countGap": "Medido na 09-memoria pela regra da âncora (layout.memoria._escala): a linha de 2 itens da referência sobe 29px por linha, e no app são 24,8 (16 x 1,55), fator 0,855. Da base do título (y 102) à base da contagem (y 143) são 41px na referência, 35 no app; com o título de 34 sem entrelinha e a contagem de 15 na entrelinha 1,5, a margem que dá 35 é 16 (conferido no print: 87 e 122). O countGap de 31 da tela antiga dava 50.",
+        "searchGap": "17px",
+        "_searchGap": "Pela mesma regra: da base da contagem (143) ao topo da busca (171,5) são 28,5 na referência, 24 no app. O searchGap de 22 dava 29.",
+        "listGap": "11px",
+        "_listGap": "Pela mesma regra: do fim da busca (234,5) ao topo do primeiro texto (272) são 37,5 na referência, 32 no app. O listGap de 30 contava a folga da linha (15) duas vezes e dava 51: a lista parecia solta da busca. Entre as linhas a referência já batia (da divisória ao texto, 22).",
+        "_searchHeight": "A busca continua com 44 (layout.memoria.searchHeight), a altura da busca de conversas do Claude; pela regra da âncora a da referência daria 54.",
+        "searchIcon": "18px",
+        "searchPadLeft": "16px",
+        "searchIconGap": "12px",
+        "_searchIcon": "O ícone da caixa de escrever (composer.iconSize). A busca usa o fundo e a borda da caixa de escrever (--vn-caixa-fundo e --vn-caixa-borda), sem a sombra, que é de coisa que flutua. O ícone a 16 da borda (searchPadLeft) e o texto a 12 dele (searchIconGap): o texto começa a 46 da borda, perto dos 44 da busca de conversas do Claude."
       }
     }
   },

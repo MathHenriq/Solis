@@ -355,6 +355,16 @@
   --vn-voz-icone: 26px;
   --vn-cena-thread: 330px;
   --vn-cena-thread-y: 82%;
+  --vn-tela-px: 24px;
+  --vn-tela-px-celular: 16px;
+  --vn-tela-sangria: 16px;
+  --vn-tela-linha-raio: 9px;
+  --vn-tela-contagem-gap: 16px;
+  --vn-tela-busca-top: 17px;
+  --vn-tela-lista-gap: 11px;
+  --vn-tela-busca-icone: 18px;
+  --vn-tela-busca-pl: 16px;
+  --vn-tela-busca-gap: 12px;
   --vn-inativo: color-mix(in srgb, var(--text-primary) 70%, var(--canvas));
   --vn-ativo: color-mix(in srgb, var(--text-primary) 7%, transparent);
   --vn-balao: color-mix(in srgb, var(--text-primary) 8%, transparent);

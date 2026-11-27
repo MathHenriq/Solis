@@ -332,6 +332,11 @@ for grupo, pares in [
                   ('iconTarget','--vn-caixa-alvo'), ('sendSize','--vn-enviar'), ('bottom','--vn-caixa-base')]),
     ('voz', [('size','--vn-voz'), ('gap','--vn-voz-gap'), ('iconSize','--vn-voz-icone')]),
     ('cena', [('threadHeight','--vn-cena-thread'), ('threadPositionY','--vn-cena-thread-y')]),
+    ('tela', [('padX','--vn-tela-px'), ('padXPhone','--vn-tela-px-celular'), ('bleed','--vn-tela-sangria'),
+              ('rowRadius','--vn-tela-linha-raio'), ('countGap','--vn-tela-contagem-gap'),
+              ('searchGap','--vn-tela-busca-top'), ('listGap','--vn-tela-lista-gap'),
+              ('searchIcon','--vn-tela-busca-icone'), ('searchPadLeft','--vn-tela-busca-pl'),
+              ('searchIconGap','--vn-tela-busca-gap')]),
 ]:
     for chave, var in pares:
         w('  %s: %s;' % (var, vn[grupo][chave]))
