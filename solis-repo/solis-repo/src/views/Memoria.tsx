@@ -3,7 +3,7 @@ import { Botao } from '../components/Controles';
 import { quando } from '../datas';
 import { Icone } from '../components/icons';
 import { EstadoVazio } from '../components/Tela';
-import { TelaColuna } from '../components/TelaNova';
+import { BuscaColuna, TelaColuna } from '../components/TelaNova';
 import {
   CORES_PERSONALIDADE,
   corrigirMemoria,
@@ -347,32 +347,12 @@ export function Memoria() {
       titulo="Memória"
       subtitulo={subtitulo}
       topo={
-        /* O fundo e a borda da caixa de escrever, sem a sombra (não flutua). */
-        <div
-          className="flex items-center"
-          style={{
-            marginTop: 'var(--vn-tela-busca-top)',
-            height: 'var(--mem-busca-h)',
-            borderRadius: 'var(--mem-busca-raio)',
-            background: 'var(--vn-caixa-fundo)',
-            border: '1px solid var(--vn-caixa-borda)',
-          }}
-        >
-          <span
-            className="text-text-secondary shrink-0 flex"
-            style={{ paddingLeft: 'var(--vn-tela-busca-pl)', paddingRight: 'var(--vn-tela-busca-gap)' }}
-          >
-            <Icone nome="buscar" tamanho="var(--vn-tela-busca-icone)" />
-          </span>
-          <input
-            className="flex-1 min-w-0 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
-            style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 'var(--vn-tela-busca-pl)' }}
-            placeholder="Buscar nas memórias…"
-            aria-label="Buscar nas memórias"
-            value={busca}
-            onChange={(e) => definirBusca(e.target.value)}
-          />
-        </div>
+        <BuscaColuna
+          valor={busca}
+          aoMudar={definirBusca}
+          placeholder="Buscar nas memórias…"
+          rotulo="Buscar nas memórias"
+        />
       }
       estado={
         <>

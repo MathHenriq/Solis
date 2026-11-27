@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Icone } from './icons';
 
 /** A moldura das telas de lista no visual novo (layout.visualNovo.tela).
  *
@@ -33,18 +34,25 @@ export function TelaColuna({
   /** O que flutua sobre a tela (o aviso com Desfazer). */
   sobre?: ReactNode;
 }) {
+  // A calha que a rolagem da lista reserva de cada lado (12 com a barra do app,
+  // 0 com a que flutua, a do celular): o cabeçalho anda o mesmo tanto, pra o
+  // título e a lista ficarem na mesma coluna em qualquer largura. Medida, e não
+  // copiada com overflow no cabeçalho: lá ela cortaria o menu do "Adicionar
+  // fonte", que desce por cima da lista.
+  const lista = useRef<HTMLDivElement>(null);
+  const [calha, definirCalha] = useState(0);
+  useLayoutEffect(() => {
+    const el = lista.current;
+    if (el) definirCalha((el.offsetWidth - el.clientWidth) / 2);
+  }, []);
+
   return (
     <main className="vn-tela relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
-      {/* A mesma calha da rolagem da lista (dos dois lados), sem rolar: o título
-          e a lista ficam na mesma coluna em qualquer largura, com barra de
-          rolagem que ocupa lugar (a do app, 12) ou que flutua (a do celular). */}
       <div
         className="shrink-0"
         style={{
-          paddingInline: 'var(--vn-tela-px)',
+          paddingInline: `calc(var(--vn-tela-px) + ${calha}px)`,
           paddingTop: 'var(--mem-titulo-top)',
-          overflow: 'hidden',
-          scrollbarGutter: 'stable both-edges',
         }}
       >
         <div style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
@@ -80,6 +88,7 @@ export function TelaColuna({
           linha é o que diz que há mais coisa abaixo, por isso sem padding
           embaixo. A calha dos dois lados mantém a coluna no eixo do título. */}
       <div
+        ref={lista}
         className="flex-1 overflow-y-auto"
         style={{
           marginTop: topo ? 'var(--vn-tela-lista-gap)' : 'var(--vn-tela-lista-gap-contagem)',
@@ -93,6 +102,48 @@ export function TelaColuna({
       {estado}
       {sobre}
     </main>
+  );
+}
+
+/** A busca do cabeçalho (Memória, Conhecimento): o fundo e a borda da caixa de
+ *  escrever, sem a sombra (não flutua). Vai no `topo` da TelaColuna. */
+export function BuscaColuna({
+  valor,
+  aoMudar,
+  placeholder,
+  rotulo,
+}: {
+  valor: string;
+  aoMudar: (v: string) => void;
+  placeholder: string;
+  rotulo: string;
+}) {
+  return (
+    <div
+      className="flex items-center"
+      style={{
+        marginTop: 'var(--vn-tela-busca-top)',
+        height: 'var(--mem-busca-h)',
+        borderRadius: 'var(--mem-busca-raio)',
+        background: 'var(--vn-caixa-fundo)',
+        border: '1px solid var(--vn-caixa-borda)',
+      }}
+    >
+      <span
+        className="text-text-secondary shrink-0 flex"
+        style={{ paddingLeft: 'var(--vn-tela-busca-pl)', paddingRight: 'var(--vn-tela-busca-gap)' }}
+      >
+        <Icone nome="buscar" tamanho="var(--vn-tela-busca-icone)" />
+      </span>
+      <input
+        className="flex-1 min-w-0 bg-transparent outline-none text-text-primary placeholder:text-text-placeholder"
+        style={{ fontSize: 'var(--mem-item-texto)', paddingRight: 'var(--vn-tela-busca-pl)' }}
+        placeholder={placeholder}
+        aria-label={rotulo}
+        value={valor}
+        onChange={(e) => aoMudar(e.target.value)}
+      />
+    </div>
   );
 }
 
