@@ -1,0 +1,79 @@
+# O instalador do Solis como servidor, num Ubuntu limpo (26/11/2026).
+#
+# Roda o backend/instalar_servidor.sh como num servidor alugado novo (só que com
+# o código desta cópia) e confere de fora: o serviço ligado, a senha, a fala com o
+# cadeado transcrita pelo Whisper pequeno NO PROCESSADOR (sem placa de vídeo, como
+# o servidor) e a voz local (Kokoro). Os tempos viram aviso na página da execução,
+# que abre sem login.
+name: Instalador do servidor (Ubuntu limpo)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'solis-repo/solis-repo/backend/instalar_servidor.sh'
+      - 'solis-repo/solis-repo/backend/requirements*.txt'
+      - '.github/workflows/instalador.yml'
+  workflow_dispatch:
+
+jobs:
+  instalar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instala como num servidor novo
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          sudo SOLIS_CODIGO_DE="$GITHUB_WORKSPACE/solis-repo/solis-repo" \
+            bash solis-repo/solis-repo/backend/instalar_servidor.sh 2>&1 | tee /tmp/instalador.txt
+          echo "::notice title=Instalador::$(grep '^== Pronto em' /tmp/instalador.txt) · $(nproc) núcleos, $(free -g | awk '/Mem/ {print $2}') GB"
+
+      - name: Confere o serviço, a senha, a fala com o cadeado e a voz local
+        timeout-minutes: 8
+        run: |
+          set -e
+          systemctl is-active solis
+          codigo() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+          test "$(codigo http://127.0.0.1:8765/conversas)" = 401
+          T=$(sudo cat /var/lib/solis/.local/share/solis/token)
+          echo "::add-mask::$T"
+          test "$(codigo -H "Authorization: Bearer $T" http://127.0.0.1:8765/conversas)" = 200
+          test "$(sudo stat -c %a /var/lib/solis/.local/share/solis/token)" = 600
+
+          BACKEND=/var/lib/solis/codigo/solis-repo/solis-repo/backend
+          # A fala de teste ("Que horas são?", na voz do Edge) e a transcrição com o
+          # cadeado: o Whisper pequeno, no processador. A primeira carrega o modelo.
+          sudo "$BACKEND/.venv/bin/python" solis-repo/solis-repo/design/nuvem/gerar_fala_teste.py /tmp/fala.wav
+          voz=""
+          for i in 1 2 3 4; do
+            r=$(curl -s -w ' %{time_total}' -H "Authorization: Bearer $T" --data-binary @/tmp/fala.wav 'http://127.0.0.1:8765/voz?privado=1')
+            echo "$r"
+            voz="$voz%0A$i: $r"
+          done
+          echo "$r" | grep -qi 'que horas'
+          echo "::notice title=Fala com o cadeado (Whisper pequeno no processador)::$voz"
+
+          # A voz local: a resposta privada falada. Como o serviço: o usuário solis,
+          # de dentro da pasta dele (a do runner ele não lê).
+          cat > /tmp/kokoro.py <<'PY'
+          import sys
+          import time
+          sys.path.insert(0, '.')  # o backend (o script mora no /tmp)
+          from solis import fala
+          for i in range(3):
+              t = time.perf_counter()
+              audio = fala._kokoro_agora('Seu saldo do mês é de mil e duzentos reais.', 'pt')
+              print(f'{i + 1}: {len(audio) // 1024} KB em {time.perf_counter() - t:.2f} s', end='%0A')
+          PY
+          chmod 644 /tmp/kokoro.py
+          kokoro=$(sudo -u solis env HOME=/var/lib/solis sh -c 'cd "$1" && exec .venv/bin/python /tmp/kokoro.py' sh "$BACKEND")
+          echo "::notice title=Voz local (Kokoro no processador)::$kokoro"
+
+      - name: Avisos se deu errado
+        if: failure()
+        run: |
+          [ -f /tmp/instalador.txt ] && tail -25 /tmp/instalador.txt | cut -c1-200 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | sed 's/^/::error title=Instalador (fim do log)::/' && echo
+          sudo journalctl -u solis -n 25 --no-pager 2>/dev/null | cut -c1-200 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | sed 's/^/::error title=Log do serviço::/' && echo
