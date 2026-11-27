@@ -48,23 +48,28 @@ export function TelaColuna({
         }}
       >
         <div style={{ maxWidth: 'var(--vn-coluna)', marginInline: 'auto' }}>
+          {/* A ação fica ao lado só do título, numa caixa da altura dele (o botão
+              passa 4 pra baixo, dentro da folga da contagem): a contagem embaixo
+              usa a largura toda e não quebra no celular. */}
           <div className="flex items-start justify-between gap-lg">
-            <div className="min-w-0">
-              {/* O título é a única serifada do cabeçalho, como a saudação da Conversa. */}
-              <h1 className="font-display text-text-primary leading-none" style={{ fontSize: 'var(--mem-titulo)' }}>
-                {titulo}
-              </h1>
-              {subtitulo !== undefined && (
-                <p
-                  className="text-text-secondary"
-                  style={{ fontSize: 'var(--mem-contagem)', marginTop: 'var(--vn-tela-contagem-gap)' }}
-                >
-                  {subtitulo}
-                </p>
-              )}
-            </div>
-            {acao}
+            {/* O título é a única serifada do cabeçalho, como a saudação da Conversa. */}
+            <h1 className="font-display text-text-primary leading-none min-w-0" style={{ fontSize: 'var(--mem-titulo)' }}>
+              {titulo}
+            </h1>
+            {acao && (
+              <div className="shrink-0" style={{ height: 'var(--mem-titulo)' }}>
+                {acao}
+              </div>
+            )}
           </div>
+          {subtitulo !== undefined && (
+            <p
+              className="text-text-secondary"
+              style={{ fontSize: 'var(--mem-contagem)', marginTop: 'var(--vn-tela-contagem-gap)' }}
+            >
+              {subtitulo}
+            </p>
+          )}
           {topo}
         </div>
       </div>
@@ -137,6 +142,25 @@ export function SecaoColuna({ children }: { children: ReactNode }) {
         fontSize: 'var(--vn-tela-secao)',
         marginTop: 'var(--vn-tela-secao-top)',
         marginBottom: 'var(--vn-tela-secao-base)',
+      }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+/** O rótulo de um grupo da lista (HOJE, ESTA SEMANA): caixa alta pequena, no
+ *  tom secundário, como o "Recentes" da barra. O primeiro fica mais perto da
+ *  contagem (medido na 15-tarefas, layout.visualNovo.tela.groupFirstTop). */
+export function GrupoColuna({ children, primeiro = false }: { children: ReactNode; primeiro?: boolean }) {
+  return (
+    <h2
+      className="text-text-secondary uppercase"
+      style={{
+        fontSize: 'var(--mem-origem)',
+        letterSpacing: '0.08em',
+        marginTop: primeiro ? 'var(--vn-tela-grupo-primeiro)' : 'var(--mem-item-pad-y)',
+        marginBottom: 'var(--mem-origem-top)',
       }}
     >
       {children}

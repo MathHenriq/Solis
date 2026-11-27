@@ -351,6 +351,16 @@ main {
 .vn-linha:not(.vn-linha-fixa):hover > .vn-linha-corpo,
 .vn-linha:has(+ .vn-linha:not(.vn-linha-fixa):hover) > .vn-linha-corpo { border-bottom-color: transparent; }
 
+/* A linha com a divisória EM CIMA (as Tarefas: a referência 15 tem uma logo
+   abaixo do rótulo do grupo e nenhuma depois da última). No hover somem a dela
+   e a da linha de baixo, como nas outras. */
+.vn-linha-topo > .vn-linha-corpo {
+  border-bottom: 0;
+  border-top: 1px solid var(--divider);
+}
+.vn-linha-topo:not(.vn-linha-fixa):hover > .vn-linha-corpo,
+.vn-linha-topo:not(.vn-linha-fixa):hover + .vn-linha-topo > .vn-linha-corpo { border-top-color: transparent; }
+
 /* O interruptor nas telas que já passaram pra moldura nova (64 x 32, medido na
    14-ferramentas); as outras continuam com o de antes até a vez delas. */
 .vn-tela {
