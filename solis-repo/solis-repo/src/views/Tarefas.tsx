@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Botao } from '../components/Controles';
 import { Icone } from '../components/icons';
-import { BotaoContorno, EstadoVazio, Tela } from '../components/Tela';
+import { EstadoVazio } from '../components/Tela';
+import { BotaoBorda, GrupoColuna, TelaColuna } from '../components/TelaNova';
 import { diaLocal, diasEntre, rotuloPrazo } from '../datas';
 import {
   apagarTarefa,
@@ -24,7 +25,13 @@ import {
  *  padrão já aprovado da Memória (layout.memoria.acoes): "Nova tarefa" no
  *  cabeçalho, como o "Adicionar fonte" do Conhecimento; editar e apagar no hover;
  *  edição no próprio item, com data e hora; apagar com Desfazer; os grupos
- *  "Atrasadas" e "Sem data", que a referência não tem. Medidas em layout.tarefas. */
+ *  "Atrasadas" e "Sem data", que a referência não tem. Medidas em layout.tarefas.
+ *
+ *  PROVISÓRIO — visual novo (27/11/2026, layout.visualNovo.tela): a moldura das
+ *  outras telas (a coluna da conversa, a linha com o hover arredondado, que aqui
+ *  tem a divisória em cima), o "Nova tarefa" no botão do "Nova conversa", a
+ *  caixa de marcar com a borda visível (--vn-inativo) e as ações flutuando à
+ *  esquerda do prazo, sem apertar o texto. */
 
 const DESFAZER_MS = 6000;
 
@@ -51,7 +58,7 @@ function Caixa({ marcada }: { marcada: boolean }) {
   return (
     <span
       aria-hidden
-      className={`shrink-0 flex items-center justify-center border ${marcada ? 'border-accent' : 'border-divider'}`}
+      className={`shrink-0 flex items-center justify-center border ${marcada ? 'border-accent' : 'border-[var(--vn-inativo)]'}`}
       style={{ width: 26, height: 26, borderRadius: 7 }}
     >
       {marcada && (
@@ -65,7 +72,7 @@ function Caixa({ marcada }: { marcada: boolean }) {
 }
 
 const CAMPO =
-  'bg-transparent outline-none text-text-primary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
+  'bg-transparent outline-none text-text-primary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]';
 
 /** Texto, data e hora de uma tarefa — a nova e a que está sendo editada. Enter
  *  salva, Esc desiste. A hora só vale com data: sem dia, ela não diz nada. */
@@ -189,13 +196,12 @@ function ItemTarefa({
   const feita = !!t.feita;
   const atrasada = !feita && !!t.prazo && diasEntre(hoje, t.prazo) < 0;
   // Divisória EM CIMA de cada tarefa, como na referência: medida em y=218 (logo
-  // abaixo do "HOJE"), 307 e 395, e nenhuma depois da última do grupo.
+  // abaixo do "HOJE"), 307 e 395, e nenhuma depois da última do grupo. A linha é
+  // a das telas de lista (.vn-linha no index.css), na variante com a divisória em
+  // cima (.vn-linha-topo).
   return (
-    <li
-      className="group border-t border-divider [&:hover]:bg-[var(--mem-hover)]"
-      style={{ paddingTop: 'var(--mem-item-pad-y)', paddingBottom: 'var(--mem-item-pad-y)' }}
-    >
-      <div className="flex items-start gap-lg">
+    <li className="vn-linha vn-linha-topo group">
+      <div className="vn-linha-corpo flex items-start gap-lg">
         <button
           type="button"
           role="checkbox"
@@ -234,10 +240,26 @@ function ItemTarefa({
             )}
           </div>
         )}
-        <div className="ml-auto shrink-0 flex items-center" style={{ gap: 'var(--mac-data-gap)' }}>
-          {/* As ações só no hover ou no foco, como na Memória: a lista é pra ler. */}
+        {/* O prazo na entrelinha do texto: fica na altura da primeira linha dele. */}
+        <div
+          className="ml-auto shrink-0 relative"
+          style={{ lineHeight: 'calc(var(--mem-item-texto) * var(--mem-item-lh))' }}
+        >
+          {/* As ações só no hover ou no foco, como na Memória: a lista é pra ler.
+              Elas flutuam à esquerda do prazo, sem tomar lugar (escondidas, não
+              apertam o texto), com o fundo da linha com o véu. */}
           {!editando && (
-            <span className="flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            <span
+              className="absolute flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+              style={{
+                right: '100%',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                marginRight: t.prazo ? 'var(--mac-data-gap)' : 0,
+                borderRadius: 'var(--mac-botao-raio)',
+                background: 'linear-gradient(var(--mem-hover), var(--mem-hover)), var(--canvas)',
+              }}
+            >
               {(
                 [
                   ['lapis', 'Editar', aoEditar],
@@ -360,15 +382,39 @@ export function Tarefas() {
   );
 
   return (
-    <Tela
+    <TelaColuna
       titulo="Tarefas"
       subtitulo={subtitulo}
       acao={
         resultado?.estado === 'ok' && (
-          <BotaoContorno onClick={() => definirEditando('nova')}>
-            <Icone nome="adicionar" tamanho={16} />
+          <BotaoBorda onClick={() => definirEditando('nova')}>
+            <Icone nome="adicionar" tamanho={18} className="text-accent" tracoFixo="2" />
             Nova tarefa
-          </BotaoContorno>
+          </BotaoBorda>
+        )
+      }
+      sobre={
+        apagada && (
+          <div
+            role="status"
+            className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary"
+            style={{
+              height: 'var(--mac-aviso-h)',
+              padding: '0 var(--mac-aviso-px)',
+              borderRadius: 'var(--mac-aviso-raio)',
+              gap: 'var(--mac-aviso-px)',
+              fontSize: 'var(--mac-botao-texto)',
+              // Flutua sobre a lista: o fundo, a borda e a sombra da caixa de escrever.
+              background: 'var(--vn-caixa-fundo)',
+              border: '1px solid var(--vn-caixa-borda)',
+              boxShadow: 'var(--vn-caixa-sombra)',
+            }}
+          >
+            Tarefa apagada
+            <button type="button" onClick={desfazer} className="text-accent" style={{ fontSize: 'var(--mac-botao-texto)' }}>
+              Desfazer
+            </button>
+          </div>
         )
       }
       estado={
@@ -388,27 +434,16 @@ export function Tarefas() {
       }
     >
       {editando === 'nova' && (
-        <div
-          className="flex items-start gap-lg border-b border-divider"
-          style={{ paddingTop: 'var(--mem-item-pad-y)', paddingBottom: 'var(--mem-item-pad-y)' }}
-        >
-          <Caixa marcada={false} />
-          <Editor aoSalvar={(c) => salvar(null, c)} aoCancelar={() => definirEditando(null)} />
+        <div className="vn-linha vn-linha-fixa">
+          <div className="vn-linha-corpo flex items-start gap-lg">
+            <Caixa marcada={false} />
+            <Editor aoSalvar={(c) => salvar(null, c)} aoCancelar={() => definirEditando(null)} />
+          </div>
         </div>
       )}
-      {grupos.map((g) => (
+      {grupos.map((g, i) => (
         <section key={g.nome}>
-          <h2
-            className="text-text-secondary uppercase"
-            style={{
-              fontSize: 'var(--mem-origem)',
-              letterSpacing: '0.08em',
-              marginTop: 'var(--mem-item-pad-y)',
-              marginBottom: 'var(--mem-origem-top)',
-            }}
-          >
-            {g.nome}
-          </h2>
+          <GrupoColuna primeiro={i === 0 && editando !== 'nova'}>{g.nome}</GrupoColuna>
           <ul>
             {g.itens.map((t) => (
               <ItemTarefa
@@ -427,25 +462,6 @@ export function Tarefas() {
         </section>
       ))}
 
-      {apagada && (
-        <div
-          role="status"
-          className="solis-aviso absolute left-1/2 -translate-x-1/2 flex items-center text-text-primary border border-divider bg-canvas"
-          style={{
-            height: 'var(--mac-aviso-h)',
-            padding: '0 var(--mac-aviso-px)',
-            borderRadius: 'var(--mac-aviso-raio)',
-            gap: 'var(--mac-aviso-px)',
-            fontSize: 'var(--mac-botao-texto)',
-            boxShadow: '0 8px 24px rgb(0 0 0 / 0.25)',
-          }}
-        >
-          Tarefa apagada
-          <button type="button" onClick={desfazer} className="text-accent" style={{ fontSize: 'var(--mac-botao-texto)' }}>
-            Desfazer
-          </button>
-        </div>
-      )}
-    </Tela>
+    </TelaColuna>
   );
 }
