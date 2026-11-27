@@ -25,7 +25,7 @@
   --icon-md: 24px;
 
   /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */
-  --sidebar-width: 200px;
+  --sidebar-width: 264px;
   --sidebar-icon: 18px;
   --sidebar-logo: clamp(57px, 7.634vh, 71px);
   --sidebar-pitch: clamp(46px, 6.129vh, 57px);
@@ -293,9 +293,9 @@
   /* Lista de conversas na sidebar. Ver layout.recentes no JSON (PROVISORIO). */
   --rc-topo: 18px;
   --rc-recuo: 12px;
-  --rc-px: 17px;
-  --rc-linha-h: 32px;
-  --rc-raio: 8px;
+  --rc-px: 10px;
+  --rc-linha-h: 34px;
+  --rc-raio: 9px;
   --rc-texto: 14px;
   --rc-rotulo: 12px;
   --rc-rotulo-top: 14px;
@@ -306,6 +306,62 @@
   --rc-gaveta: 264px;
   --rc-acoes: 28px;
   --composer-radius: 13px;
+
+  /* O visual novo da Conversa - desenho proprio, PROVISORIO (27/11/2026). Ver layout.visualNovo. */
+  --vn-sb-px: 12px;
+  --vn-sb-topo: 16px;
+  --vn-sb-logo: 30px;
+  --vn-sb-marca: 13px;
+  --vn-sb-marca-espaco: 0.32em;
+  --vn-sb-nova-h: 38px;
+  --vn-sb-nova-raio: 10px;
+  --vn-sb-item-h: 36px;
+  --vn-sb-item-raio: 9px;
+  --vn-sb-item-px: 10px;
+  --vn-sb-icone: 17px;
+  --vn-sb-icone-gap: 12px;
+  --vn-sb-rotulo: 14px;
+  --vn-sb-nav-topo: 14px;
+  --vn-sb-avatar: 30px;
+  --vn-sb-perfil: 14px;
+  --vn-coluna: 720px;
+  --vn-turno-gap: 28px;
+  --vn-balao-px: 16px;
+  --vn-balao-py: 10px;
+  --vn-balao-raio: 18px;
+  --vn-balao-texto: 15px;
+  --vn-balao-lh: 1.55;
+  --vn-balao-max: 75%;
+  --vn-simbolo: 26px;
+  --vn-simbolo-gap: 14px;
+  --vn-nome: 12.5px;
+  --vn-resposta: 15.5px;
+  --vn-resposta-lh: 1.65;
+  --vn-meta: 12px;
+  --vn-caixa: 760px;
+  --vn-caixa-raio: 24px;
+  --vn-caixa-pt: 14px;
+  --vn-caixa-pr: 14px;
+  --vn-caixa-pb: 10px;
+  --vn-caixa-pl: 20px;
+  --vn-caixa-gap: 10px;
+  --vn-caixa-texto: 15.5px;
+  --vn-caixa-icone: 18px;
+  --vn-caixa-alvo: 34px;
+  --vn-enviar: 36px;
+  --vn-caixa-base: 32px;
+  --vn-voz: 64px;
+  --vn-voz-gap: 14px;
+  --vn-voz-icone: 26px;
+  --vn-cena-thread: 330px;
+  --vn-cena-thread-y: 82%;
+  --vn-inativo: color-mix(in srgb, var(--text-primary) 70%, var(--canvas));
+  --vn-ativo: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --vn-balao: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --vn-persona-mix: 62%;
+  --vn-caixa-borda: color-mix(in srgb, var(--text-primary) 15%, var(--canvas));
+  --vn-voz-anel: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vn-voz-brilho: color-mix(in srgb, var(--accent) 25%, transparent);
 
   /* Barra de rolagem. Ver appearance.scrollbar no JSON. */
   --scroll-larg: 12px;
@@ -349,7 +405,9 @@
   --solis-horizon-image: url('/fundos/bg-espacial.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
   --mem-hover-forte: rgb(0 0 0 / 0.065);
-  --rc-ativo: rgb(0 0 0 / 0.076);
+  --rc-ativo: rgb(0 0 0 / 0.05);
+  --vn-caixa-fundo: color-mix(in srgb, var(--canvas) 55%, white);
+  --vn-caixa-sombra: 0 8px 28px rgb(60 35 15 / 0.10);
 }
 
 [data-theme="claro"] {
@@ -366,7 +424,9 @@
   --solis-horizon-image: url('/fundos/bg-claro.webp');
   --mem-hover: rgb(0 0 0 / 0.035);
   --mem-hover-forte: rgb(0 0 0 / 0.065);
-  --rc-ativo: rgb(0 0 0 / 0.076);
+  --rc-ativo: rgb(0 0 0 / 0.05);
+  --vn-caixa-fundo: color-mix(in srgb, var(--canvas) 55%, white);
+  --vn-caixa-sombra: 0 8px 28px rgb(60 35 15 / 0.10);
 }
 
 [data-theme="dark"] {
@@ -383,7 +443,9 @@
   --solis-horizon-image: url('/fundos/bg-dark.webp');
   --mem-hover: rgb(255 255 255 / 0.045);
   --mem-hover-forte: rgb(255 255 255 / 0.085);
-  --rc-ativo: rgb(255 255 255 / 0.10);
+  --rc-ativo: rgb(255 255 255 / 0.06);
+  --vn-caixa-fundo: color-mix(in srgb, var(--canvas) 97%, white);
+  --vn-caixa-sombra: 0 12px 40px rgb(0 0 0 / 0.5);
 }
 
 /* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem

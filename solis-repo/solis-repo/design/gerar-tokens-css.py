@@ -109,7 +109,10 @@ for k, v in T['icon']['size'].items(): w('  --icon-%s: %s;' % (k, v))
 w('')
 w('  /* medidos na Fase 2 — ver docs/MEDICOES_FASE2.md */')
 sb, cp = T['layout']['sidebar'], T['layout']['composer']
-w('  --sidebar-width: %s;'      % sb['width'])
+# A barra nova (layout.visualNovo, 27/11/2026) manda na largura: as medidas
+# antigas ficam no JSON como historico da referencia.
+vn = T['layout']['visualNovo']
+w('  --sidebar-width: %s;'      % vn['sidebar']['width'])
 w('  --sidebar-icon: %s;'       % sb['iconSize'])
 w('  --sidebar-logo: %s;'       % vy(sb['logoWidth']))
 w('  --sidebar-pitch: %s;'      % vy(sb['itemPitch']))
@@ -310,6 +313,37 @@ for chave, var in [('sectionTop','--rc-topo'), ('rowInset','--rc-recuo'), ('rowP
     w('  %s: %s;' % (var, rc[chave]))
 w('  --composer-radius: %s;'    % cp['radius'])
 w('')
+w('  /* O visual novo da Conversa - desenho proprio, PROVISORIO (27/11/2026). Ver layout.visualNovo. */')
+for grupo, pares in [
+    ('sidebar', [('padX','--vn-sb-px'), ('padTop','--vn-sb-topo'), ('logoSymbol','--vn-sb-logo'),
+                 ('wordmarkSize','--vn-sb-marca'), ('wordmarkTracking','--vn-sb-marca-espaco'),
+                 ('newHeight','--vn-sb-nova-h'), ('newRadius','--vn-sb-nova-raio'),
+                 ('itemHeight','--vn-sb-item-h'), ('itemRadius','--vn-sb-item-raio'), ('itemPadX','--vn-sb-item-px'),
+                 ('iconSize','--vn-sb-icone'), ('iconGap','--vn-sb-icone-gap'), ('labelSize','--vn-sb-rotulo'),
+                 ('navTop','--vn-sb-nav-topo'), ('avatar','--vn-sb-avatar'), ('profileText','--vn-sb-perfil')]),
+    ('thread', [('column','--vn-coluna'), ('turnGap','--vn-turno-gap'), ('bubblePadX','--vn-balao-px'),
+                ('bubblePadY','--vn-balao-py'), ('bubbleRadius','--vn-balao-raio'), ('bubbleText','--vn-balao-texto'),
+                ('bubbleLh','--vn-balao-lh'), ('bubbleMax','--vn-balao-max'), ('symbol','--vn-simbolo'),
+                ('symbolGap','--vn-simbolo-gap'), ('nameSize','--vn-nome'), ('replyText','--vn-resposta'),
+                ('replyLh','--vn-resposta-lh'), ('metaSize','--vn-meta')]),
+    ('composer', [('width','--vn-caixa'), ('radius','--vn-caixa-raio'), ('padTop','--vn-caixa-pt'),
+                  ('padRight','--vn-caixa-pr'), ('padBottom','--vn-caixa-pb'), ('padLeft','--vn-caixa-pl'),
+                  ('rowGap','--vn-caixa-gap'), ('inputSize','--vn-caixa-texto'), ('iconSize','--vn-caixa-icone'),
+                  ('iconTarget','--vn-caixa-alvo'), ('sendSize','--vn-enviar'), ('bottom','--vn-caixa-base')]),
+    ('voz', [('size','--vn-voz'), ('gap','--vn-voz-gap'), ('iconSize','--vn-voz-icone')]),
+    ('cena', [('threadHeight','--vn-cena-thread'), ('threadPositionY','--vn-cena-thread-y')]),
+]:
+    for chave, var in pares:
+        w('  %s: %s;' % (var, vn[grupo][chave]))
+# As cores saem dos papeis do tema (color-mix): uma regra serve aos 3 temas.
+w('  --vn-inativo: color-mix(in srgb, var(--text-primary) %s, var(--canvas));' % vn['sidebar']['inactiveMix'])
+w('  --vn-ativo: color-mix(in srgb, var(--text-primary) 7%, transparent);')
+w('  --vn-balao: color-mix(in srgb, var(--text-primary) %s, transparent);' % vn['thread']['bubbleMix'])
+w('  --vn-persona-mix: %s;' % vn['thread']['personaMix'])
+w('  --vn-caixa-borda: color-mix(in srgb, var(--text-primary) %s, var(--canvas));' % vn['composer']['borderMix'])
+w('  --vn-voz-anel: color-mix(in srgb, var(--accent) %s, transparent);' % vn['voz']['ringMix'])
+w('  --vn-voz-brilho: color-mix(in srgb, var(--accent) %s, transparent);' % vn['voz']['glowMix'])
+w('')
 w('  /* Barra de rolagem. Ver appearance.scrollbar no JSON. */')
 sc = T['appearance']['scrollbar']
 w('  --scroll-larg: %s;'        % sc['width'])
@@ -347,6 +381,9 @@ for nome in TEMAS:
     w('  --mem-hover-forte: %s;' % (mem['hoverTintStrong'] if nome == 'dark' else mem['hoverTintClaroStrong']))
     rc = T['layout']['recentes']
     w('  --rc-ativo: %s;' % (rc['activeTint'] if nome == 'dark' else rc['activeTintClaro']))
+    vc = T['layout']['visualNovo']['composer']
+    w('  --vn-caixa-fundo: %s;' % (vc['fillDark'] if nome == 'dark' else vc['fillClaro']))
+    w('  --vn-caixa-sombra: %s;' % (vc['shadowDark'] if nome == 'dark' else vc['shadowClaro']))
     w('}')
 w('')
 w('/* A cena e uma CAMADA sobre --canvas, nao o fundo em si: com "Exibir imagem')
