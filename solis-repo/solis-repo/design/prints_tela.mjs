@@ -8,7 +8,7 @@
 //   node design/prints_tela.mjs http://localhost:8766 <token> <pasta> Memória [n]
 //
 // Com [n], tira também, no dark com a barra lateral, o print com o mouse sobre a
-// n-ésima linha da lista (o hover). Mede as caixas principais e grava em
+// n-ésima linha da lista (.vn-linha, o hover). Mede as caixas principais e grava em
 // medidas.json.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -48,7 +48,7 @@ for (const tema of ['dark', 'claro', 'espacial']) {
     await pagina.screenshot({ path: join(pasta, `${tema}-${nav}-${nome}.png`) });
 
     if (linha && tema === 'dark' && nav === 'sidebar') {
-      await pagina.locator('main li').nth(Number(linha) - 1).hover();
+      await pagina.locator('main .vn-linha').nth(Number(linha) - 1).hover();
       await pagina.waitForTimeout(400);
       await pagina.screenshot({ path: join(pasta, `${tema}-${nav}-${nome}-hover.png`) });
     }
@@ -64,8 +64,7 @@ for (const tema of ['dark', 'claro', 'espacial']) {
         main: q('main'),
         titulo: q('main h1'),
         busca: caixa(document.querySelector('main input')?.parentElement),
-        lista: q('main ul'),
-        linha: q('main li'),
+        linha: q('main .vn-linha'),
       };
     });
     await contexto.close();
