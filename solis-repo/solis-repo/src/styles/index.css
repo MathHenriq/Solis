@@ -366,11 +366,33 @@ main {
 .ag-linha:not(.ag-vez):hover,
 .ag-linha:has(+ .ag-linha:not(.ag-vez):hover) { border-bottom-color: transparent; }
 
+/* Configurações no visual novo (layout.visualNovo.config): cada cartão é uma
+   seção sem caixa, e o que separa uma da outra é a divisória, com a folga de
+   antes entre os cartões (30) dos dois lados. A primeira da aba começa a 35 das
+   abas (os 11 da lista mais 24), como os cartões do Conhecimento da busca. */
+.cfg-cartao {
+  padding-block: var(--cer-cartao-gap);
+  border-top: 1px solid var(--divider);
+}
+.cfg-painel > .cfg-cartao:first-child {
+  border-top: 0;
+  padding-top: var(--vn-cfg-primeira);
+}
+/* As abas rolam pro lado no celular, sem a barra aparecendo. */
+.vn-abas { scrollbar-width: none; }
+.vn-abas::-webkit-scrollbar { display: none; }
+
 /* O interruptor nas telas que já passaram pra moldura nova (64 x 32, medido na
    14-ferramentas); as outras continuam com o de antes até a vez delas. */
 .vn-tela {
   --cfg-sw-l: var(--vn-tela-sw-l);
   --cfg-sw-h: var(--vn-tela-sw-h);
+  /* Os campos que usavam o tamanho do segmentado antigo (387 x 62: a voz do
+     Gemini, a chave da Fish): a altura do botão de borda e a largura do campo
+     de ajuste (layout.visualNovo.config.fieldWidth). */
+  --cfg-seg-l: var(--vn-cfg-campo-l);
+  --cfg-seg-h: var(--vn-sb-nova-h);
+  --cfg-seg-raio: var(--vn-sb-nova-raio);
   /* A altura do nome mais a descrição de uma linha de ajuste (20 e 14 na
      entrelinha 1,5, com a folga entre os dois): o ícone, o interruptor e o aviso
      ao lado se centram nela, e não no bloco inteiro, como na 14-ferramentas (no

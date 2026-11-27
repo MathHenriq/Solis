@@ -17,7 +17,7 @@ export function Botao({
     <button
       type="button"
       {...resto}
-      className={`${cor} disabled:opacity-50`}
+      className={`${cor} whitespace-nowrap shrink-0 disabled:opacity-50`}
       style={{
         height: 'var(--mac-botao-h)',
         padding: '0 var(--mac-botao-px)',
@@ -25,6 +25,56 @@ export function Botao({
         fontSize: 'var(--mac-botao-texto)',
       }}
     />
+  );
+}
+
+/** Opções que se excluem no mesmo eixo (a Navegação, o modelo da voz): uma
+ *  peça só, não botões soltos. No visual novo (layout.visualNovo.config), como
+ *  no Claude: 38 de altura, a borda da caixa de escrever e a escolhida com o
+ *  véu, sem o dourado. */
+export function Segmentado<T extends string>({
+  opcoes,
+  valor,
+  aoTrocar,
+  rotulo,
+}: {
+  opcoes: readonly (readonly [T, string])[];
+  valor: T;
+  aoTrocar: (v: T) => void;
+  rotulo: string;
+}) {
+  return (
+    <div
+      className="flex shrink-0"
+      style={{
+        height: 'var(--vn-sb-nova-h)',
+        padding: 'var(--vn-cfg-seg-pad)',
+        gap: 'var(--vn-cfg-seg-pad)',
+        borderRadius: 'var(--vn-sb-nova-raio)',
+        border: '1px solid var(--vn-caixa-borda)',
+      }}
+      role="group"
+      aria-label={rotulo}
+    >
+      {opcoes.map(([id, nome]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => aoTrocar(id)}
+          aria-pressed={valor === id}
+          className={`whitespace-nowrap ${valor === id ? 'text-text-primary' : 'text-[var(--vn-inativo)] hover:text-text-primary'}`}
+          style={{
+            padding: '0 var(--vn-cfg-seg-px)',
+            borderRadius: 'calc(var(--vn-sb-nova-raio) - var(--vn-cfg-seg-pad))',
+            fontSize: 'var(--vn-sb-rotulo)',
+            fontWeight: valor === id ? 500 : undefined,
+            background: valor === id ? 'var(--vn-ativo)' : undefined,
+          }}
+        >
+          {nome}
+        </button>
+      ))}
+    </div>
   );
 }
 
