@@ -106,7 +106,9 @@ SOLIS_SERVIDOR=1 python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765
     registro de ações dele.
   - **O PC continua mandando:** só as pastas autorizadas, a tela só com o Controle da tela ligado, e
     sem a chave ele recusa na hora.
-  - **Clicar e digitar na tela de longe:** ainda não, porque o cartão precisa do print do PC.
+  - **Agir na tela de longe:** clicar, digitar, teclas, rolar e mover. Antes do cartão, o servidor
+    pede ao PC a prévia (o print do lugar e o programa), e só depois do sim o PC faz e devolve a tela
+    de depois. A janela do próprio Solis é recusada antes de qualquer cartão.
   - **Rotas no servidor:** `GET /corpo/pc` diz se o PC está ligado, e `POST /corpo/ler` lê do PC
     sem cérebro (tela, pasta, arquivo; o terminal não passa por aqui).
 - **A voz pelo celular:** o navegador grava, e `POST /voz` transcreve.

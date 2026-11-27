@@ -724,11 +724,13 @@ class Corpo:
         self.lidos: set[str] = set()
 
     def _da_tela(self) -> set[str]:
-        """As da tela que valem: todas no PC; de longe (o PC no servidor), só ler —
-        clicar e digitar de longe pedem o print do PC no cartão, que ainda não vem."""
-        todas = {n for n, _, _ in _DA_TELA}
-        local = os.name == 'nt' and tela.ligada()
-        return todas if local or not self.pc_remoto else {TELA_LER.removeprefix(SOLIS)}
+        """As da tela que valem: todas, aqui no PC ou de longe (o PC ligado no
+        servidor: o cartão pega o print e o programa do PC, corpo_remoto.previa)."""
+        return {n for n, _, _ in _DA_TELA}
+
+    @property
+    def _tela_de_longe(self) -> bool:
+        return bool(self.pc_remoto and self.pc_remoto.get('tela')) and not (os.name == 'nt' and tela.ligada())
 
     def _kit_da_voz(self) -> bool:
         """Pela voz, só as do dia a dia, até o modelo pedir as outras (MAIS)."""
@@ -926,7 +928,8 @@ class Corpo:
         do_mcp = self._do_mcp().get(nome)
         decisao = await aprovacoes.decidir(nome, entrada, por, conversa=self.conversa, pagina=pagina,
                                            so_le=bool(do_mcp and do_mcp[1].get('so_le')),
-                                           projeto=info['pasta'], modo=info['modo'], ajudante=self.ajudante)
+                                           projeto=info['pasta'], modo=info['modo'], ajudante=self.ajudante,
+                                           tela_de_longe=self._tela_de_longe)
         if not decisao.ok:
             self._marcar(id_, nome, entrada, pagina, ok=False)
             return decisao.mensagem or 'O Matheus recusou.'
@@ -1009,7 +1012,8 @@ class Corpo:
                 self.agiu = True
             self.etapas.marcar('ferramenta', ferramenta=nome, alvo=f['nome'], ok=ok, id=id_)
             return cercar(_cortar(saida), 'da ferramenta', self.tiradas) if ok else saida
-        if self.pc_remoto and (nome == TERMINAL or self._de_arquivo(nome) or nome == TELA_LER):
+        de_tela = nome.removeprefix(SOLIS) in self._da_tela()
+        if self.pc_remoto and (nome == TERMINAL or self._de_arquivo(nome) or (de_tela and self._tela_de_longe)):
             # O PC ligado no servidor faz (corpo_remoto.py); o cartão já foi aqui, no celular.
             from . import corpo_remoto
             if nome == TERMINAL:
@@ -1018,11 +1022,11 @@ class Corpo:
                 saida, ok = await corpo_remoto.chamar(nome, entrada, prazo=TERMINAL_MAX_S + 15)
             except corpo_remoto.PcFora as e:
                 saida, ok = f'Não deu: {e}. Peça pro Matheus ligar o PC (ou abrir o Solis nele).', False
-            if ok and nome == TERMINAL:
+            if ok and (nome == TERMINAL or (de_tela and nome != TELA_LER)):
                 self.agiu = True
             self._marcar(id_, nome, entrada, pagina, ok)
-            if ok and nome == TELA_LER:
-                return cercar(_cortar(saida), 'da tela', self.tiradas)
+            if ok and de_tela:
+                return ('' if nome == TELA_LER else 'Feito. A tela agora:\n') + cercar(_cortar(saida), 'da tela', self.tiradas)
             return _cortar(saida)
         if self.tela and nome.removeprefix(SOLIS) in self._da_tela():
             acao = nome.removeprefix(SOLIS)

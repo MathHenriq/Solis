@@ -198,7 +198,7 @@ SOLIS_LIVRES = ['mcp__solis__hora', 'mcp__solis__criar_lembrete', 'mcp__solis__m
 
 async def decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto: str | None = None,
                    modo: str = 'pedir', conversa: int | None = None, ajudante: str | None = None,
-                   so_le: bool = False, pagina: str | None = None):
+                   so_le: bool = False, pagina: str | None = None, tela_de_longe: bool = False):
     """Livre, ou um cartão na conversa esperando o Matheus — pra qualquer cérebro
     (o can_use_tool do Claude traduz pro SDK em agente._decidir; o corpo usa
     direto). `modo` aceitar: editar arquivo dentro do projeto não pede (fica
@@ -219,8 +219,17 @@ async def decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto
     if nome in LEITURA and agente._dentro(caminho, projeto):
         return Decisao(True)
     programa = ('', '')
+    previa = None  # o programa e o print vindos do PC, quando a tela é a dele (corpo_remoto.py)
     if nome in TELA_PEDEM:
-        programa = await asyncio.to_thread(tela.programa_alvo, nome.removeprefix('mcp__solis__'), entrada)
+        if tela_de_longe:
+            from . import corpo_remoto
+            try:
+                previa = await corpo_remoto.previa(nome.removeprefix('mcp__solis__'), entrada)
+            except corpo_remoto.PcFora as e:
+                return Decisao(False, f'Não deu pra ver a tela do PC: {e}.')
+            programa = tuple(previa.get('programa') or ('', ''))
+        else:
+            programa = await asyncio.to_thread(tela.programa_alvo, nome.removeprefix('mcp__solis__'), entrada)
         if programa[0] in tela.SOLIS:
             banco.registrar_acao(conversa, nome, entrada, 'recusado: cai no Solis', False)
             return Decisao(False, 'Isso cai numa janela do próprio Solis: lá nenhum cérebro mexe. '
@@ -267,7 +276,8 @@ async def decidir(nome: str, entrada: dict, por, ids: set | None = None, projeto
             pedido['site'] = programa[1]
         if acao == 'tela_digitar':
             pedido['entrada'] = str(entrada.get('texto') or '')[:3000]
-        imagem = await asyncio.to_thread(tela.imagem_do_cartao, acao, entrada)
+        imagem = (previa.get('imagem') if previa is not None
+                  else await asyncio.to_thread(tela.imagem_do_cartao, acao, entrada))
         if imagem:
             pedido['imagem'] = imagem
     diff = _diff(nome, entrada, projeto)

@@ -12,9 +12,10 @@ e anota no registro de ações dele, como sempre. O próprio PC ainda manda no q
 oferece: só as pastas autorizadas, a tela só com o Controle da tela ligado, e
 nada disso sem a chave "Deixar o servidor usar este PC".
 
-Nesta primeira parte vão o terminal, os arquivos das pastas autorizadas e ler a
-tela. Clicar e digitar na tela de longe ficam pra próxima: o cartão delas mostra
-um print do lugar do clique, que tem de vir do PC antes da aprovação.
+Vão o terminal, os arquivos das pastas autorizadas e a tela inteira: ler, e
+clicar, digitar, teclas, rolar e mover (26/11/2026). Pras ações na tela, o cartão
+mostra o print do lugar e o programa, como no PC: o servidor pede a prévia ao PC
+(PREVIA) antes de mostrar o cartão, e só depois do sim o PC faz.
 
 Protocolo (JSON):
   PC → servidor  {"tipo": "ola", "pc": nome, "terminal": bool, "tela": bool, "arquivos": bool}
@@ -39,7 +40,11 @@ TELA_LER = 'mcp__solis__tela_ler'
 # Só estas viajam (o PC recusa o resto, mesmo que o servidor peça).
 TERMINAL = 'PowerShell'
 ARQUIVOS = {'mcp__solis__listar_pasta', 'mcp__solis__buscar_arquivos', 'mcp__solis__ler_arquivo'}
-DE_LONGE = {TERMINAL, TELA_LER} | ARQUIVOS
+# Agir na tela: o cartão (no celular) mostra antes o print e o programa, que vêm
+# do PC por PREVIA; aprovado, o PC faz e devolve a tela de depois.
+TELA_ACOES = {f'mcp__solis__tela_{a}' for a in ('clicar', 'digitar', 'tecla', 'rolar', 'mover')}
+PREVIA = 'tela_previa'
+DE_LONGE = {TERMINAL, TELA_LER, PREVIA} | ARQUIVOS | TELA_ACOES
 
 
 class PcFora(Exception):
@@ -78,6 +83,14 @@ async def chamar(ferramenta: str, entrada: dict, prazo: float = PRAZO_PADRAO) ->
     finally:
         ligacao.pendentes.pop(id_, None)
     return str(resposta.get('saida') or ''), bool(resposta.get('ok'))
+
+
+async def previa(acao: str, entrada: dict) -> dict:
+    """Pro cartão de uma ação na tela do PC: {programa: [processo, janela], imagem}."""
+    saida, ok = await chamar(PREVIA, {'acao': acao, 'entrada': entrada}, prazo=20)
+    if not ok:
+        raise PcFora(saida)
+    return json.loads(saida)
 
 
 async def atender(ws) -> None:
@@ -167,6 +180,27 @@ async def executar(ferramenta: str, entrada: dict) -> tuple[str, bool]:
         saida, ok = await corpo._rodar_comando(comando, str(agente._pasta_trabalho()))
         banco.registrar_acao(None, ferramenta, entrada, ('pelo servidor: ' + saida)[:500], ok)
         return saida, ok
+    if ferramenta == PREVIA or ferramenta in TELA_ACOES:
+        if not cap['tela']:
+            return 'O Controle da tela está desligado neste PC.', False
+        if ferramenta == PREVIA:
+            acao, e = str(entrada.get('acao') or ''), entrada.get('entrada') or {}
+            programa = await asyncio.to_thread(tela.programa_alvo, acao, e)
+            imagem = await asyncio.to_thread(tela.imagem_do_cartao, acao, e)
+            return json.dumps({'programa': list(programa), 'imagem': imagem}), True
+        # A ação, já aprovada no celular: faz, espera a tela assentar e devolve a de depois.
+        acao = ferramenta.removeprefix('mcp__solis__')
+        try:
+            await asyncio.to_thread(corpo._agir_na_tela, acao, entrada)
+        except tela.TelaRecusada as e:
+            banco.registrar_acao(None, ferramenta, entrada, f'pelo servidor: recusado ({e})', False)
+            return f'Não fiz: {e}.', False
+        banco.registrar_acao(None, ferramenta, entrada, 'pelo servidor: ' + tela.resumo(acao, entrada), True)
+        await asyncio.sleep(tela.DEPOIS_S)
+        try:
+            return await corpo.texto_da_tela(), True
+        except Exception as e:  # noqa: BLE001 — fez, mas não leu a tela de depois
+            return f'Feito, mas não consegui ler a tela de depois: {e}', True
     if ferramenta == TELA_LER:
         if not cap['tela']:
             return 'O Controle da tela está desligado neste PC.', False

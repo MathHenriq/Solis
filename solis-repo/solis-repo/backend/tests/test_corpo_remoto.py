@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from solis import aprovacoes, banco, corpo, corpo_remoto, main, pc
+from solis import agente, aprovacoes, banco, corpo, corpo_remoto, main, pc
 
 TOKEN = 'um-token-de-teste-bem-comprido-123'
 SENHA = {'Authorization': f'Bearer {TOKEN}'}
@@ -110,8 +110,8 @@ def test_no_servidor_o_cerebro_ganha_as_ferramentas_do_pc(monkeypatch):
     c = corpo.Corpo(1, navegar=False)
     nomes = {s['function']['name'] for s in asyncio.run(c.especificacoes())}
     assert {'PowerShell', 'mcp__solis__tela_ler', 'mcp__solis__ler_arquivo', 'mcp__solis__listar_pasta'} <= nomes
-    # Clicar e digitar de longe: ainda não (o cartão precisa do print do PC).
-    assert not nomes & {'mcp__solis__tela_clicar', 'mcp__solis__tela_digitar'}
+    # E agir na tela de longe (o cartão pega o print e o programa do PC).
+    assert {'mcp__solis__tela_clicar', 'mcp__solis__tela_digitar', 'mcp__solis__tela_tecla'} <= nomes
 
 
 def test_o_terminal_pede_o_cartao_aqui_e_roda_no_pc(monkeypatch):
@@ -178,3 +178,86 @@ def test_a_tela_do_pc_mostra_se_esta_ligado(monkeypatch):
     assert estado['usa_pc'] is True and estado['pc_ligado'] is False
     # Mudar o endereço sem mandar usa_pc mantém a chave.
     assert c.put('/servidor', json={'endereco': 'https://outro.ts.net'}).json()['usa_pc'] is True
+
+
+class _Gravador:
+    def __init__(self):
+        self.lista = []
+
+    def marcar(self, etapa, **dados):
+        self.lista.append((etapa, dados))
+
+
+def test_clicar_de_longe_o_cartao_mostra_o_print_do_pc_e_o_pc_clica(monkeypatch):
+    """O cartão no celular com o print e o programa do PC (a prévia); aprovado, o PC clica."""
+    monkeypatch.setenv('SOLIS_SERVIDOR', '1')
+    monkeypatch.setattr(corpo_remoto, '_pc', _Ligacao())
+    monkeypatch.setattr(corpo.os, 'name', 'posix')
+    previas, chamadas = [], []
+
+    async def previa(acao, entrada):
+        previas.append((acao, entrada))
+        return {'programa': ['notepad.exe', 'Sem título - Bloco de Notas'], 'imagem': 'data:image/png;base64,UFJJTlQ='}
+
+    async def chamar(nome, entrada, prazo=60):
+        chamadas.append((nome, entrada))
+        return 'Arquivo  Editar  Salvar', True
+    monkeypatch.setattr(corpo_remoto, 'previa', previa)
+    monkeypatch.setattr(corpo_remoto, 'chamar', chamar)
+    g = _Gravador()
+    c = corpo.Corpo(5, g, navegar=False)
+
+    async def tudo():
+        tarefa = asyncio.ensure_future(c.rodar('mcp__solis__tela_clicar', {'x': 1155, 'y': 716}))
+        while not any(e == 'aprovacao' for e, _ in g.lista):
+            await asyncio.sleep(0.01)
+        pedido = next(d for e, d in g.lista if e == 'aprovacao')
+        assert pedido['site'] == 'Sem título - Bloco de Notas'
+        assert pedido['imagem'] == 'data:image/png;base64,UFJJTlQ='  # o print veio do PC
+        assert chamadas == []  # nada no PC antes do sim
+        agente.responder_aprovacao(pedido['id'], True)
+        return await tarefa
+
+    saida = asyncio.run(tudo())
+    assert previas == [('tela_clicar', {'x': 1155, 'y': 716})]
+    assert chamadas == [('mcp__solis__tela_clicar', {'x': 1155, 'y': 716})]
+    assert saida.startswith('Feito. A tela agora:') and 'Salvar' in saida and c.agiu
+
+
+def test_de_longe_na_janela_do_solis_nem_pede(monkeypatch):
+    monkeypatch.setenv('SOLIS_SERVIDOR', '1')
+    monkeypatch.setattr(corpo_remoto, '_pc', _Ligacao())
+    monkeypatch.setattr(corpo.os, 'name', 'posix')
+
+    async def previa(acao, entrada):
+        return {'programa': ['solis.exe', 'Solis'], 'imagem': None}
+
+    async def nunca(*a, **k):
+        raise AssertionError('clicou no Solis')
+    monkeypatch.setattr(corpo_remoto, 'previa', previa)
+    monkeypatch.setattr(corpo_remoto, 'chamar', nunca)
+    saida = asyncio.run(corpo.Corpo(5, _Gravador(), navegar=False).rodar('mcp__solis__tela_clicar', {'x': 1, 'y': 1}))
+    assert 'janela do próprio Solis' in saida
+
+
+def test_no_pc_a_previa_e_a_acao_so_com_o_controle_da_tela(monkeypatch):
+    from solis import tela
+    banco.guardar_ajuste('servidor_usa_pc', True)
+    monkeypatch.setattr(corpo_remoto, 'capacidades', lambda: {'tipo': 'ola', 'pc': 'PC', 'terminal': True,
+                                                               'tela': False, 'arquivos': False})
+    assert asyncio.run(corpo_remoto.executar('tela_previa', {'acao': 'tela_clicar', 'entrada': {'x': 1, 'y': 1}}))[1] is False
+    monkeypatch.setattr(corpo_remoto, 'capacidades', lambda: {'tipo': 'ola', 'pc': 'PC', 'terminal': True,
+                                                               'tela': True, 'arquivos': False})
+    monkeypatch.setattr(tela, 'programa_alvo', lambda acao, e: ('notepad.exe', 'Bloco de Notas'))
+    monkeypatch.setattr(tela, 'imagem_do_cartao', lambda acao, e: 'data:image/png;base64,QQ==')
+    saida, ok = asyncio.run(corpo_remoto.executar('tela_previa', {'acao': 'tela_clicar', 'entrada': {'x': 1, 'y': 1}}))
+    assert ok and saida == '{"programa": ["notepad.exe", "Bloco de Notas"], "imagem": "data:image/png;base64,QQ=="}'
+    feitas = []
+    monkeypatch.setattr(corpo, '_agir_na_tela', lambda acao, e: feitas.append((acao, e)))
+    monkeypatch.setattr(tela, 'DEPOIS_S', 0)
+
+    async def texto():
+        return 'Salvar'
+    monkeypatch.setattr(corpo, 'texto_da_tela', texto)
+    assert asyncio.run(corpo_remoto.executar('mcp__solis__tela_digitar', {'texto': 'oi'})) == ('Salvar', True)
+    assert feitas == [('tela_digitar', {'texto': 'oi'})]
