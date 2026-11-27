@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Botao, Interruptor } from '../components/Controles';
 import { Icone } from '../components/icons';
-import { LinhaLista } from '../components/Tela';
+import { LinhaColuna, SecaoColuna } from '../components/TelaNova';
 import { estadoPc, guardarPastasPc, ligarPc, registroPc, type AcaoPc, type EstadoPc } from '../servidor';
 
 /** A linha Arquivos da tela Ferramentas, de verdade (backend/solis/pc.py):
@@ -78,9 +78,11 @@ export function LinhaArquivos({
         : 'Nenhuma pasta autorizada ainda. Autorize uma pra o Solis poder ler os seus arquivos.';
 
   return (
-    <LinhaLista hover={false}>
+    <LinhaColuna fixa>
       <div className="flex items-start gap-xl">
-        <span className="text-text-secondary shrink-0" style={{ marginTop: 2 }}>
+        {/* Na altura do nome com a descrição (--vn-ajuste-h), como as outras
+            linhas de Ferramentas: as pastas e o campo crescem pra baixo. */}
+        <span className="text-text-secondary shrink-0 flex items-center" style={{ height: 'var(--vn-ajuste-h)' }}>
           <Icone nome="arquivos" tamanho={26} />
         </span>
         <div className="flex-1 min-w-0">
@@ -129,7 +131,7 @@ export function LinhaArquivos({
                 }}
                 placeholder="Cole o caminho da pasta, como C:\Users\Matheus\Documents"
                 aria-label="Caminho da pasta"
-                className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-divider focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                className="block w-full bg-transparent outline-none text-text-primary placeholder:text-text-secondary border border-[var(--vn-caixa-borda)] focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
                 style={{ fontSize: 'var(--cfg-dica)', borderRadius: 'var(--mac-campo-raio)', padding: 'var(--mac-campo-py) var(--mac-campo-px)' }}
               />
               <div className="flex items-center" style={{ gap: 'var(--mac-botao-gap)', marginTop: 'var(--mac-botao-top)' }}>
@@ -155,6 +157,7 @@ export function LinhaArquivos({
             </p>
           )}
         </div>
+        <span className="shrink-0 flex items-center" style={{ height: 'var(--vn-ajuste-h)' }}>
         <Interruptor
           ligado={!!estado?.ligada}
           rotulo="Arquivos"
@@ -167,18 +170,20 @@ export function LinhaArquivos({
               : undefined
           }
         />
+        </span>
       </div>
-    </LinhaLista>
+    </LinhaColuna>
   );
 }
 
-/** O que o Solis fez no computador, do mais novo pro mais antigo. */
+/** O que o Solis fez no computador, do mais novo pro mais antigo. O título é o
+ *  de seção da moldura nova (serifado, como o "Disponíveis para baixar"). */
 export function Registro({ acoes }: { acoes: AcaoPc[] }) {
   if (!acoes.length) return null;
   return (
-    <section style={{ marginTop: 'var(--cfg-linha-pad)' }}>
-      <h2 className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>O que o Solis fez</h2>
-      <ul style={{ marginTop: 'var(--mem-origem-top)' }}>
+    <section>
+      <SecaoColuna>O que o Solis fez</SecaoColuna>
+      <ul>
         {acoes.map((a) => (
           <li
             key={a.id}

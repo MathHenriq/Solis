@@ -1,5 +1,5 @@
 import { Icone, type NomeIcone } from '../components/icons';
-import { LinhaLista, Tela } from '../components/Tela';
+import { LinhaColuna, TelaColuna } from '../components/TelaNova';
 import { LinhaArquivos, Registro, useArquivos } from './FerramentaArquivos';
 
 /** Ferramentas — o que o Solis pode e não pode fazer.
@@ -13,7 +13,12 @@ import { LinhaArquivos, Registro, useArquivos } from './FerramentaArquivos';
  *
  *  PROVISÓRIO: o estado é local. A permissão de verdade vem do sistema
  *  operacional, via Tauri, e "Abrir configurações do sistema" vai abrir o painel
- *  nativo. */
+ *  nativo.
+ *
+ *  PROVISÓRIO — visual novo (27/11/2026, layout.visualNovo.tela): a moldura da
+ *  Memória e de Modelos locais, as linhas sem o véu do hover (são linhas de
+ *  ajuste, não um alvo inteiro) e o interruptor de 64 x 32, na escala da
+ *  referência 14. */
 
 type Ferramenta = {
   id: string;
@@ -51,11 +56,27 @@ function Interruptor({ ligado, desabilitado, rotulo }: { ligado: boolean; desabi
         justifyContent: ligado ? 'flex-end' : 'flex-start',
       }}
     >
+      {/* Desligado, a bolinha não pode ser da cor do fundo: no dark ela some no
+          trilho escuro (a mesma regra do Interruptor de Controles). */}
       <span
-        className="block bg-canvas"
+        className={`block ${ligado ? 'bg-canvas' : 'bg-text-secondary'}`}
         style={{ width: 'calc(var(--cfg-sw-h) - 8px)', height: 'calc(var(--cfg-sw-h) - 8px)', borderRadius: 999 }}
       />
     </button>
+  );
+}
+
+/** O aviso da permissão que o sistema negou, com o caminho pra liberar. */
+function PermissaoNegada() {
+  return (
+    <>
+      <div style={{ color: 'var(--erro)' }}>Permissão negada</div>
+      {/* O alinhamento vem de quem envolve: à direita ao lado da linha, à
+          esquerda embaixo da descrição (o botão centralizaria a quebra). */}
+      <button type="button" className="text-text-secondary underline" style={{ marginTop: 4, textAlign: 'inherit' }}>
+        Abrir configurações do sistema
+      </button>
+    </>
   );
 }
 
@@ -67,21 +88,26 @@ export function Ferramentas() {
   const arquivos = useArquivos();
   const ativas = FERRAMENTAS.filter((f) => f.ligada).length + (arquivos.estado?.ligada ? 1 : 0);
   return (
-    <Tela titulo="Ferramentas" subtitulo={`${ativas} de ${FERRAMENTAS.length + 1} ativas`}>
+    <TelaColuna titulo="Ferramentas" subtitulo={`${ativas} de ${FERRAMENTAS.length + 1} ativas`}>
       {FERRAMENTAS.slice(0, ANTES_DE_ARQUIVOS).map(linha)}
       <LinhaArquivos estado={arquivos.estado} aoMudar={arquivos.definirEstado} />
       {FERRAMENTAS.slice(ANTES_DE_ARQUIVOS).map(linha)}
       <Registro acoes={arquivos.registro} />
-    </Tela>
+    </TelaColuna>
   );
 }
 
 function linha(f: Ferramenta) {
   return (
-    <LinhaLista key={f.id}>
-      <div className="flex items-center gap-xl">
-        <span className="text-text-secondary shrink-0"><Icone nome={f.icone} tamanho={26} /></span>
-        <div className="flex-1">
+    <LinhaColuna key={f.id} fixa>
+      {/* O ícone, o aviso e o interruptor se centram no nome com a descrição
+          (--vn-ajuste-h), e não no bloco inteiro: no Terminal, que tem o aviso
+          embaixo, eles ficam na altura do nome, como na referência. */}
+      <div className="flex items-start gap-xl">
+        <span className="text-text-secondary shrink-0 flex items-center" style={{ height: 'var(--vn-ajuste-h)' }}>
+          <Icone nome={f.icone} tamanho={26} />
+        </span>
+        <div className="flex-1 min-w-0">
           <div className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>{f.nome}</div>
           <div className="text-text-secondary" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}>
             {f.descricao}
@@ -91,17 +117,25 @@ function linha(f: Ferramenta) {
               {f.aviso}
             </div>
           )}
+          {/* No celular não cabe ao lado: o aviso desce pra baixo da descrição. */}
+          {f.negada && (
+            <div className="md:hidden" style={{ fontSize: 'var(--mem-origem)', marginTop: 'var(--mem-origem-top)' }}>
+              <PermissaoNegada />
+            </div>
+          )}
         </div>
         {f.negada && (
-          <div className="text-right shrink-0" style={{ fontSize: 'var(--mem-data)' }}>
-            <div style={{ color: 'var(--erro)' }}>Permissão negada</div>
-            <button type="button" className="text-text-secondary underline" style={{ marginTop: 4 }}>
-              Abrir configurações do sistema
-            </button>
+          <div
+            className="hidden md:flex text-right shrink-0 flex-col justify-center"
+            style={{ fontSize: 'var(--mem-data)', minHeight: 'var(--vn-ajuste-h)' }}
+          >
+            <PermissaoNegada />
           </div>
         )}
-        <Interruptor ligado={f.ligada} desabilitado={f.negada} rotulo={f.nome} />
+        <span className="shrink-0 flex items-center" style={{ height: 'var(--vn-ajuste-h)' }}>
+          <Interruptor ligado={f.ligada} desabilitado={f.negada} rotulo={f.nome} />
+        </span>
       </div>
-    </LinhaLista>
+    </LinhaColuna>
   );
 }
