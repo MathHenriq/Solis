@@ -34,7 +34,7 @@ export function TelaColuna({
   sobre?: ReactNode;
 }) {
   return (
-    <main className="relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
+    <main className="vn-tela relative flex-1 flex flex-col overflow-hidden bg-canvas" style={{ zIndex: 1 }}>
       {/* A mesma calha da rolagem da lista (dos dois lados), sem rolar: o título
           e a lista ficam na mesma coluna em qualquer largura, com barra de
           rolagem que ocupa lugar (a do app, 12) ou que flutua (a do celular). */}
@@ -96,11 +96,15 @@ export function LinhaColuna({
   children,
   aoClicar,
   rotulo,
+  fixa = false,
 }: {
   children: ReactNode;
   aoClicar?: () => void;
   /** Nome acessível da ação de `aoClicar`. */
   rotulo?: string;
+  /** Linha de ajuste (um interruptor, campos): sem o véu do hover, que diria
+   *  que a linha inteira é clicável. */
+  fixa?: boolean;
 }) {
   return (
     <div
@@ -116,7 +120,7 @@ export function LinhaColuna({
           aoClicar();
         })
       }
-      className={`vn-linha group outline-none ${aoClicar ? 'cursor-pointer' : ''}`}
+      className={`vn-linha group outline-none ${fixa ? 'vn-linha-fixa' : ''} ${aoClicar ? 'cursor-pointer' : ''}`}
     >
       <div className="vn-linha-corpo">{children}</div>
     </div>

@@ -341,15 +341,27 @@ main {
   padding-inline: var(--vn-tela-sangria);
   border-radius: var(--vn-tela-linha-raio);
 }
-.vn-linha:hover,
-.vn-linha:focus-visible,
-.vn-linha:has(:focus-visible) { background: var(--mem-hover); }
+.vn-linha:not(.vn-linha-fixa):hover,
+.vn-linha:not(.vn-linha-fixa):focus-visible,
+.vn-linha:not(.vn-linha-fixa):has(:focus-visible) { background: var(--mem-hover); }
 .vn-linha-corpo {
   border-bottom: 1px solid var(--divider);
   padding-block: var(--mem-item-pad-y);
 }
-.vn-linha:hover > .vn-linha-corpo,
-.vn-linha:has(+ .vn-linha:hover) > .vn-linha-corpo { border-bottom-color: transparent; }
+.vn-linha:not(.vn-linha-fixa):hover > .vn-linha-corpo,
+.vn-linha:has(+ .vn-linha:not(.vn-linha-fixa):hover) > .vn-linha-corpo { border-bottom-color: transparent; }
+
+/* O interruptor nas telas que já passaram pra moldura nova (64 x 32, medido na
+   14-ferramentas); as outras continuam com o de antes até a vez delas. */
+.vn-tela {
+  --cfg-sw-l: var(--vn-tela-sw-l);
+  --cfg-sw-h: var(--vn-tela-sw-h);
+  /* A altura do nome mais a descrição de uma linha de ajuste (20 e 14 na
+     entrelinha 1,5, com a folga entre os dois): o ícone, o interruptor e o aviso
+     ao lado se centram nela, e não no bloco inteiro, como na 14-ferramentas (no
+     Terminal o interruptor fica na altura do nome, não no meio das 3 linhas). */
+  --vn-ajuste-h: calc(var(--cfg-secao) * 1.5 + var(--mem-origem-top) + var(--mem-origem) * 1.5);
+}
 
 /* Com a thread aberta o horizonte vira uma faixa baixa no rodapé, atrás da caixa
    de escrever (layout.visualNovo.cena); vazia, a Conversa mantém a faixa alta.
