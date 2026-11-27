@@ -2008,6 +2008,10 @@ export type ServidorDoPC = {
   endereco: string;
   tem_senha: boolean;
   ultima: { quando: string; trazidos: ContagemJuntar; levados: ContagemJuntar } | null;
+  /** O servidor pode usar este PC (o terminal, os arquivos, ler a tela), e se está ligado nele agora. */
+  usa_pc: boolean;
+  pc_ligado: boolean;
+  pc_erro: string | null;
 };
 
 /** null: o Solis do PC não respondeu. */
@@ -2021,12 +2025,12 @@ export async function lerServidorDoPC(): Promise<ServidorDoPC | null> {
 }
 
 /** `token` vazio mantém a senha guardada (ela nunca volta pra tela). */
-export async function guardarServidorDoPC(endereco: string, token: string): Promise<ServidorDoPC | null> {
+export async function guardarServidorDoPC(endereco: string, token: string, usaPc?: boolean): Promise<ServidorDoPC | null> {
   try {
     const r = await fetch(`${BASE}/servidor`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endereco, token: token || null }),
+      body: JSON.stringify({ endereco, token: token || null, ...(usaPc !== undefined ? { usa_pc: usaPc } : {}) }),
     });
     return r.ok ? ((await r.json()) as ServidorDoPC) : null;
   } catch {

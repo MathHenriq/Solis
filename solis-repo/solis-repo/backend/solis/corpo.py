@@ -665,13 +665,18 @@ class Corpo:
         # Ligado em Configurações → Navegador (e o @playwright/mcp instalado).
         self.navegar = (navegador.escolhido() is not None and navegador._cli().is_file()) if navegar is None else navegar
         self._nav: list[dict] | None = None
+        # Como servidor, o PC ligado nele é o corpo (corpo_remoto.py): o terminal,
+        # os arquivos e ler a tela vêm de lá, com os mesmos nomes de sempre.
+        from . import corpo_remoto, nuvem
+        self.pc_remoto = corpo_remoto.conectado() if nuvem.ligado() else None
+        remoto = self.pc_remoto or {}
         # O terminal (PowerShell), com o cartão. SOLIS_CORPO_TERMINAL=0 tira.
-        self.terminal = os.name == 'nt' and os.environ.get('SOLIS_CORPO_TERMINAL', '1') != '0'
+        self.terminal = (os.name == 'nt' and os.environ.get('SOLIS_CORPO_TERMINAL', '1') != '0') or remoto.get('terminal', False)
         # Ler os arquivos das pastas autorizadas (pc.py), livre, como o Claude lê.
         # Decisão do Matheus (18/11/2026): "podem, como o Claude".
-        self.arquivos = pc.disponivel()
+        self.arquivos = pc.disponivel() or remoto.get('arquivos', False)
         # A tela (Configurações → Controle da tela), lida como texto.
-        self.tela = os.name == 'nt' and tela.ligada()
+        self.tela = (os.name == 'nt' and tela.ligada()) or remoto.get('tela', False)
         # Os servidores MCP do Matheus (Configurações → Servidores MCP), os
         # mesmos do Claude: o que só lê é livre; o resto pede o cartão de
         # conector ("Usar o notion: create_page"). SOLIS_CORPO_MCP=0 tira.
@@ -718,6 +723,13 @@ class Corpo:
         # Write pode reescrever inteiros (_reescrever_sem_ler).
         self.lidos: set[str] = set()
 
+    def _da_tela(self) -> set[str]:
+        """As da tela que valem: todas no PC; de longe (o PC no servidor), só ler —
+        clicar e digitar de longe pedem o print do PC no cartão, que ainda não vem."""
+        todas = {n for n, _, _ in _DA_TELA}
+        local = os.name == 'nt' and tela.ligada()
+        return todas if local or not self.pc_remoto else {TELA_LER.removeprefix(SOLIS)}
+
     def _kit_da_voz(self) -> bool:
         """Pela voz, só as do dia a dia, até o modelo pedir as outras (MAIS)."""
         return self.voz and not self.kit_aberto
@@ -757,7 +769,7 @@ class Corpo:
             if self.terminal:
                 specs.append(copy.deepcopy(_TERMINAL))
             if self.tela:
-                specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA]
+                specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA if n in self._da_tela()]
             if self.navegar:
                 specs += await self._do_navegador()
             return specs
@@ -772,7 +784,7 @@ class Corpo:
         if self.terminal:
             specs.append(copy.deepcopy(_TERMINAL))
         if self.tela:
-            specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA]
+            specs += [_funcao(SOLIS + n, d, p) for n, d, p in _DA_TELA if n in self._da_tela()]
         if self.navegar:
             specs += await self._do_navegador()
         for completo, (_, f) in self._do_mcp().items():
@@ -811,7 +823,7 @@ class Corpo:
                 or (nome == MAIS and self._kit_da_voz())
                 or (self.editar and nome in editar.NOMES) or (nome == SKILL and bool(self.lista_skills()))
                 or (self.web and nome == WEBFETCH) or (nome == AGENTE and self._abre_ajudante())
-                or (self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA})
+                or (self.tela and nome.removeprefix(SOLIS) in self._da_tela())
                 or (self.navegar and navegador.acao(nome) in NAVEGADOR_ESSENCIAIS)
                 or nome in self._do_mcp())
 
@@ -997,7 +1009,22 @@ class Corpo:
                 self.agiu = True
             self.etapas.marcar('ferramenta', ferramenta=nome, alvo=f['nome'], ok=ok, id=id_)
             return cercar(_cortar(saida), 'da ferramenta', self.tiradas) if ok else saida
-        if self.tela and nome.removeprefix(SOLIS) in {n for n, _, _ in _DA_TELA}:
+        if self.pc_remoto and (nome == TERMINAL or self._de_arquivo(nome) or nome == TELA_LER):
+            # O PC ligado no servidor faz (corpo_remoto.py); o cartão já foi aqui, no celular.
+            from . import corpo_remoto
+            if nome == TERMINAL:
+                self.etapas.marcar('buscando', ferramenta=nome, alvo=str(entrada.get('command') or ''))
+            try:
+                saida, ok = await corpo_remoto.chamar(nome, entrada, prazo=TERMINAL_MAX_S + 15)
+            except corpo_remoto.PcFora as e:
+                saida, ok = f'Não deu: {e}. Peça pro Matheus ligar o PC (ou abrir o Solis nele).', False
+            if ok and nome == TERMINAL:
+                self.agiu = True
+            self._marcar(id_, nome, entrada, pagina, ok)
+            if ok and nome == TELA_LER:
+                return cercar(_cortar(saida), 'da tela', self.tiradas)
+            return _cortar(saida)
+        if self.tela and nome.removeprefix(SOLIS) in self._da_tela():
             acao = nome.removeprefix(SOLIS)
             try:
                 if acao == 'tela_ler':

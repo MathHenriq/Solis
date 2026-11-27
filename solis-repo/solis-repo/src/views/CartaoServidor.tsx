@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Interruptor } from '../components/Controles';
 import {
   abertoPeloServidor,
   guardarServidorDoPC,
@@ -45,6 +46,13 @@ export function CartaoServidor() {
   }, []);
 
   if (abertoPeloServidor) return null;
+
+  const trocarUsaPc = async (usa: boolean) => {
+    definirRecado(null);
+    const s = await guardarServidorDoPC(estado?.endereco ?? endereco, '', usa);
+    if (!s) return definirRecado({ texto: 'O Solis do PC não respondeu.', erro: true });
+    definirEstado(s);
+  };
 
   const guardar = async () => {
     definirRecado(null);
@@ -130,6 +138,17 @@ export function CartaoServidor() {
             >
               {ocupado ? 'Juntando…' : 'Juntar agora'}
             </button>
+          </div>
+          <div className="flex items-center justify-between border-t border-divider" style={{ ...linha, gap: 'var(--cer-controles-gap)' }}>
+            <div className="min-w-0">
+              <div className="text-text-primary" style={{ fontSize: 'var(--cfg-rotulo)' }}>Deixar o servidor usar este PC</div>
+              <div className="text-text-secondary" style={{ ...dica, textWrap: 'pretty' }}>
+                Com o PC ligado, o Solis do celular usa o terminal, as pastas liberadas e lê a tela daqui. Cada comando pede você
+                antes, no celular. Clicar e digitar na tela de longe ainda não.
+                {estado.usa_pc && (estado.pc_ligado ? ' Ligado no servidor agora.' : estado.pc_erro ? ` Sem o servidor: ${estado.pc_erro}.` : ' Ligando…')}
+              </div>
+            </div>
+            <Interruptor ligado={estado.usa_pc} rotulo="Deixar o servidor usar este PC" aoTrocar={(v) => void trocarUsaPc(v)} />
           </div>
           {estado.ultima && !recado && (
             <p className="text-text-secondary" style={{ fontSize: 'var(--cfg-dica)' }}>

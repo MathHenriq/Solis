@@ -96,6 +96,19 @@ SOLIS_SERVIDOR=1 python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765
   - **Rodar de novo não duplica nada.** A identidade de cada linha fica na tabela `juntados`, que
     serve de lápide: o que foi apagado de um lado não volta pelo outro.
   - **Limite:** apagar e editar uma mensagem não viajam.
+- **O PC como corpo do servidor** (`corpo_remoto.py`): em Configurações → Servidor, no PC, a chave
+  "Deixar o servidor usar este PC" vem desligada.
+  - **Como liga:** ligada, o PC liga sozinho no servidor por um WebSocket de saída
+    (`/corpo`, com a senha), então nada no PC fica aberto pra internet. Ele volta sozinho se cair.
+  - **O que o servidor ganha:** o cérebro do servidor passa a ter o terminal, as pastas liberadas e
+    ler a tela, com os mesmos nomes de sempre.
+  - **Aprovação:** o cartão aparece no celular, e o PC executa o que já veio aprovado, anotando no
+    registro de ações dele.
+  - **O PC continua mandando:** só as pastas autorizadas, a tela só com o Controle da tela ligado, e
+    sem a chave ele recusa na hora.
+  - **Clicar e digitar na tela de longe:** ainda não, porque o cartão precisa do print do PC.
+  - **Rotas no servidor:** `GET /corpo/pc` diz se o PC está ligado, e `POST /corpo/ler` lê do PC
+    sem cérebro (tela, pasta, arquivo; o terminal não passa por aqui).
 - **A voz pelo celular:** o navegador grava, e `POST /voz` transcreve.
   - **Sem o cadeado:** vai direto pro Whisper da Groq. Como servidor, sem placa de vídeo, a
     conferência do privado custaria 2,1 a 3,2 s por fala.

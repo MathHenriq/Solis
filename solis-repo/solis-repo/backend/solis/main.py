@@ -31,7 +31,7 @@ from collections import deque
 
 import numpy as np
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, juntar, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, push, rapidas, registro_voz, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, corpo_remoto, estilos, fala, juntar, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, push, rapidas, registro_voz, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -87,6 +87,8 @@ async def _vida(_app):
     # O Ollama, se estiver instalado e parado: o local responde a voz primeiro.
     # Como servidor, não: o cérebro na nuvem não roda modelo local.
     ligando = asyncio.create_task(_nada() if servidor else ollama.ligar_se_parado())
+    # No PC: ligado no servidor como corpo dele, se o Matheus deixou (corpo_remoto.py).
+    corpo_de_longe = asyncio.create_task(_nada() if servidor else corpo_remoto.manter())
     # E as tarefas agendadas: o pedido ao Claude na hora marcada.
     relogio = asyncio.create_task(_vigiar_agendadas())
     # E a tirar o Whisper da memória quando ninguém fala há um tempo.
@@ -104,6 +106,7 @@ async def _vida(_app):
     atlas.cancel()
     relogio.cancel()
     ligando.cancel()
+    corpo_de_longe.cancel()
     ouvido.cancel()
     # O navegador do Claude (e a janela dele) fecha junto com o servidor.
     from . import navegador
@@ -216,17 +219,65 @@ async def juntar_importar(request: Request):
 class ServidorDoPC(BaseModel):
     endereco: str
     token: str | None = None  # vazio: mantém a senha guardada
+    # Deixar o servidor usar este PC (corpo_remoto.py): None mantém como estava.
+    usa_pc: bool | None = None
+
+
+def _servidor_com_o_pc() -> dict:
+    return {**juntar.servidor(), 'usa_pc': corpo_remoto.deixa(), 'pc_ligado': corpo_remoto.estado['ligado'],
+            'pc_erro': corpo_remoto.estado['erro']}
 
 
 @app.get('/servidor')
 async def servidor_do_pc():
-    """No PC: o servidor (o cérebro na nuvem) com que este Solis se junta."""
-    return juntar.servidor()
+    """No PC: o servidor (o cérebro na nuvem) com que este Solis se junta, e se
+    ele pode usar este PC (o corpo de longe)."""
+    return _servidor_com_o_pc()
 
 
 @app.put('/servidor')
 async def guardar_servidor_do_pc(corpo: ServidorDoPC):
-    return juntar.guardar_servidor(corpo.endereco, corpo.token)
+    juntar.guardar_servidor(corpo.endereco, corpo.token)
+    if corpo.usa_pc is not None:
+        banco.guardar_ajuste('servidor_usa_pc', corpo.usa_pc)
+    return _servidor_com_o_pc()
+
+
+# — O PC como corpo do servidor (corpo_remoto.py) ——————————————————————————————
+
+@app.websocket('/corpo')
+async def corpo_do_pc(ws: WebSocket):
+    """Como servidor: o PC liga aqui (com a senha) e vira o corpo."""
+    if not nuvem.ligado():
+        await ws.close(code=1008)
+        return
+    await corpo_remoto.atender(ws)
+
+
+@app.get('/corpo/pc')
+async def pc_do_servidor():
+    """Como servidor: o PC está ligado aqui? E o que ele oferece."""
+    return {'ligado': corpo_remoto.conectado() is not None, **(corpo_remoto.conectado() or {})}
+
+
+class LerNoPc(BaseModel):
+    ferramenta: str
+    entrada: dict = {}
+
+
+@app.post('/corpo/ler')
+async def ler_no_pc(corpo: LerNoPc):
+    """Como servidor: ler do PC sem cérebro no meio — a tela, uma pasta, um
+    arquivo (só o que não pede aprovação; o terminal vai pelo cérebro, com o cartão)."""
+    if not nuvem.ligado():
+        return JSONResponse({'detail': 'Not Found'}, status_code=404)
+    if corpo.ferramenta not in corpo_remoto.ARQUIVOS | {corpo_remoto.TELA_LER}:
+        return JSONResponse({'erro': 'nao_e_leitura'}, status_code=400)
+    try:
+        saida, ok = await corpo_remoto.chamar(corpo.ferramenta, corpo.entrada)
+    except corpo_remoto.PcFora as e:
+        return JSONResponse({'erro': 'pc_fora', 'motivo': str(e)}, status_code=503)
+    return {'saida': saida, 'ok': ok}
 
 
 @app.post('/servidor/juntar')

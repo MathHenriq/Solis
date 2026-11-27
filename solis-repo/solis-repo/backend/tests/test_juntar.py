@@ -138,7 +138,9 @@ def test_juntar_pela_tela_traz_e_leva(lados, monkeypatch):
     c = TestClient(main.app)
     assert c.post('/servidor/juntar').json()['motivo'] == 'Falta o endereço ou a senha do servidor.'
     r = c.put('/servidor', json={'endereco': 'solis.exemplo.ts.net', 'token': 'senha-do-servidor-bem-comprida-123'})
-    assert r.json() == {'endereco': 'https://solis.exemplo.ts.net', 'tem_senha': True, 'ultima': None}
+    estado = r.json()
+    assert (estado['endereco'], estado['tem_senha'], estado['ultima']) == ('https://solis.exemplo.ts.net', True, None)
+    assert estado['usa_pc'] is False  # usar o PC de longe é outra chave, desligada até o Matheus ligar
     # A senha nunca volta pra tela, e fica selada no banco.
     assert 'senha-do-servidor' not in str(c.get('/servidor').json())
     feito = c.post('/servidor/juntar').json()
