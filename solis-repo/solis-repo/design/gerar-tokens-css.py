@@ -335,6 +335,10 @@ for grupo, pares in [
     ('tela', [('padX','--vn-tela-px'), ('padXPhone','--vn-tela-px-celular'), ('bleed','--vn-tela-sangria'),
               ('rowRadius','--vn-tela-linha-raio'), ('countGap','--vn-tela-contagem-gap'),
               ('searchGap','--vn-tela-busca-top'), ('listGap','--vn-tela-lista-gap'),
+              ('listGapAfterCount','--vn-tela-lista-gap-contagem'), ('sectionSize','--vn-tela-secao'),
+              ('sectionTop','--vn-tela-secao-top'), ('sectionBottom','--vn-tela-secao-base'),
+              ('badgeHeight','--vn-tela-etiqueta-h'), ('badgePadX','--vn-tela-etiqueta-px'),
+              ('badgeRadius','--vn-tela-etiqueta-raio'), ('buttonPadX','--vn-tela-botao-px'),
               ('searchIcon','--vn-tela-busca-icone'), ('searchPadLeft','--vn-tela-busca-pl'),
               ('searchIconGap','--vn-tela-busca-gap')]),
 ]:

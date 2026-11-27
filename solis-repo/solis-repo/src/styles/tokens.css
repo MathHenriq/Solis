@@ -362,6 +362,14 @@
   --vn-tela-contagem-gap: 16px;
   --vn-tela-busca-top: 17px;
   --vn-tela-lista-gap: 11px;
+  --vn-tela-lista-gap-contagem: 15px;
+  --vn-tela-secao: 20px;
+  --vn-tela-secao-top: 30px;
+  --vn-tela-secao-base: 4px;
+  --vn-tela-etiqueta-h: 27px;
+  --vn-tela-etiqueta-px: 24px;
+  --vn-tela-etiqueta-raio: 8px;
+  --vn-tela-botao-px: 16px;
   --vn-tela-busca-icone: 18px;
   --vn-tela-busca-pl: 16px;
   --vn-tela-busca-gap: 12px;
