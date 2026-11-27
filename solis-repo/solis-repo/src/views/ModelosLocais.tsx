@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Icone } from '../components/icons';
-import { BotaoContorno, EstadoVazio, LinhaLista, Tela } from '../components/Tela';
+import { EstadoVazio } from '../components/Tela';
+import { BotaoBorda, LinhaColuna, SecaoColuna, TelaColuna } from '../components/TelaNova';
 import { escolherModelo, listarModelos, modeloEmUso, type Modelo, type Resultado } from '../servidor';
 
 /** Modelos locais — o que está instalado, o que ocupa disco, o que está em uso.
  *  Referência: referencias/telas/13-modelos-locais.png.
+ *
+ *  PROVISÓRIO — visual novo (27/11/2026, layout.visualNovo.tela): a moldura da
+ *  Memória aprovada (a coluna da conversa, a linha com o hover arredondado), as
+ *  distâncias medidas na 13 (da contagem à lista, e a seção serifada como lá),
+ *  o Em uso no tamanho da referência, o Baixar no botão do "Nova conversa" e as
+ *  opções (⋯) só no hover, flutuando à esquerda da ponta direita, como as ações
+ *  da Memória.
  *
  *  Os instalados vêm do Ollama, pelo servidor local (backend/). O nome aparece
  *  como o Ollama o chama ("llama3.1:8b"), não embelezado como na referência
@@ -65,7 +73,7 @@ export function ModelosLocais() {
 
   if (resultado?.estado === 'sem-servidor') {
     return (
-      <Tela
+      <TelaColuna
         titulo="Modelos locais"
         estado={
           <EstadoVazio
@@ -81,7 +89,7 @@ export function ModelosLocais() {
   // Texto de ERROR_STATES.md §2.
   if (resultado?.estado === 'sem-ollama') {
     return (
-      <Tela
+      <TelaColuna
         titulo="Modelos locais"
         estado={
           <EstadoVazio
@@ -96,7 +104,7 @@ export function ModelosLocais() {
 
   // Só o título até a resposta chegar: montar "Disponíveis" antes faria a
   // seção pular pra baixo quando os instalados aparecessem em cima dela.
-  if (resultado === null) return <Tela titulo="Modelos locais" />;
+  if (resultado === null) return <TelaColuna titulo="Modelos locais" />;
 
   const instalados = resultado.dados;
   const emUso = modeloEmUso(instalados);
@@ -107,9 +115,9 @@ export function ModelosLocais() {
       : `${instalados.length} ${instalados.length === 1 ? 'modelo' : 'modelos'} · ${gb(total)} em disco`;
 
   return (
-    <Tela titulo="Modelos locais" subtitulo={subtitulo}>
+    <TelaColuna titulo="Modelos locais" subtitulo={subtitulo}>
       {instalados.map((m) => (
-        <LinhaLista
+        <LinhaColuna
           key={m.nome}
           // Clicar na linha escolhe o modelo da Conversa. Embeddings não
           // conversa, então a linha dele não é clicável.
@@ -128,53 +136,69 @@ export function ModelosLocais() {
               <div className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>{nomeCurto(m.nome)}</div>
               <Detalhes texto={detalhesDe(m)} />
             </div>
-            {/* "Em uso" é etiqueta preenchida e "Embeddings" é só texto: um é
-                estado do sistema agora, o outro é uma função permanente. Dar o
-                mesmo peso visual aos dois esconderia qual modelo está rodando. */}
-            {m.nome === emUso && (
-              <span
-                className="bg-accent text-canvas shrink-0"
-                style={{ fontSize: 'var(--mem-data)', padding: '7px 16px', borderRadius: 8 }}
+            {/* A ponta direita fica alinhada com o Baixar das linhas de baixo:
+                as opções (⋯) flutuam à esquerda dela, sem tomar lugar, e só
+                aparecem no hover ou no foco do teclado, como as ações da
+                Memória. O fundo é o da linha com o véu. stopPropagation: o
+                menu fica dentro da linha clicável, e abrir as opções não pode
+                escolher o modelo de quebra. */}
+            <div className="shrink-0 relative flex items-center">
+              <button
+                type="button"
+                className="absolute flex items-center justify-center text-text-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:text-text-primary"
+                style={{
+                  right: '100%',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  marginRight: m.nome === emUso || m.embeddings ? 'var(--mac-data-gap)' : 0,
+                  width: 'var(--mac-alvo)',
+                  height: 'var(--mac-alvo)',
+                  borderRadius: 'var(--mac-botao-raio)',
+                  background: 'linear-gradient(var(--mem-hover), var(--mem-hover)), var(--canvas)',
+                }}
+                aria-label={`Opções de ${nomeCurto(m.nome)}`}
+                onClick={(e) => e.stopPropagation()}
               >
-                Em uso
-              </span>
-            )}
-            {m.embeddings && (
-              <span className="text-text-secondary shrink-0" style={{ fontSize: 'var(--mem-data)' }}>
-                Embeddings
-              </span>
-            )}
-            {/* stopPropagation: o menu fica dentro da linha clicável, e abrir
-                as opções não pode escolher o modelo de quebra. */}
-            <button
-              type="button"
-              className="text-text-secondary shrink-0"
-              aria-label={`Opções de ${nomeCurto(m.nome)}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Icone nome="mais" tamanho={20} />
-            </button>
+                <Icone nome="mais" tamanho="var(--mac-icone)" />
+              </button>
+              {/* "Em uso" é etiqueta preenchida e "Embeddings" é só texto: um é
+                  estado do sistema agora, o outro é uma função permanente. Dar o
+                  mesmo peso visual aos dois esconderia qual modelo está rodando. */}
+              {m.nome === emUso && (
+                <span
+                  className="bg-accent text-canvas flex items-center"
+                  style={{
+                    fontSize: 'var(--mem-data)',
+                    height: 'var(--vn-tela-etiqueta-h)',
+                    padding: '0 var(--vn-tela-etiqueta-px)',
+                    borderRadius: 'var(--vn-tela-etiqueta-raio)',
+                  }}
+                >
+                  Em uso
+                </span>
+              )}
+              {m.embeddings && (
+                <span className="text-text-secondary" style={{ fontSize: 'var(--mem-data)' }}>
+                  Embeddings
+                </span>
+              )}
+            </div>
           </div>
-        </LinhaLista>
+        </LinhaColuna>
       ))}
 
-      <h2
-        className="text-text-primary"
-        style={{ fontSize: 'var(--cfg-secao)', marginTop: 'calc(var(--mem-item-pad-y) * 2)' }}
-      >
-        Disponíveis para baixar
-      </h2>
+      <SecaoColuna>Disponíveis para baixar</SecaoColuna>
       {DISPONIVEIS.map((m) => (
-        <LinhaLista key={m.nome}>
+        <LinhaColuna key={m.nome}>
           <div className="flex items-center gap-lg">
             <div className="flex-1">
               <div className="text-text-primary" style={{ fontSize: 'var(--cfg-secao)' }}>{m.nome}</div>
               <Detalhes texto={`${m.tamanho} · ${m.quant} · ${m.contexto}`} />
             </div>
-            <BotaoContorno>Baixar</BotaoContorno>
+            <BotaoBorda>Baixar</BotaoBorda>
           </div>
-        </LinhaLista>
+        </LinhaColuna>
       ))}
-    </Tela>
+    </TelaColuna>
   );
 }
