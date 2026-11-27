@@ -31,7 +31,7 @@ from collections import deque
 
 import numpy as np
 
-from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, push, rapidas, registro_voz, resumo, roteador, transcricao, voz
+from . import apis, ativacao, avisos, banco, busca, cerebros, conhecimento, estilos, fala, juntar, memoria, microfone, nuvem, ocr, ollama, palavra, pc, personalidades, push, rapidas, registro_voz, resumo, roteador, transcricao, voz
 from .etapas import Etapas
 
 log = logging.getLogger('solis.main')
@@ -195,6 +195,46 @@ async def push_remover(corpo: QualAparelho):
     if not push.remover(corpo.quem):
         return JSONResponse({'erro': 'aparelho_inexistente'}, status_code=404)
     return {'ok': True}
+
+
+# — Juntar o PC e o servidor (juntar.py) ————————————————————————————————————————
+
+@app.get('/juntar')
+async def juntar_exportar():
+    """O que pode viajar deste Solis (sem o privado). Como servidor, com a senha."""
+    return await asyncio.to_thread(juntar.exportar)
+
+
+@app.post('/juntar')
+async def juntar_importar(request: Request):
+    try:
+        return await asyncio.to_thread(juntar.importar, await request.json())
+    except (juntar.PacoteInvalido, ValueError, KeyError, TypeError) as e:
+        return JSONResponse({'erro': 'pacote_invalido', 'motivo': str(e)}, status_code=400)
+
+
+class ServidorDoPC(BaseModel):
+    endereco: str
+    token: str | None = None  # vazio: mantém a senha guardada
+
+
+@app.get('/servidor')
+async def servidor_do_pc():
+    """No PC: o servidor (o cérebro na nuvem) com que este Solis se junta."""
+    return juntar.servidor()
+
+
+@app.put('/servidor')
+async def guardar_servidor_do_pc(corpo: ServidorDoPC):
+    return juntar.guardar_servidor(corpo.endereco, corpo.token)
+
+
+@app.post('/servidor/juntar')
+async def juntar_agora():
+    try:
+        return await juntar.juntar_com_servidor()
+    except juntar.NaoJuntou as e:
+        return JSONResponse({'erro': 'nao_juntou', 'motivo': str(e)}, status_code=502)
 
 
 @app.post('/avisos/push/testar')

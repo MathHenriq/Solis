@@ -462,6 +462,20 @@ MIGRACOES = [
     ALTER TABLE mensagens ADD COLUMN personalidade TEXT;
     ALTER TABLE memorias ADD COLUMN area TEXT;
     """,
+    # 25 — juntar o PC e o servidor (juntar.py, 26/11/2026): a identidade de cada
+    # linha que já viajou de um Solis pro outro (ou que veio de lá), pra copiar
+    # de novo sem duplicar. Numa tabela à parte, sem mexer nas outras; e a linha
+    # fica mesmo depois de apagada a original — vira lápide: o que o Matheus
+    # apagou aqui não volta de lá. `criada` confere que o id não foi reusado.
+    """
+    CREATE TABLE IF NOT EXISTS juntados (
+        tabela TEXT NOT NULL,
+        local  INTEGER NOT NULL,
+        uid    TEXT NOT NULL UNIQUE,
+        criada TEXT,
+        PRIMARY KEY (tabela, local)
+    );
+    """,
 ]
 
 

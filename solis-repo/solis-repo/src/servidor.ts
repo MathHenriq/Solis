@@ -18,6 +18,8 @@ const doServidor =
   window.location.port !== '1420' &&
   window.location.hostname !== 'tauri.localhost';
 const BASE = import.meta.env.VITE_SOLIS_SERVIDOR ?? (doServidor ? window.location.origin : NO_PC);
+/** A tela veio do servidor (o celular), e não do app do PC. */
+export const abertoPeloServidor = doServidor;
 
 export type Modelo = {
   nome: string;
@@ -1996,5 +1998,51 @@ export async function testarPush(): Promise<{ entregues: number; aparelhos: numb
     return r.ok ? ((await r.json()) as { entregues: number; aparelhos: number }) : null;
   } catch {
     return null;
+  }
+}
+
+// — Juntar o PC e o servidor (backend/solis/juntar.py) ———————————————————————————
+
+export type ContagemJuntar = { conversas: number; mensagens: number; memorias: number; tarefas: number; compromissos: number; feitas: number };
+export type ServidorDoPC = {
+  endereco: string;
+  tem_senha: boolean;
+  ultima: { quando: string; trazidos: ContagemJuntar; levados: ContagemJuntar } | null;
+};
+
+/** null: o Solis do PC não respondeu. */
+export async function lerServidorDoPC(): Promise<ServidorDoPC | null> {
+  try {
+    const r = await fetch(`${BASE}/servidor`);
+    return r.ok ? ((await r.json()) as ServidorDoPC) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `token` vazio mantém a senha guardada (ela nunca volta pra tela). */
+export async function guardarServidorDoPC(endereco: string, token: string): Promise<ServidorDoPC | null> {
+  try {
+    const r = await fetch(`${BASE}/servidor`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endereco, token: token || null }),
+    });
+    return r.ok ? ((await r.json()) as ServidorDoPC) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Traz do servidor e leva pra ele. O motivo, em palavras, se não deu. */
+export async function juntarComServidor(): Promise<
+  { ok: true; trazidos: ContagemJuntar; levados: ContagemJuntar } | { ok: false; motivo: string }
+> {
+  try {
+    const r = await fetch(`${BASE}/servidor/juntar`, { method: 'POST' });
+    const corpo = await r.json();
+    return r.ok ? { ok: true, ...corpo } : { ok: false, motivo: corpo.motivo ?? `o Solis respondeu ${r.status}` };
+  } catch {
+    return { ok: false, motivo: 'O Solis do PC não respondeu.' };
   }
 }

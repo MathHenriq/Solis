@@ -11,6 +11,7 @@ import { CartaoHooks } from './CartaoHooks';
 import { CartaoSkills } from './CartaoSkills';
 import { CartaoTela } from './CartaoTela';
 import { CartaoAvisosCelular } from './CartaoAvisosCelular';
+import { CartaoServidor } from './CartaoServidor';
 import { CartaoUso } from './CartaoUso';
 import { CartaoQualidade } from './CartaoQualidade';
 import { CartaoDocumentos } from './CartaoDocumentos';
@@ -206,6 +207,7 @@ export function Configuracoes({
         <CartaoNavegador />
         <CartaoTela />
         <CartaoAvisosCelular />
+        <CartaoServidor />
         <CartaoDocumentos />
         <CartaoAgendadas aoAbrirConversa={aoAbrirConversa} />
         <CartaoSkills />

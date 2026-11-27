@@ -84,6 +84,18 @@ SOLIS_SERVIDOR=1 python -m uvicorn solis.main:app --host 127.0.0.1 --port 8765
     duas linhas.
   - No PC, sem `SOLIS_SERVIDOR`, nada disso existe: `/entrar` e endereço desconhecido dão 404, como
     antes.
+- **Juntar o PC e o servidor** (`juntar.py`): no PC, em Configurações → Servidor, guarde o endereço e
+  a senha do servidor (a senha fica selada no cofre) e clique em "Juntar agora".
+  - **O que faz:** traz do servidor o que veio pelo celular e leva o que é do PC. As rotas são
+    `GET /servidor`, `PUT /servidor` e `POST /servidor/juntar` no PC, e `GET /juntar` e
+    `POST /juntar` no servidor.
+  - **O que viaja:** as conversas do Solis, as mensagens, as memórias que valem (e quais elas
+    substituíram), as tarefas (e se foram feitas) e os compromissos.
+  - **O que não viaja:** o privado, as finanças, o Conhecimento, as conversas importadas e os
+    resumos.
+  - **Rodar de novo não duplica nada.** A identidade de cada linha fica na tabela `juntados`, que
+    serve de lápide: o que foi apagado de um lado não volta pelo outro.
+  - **Limite:** apagar e editar uma mensagem não viajam.
 - **A voz pelo celular:** o navegador grava, e `POST /voz` transcreve.
   - **Sem o cadeado:** vai direto pro Whisper da Groq. Como servidor, sem placa de vídeo, a
     conferência do privado custaria 2,1 a 3,2 s por fala.
