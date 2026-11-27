@@ -340,7 +340,8 @@ for grupo, pares in [
               ('badgeHeight','--vn-tela-etiqueta-h'), ('badgePadX','--vn-tela-etiqueta-px'),
               ('badgeRadius','--vn-tela-etiqueta-raio'), ('buttonPadX','--vn-tela-botao-px'),
               ('switchWidth','--vn-tela-sw-l'), ('switchHeight','--vn-tela-sw-h'),
-              ('groupFirstTop','--vn-tela-grupo-primeiro'),
+              ('groupFirstTop','--vn-tela-grupo-primeiro'), ('gridGap','--vn-tela-grade-gap'),
+              ('gridTop','--vn-tela-grade-top'),
               ('searchIcon','--vn-tela-busca-icone'), ('searchPadLeft','--vn-tela-busca-pl'),
               ('searchIconGap','--vn-tela-busca-gap')]),
 ]:
